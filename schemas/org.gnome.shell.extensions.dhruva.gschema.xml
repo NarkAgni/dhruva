@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.dhruva" path="/org/gnome/shell/extensions/dhruva/">
+
+    <key name="dock-position" type="s">
+      <default>'BOTTOM'</default>
+      <summary>Dock Position</summary>
+    </key>
+
+    <key name="preferred-monitor" type="i">
+      <default>-1</default>
+      <summary>Preferred Monitor</summary>
+    </key>
+
+    <key name="full-width" type="b">
+      <default>false</default>
+      <summary>Full Width Dock</summary>
+    </key>
+
+    <key name="icon-alignment" type="s">
+      <default>'CENTER'</default>
+      <summary>Icon Alignment</summary>
+    </key>
+
+    <key name="dock-margin" type="i">
+      <default>0</default>
+      <summary>Distance from screen edge in pixels</summary>
+    </key>
+
+    <key name="icon-size" type="i">
+      <default>42</default>
+      <summary>Icon Size</summary>
+    </key>
+
+    <key name="icon-spacing" type="i">
+      <default>6</default>
+      <summary>Icon Spacing</summary>
+    </key>
+
+    <key name="dock-padding" type="i">
+      <default>20</default>
+      <summary>Dock Side Padding</summary>
+    </key>
+
+    <key name="dock-height" type="i">
+      <default>10</default>
+      <summary>Dock Height / Thickness padding</summary>
+    </key>
+
+    <key name="enable-floating-dock" type="b">
+      <default>true</default>
+      <summary>Enable Floating Dock</summary>
+    </key>
+
+    <key name="floating-side-line-opacity" type="i">
+      <default>10</default>
+      <summary>Side Line Opacity</summary>
+    </key>
+
+    <key name="floating-d-length" type="i">
+      <default>50</default>
+      <summary>D-Shape Length</summary>
+    </key>
+
+    <key name="floating-d-thickness" type="i">
+      <default>45</default>
+      <summary>D-Shape Thickness</summary>
+    </key>
+
+    <key name="floating-d-curve" type="i">
+      <default>24</default>
+      <summary>D-Shape Curve Radius</summary>
+    </key>
+
+    <key name="floating-d-offset" type="i">
+      <default>15</default>
+      <summary>D-Shape Position Offset</summary>
+    </key>
+
+    <key name="floating-d-gap" type="i">
+      <default>16</default>
+      <summary>Gap between D-Shape and Icons</summary>
+    </key>
+
+    <key name="floating-dock-opacity" type="i">
+      <default>100</default>
+      <summary>Floating Dock Overall Opacity (0-100)</summary>
+    </key>
+
+    <key name="floating-dock-hover-full-opacity" type="b">
+      <default>true</default>
+      <summary>Show full opacity on hover when floating</summary>
+    </key>
+
+    <key name="dock-theme" type="s">
+      <default>'dracula'</default>
+      <summary>Dock Theme Preset</summary>
+    </key>
+
+    <key name="background-color" type="s">
+      <default>'#241F31'</default>
+      <summary>Background Color</summary>
+    </key>
+
+    <key name="use-gradient" type="b">
+      <default>false</default>
+      <summary>Use Gradient for Custom Theme</summary>
+    </key>
+
+    <key name="background-gradient-color" type="s">
+      <default>'#333333'</default>
+      <summary>Secondary Gradient Color</summary>
+    </key>
+
+    <key name="gradient-direction" type="s">
+      <default>'vertical'</default>
+      <summary>Gradient Direction</summary>
+    </key>
+
+    <key name="background-opacity" type="i">
+      <default>60</default>
+      <summary>Background Opacity</summary>
+    </key>
+    <key name="border-radius" type="i">
+      <default>50</default>
+      <summary>Border Radius</summary>
+    </key>
+
+    <key name="stroke-width" type="i">
+      <default>2</default>
+      <summary>Stroke Width</summary>
+    </key>
+
+    <key name="stroke-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Stroke Color</summary>
+    </key>
+
+    <key name="stroke-opacity" type="i">
+      <default>25</default>
+      <summary>Stroke Opacity</summary>
+    </key>
+
+    <key name="show-running-indicators" type="b">
+      <default>true</default>
+      <summary>Show dot indicator under running apps</summary>
+    </key>
+
+    <key name="indicator-style" type="s">
+      <default>'dot'</default>
+      <summary>Running Indicator Style</summary>
+    </key>
+
+    <key name="indicator-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Running App Indicator Color</summary>
+    </key>
+
+    <key name="indicator-size" type="i">
+      <default>6</default>
+      <summary>Indicator Size</summary>
+    </key>
+
+    <key name="indicator-spacing" type="i">
+      <default>5</default>
+      <summary>Indicator Spacing</summary>
+    </key>
+
+    <key name="indicator-glow" type="b">
+      <default>true</default>
+      <summary>Indicator Glow</summary>
+    </key>
+
+    <key name="hide-mode" type="s">
+      <choices>
+        <choice value='none'/>
+        <choice value='intelligent'/>
+        <choice value='dodge-all'/>
+        <choice value='maximized'/>
+        <choice value='active'/>
+        <choice value='auto'/>
+        <choice value='always'/>
+      </choices>
+      <default>'none'</default>
+      <summary>Auto-hide mode</summary>
+    </key>
+
+    <key name="auto-hide" type="b">
+      <default>false</default>
+      <summary>Auto-hide dock when a window overlaps it</summary>
+    </key>
+
+    <key name="hide-delay" type="i">
+      <default>0</default>
+      <summary>Hide Delay in ms</summary>
+    </key>
+
+    <key name="unhide-delay" type="i">
+      <default>0</default>
+      <summary>Unhide Delay in ms</summary>
+    </key>
+
+    <key name="edge-dwell-delay" type="i">
+      <default>100</default>
+      <summary>Edge Reveal Delay (Pressure) in ms</summary>
+    </key>
+
+    <key name="click-effect" type="s">
+      <default>'heartbeat'</default>
+      <summary>Icon Click Effect</summary>
+    </key>
+
+    <key name="minimize-effect" type="s">
+      <choices>
+        <choice value='none'/>
+        <choice value='magic-lamp'/>
+        <choice value='snake'/>
+        <choice value='vortex'/>
+        <choice value='crt'/>
+        <choice value='origami'/>
+        <choice value='jelly'/>
+      </choices>
+      <default>'magic-lamp'</default>
+      <summary>Minimize Effect</summary>
+    </key>
+
+    <key name="hover-zoom" type="b">
+      <default>true</default>
+      <summary>Magnify icons on hover</summary>
+    </key>
+
+    <key name="hover-zoom-factor" type="d">
+      <default>1.5</default>
+      <summary>Icon zoom multiplier on hover</summary>
+    </key>
+
+    <key name="show-tooltips" type="b">
+      <default>true</default>
+      <summary>Show Tooltips</summary>
+    </key>
+
+    <key name="tooltip-margin" type="i">
+      <default>14</default>
+      <summary>Tooltip Margin</summary>
+    </key>
+
+    <key name="context-menu-size" type="i">
+      <default>200</default>
+      <summary>Context Menu Thumbnail Size</summary>
+    </key>
+
+    <key name="big-preview-size" type="i">
+      <default>95</default>
+      <summary>Big Hover Preview Size (%)</summary>
+    </key>
+
+    <key name="peek-effect" type="b">
+      <default>true</default>
+      <summary>Aero Peek effect on context menu hover</summary>
+    </key>
+
+    <key name="peek-animation-speed" type="i">
+      <default>500</default>
+      <summary>Peek animation speed in ms</summary>
+    </key>
+
+    <key name="lock-icons" type="b">
+      <default>false</default>
+      <summary>Lock Icons</summary>
+    </key>
+
+    <key name="isolate-workspaces" type="b">
+      <default>false</default>
+      <summary>Isolate Workspaces</summary>
+    </key>
+
+    <key name="scroll-action-dock" type="b">
+      <default>false</default>
+      <summary>Switch workspace on dock scroll</summary>
+    </key>
+
+    <key name="scroll-action-app" type="b">
+      <default>false</default>
+      <summary>Cycle windows on app icon scroll</summary>
+    </key>
+
+    <key name="show-trash" type="b">
+      <default>true</default>
+      <summary>Show Recycle Bin</summary>
+    </key>
+
+    <key name="show-desktop-button" type="b">
+      <default>false</default>
+      <summary>Show Desktop Button</summary>
+    </key>
+
+    <key name="show-grid-button" type="b">
+      <default>true</default>
+      <summary>Show App Grid Button</summary>
+    </key>
+
+    <key name="grid-button-position" type="s">
+      <default>'END'</default>
+      <summary>Grid Button Position</summary>
+    </key>
+
+    <key name="show-home" type="b">
+      <default>true</default>
+      <summary>Show Home Folder</summary>
+    </key>
+
+    <key name="show-downloads" type="b">
+      <default>false</default>
+      <summary>Show Downloads</summary>
+    </key>
+
+    <key name="show-documents" type="b">
+      <default>false</default>
+      <summary>Show Documents</summary>
+    </key>
+
+    <key name="show-pictures" type="b">
+      <default>false</default>
+      <summary>Show Pictures</summary>
+    </key>
+
+    <key name="show-videos" type="b">
+      <default>false</default>
+      <summary>Show Videos</summary>
+    </key>
+
+    <key name="show-music" type="b">
+      <default>false</default>
+      <summary>Show Music</summary>
+    </key>
+
+    <key name="custom-folders" type="s">
+      <default>'[]'</default>
+      <summary>JSON array of custom folders</summary>
+    </key>
+
+    <key name="show-clock" type="b">
+      <default>true</default>
+      <summary>Show Clock</summary>
+    </key>
+
+    <key name="clock-font-size" type="i">
+      <default>19</default>
+      <summary>Clock Font Size</summary>
+    </key>
+    
+    <key name="clock-position" type="s">
+      <default>'START'</default>
+      <summary>Clock Position</summary>
+    </key>
+
+  </schema>
+</schemalist>

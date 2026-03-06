@@ -1,0 +1,18 @@
+# Compiled Schemas (Ye kabhi upload nahi honi chahiye)
+schemas/gschemas.compiled
+
+# Compressed Builds
+*.zip
+*.tar.gz
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Editor Settings
+.vscode/
+.idea/
+
+# Temporary Files
+*~
+*.bak

@@ -1,0 +1,294 @@
+/* Context Menu */
+.context-menu-big-preview-container {
+    border-radius: 12px;
+    box-shadow: 0 4px 50px rgba(0, 0, 0, 0.10);
+    background-color: transparent;
+}
+
+.context-menu-panel {
+    background-color: rgba(4, 5, 14, 0.80);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px;
+    border-radius: 18px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+.context-menu-header-box {
+    margin-bottom: 8px;
+}
+
+.context-menu-header-title {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: bold;
+    font-size: 14px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.context-menu-thumb-scroll {
+    margin-bottom: 8px;
+    border-radius: 8px;
+}
+
+.context-menu-thumb-box {
+    padding: 4px;
+}
+
+.context-menu-thumb-btn {
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    transition-duration: 150ms;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.context-menu-thumb-btn:hover,
+.context-menu-thumb-btn:focus {
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.context-menu-thumb-title {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.92);
+    background-color: rgba(25, 25, 28, 0.95);
+    border-radius: 0 0 8px 8px; 
+    padding: 6px;
+    text-align: center;
+}
+
+.context-menu-thumb-title-bin {
+    padding: 0; 
+}
+
+.context-menu-controls-box {
+    padding-top: 2px;
+    padding-right: 2px;
+}
+
+.context-menu-win-control-btn {
+    border-radius: 999px;
+    width: 20px;
+    height: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+    transition-duration: 150ms;
+}
+
+.context-menu-win-control-btn:hover,
+.context-menu-win-control-btn:focus {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
+.context-menu-action-btn {
+    border-radius: 8px;
+    padding: 6px 12px;
+    transition-duration: 100ms;
+    background-color: transparent;
+}
+
+.context-menu-action-btn:hover,
+.context-menu-action-btn:focus {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.context-menu-action-btn-destructive {
+    border-radius: 8px;
+    padding: 6px 12px;
+    transition-duration: 100ms;
+    background-color: transparent;
+}
+
+.context-menu-action-btn-destructive:hover,
+.context-menu-action-btn-destructive:focus {
+    background-color: rgba(192, 10, 0, 0.25); 
+}
+
+.context-menu-action-label {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 14px;
+    font-weight: normal;
+}
+
+.context-menu-action-label-destructive {
+    color: #ff483f;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.context-menu-checkbox-box {
+    border-radius: 4px;
+    width: 14px;
+    height: 14px;
+    margin-right: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background-color: transparent;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.context-menu-checkbox-box.checked {
+    border-color: #0a84ff;
+    background-color: #0a84ff;
+}
+
+.context-menu-separator-line {
+    margin: 4px 0;
+    background-color: rgba(255, 255, 255, 0.06);
+    height: 1px;
+}
+
+/* Dock Elements */
+.dock-clock-label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: bold;
+    margin: 0 8px;
+    text-shadow: 0px 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.dock-module-btn-vertical {
+    padding: 0px 0px;
+    margin: 0px 0px;
+}
+
+.dock-module-btn-horizontal {
+    padding: 0px 0px;
+    margin: 0px 0px;
+}
+
+.dock-separator-vertical {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 1px;
+    margin: 4px auto;
+}
+
+.dock-separator-horizontal {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 1px;
+    margin: auto 4px;
+}
+
+.dock-full-separator-vertical {
+    background-color: rgba(255, 255, 255, 0.35);
+    margin: 6px 2px;
+}
+
+.dock-full-separator-horizontal {
+    background-color: rgba(255, 255, 255, 0.35);
+    margin: 2px 6px;
+}
+
+/* App List */
+.app-list-overlay {
+    background-color: transparent;
+}
+
+.app-list-panel {
+    background-color: rgba(4, 5, 14, 0.70);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 15px;
+    box-shadow: 0px 10px 30px rgba(0, 0, 0, 0.7);
+}
+
+.app-list-title {
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.app-list-search {
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 12px;
+    margin-bottom: 15px;
+    selection-background-color: #0078d7;
+    selected-color: white;
+}
+
+.app-list-search:focus {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+.app-list-scrollview {
+    width: 100%;
+}
+
+.app-list-container {
+    spacing: 2px;
+    padding-right: 15px;
+}
+
+.app-list-row {
+    margin-bottom: 2px;
+}
+
+.app-list-click-area {
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition-duration: 200ms;
+}
+
+.app-list-click-area:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-list-icon {
+    margin-right: 15px;
+}
+
+.app-list-name {
+    color: white;
+    font-size: 14px;
+}
+
+.app-list-action-button {
+    border-radius: 50px;
+    padding: 6px 8px;
+    margin-left: 5px;
+    transition-duration: 200ms;
+}
+
+.app-list-add-button {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.app-list-add-button:hover {
+    background-color: #28a745;
+}
+
+.app-list-remove-button {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #ff6b6b;
+}
+
+.app-list-remove-button:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+.app-running-dot {
+    background-color: white;
+    width: 4px;
+    height: 4px;
+    border-radius: 4px;
+    margin-top: 4px;
+}
+
+/* Dock Tooltip */
+.dhruva-tooltip {
+    background-color: rgba(20, 20, 22, 0.92);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
