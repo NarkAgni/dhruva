@@ -1,3 +1,19 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
@@ -88,8 +104,13 @@ export default class FloatingManager {
                 if (this._handleStart) { this._handleStart.destroy(); this._handleStart = null; }
                 if (this._handleEnd) { this._handleEnd.destroy(); this._handleEnd = null; }
                 this._handlesVisible = false;
+                
+                if (this.isFloating) {
+                    this._snapBack();
+                }
+            } else {
+                if (this.dockUI?.queueRender) this.dockUI.queueRender();
             }
-            if (this.dockUI?.queueRender) this.dockUI.queueRender();
         });
 
         this._floatSignals = [];
@@ -122,12 +143,10 @@ export default class FloatingManager {
         };
 
         if (this.dockUI.autoHideManager) {
-            this._origHide = this.dockUI.autoHideManager._hide;
-            this.dockUI.autoHideManager._hide = (...args) => {
-                if (this.isFloating) return;
-                this._origHide.apply(this.dockUI.autoHideManager, args);
-            };
+            this._patchAutoHideManager(this.dockUI.autoHideManager);
         }
+
+        this._autoHidePatchPending = !this.dockUI.autoHideManager;
 
         const isAlive = actor => actor && !actor.is_destroyed?.();
 
@@ -183,11 +202,7 @@ export default class FloatingManager {
             const hoverFullOpacity = this.settings.get_boolean('floating-dock-hover-full-opacity');
 
             if (this.settings.get_boolean('enable-floating-dock')) {
-                const targetOpacity = (isHovered && hoverFullOpacity) ? 255 : Math.round((floatOpacity / 100.0) * 255);
-                const animDuration = (isHovered && hoverFullOpacity) ? 0 : 200;
-
-                if (isAlive(this.actor))
-                    this.actor.ease({ opacity: targetOpacity, duration: animDuration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                this._animateFloatOpacity(isHovered);
 
                 if (isAlive(this.dockUI.bgActor)) this.dockUI.bgActor.opacity = 255;
                 if (isAlive(this.dockUI.boxActor)) this.dockUI.boxActor.opacity = 255;
@@ -211,6 +226,27 @@ export default class FloatingManager {
         };
 
         this._initHandlers();
+    }
+
+    _patchAutoHideManager(ahm) {
+        if (!ahm || this._origHide) return;
+        this._origHide = ahm._hide;
+        ahm._hide = (...args) => {
+            if (this.isFloating) return;
+            this._origHide.apply(ahm, args);
+        };
+        this._origShow = ahm._show;
+        ahm._show = (...args) => {
+            if (this.isFloating) return;
+            this._origShow.apply(ahm, args);
+        };
+    }
+
+    applyPendingPatch() {
+        if (this._autoHidePatchPending && this.dockUI?.autoHideManager) {
+            this._patchAutoHideManager(this.dockUI.autoHideManager);
+            this._autoHidePatchPending = false;
+        }
     }
 
     _applyHandleSizes(currentSize, isAnimated = true) {
@@ -337,7 +373,7 @@ export default class FloatingManager {
         const isAlive = actor => actor && !actor.is_destroyed?.();
 
         let floatOpacity = this.settings.get_int('floating-dock-opacity') ?? 100;
-        floatOpacity = Math.max(35, floatOpacity);
+        floatOpacity = Math.max(10, floatOpacity);
 
         const hoverFullOpacity = this.settings.get_boolean('floating-dock-hover-full-opacity');
         
@@ -345,9 +381,10 @@ export default class FloatingManager {
         const applyHoverFull = isHovered && hoverFullOpacity && !forceSliderValue;
         
         const targetOpacity = applyHoverFull ? 255 : Math.round((floatOpacity / 100.0) * 255);
-        const duration = isHovered ? 150 : 250;
+        const duration = applyHoverFull ? 100 : 300;
 
         if (this.actor && isAlive(this.actor)) {
+            this.actor.remove_transition('opacity');
             this.actor.ease({ opacity: targetOpacity, duration: duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
     }
@@ -436,36 +473,53 @@ export default class FloatingManager {
         }
     }
 
+    _startHoverTracker() {
+        if (this._hoverTrackerId) return;
+        this._hoverTrackerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            if (!this.actor || this.actor.is_destroyed?.() || !this.settings.get_boolean('enable-floating-dock')) {
+                this._hoverTrackerId = null;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            if (this.isDragging || this._isSimpleClick || this._suppressLeave) {
+                return GLib.SOURCE_CONTINUE;
+            }
+
+            const [px, py] = global.get_pointer();
+            const [ax, ay] = this.actor.get_transformed_position();
+            const [aw, ah] = this.actor.get_transformed_size();
+
+            const pad = 30; 
+            const isHovered = px >= ax - pad && px <= ax + aw + pad && py >= ay - pad && py <= ay + ah + pad;
+
+            if (isHovered !== this._wasHovered) {
+                this._wasHovered = isHovered;
+                if (!this._previewMode) {
+                    this._animateHandles(isHovered);
+                    this._animateFloatOpacity(isHovered);
+                }
+            }
+
+            if (!isHovered && !this._previewMode) {
+                this._hoverTrackerId = null;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
     _initHandlers() {
         if (!this.actor) return;
         this.actor.reactive = true;
 
         this._motionIdHover = this.actor.connect('motion-event', () => {
-            if (!this.isDragging) {
-                this._animateHandles(true);
-                this._animateFloatOpacity(true);
-            }
+            if (!this.isDragging) this._startHoverTracker();
             return Clutter.EVENT_PROPAGATE;
         });
 
         this._leaveId = this.actor.connect('leave-event', () => {
-            if (this._leaveTimeoutId) GLib.source_remove(this._leaveTimeoutId);
-            this._leaveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
-                this._leaveTimeoutId = null;
-                if (this.isDragging || this._isSimpleClick || this._suppressLeave)
-                    return GLib.SOURCE_REMOVE;
-
-                if (this.actor && !this.actor.is_destroyed?.()) {
-                    const [px, py] = global.get_pointer();
-                    const [ax, ay] = this.actor.get_transformed_position();
-                    const [aw, ah] = this.actor.get_transformed_size();
-                    if ((px < ax || px > ax + aw || py < ay || py > ay + ah) && !this._previewMode) {
-                        this._animateHandles(false);
-                        this._animateFloatOpacity(false);
-                    }
-                }
-                return GLib.SOURCE_REMOVE;
-            });
+            this._startHoverTracker();
             return Clutter.EVENT_PROPAGATE;
         });
 
@@ -639,7 +693,7 @@ export default class FloatingManager {
                 if (this.dockUI) this.dockUI._dropSettling = true;
                 this._isSimpleClick = true;
 
-                this._snapTimeline = new Clutter.Timeline({ duration: 350, actor: this.actor });
+                this._snapTimeline = new Clutter.Timeline({ duration: 350 });
                 this._snapTimeline.connect('new-frame', (tl) => {
                     if (!this._pullEffect || !this.actor) { tl.stop(); return; }
                     const t = tl.get_progress();
@@ -653,6 +707,7 @@ export default class FloatingManager {
                     this.actor.queue_redraw();
                 });
                 this._snapTimeline.connect('completed', () => {
+                    this._snapTimeline = null;
                     this.isDragging = false;
                     if (this.actor) this.actor._isDragging = false;
                     this._resetDockState();
@@ -735,14 +790,22 @@ export default class FloatingManager {
     destroy() {
         this._removeDragShield();
 
-        if (this._origHide && this.dockUI?.autoHideManager) {
-            this.dockUI.autoHideManager._hide = this._origHide;
-            this._origHide = null;
+        const ahm = this.dockUI?.autoHideManager;
+        if (this._origHide && ahm) {
+            ahm._hide = this._origHide;
         }
+        this._origHide = null;
+
+        if (this._origShow && ahm) {
+            ahm._show = this._origShow;
+        }
+        this._origShow = null;
 
         if (this._enableSignal) { this.settings.disconnect(this._enableSignal); this._enableSignal = null; }
         if (this._previewTimeout) { GLib.source_remove(this._previewTimeout); this._previewTimeout = null; }
-        if (this._leaveTimeoutId) { GLib.source_remove(this._leaveTimeoutId); this._leaveTimeoutId = null; }
+        
+        if (this._hoverTrackerId) { GLib.source_remove(this._hoverTrackerId); this._hoverTrackerId = null; }
+        
         if (this._suppressLeaveTimeout) { GLib.source_remove(this._suppressLeaveTimeout); this._suppressLeaveTimeout = null; }
         if (this._simpleClickGuardId) { GLib.source_remove(this._simpleClickGuardId); this._simpleClickGuardId = null; }
         if (this._dropSettleTimeout) { GLib.source_remove(this._dropSettleTimeout); this._dropSettleTimeout = null; }

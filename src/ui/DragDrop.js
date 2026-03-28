@@ -1,9 +1,27 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
-import { playTrashEffect } from './effects/TrashEffect.js';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
+
+import { playTrashEffect } from './effects/TrashEffect.js';
 import { resetMagnification, getDockButtons, getFixedSlots, startDragLoop, stopDragLoop, applyRealtimeFrame } from './Magnifier.js';
+
 
 let lastSwapTime = 0;
 
@@ -137,7 +155,9 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
         
-        if (!isOutside) btn.opacity = 255;
+        if (!isOutside && btn && typeof btn.is_destroyed === 'function' && !btn.is_destroyed()) {
+            btn.opacity = 255;
+        }
     });
 
     draggable.connect('drag-begin', () => {
@@ -198,7 +218,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             mainActor._fixedSlots = null;
             return; 
         }
-
+        
         btn.opacity = 255;
         btn._wasDragged = false;
         const currentBtns = getDockButtons(mainActor);
@@ -222,16 +242,16 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
         if (!isInsideMain) {
             currentBtns.forEach(b => {
-                b._flipOffset = 0; b._flipStartTime = null;
-                b.ease({ translation_x: 0, translation_y: 0, scale_x: 1.0, scale_y: 1.0, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                b._flipOffset = 0; 
+                b._flipStartTime = null;
             });
+            resetMagnification(mainActor);
         } else {
             currentBtns.forEach(b => { b._flipOffset = 0; b._flipStartTime = null; });
             const isVert = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
             applyRealtimeFrame(mainActor, px, py, isVert, dockUI.settings, Date.now());
         }
 
-        if (!isInsideMain) resetMagnification(mainActor);
         mainActor._fixedSlots = null;
     });
 }

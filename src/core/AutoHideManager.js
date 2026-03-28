@@ -1,8 +1,25 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 
 export default class AutoHideManager {
     constructor(dockUI, settings) {
@@ -10,6 +27,7 @@ export default class AutoHideManager {
         this.settings = settings;
 
         this.isHidden = false;
+        this._isAnimating = false;
 
         this._destroyed = false;
         this.signals = [];
@@ -17,7 +35,12 @@ export default class AutoHideManager {
         this._hideTimerId = null;
         this._showTimerId = null;
         this._updateTimerId = null;
+        this._edgeRevealTimerId = null;
+        this._hoverPollId = null;
         this._pointerUpdate = true;
+
+        this._trackedWin = null;
+        this._trackedWinSignals = [];
 
         this.edgeTrigger = new St.Widget({
             name: 'DhruvaEdgeTrigger',
@@ -37,7 +60,12 @@ export default class AutoHideManager {
     _setupListeners() {
         if (this._destroyed) return;
 
-        this._addSignal(global.display, 'notify::focus-window', () => this._scheduleUpdate());
+        this._addSignal(global.display, 'notify::focus-window', () => {
+            this._trackFocusedWindow();
+            this._scheduleUpdate();
+        });
+
+        this._trackFocusedWindow();
         this._addSignal(global.display, 'restacked', () => this._scheduleUpdate());
         this._addSignal(global.workspace_manager, 'active-workspace-changed', () => this._scheduleUpdate());
 
@@ -60,12 +88,45 @@ export default class AutoHideManager {
 
         this._addSignal(this.edgeTrigger, 'enter-event', () => {
             if (!this.isHidden) return Clutter.EVENT_PROPAGATE;
-            this._pointerUpdate = true;
-            this._show();
+
+            let pressureDelay = 0;
+            try {
+                const delaySetting = this.settings.get_int('edge-dwell-delay');
+                if (delaySetting >= 0) pressureDelay = delaySetting;
+            } catch (e) { }
+
+            if (this._edgeRevealTimerId) {
+                GLib.source_remove(this._edgeRevealTimerId);
+                this._edgeRevealTimerId = null;
+            }
+
+            if (pressureDelay === 0) {
+                this._pointerUpdate = true;
+                this._show(true);
+            } else {
+                this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
+                    this._edgeRevealTimerId = null;
+
+                    const [px, py] = global.get_pointer();
+                    const [ex, ey] = this.edgeTrigger.get_transformed_position();
+                    const [ew, eh] = this.edgeTrigger.get_transformed_size();
+
+                    if (px >= ex - 40 && px <= ex + ew + 40 && py >= ey - 40 && py <= ey + eh + 40) {
+                        this._pointerUpdate = true;
+                        this._show(true);
+                    }
+                    return GLib.SOURCE_REMOVE;
+                });
+            }
+
             return Clutter.EVENT_PROPAGATE;
         });
 
         this._addSignal(this.edgeTrigger, 'leave-event', () => {
+            if (this._edgeRevealTimerId) {
+                GLib.source_remove(this._edgeRevealTimerId);
+                this._edgeRevealTimerId = null;
+            }
             this._pointerUpdate = true;
             this._scheduleUpdate();
             return Clutter.EVENT_PROPAGATE;
@@ -74,18 +135,21 @@ export default class AutoHideManager {
         this._addSignal(this.settings, 'changed::hide-mode', () => {
             this._updateEdgeTrigger();
             this._cancelTimers();
-            
+
             const mode = this._getHideMode();
-            
-            if (mode === 'always') {
-                if (this.dockUI && this.dockUI.actor && !this.dockUI.actor.has_pointer) {
+
+            if (mode === 'always' || mode === 'always-hide' || mode === 'auto') {
+                if (this.dockUI && this.dockUI.actor && !this._isHovering()) {
                     this.isHidden = true;
+                    if (this.dockUI && this.dockUI.actor) this.dockUI.actor._isHidden = true;
                     this._animateHide();
                 }
             } else if (mode === 'none' || mode === 'never') {
-                this._show(true); 
+                this._forceShow();
+            } else {
+                this._scheduleUpdate(0);
             }
-            
+
             this._recalculateOverlap();
         });
 
@@ -93,6 +157,30 @@ export default class AutoHideManager {
         this._addSignal(this.settings, 'changed::dock-margin', () => this._updateEdgeTrigger());
 
         this._scheduleUpdate(100);
+    }
+
+    _trackFocusedWindow() {
+        if (this._destroyed) return;
+
+        const focusWin = global.display.get_focus_window();
+        if (this._trackedWin === focusWin) return;
+
+        if (this._trackedWin && this._trackedWinSignals) {
+            this._trackedWinSignals.forEach(id => {
+                try { this._trackedWin.disconnect(id); } catch (e) { }
+            });
+        }
+
+        this._trackedWinSignals = [];
+        this._trackedWin = focusWin;
+
+        if (this._trackedWin) {
+            try {
+                this._trackedWinSignals.push(this._trackedWin.connect('size-changed', () => this._scheduleUpdate()));
+                this._trackedWinSignals.push(this._trackedWin.connect('position-changed', () => this._scheduleUpdate()));
+                this._trackedWinSignals.push(this._trackedWin.connect('notify::maximized-vertically', () => this._scheduleUpdate()));
+            } catch (e) { }
+        }
     }
 
     _addSignal(obj, event, cb) {
@@ -111,19 +199,31 @@ export default class AutoHideManager {
 
         const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorData || !monitorData.monitor) return;
-        const monitor = monitorData.monitor;
+        
+        const actualMonitor = monitorData.monitor;
 
         const pos = this._getDockPosition();
         const mode = this._getHideMode();
-        const T = 12;
+
+        const T = 2;
+
+        const bounds = this._getTheoreticalDockBounds();
+        const dockX = bounds.x;
+        const dockY = bounds.y;
+        const dockW = bounds.width;
+        const dockH = bounds.height;
 
         let ex = 0, ey = 0, ew = 0, eh = 0;
 
         switch (pos) {
-            case 'BOTTOM': ex = monitor.x; ew = monitor.width; ey = monitor.y + monitor.height - T; eh = T; break;
-            case 'TOP': ex = monitor.x; ew = monitor.width; ey = monitor.y; eh = T; break;
-            case 'LEFT': ex = monitor.x; ew = T; ey = monitor.y; eh = monitor.height; break;
-            case 'RIGHT': ex = monitor.x + monitor.width - T; ew = T; ey = monitor.y; eh = monitor.height; break;
+            case 'BOTTOM':
+                ex = dockX; ew = dockW; ey = actualMonitor.y + actualMonitor.height - T; eh = T; break;
+            case 'TOP':
+                ex = dockX; ew = dockW; ey = actualMonitor.y; eh = T; break;
+            case 'LEFT':
+                ex = actualMonitor.x; ew = T; ey = dockY; eh = dockH; break;
+            case 'RIGHT':
+                ex = actualMonitor.x + actualMonitor.width - T; ew = T; ey = dockY; eh = dockH; break;
         }
 
         this.edgeTrigger.set_position(ex, ey);
@@ -131,21 +231,23 @@ export default class AutoHideManager {
 
         if (mode === 'none' || mode === 'never') {
             this.edgeTrigger.hide();
+            this.edgeTrigger.reactive = false;
         } else {
             this.edgeTrigger.show();
+            this.edgeTrigger.reactive = this.isHidden;
             const parent = this.edgeTrigger.get_parent();
             if (parent) parent.set_child_above_sibling(this.edgeTrigger, null);
         }
     }
 
     _getTheoreticalDockBounds() {
-        let dw = this.dockUI.actor.width || this.dockUI.actor._cachedW || 100;
-        let dh = this.dockUI.actor.height || this.dockUI.actor._cachedH || 48;
+        let dw = this.dockUI.actor._cachedW || this.dockUI.actor.width || 100;
+        let dh = this.dockUI.actor._cachedH || this.dockUI.actor.height || 48;
 
         const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
-        if (!monitorData || !monitorData.monitor) return { x: 0, y: 0, width: dw, height: dh }; // NAYA FIX
-        const monitor = monitorData.monitor;
-        
+        if (!monitorData || !monitorData.monitor) return { x: 0, y: 0, width: dw, height: dh };
+        const monitor = Main.layoutManager.getWorkAreaForMonitor(monitorData.index);
+
         const pos = this._getDockPosition();
         const margin = this.settings.get_int('dock-margin') || 0;
 
@@ -159,28 +261,39 @@ export default class AutoHideManager {
     }
 
     _isHovering() {
-        if (!this.dockUI || !this.dockUI.actor) return false;
-
-        const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
-        if (!monitorData || !monitorData.monitor) return false;
-        const monitor = monitorData.monitor;
+        if (!this.dockUI || !this.dockUI.actor || this.dockUI.actor._isDestroyed) return false;
 
         const [px, py] = global.get_pointer();
-        const bounds = this._getTheoreticalDockBounds();
-        const pos = this._getDockPosition();
-        const buf = 15;
+        const [dax, day] = this.dockUI.actor.get_transformed_position();
 
-        let hX1 = bounds.x - buf;
-        let hX2 = bounds.x + bounds.width + buf;
-        let hY1 = bounds.y - buf;
-        let hY2 = bounds.y + bounds.height + buf;
+        let daw = this.dockUI.actor._cachedW || this.dockUI.actor.width;
+        let dah = this.dockUI.actor._cachedH || this.dockUI.actor.height;
 
-        if (pos === 'BOTTOM') hY2 = monitor.y + monitor.height;
-        if (pos === 'TOP') hY1 = monitor.y;
-        if (pos === 'LEFT') hX1 = monitor.x;
-        if (pos === 'RIGHT') hX2 = monitor.x + monitor.width;
+        const isVertical = this.dockUI.boxActor ? this.dockUI.boxActor.get_vertical() : false;
 
-        return (px >= hX1 && px <= hX2 && py >= hY1 && py <= hY2);
+        let padX = 2;
+        let padY = 2;
+
+        if (!this.isHidden) {
+            let hoverZoom = false;
+            try { hoverZoom = this.settings.get_boolean('hover-zoom'); } catch (e) { }
+
+            let maxZoom = 1.0;
+            if (hoverZoom) {
+                try { maxZoom = this.settings.get_double('hover-zoom-factor'); } catch (e) { }
+            }
+
+            const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
+            let iconSize = 48;
+            try { iconSize = this.settings.get_int('icon-size'); } catch (e) { }
+
+            const overflow = iconSize * actualMax;
+
+            padX = isVertical ? 25 : Math.max(25, overflow);
+            padY = isVertical ? Math.max(25, overflow) : 25;
+        }
+
+        return (px >= dax - padX && px <= dax + daw + padX && py >= day - padY && py <= day + dah + padY);
     }
 
     _isValidWindow(win) {
@@ -205,14 +318,14 @@ export default class AutoHideManager {
     _recalculateOverlap() {
         if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
 
-        if (this.dockUI.floatingManager && this.dockUI.floatingManager.isFloating) {
+        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
             this._pointerUpdate = false;
             this._updateHidden(false, false, false);
             return;
         }
 
         const mode = this._getHideMode();
-        
+
         if (mode === 'none' || mode === 'never') {
             this._pointerUpdate = false;
             this._updateHidden(false, false, false);
@@ -227,7 +340,7 @@ export default class AutoHideManager {
         const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorData || !monitorData.monitor) return;
         const dockMonitorIndex = monitorData.index;
-        
+
         const bounds = this._getTheoreticalDockBounds();
         const focusWin = global.display.get_focus_window();
 
@@ -260,8 +373,8 @@ export default class AutoHideManager {
         if (this._destroyed) return;
         this._updateEdgeTrigger();
 
-        if (this.dockUI.floatingManager && this.dockUI.floatingManager.isFloating) {
-            this._show();
+        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+            this._show(true);
             return;
         }
 
@@ -274,13 +387,11 @@ export default class AutoHideManager {
         let shouldHide = false;
 
         if (mode === 'none' || mode === 'never') {
-            this._show(true);
+            this._forceShow();
             return;
         } else if (mode === 'auto' || mode === 'always' || mode === 'always-hide') {
             shouldHide = true;
-        } else if (mode === 'intelligent') {
-            shouldHide = activeWinOverlap || maximizedOverlap;
-        } else if (mode === 'active' || mode === 'dodge-active') {
+        } else if (mode === 'active' || mode === 'dodge-active' || mode === 'intelligent') {
             shouldHide = activeWinOverlap;
         } else if (mode === 'maximized' || mode === 'dodge-maximized') {
             shouldHide = maximizedOverlap;
@@ -291,7 +402,7 @@ export default class AutoHideManager {
         shouldHide ? this._hide() : this._show();
     }
 
-    _scheduleUpdate(delay = 100) {
+    _scheduleUpdate(delay = 50) {
         if (this._destroyed) return;
         if (this._updateTimerId) { GLib.source_remove(this._updateTimerId); this._updateTimerId = null; }
 
@@ -305,15 +416,69 @@ export default class AutoHideManager {
     _cancelTimers() {
         if (this._hideTimerId) { GLib.source_remove(this._hideTimerId); this._hideTimerId = null; }
         if (this._showTimerId) { GLib.source_remove(this._showTimerId); this._showTimerId = null; }
+        if (this._edgeRevealTimerId) { GLib.source_remove(this._edgeRevealTimerId); this._edgeRevealTimerId = null; }
+    }
+
+    _startHoverPolling() {
+        if (this._hoverPollId) return;
+        this._hoverPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+            if (this._destroyed || this.isHidden) {
+                this._hoverPollId = null;
+                return GLib.SOURCE_REMOVE;
+            }
+            if (!this._isHovering()) {
+                this._recalculateOverlap();
+            }
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _forceShow() {
+        if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
+
+        this._cancelTimers();
+        this._isAnimating = false;
+        this.isHidden = false;
+
+        if (this._hoverPollId) {
+            GLib.source_remove(this._hoverPollId);
+            this._hoverPollId = null;
+        }
+
+        if (this.dockUI.actor) this.dockUI.actor._isHidden = false;
+        if (this.edgeTrigger) this.edgeTrigger.reactive = false;
+
+        const actor = this.dockUI.actor;
+        actor.remove_all_transitions();
+        actor.show();
+        actor.visible = true;
+        actor.reactive = true;
+        actor.opacity = 255;
+        actor.translation_x = 0;
+        actor.translation_y = 0;
+
+        if (this.dockUI.bgActor) this.dockUI.bgActor.reactive = true;
+        if (this.dockUI.boxActor) this.dockUI.boxActor.reactive = true;
+
+        this._updateEdgeTrigger();
     }
 
     _show(force = false) {
+        if (!this.isHidden && !force && !this._hideTimerId && !this._showTimerId) return;
+
         this._cancelTimers();
-        if (!this.isHidden && !force) return;
-        
         this.isHidden = false;
 
-        const unhideDelay = this._pointerUpdate ? (this.settings.get_int('unhide-delay') || 0) : 0;
+        this._startHoverPolling();
+
+        if (this.dockUI && this.dockUI.actor) this.dockUI.actor._isHidden = false;
+
+        if (this.edgeTrigger) this.edgeTrigger.reactive = false;
+
+        let unhideDelay = 0;
+        if (this._pointerUpdate) {
+            try { unhideDelay = this.settings.get_int('unhide-delay'); } catch (e) { }
+        }
 
         if (unhideDelay > 0 && !force) {
             this._showTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, unhideDelay, () => {
@@ -327,22 +492,43 @@ export default class AutoHideManager {
     }
 
     _hide() {
-        if (this.dockUI && this.dockUI.floatingManager && this.dockUI.floatingManager.isFloating) {
+        const mode = this._getHideMode();
+        if (mode === 'none' || mode === 'never') return;
+
+        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
             return;
         }
 
-        this._cancelTimers();
-        if (this.isHidden) return;
-        this.isHidden = true;
+        if (this._hideTimerId || this.isHidden) return;
 
-        const hideDelay = this.settings.get_int('hide-delay') || 200;
+        this._cancelTimers();
+
+        let hideDelay = 200;
+        try { hideDelay = this.settings.get_int('hide-delay'); } catch (e) { }
 
         this._hideTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, hideDelay, () => {
             this._hideTimerId = null;
+
+            const currentMode = this._getHideMode();
+            if (currentMode === 'none' || currentMode === 'never') return GLib.SOURCE_REMOVE;
+
             if (!this._isHovering()) {
+                if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                this.isHidden = true;
+                if (this._hoverPollId) {
+                    GLib.source_remove(this._hoverPollId);
+                    this._hoverPollId = null;
+                }
+
+                if (this.dockUI && this.dockUI.actor) this.dockUI.actor._isHidden = true;
+
+                if (this.edgeTrigger && currentMode !== 'none' && currentMode !== 'never') {
+                    this.edgeTrigger.reactive = true;
+                }
                 this._animateHide();
-            } else {
-                this.isHidden = false;
             }
             return GLib.SOURCE_REMOVE;
         });
@@ -353,38 +539,96 @@ export default class AutoHideManager {
 
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
 
+        this.dockUI.actor.reactive = true;
+        if (this.dockUI.bgActor) this.dockUI.bgActor.reactive = true;
+        if (this.dockUI.boxActor) this.dockUI.boxActor.reactive = true;
+
         this.dockUI.actor.remove_all_transitions();
+
         this.dockUI.actor.show();
         this.dockUI.actor.visible = true;
+
+        if (this.dockUI._pendingRender && typeof this.dockUI._renderDock === 'function') {
+            this.dockUI._renderDock(true);
+        }
 
         if (typeof this.dockUI._updateLayout === 'function') {
             this.dockUI._updateLayout();
         }
 
-        this.dockUI.actor.ease({
-            translation_x: 0,
-            translation_y: 0,
-            opacity: 255,
-            duration: 200,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD
+        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+            if (this._destroyed || !this.dockUI || !this.dockUI.actor) return GLib.SOURCE_REMOVE;
+
+            const modeNow = this._getHideMode();
+            if (modeNow === 'none' || modeNow === 'never') {
+                this.dockUI.actor.opacity = 255;
+                this.dockUI.actor.translation_x = 0;
+                this.dockUI.actor.translation_y = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            this._isAnimating = true;
+
+            this.dockUI.actor.ease({
+                translation_x: 0,
+                translation_y: 0,
+                opacity: 255,
+                duration: 180,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => {
+                    this._isAnimating = false;
+                    if (this.isHidden) {
+                        const modeAtComplete = this._getHideMode();
+                        if (modeAtComplete === 'none' || modeAtComplete === 'never') {
+                            this._forceShow();
+                            return;
+                        }
+                        this.dockUI.actor.opacity = 0;
+                        this.dockUI.actor.translation_x = tx;
+                        this.dockUI.actor.translation_y = ty;
+
+                        this.dockUI.actor.hide();
+                        this.dockUI.actor.visible = false;
+
+                        this._updateEdgeTrigger();
+                    }
+                }
+            });
+            return GLib.SOURCE_REMOVE;
         });
     }
 
     _animateHide() {
         if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
 
+        const mode = this._getHideMode();
+        if (mode === 'none' || mode === 'never') {
+            this._forceShow();
+            return;
+        }
+
+        this.dockUI.actor.reactive = false;
+        if (this.dockUI.bgActor) this.dockUI.bgActor.reactive = false;
+        if (this.dockUI.boxActor) this.dockUI.boxActor.reactive = false;
+
         this.dockUI.actor.remove_all_transitions();
 
         const pos = this._getDockPosition();
-        const offset = (this.settings.get_int('dock-margin') || 0) + 15;
+        const offset = (this.settings.get_int('dock-margin') || 0) + 80;
+
+        const dw = this.dockUI.actor._cachedW || this.dockUI.actor.width || 100;
+        const dh = this.dockUI.actor._cachedH || this.dockUI.actor.height || 48;
+
         let tx = 0, ty = 0;
 
         switch (pos) {
-            case 'TOP': ty = -(this.dockUI.actor.height + offset); break;
-            case 'BOTTOM': ty = this.dockUI.actor.height + offset; break;
-            case 'LEFT': tx = -(this.dockUI.actor.width + offset); break;
-            case 'RIGHT': tx = this.dockUI.actor.width + offset; break;
+            case 'TOP': ty = -(dh + offset); break;
+            case 'BOTTOM': ty = dh + offset; break;
+            case 'LEFT': tx = -(dw + offset); break;
+            case 'RIGHT': tx = dw + offset; break;
         }
+
+        this._isAnimating = true;
 
         this.dockUI.actor.ease({
             translation_x: tx,
@@ -393,14 +637,17 @@ export default class AutoHideManager {
             duration: 150,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
             onComplete: () => {
+                this._isAnimating = false;
                 if (this.isHidden) {
+                    const modeAtComplete = this._getHideMode();
+                    if (modeAtComplete === 'none' || modeAtComplete === 'never') {
+                        this._forceShow();
+                        return;
+                    }
                     this.dockUI.actor.opacity = 0;
-                    this.dockUI.actor.hide();
-                    this.dockUI.actor.visible = false;
-                }
-                const mode = this._getHideMode();
-                if (this.edgeTrigger && mode !== 'none' && mode !== 'never') {
-                    this.edgeTrigger.reactive = true;
+                    this.dockUI.actor.translation_x = tx;
+                    this.dockUI.actor.translation_y = ty;
+                    this._updateEdgeTrigger();
                 }
             },
         });
@@ -410,6 +657,7 @@ export default class AutoHideManager {
         this._destroyed = true;
         this._cancelTimers();
         if (this._updateTimerId) { GLib.source_remove(this._updateTimerId); this._updateTimerId = null; }
+        if (this._hoverPollId) { GLib.source_remove(this._hoverPollId); this._hoverPollId = null; }
 
         for (const s of this.signals) {
             try { if (s.id && s.obj) s.obj.disconnect(s.id); } catch (e) { }
@@ -422,6 +670,14 @@ export default class AutoHideManager {
                 this.edgeTrigger.destroy();
             } catch (e) { }
             this.edgeTrigger = null;
+        }
+
+        if (this._trackedWin && this._trackedWinSignals) {
+            this._trackedWinSignals.forEach(id => {
+                try { this._trackedWin.disconnect(id); } catch (e) { }
+            });
+            this._trackedWinSignals = [];
+            this._trackedWin = null;
         }
 
         this.dockUI = null;

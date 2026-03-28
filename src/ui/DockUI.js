@@ -1,9 +1,27 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 import AppGridUI from './AppGridUI.js';
 import { buildModules } from './Modules.js';
 import AppContextMenu from './ContextMenu.js';
@@ -16,12 +34,12 @@ import { debounce, hexToRgba } from '../core/Utils.js';
 import AutoHideManager from '../core/AutoHideManager.js';
 import WorkspaceFilter from '../core/WorkspaceFilter.js';
 import { cleanupTrashEffects } from './effects/TrashEffect.js';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { animateIconClick } from './effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from './DragDrop.js';
 import { applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from './Themes.js';
 import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMagnification } from './Magnifier.js';
 import { setupWindowEffects, teardownWindowEffects, animateMinimize, animateRestore, animateLaunch } from './effects/WindowEffects.js';
+
 
 export default class DockUI {
     constructor(settings, openPrefsCallback, uuid) {
@@ -280,7 +298,7 @@ export default class DockUI {
             const alignment = this.settings.get_string('icon-alignment') || 'CENTER';
             const monitorResult = this.monitorManager.getCurrentMonitor();
             if (!monitorResult || !monitorResult.monitor) return;
-            const { monitor } = monitorResult;
+            const monitor = Main.layoutManager.getWorkAreaForMonitor(monitorResult.index);
 
             let [, boxW] = this.boxActor.get_preferred_width(-1);
             let [, boxH] = this.boxActor.get_preferred_height(-1);
@@ -444,6 +462,14 @@ export default class DockUI {
                     this.dockManager.updatePosition();
                 }
             }
+
+            this.actor._cachedW = actorW;
+            this.actor._cachedH = actorH;
+
+            if (this.autoHideManager) {
+                this.autoHideManager._updateEdgeTrigger();
+                this.autoHideManager._scheduleUpdate(10);
+            }
         } catch (e) { }
     }
 
@@ -575,9 +601,10 @@ export default class DockUI {
         return { dw, dh, style, marginStr };
     }
 
-    _renderDock() {
+    _renderDock(forceRender = false) {
         if (this._isDestroyed) return;
-        if (!this.actor || !this.actor.is_mapped()) {
+
+        if (!this.actor || (!this.actor.is_mapped() && forceRender !== true)) {
             this._pendingRender = true;
             return;
         }
@@ -777,13 +804,12 @@ export default class DockUI {
                             this._pendingLaunches.push({ appId: pid, btn: btn });
 
                             if (!this._pendingLaunchTimeouts) this._pendingLaunchTimeouts = [];
-                            const pidTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 15, () => {
-                                if (this._pendingLaunches) {
-                                    this._pendingLaunches = this._pendingLaunches.filter(p => p.appId !== pid);
-                                }
+                            const launchGuard = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 1200, () => {
+                                this.actor._launchingApp = false;
+                                this._pendingLaunchTimeouts = (this._pendingLaunchTimeouts || []).filter(id => id !== launchGuard);
                                 return GLib.SOURCE_REMOVE;
                             });
-                            this._pendingLaunchTimeouts.push(pidTimeout);
+                            this._pendingLaunchTimeouts.push(launchGuard);
                         }
                     } else if (buttonNum === 3) {
                         new AppContextMenu(this, app, btn, isCtrl, this.openPrefsCallback).show(this.dockPosition);
@@ -803,7 +829,7 @@ export default class DockUI {
                         const [rx, ry] = event.get_coords();
                         const dx = Math.abs(rx - (btn._pressX || rx));
                         const dy = Math.abs(ry - (btn._pressY || ry));
-                        if (dx > 10 || dy > 10) return Clutter.EVENT_STOP;
+                        if (dx > 15 || dy > 15) return Clutter.EVENT_STOP;
                     }
 
                     if (button === 1) {
@@ -1059,6 +1085,10 @@ export default class DockUI {
 
         setupWindowEffects(this.settings);
         this.autoHideManager = new AutoHideManager(this, this.settings);
+
+        if (this.floatManager && typeof this.floatManager.applyPendingPatch === 'function') {
+            this.floatManager.applyPendingPatch();
+        }
     }
 
     destroy() {
@@ -1107,8 +1137,6 @@ export default class DockUI {
             try { teardownWindowEffects(); } catch (e) { }
             try { teardownMagnification(this.actor); } catch (e) { }
             try { if (this.dockManager) this.dockManager.destroy(); } catch (e) { }
-
-            if (this._launchTimeoutId) { GLib.source_remove(this._launchTimeoutId); this._launchTimeoutId = null; }
 
             if (this._pendingLaunchTimeouts) {
                 this._pendingLaunchTimeouts.forEach(id => GLib.source_remove(id));

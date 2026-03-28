@@ -1,12 +1,30 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 import { CRTMinimize, CRTRestore } from './CrtEffect.js';
 import { SnakeMinimize, SnakeRestore } from './SnakeEffect.js';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { JellyMinimize, JellyRestore } from './JellyEffect.js';
 import { VortexMinimize, VortexRestore } from './VortexEffect.js';
 import { OrigamiMinimize, OrigamiRestore } from './OrigamiEffect.js';
 import { MagicLampMinimize, MagicLampRestore } from './GenieEffect.js';
+
 
 const MIN_EFFECT_NAME = 'we-minimize-effect';
 const UNMIN_EFFECT_NAME = 'we-unminimize-effect';

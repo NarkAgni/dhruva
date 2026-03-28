@@ -1,6 +1,23 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+
 
 export default class PeekManager {
     constructor(dockUI, overlayActor) {
@@ -10,6 +27,7 @@ export default class PeekManager {
         this._isPeeking = false;
         this._currentTarget = null;
         this._hideTimer = null;
+        this._pendingWrapBin = null;
 
         this.bigPreviewContainer = new St.Bin({
             reactive: false,
@@ -30,6 +48,7 @@ export default class PeekManager {
 
         if (this._currentTarget === targetWin) {
             if (this.bigPreviewContainer.opacity < 255) {
+                this.bigPreviewContainer.remove_all_transitions();
                 this.bigPreviewContainer.ease({
                     opacity: 255,
                     duration: 180,
@@ -135,10 +154,17 @@ export default class PeekManager {
             style: 'border-radius: 14px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.7);'
         });
 
+        if (this._pendingWrapBin) {
+            this._pendingWrapBin.destroy();
+        }
+        this._pendingWrapBin = wrapBin;
+
         const targetX = monitor.x + (monitor.width / 2) - (previewW / 2);
         const targetY = monitor.y + (monitor.height / 2) - (previewH / 2);
 
         const alreadyVisible = this.bigPreviewContainer.opacity > 50;
+        
+        this.bigPreviewContainer.remove_all_transitions();
 
         if (alreadyVisible) {
             this.bigPreviewContainer.ease({
@@ -148,7 +174,12 @@ export default class PeekManager {
                 duration: 160,
                 mode: Clutter.AnimationMode.EASE_IN_QUAD,
                 onComplete: () => {
-                    if (!this._currentTarget) return;
+                    if (!this._currentTarget || this._pendingWrapBin !== wrapBin) {
+                        wrapBin.destroy();
+                        return;
+                    }
+                    
+                    this._pendingWrapBin = null;
                     this.bigPreviewContainer.destroy_all_children();
                     this.bigPreviewContainer.add_child(wrapBin);
                     this.bigPreviewContainer.set_size(previewW, previewH);
@@ -167,6 +198,7 @@ export default class PeekManager {
                 }
             });
         } else {
+            this._pendingWrapBin = null;
             this.bigPreviewContainer.destroy_all_children();
             this.bigPreviewContainer.add_child(wrapBin);
             this.bigPreviewContainer.set_size(previewW, previewH);
@@ -188,6 +220,7 @@ export default class PeekManager {
 
     _hideBigPreview() {
         if (!this.bigPreviewContainer) return;
+        this.bigPreviewContainer.remove_all_transitions();
         this.bigPreviewContainer.ease({
             opacity: 0,
             scale_x: 0.96,
@@ -205,7 +238,13 @@ export default class PeekManager {
             this._ghostWindows(255, 200, Clutter.AnimationMode.EASE_OUT_QUAD);
         }
 
+        if (this._pendingWrapBin) {
+            this._pendingWrapBin.destroy();
+            this._pendingWrapBin = null;
+        }
+
         if (this.bigPreviewContainer) {
+            this.bigPreviewContainer.remove_all_transitions();
             this.bigPreviewContainer.destroy();
             this.bigPreviewContainer = null;
         }

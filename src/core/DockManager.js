@@ -1,3 +1,22 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+
 export default class DockManager {
     constructor(dockUI, settings) {
         this.dockUI = dockUI;
@@ -15,7 +34,8 @@ export default class DockManager {
 
             const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
             if (!monitorResult || !monitorResult.monitor) return;
-            const { monitor } = monitorResult;
+            
+            const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorResult.index);
             const margin = this.settings.get_int('dock-margin');
             const pos = this.settings.get_string('dock-position');
             const isFullWidth = this.settings.get_boolean('full-width');
@@ -25,17 +45,17 @@ export default class DockManager {
             const ah = this.dockUI.actor.height;
 
             if (pos === 'TOP') {
-                xPos = isFullWidth ? monitor.x : monitor.x + (monitor.width - aw) / 2;
-                yPos = monitor.y + margin;
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y + margin + 2;
             } else if (pos === 'BOTTOM') {
-                xPos = isFullWidth ? monitor.x : monitor.x + (monitor.width - aw) / 2;
-                yPos = monitor.y + monitor.height - ah - margin;
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y + workArea.height - ah - margin;
             } else if (pos === 'LEFT') {
-                xPos = monitor.x + margin;
-                yPos = isFullWidth ? monitor.y : monitor.y + (monitor.height - ah) / 2;
+                xPos = workArea.x + margin;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
             } else if (pos === 'RIGHT') {
-                xPos = monitor.x + monitor.width - aw - margin;
-                yPos = isFullWidth ? monitor.y : monitor.y + (monitor.height - ah) / 2;
+                xPos = workArea.x + workArea.width - aw - margin;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
             }
 
             this.dockUI.actor.set_position(xPos, yPos);
@@ -44,8 +64,7 @@ export default class DockManager {
                 this.dockUI.autoHideManager.isVisible = true;
                 this.dockUI.autoHideManager.isAnimating = false;
             }
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     destroy() {

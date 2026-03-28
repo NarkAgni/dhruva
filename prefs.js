@@ -1,3 +1,19 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
@@ -883,11 +899,11 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         syncClockVisibility();
 
  
-        const dangorGroup = new Adw.PreferencesGroup({
-            title: 'Dangor',
+        const dangerGroup = new Adw.PreferencesGroup({
+            title: 'Danger Zone',
             description: 'Master controls for your settings'
         });
-        page.add(dangorGroup);
+        page.add(dangerGroup);
 
         const resetAllRow = new Adw.ActionRow({
             title: 'Reset All Settings',
@@ -938,7 +954,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         });
 
         resetAllRow.add_suffix(resetAllBtn);
-        dangorGroup.add(resetAllRow);
+        dangerGroup.add(resetAllRow);
     }
 
     _buildAboutHero(page) {
@@ -1017,7 +1033,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
     _buildAboutDonations(page, window) {
         const group = new Adw.PreferencesGroup({ 
             title: 'Support Development', 
-            description: 'If you enjoy Rudra, consider buying me a coffee ☕ or sending crypto!' 
+            description: 'If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!' 
         }); 
         page.add(group);
         

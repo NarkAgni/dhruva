@@ -1,8 +1,25 @@
+/*
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+* * This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+* * This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+* * You should have received a copy of the GNU General Public License
+* along with this program. If not, see https://www.gnu.org/licenses/. 
+*/
+
+
 import St from 'gi://St';
 import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 
 const FLIP_DURATION = 300;
 const TOOLTIP_DELAY_MS = 1000;
@@ -158,7 +175,10 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         const maxZoom = hoverZoom ? settings.get_double('hover-zoom-factor') : 1.0;
         const actualMaxZoom = 1.0 + (maxZoom - 1.0) * 2.0;
         const iconSize = settings.get_int('icon-size');
+        
         const RADIUS = iconSize * 3.5;
+        const piOverRadius = Math.PI / RADIUS; 
+        const zoomRange = actualMaxZoom - 1.0;
         const zoomEnabled = actualMaxZoom > 1.0;
 
         const [dx, dy] = dockActor.get_transformed_position();
@@ -176,19 +196,36 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
         const slots = getFixedSlots(dockActor, isVertical, btns);
 
-        const scales = btns.map((b, i) => {
-            if (!zoomEnabled || b.style_class?.includes('dock-separator') || b.style_class?.includes('clock-module') || b.style_class?.includes('dock-drag-handle')) return 1.0;
-            const dist = Math.abs(localCursor - slots[i]);
-            if (dist >= RADIUS) return 1.0;
-            const t = dist / RADIUS;
-            return 1.0 + (actualMaxZoom - 1.0) * ((Math.cos(t * Math.PI) + 1) / 2);
-        });
+        if (!dockActor._scalesCache || dockActor._scalesCache.length !== n) {
+            dockActor._scalesCache = new Array(n).fill(1.0);
+            dockActor._scaledCentersCache = new Array(n).fill(0);
+        }
+        
+        const scales = dockActor._scalesCache;
+        const scaledCenters = dockActor._scaledCentersCache;
 
-        const scaledCenters = new Array(n);
+        for (let i = 0; i < n; i++) {
+            const b = btns[i];
+            
+            const isStaticEdge = b._isStatic || b.style_class?.includes('dock-separator') || b.style_class?.includes('clock-module') || b.style_class?.includes('dock-drag-handle');
+            
+            if (!zoomEnabled || isStaticEdge) {
+                scales[i] = 1.0;
+                continue;
+            }
+            
+            const dist = Math.abs(localCursor - slots[i]);
+            if (dist >= RADIUS) {
+                scales[i] = 1.0;
+            } else {
+                scales[i] = 1.0 + zoomRange * ((Math.cos(dist * piOverRadius) + 1) * 0.5);
+            }
+        }
+
         scaledCenters[0] = slots[0];
         for (let i = 1; i < n; i++) {
             const gap = slots[i] - slots[i - 1];
-            scaledCenters[i] = scaledCenters[i - 1] + gap * (scales[i] + scales[i - 1]) / 2;
+            scaledCenters[i] = scaledCenters[i - 1] + gap * (scales[i] + scales[i - 1]) * 0.5;
         }
 
         let mappedCursor = scaledCenters[0];
@@ -364,6 +401,12 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                         visible: false, reactive: false, track_hover: false,
                     });
                     Main.layoutManager.uiGroup.add_child(dockActor._magTooltip);
+                    dockActor.connect('destroy', () => {
+                        if (dockActor._magTooltip) {
+                            try { dockActor._magTooltip.destroy(); } catch(e) {}
+                            dockActor._magTooltip = null;
+                        }
+                    });
                 }
 
                 const tBg = dockActor._tooltipBg || 'rgba(20, 20, 22, 0.92)';
@@ -413,6 +456,11 @@ export function resetMagnification(dockActor) {
         dockActor._fixedSlots = null;
         _hideTooltip(dockActor);
 
+        if (dockActor._postClickTimerId) {
+            GLib.source_remove(dockActor._postClickTimerId);
+            dockActor._postClickTimerId = null;
+        }
+
         getDockButtons(dockActor).forEach(btn => {
             btn._flipOffset = 0;
             btn._flipStartTime = null;
@@ -436,8 +484,8 @@ export function resetMagnification(dockActor) {
         });
 
         if (dockActor.bgActor) {
-            dockActor.bgActor._baseW = 0;
-            dockActor.bgActor._baseH = 0;
+            dockActor.bgActor._baseW = null;
+            dockActor.bgActor._baseH = null;
             dockActor.bgActor.remove_all_transitions();
             dockActor.bgActor.ease({
                 translation_x: 0, translation_y: 0,
@@ -609,6 +657,10 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
 
             if (evType === Clutter.EventType.BUTTON_PRESS) {
+                const [px, py] = event.get_coords();
+                dockActor._globalPressX = px;
+                dockActor._globalPressY = py;
+
                 dockActor._lastIconClickTime = Date.now();
                 _clearTooltipDelay(dockActor);
                 dockActor._tooltipHoveredIndex = -1;
@@ -717,9 +769,9 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                     }
 
                     if (settings.get_boolean('lock-icons')) {
-                        const dx = Math.abs(ex - (btn._pressX || ex));
-                        const dy = Math.abs(ey - (btn._pressY || ey));
-                        if (dx > 10 || dy > 10) return Clutter.EVENT_STOP;
+                        const dx = Math.abs(ex - (dockActor._globalPressX || ex));
+                        const dy = Math.abs(ey - (dockActor._globalPressY || ey));
+                        if (dx > 15 || dy > 15) return Clutter.EVENT_STOP;
                     }
 
                     dockActor._lastIconClickTime = Date.now();
