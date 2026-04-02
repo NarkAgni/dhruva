@@ -38,6 +38,7 @@ export default class AutoHideManager {
         this._edgeRevealTimerId = null;
         this._hoverPollId = null;
         this._pointerUpdate = true;
+        this._nextUpdateAt = 0;
 
         this._trackedWin = null;
         this._trackedWinSignals = [];
@@ -135,22 +136,7 @@ export default class AutoHideManager {
         this._addSignal(this.settings, 'changed::hide-mode', () => {
             this._updateEdgeTrigger();
             this._cancelTimers();
-
-            const mode = this._getHideMode();
-
-            if (mode === 'always' || mode === 'always-hide' || mode === 'auto') {
-                if (this.dockUI && this.dockUI.actor && !this._isHovering()) {
-                    this.isHidden = true;
-                    if (this.dockUI && this.dockUI.actor) this.dockUI.actor._isHidden = true;
-                    this._animateHide();
-                }
-            } else if (mode === 'none' || mode === 'never') {
-                this._forceShow();
-            } else {
-                this._scheduleUpdate(0);
-            }
-
-            this._recalculateOverlap();
+            this._scheduleUpdate(0); 
         });
 
         this._addSignal(this.settings, 'changed::dock-position', () => this._updateEdgeTrigger());
@@ -315,10 +301,26 @@ export default class AutoHideManager {
         return win.is_on_all_workspaces() || win.get_workspace() === ws;
     }
 
+    _shouldStayVisibleForTransientUI() {
+        if (!this.dockUI || this.dockUI._isDestroyed) return false;
+
+        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+            return true;
+        }
+
+        try {
+            if (typeof this.dockUI.shouldIgnoreAutoHide === 'function' && this.dockUI.shouldIgnoreAutoHide()) {
+                return true;
+            }
+        } catch (_e) { }
+
+        return false;
+    }
+
     _recalculateOverlap() {
         if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
 
-        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+        if (this._shouldStayVisibleForTransientUI()) {
             this._pointerUpdate = false;
             this._updateHidden(false, false, false);
             return;
@@ -373,7 +375,7 @@ export default class AutoHideManager {
         if (this._destroyed) return;
         this._updateEdgeTrigger();
 
-        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+        if (this._shouldStayVisibleForTransientUI()) {
             this._show(true);
             return;
         }
@@ -404,10 +406,18 @@ export default class AutoHideManager {
 
     _scheduleUpdate(delay = 50) {
         if (this._destroyed) return;
+        const now = Date.now();
+        const targetAt = now + Math.max(0, delay);
+
+        if (this._updateTimerId && this._nextUpdateAt && this._nextUpdateAt <= targetAt) {
+            return;
+        }
         if (this._updateTimerId) { GLib.source_remove(this._updateTimerId); this._updateTimerId = null; }
+        this._nextUpdateAt = targetAt;
 
         this._updateTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
             this._updateTimerId = null;
+            this._nextUpdateAt = 0;
             this._recalculateOverlap();
             return GLib.SOURCE_REMOVE;
         });
@@ -421,14 +431,23 @@ export default class AutoHideManager {
 
     _startHoverPolling() {
         if (this._hoverPollId) return;
-        this._hoverPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+        this._hoverPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 260, () => {
             if (this._destroyed || this.isHidden) {
                 this._hoverPollId = null;
                 return GLib.SOURCE_REMOVE;
             }
-            if (!this._isHovering()) {
-                this._recalculateOverlap();
+
+            if (this._shouldStayVisibleForTransientUI() || this._isHovering()) {
+                return GLib.SOURCE_CONTINUE;
             }
+
+            const mode = this._getHideMode();
+            if (mode === 'auto' || mode === 'always' || mode === 'always-hide') {
+                this._hide();
+            } else {
+                this._scheduleUpdate(0);
+            }
+
             return GLib.SOURCE_CONTINUE;
         });
     }
@@ -495,7 +514,7 @@ export default class AutoHideManager {
         const mode = this._getHideMode();
         if (mode === 'none' || mode === 'never') return;
 
-        if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+        if (this._shouldStayVisibleForTransientUI()) {
             return;
         }
 
@@ -513,7 +532,7 @@ export default class AutoHideManager {
             if (currentMode === 'none' || currentMode === 'never') return GLib.SOURCE_REMOVE;
 
             if (!this._isHovering()) {
-                if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
+                if (this._shouldStayVisibleForTransientUI()) {
                     return GLib.SOURCE_REMOVE;
                 }
 
@@ -556,45 +575,58 @@ export default class AutoHideManager {
             this.dockUI._updateLayout();
         }
 
-        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-            if (this._destroyed || !this.dockUI || !this.dockUI.actor) return GLib.SOURCE_REMOVE;
+        const pos = this._getDockPosition();
+        const offset = (this.settings.get_int('dock-margin') || 0) + 80;
+        const dw = this.dockUI.actor._cachedW || this.dockUI.actor.width || 100;
+        const dh = this.dockUI.actor._cachedH || this.dockUI.actor.height || 48;
 
-            const modeNow = this._getHideMode();
-            if (modeNow === 'none' || modeNow === 'never') {
-                this.dockUI.actor.opacity = 255;
-                this.dockUI.actor.translation_x = 0;
-                this.dockUI.actor.translation_y = 0;
-                return GLib.SOURCE_REMOVE;
-            }
+        let startTx = 0, startTy = 0;
+        switch (pos) {
+            case 'TOP': startTy = -(dh + offset); break;
+            case 'BOTTOM': startTy = dh + offset; break;
+            case 'LEFT': startTx = -(dw + offset); break;
+            case 'RIGHT': startTx = dw + offset; break;
+        }
 
-            this._isAnimating = true;
+        if (Math.abs(this.dockUI.actor.translation_x) > 5000 || Math.abs(this.dockUI.actor.translation_y) > 5000) {
+            this.dockUI.actor.translation_x = startTx;
+            this.dockUI.actor.translation_y = startTy;
+        }
 
-            this.dockUI.actor.ease({
-                translation_x: 0,
-                translation_y: 0,
-                opacity: 255,
-                duration: 180,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => {
-                    this._isAnimating = false;
-                    if (this.isHidden) {
-                        const modeAtComplete = this._getHideMode();
-                        if (modeAtComplete === 'none' || modeAtComplete === 'never') {
-                            this._forceShow();
-                            return;
-                        }
-                        this.dockUI.actor.opacity = 0;
-                        this.dockUI.actor.translation_x = tx;
-                        this.dockUI.actor.translation_y = ty;
+        const modeNow = this._getHideMode();
+        if (modeNow === 'none' || modeNow === 'never') {
+            this.dockUI.actor.opacity = 255;
+            this.dockUI.actor.translation_x = 0;
+            this.dockUI.actor.translation_y = 0;
+            return;
+        }
 
-                        this.dockUI.actor.hide();
-                        this.dockUI.actor.visible = false;
+        this._isAnimating = true;
 
-                        this._updateEdgeTrigger();
+        if (this.dockUI.actor.opacity === 0) {
+            this.dockUI.actor.opacity = 1;
+        }
+
+        this.dockUI.actor.ease({
+            translation_x: 0,
+            translation_y: 0,
+            opacity: 255,
+            duration: 180,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                this._isAnimating = false;
+                if (this.isHidden) {
+                    const modeAtComplete = this._getHideMode();
+                    if (modeAtComplete === 'none' || modeAtComplete === 'never') {
+                        this._forceShow();
+                        return;
                     }
+                    this.dockUI.actor.opacity = 0;
+                    this.dockUI.actor.translation_x = 9999;
+                    this.dockUI.actor.translation_y = 9999;
+                    this._updateEdgeTrigger();
                 }
-            });
-            return GLib.SOURCE_REMOVE;
+            }
         });
     }
 
@@ -645,8 +677,10 @@ export default class AutoHideManager {
                         return;
                     }
                     this.dockUI.actor.opacity = 0;
-                    this.dockUI.actor.translation_x = tx;
-                    this.dockUI.actor.translation_y = ty;
+                    
+                    this.dockUI.actor.translation_x = 9999;
+                    this.dockUI.actor.translation_y = 9999;
+                    
                     this._updateEdgeTrigger();
                 }
             },
@@ -657,6 +691,7 @@ export default class AutoHideManager {
         this._destroyed = true;
         this._cancelTimers();
         if (this._updateTimerId) { GLib.source_remove(this._updateTimerId); this._updateTimerId = null; }
+        this._nextUpdateAt = 0;
         if (this._hoverPollId) { GLib.source_remove(this._hoverPollId); this._hoverPollId = null; }
 
         for (const s of this.signals) {

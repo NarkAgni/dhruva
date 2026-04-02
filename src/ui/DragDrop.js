@@ -40,7 +40,7 @@ function _setDragCursor() {
         } else if (typeof Meta.Cursor !== 'undefined' && Meta.Cursor.DND_IN_DRAG !== undefined) {
             global.display.set_cursor(Meta.Cursor.DND_IN_DRAG);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 function _setDefaultCursor() {
@@ -50,7 +50,7 @@ function _setDefaultCursor() {
         } else if (typeof Meta.Cursor !== 'undefined' && Meta.Cursor.DEFAULT !== undefined) {
             global.display.set_cursor(Meta.Cursor.DEFAULT);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 export function setupDragAndDrop(btn, app, dockUI) {
@@ -59,15 +59,15 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
     if (!dockUI.boxActor._delegate) {
         dockUI.boxActor._delegate = { acceptDrop: () => true, handleDragDrop: () => true };
-        dockUI.actor._delegate    = { acceptDrop: () => true, handleDragDrop: () => true };
+        dockUI.actor._delegate = { acceptDrop: () => true, handleDragDrop: () => true };
     }
     if (dockUI.bgActor && !dockUI.bgActor._delegate) {
-        dockUI.bgActor._delegate  = { acceptDrop: () => true, handleDragDrop: () => true };
+        dockUI.bgActor._delegate = { acceptDrop: () => true, handleDragDrop: () => true };
     }
 
-    btn.connect('button-press-event', () => { 
-        btn._wasDragged = false; 
-        return Clutter.EVENT_PROPAGATE; 
+    btn.connect('button-press-event', () => {
+        btn._wasDragged = false;
+        return Clutter.EVENT_PROPAGATE;
     });
 
     btn._delegate = {
@@ -88,16 +88,16 @@ export function setupDragAndDrop(btn, app, dockUI) {
             if (!source?.button || !source?.app) return DND.DragMotionResult.CONTINUE;
 
             const draggedBtn = source.button;
-            const allBtns    = getDockButtons(mainActor);
+            const allBtns = getDockButtons(mainActor);
             const draggedIndex = allBtns.indexOf(draggedBtn);
             if (draggedIndex === -1) return DND.DragMotionResult.CONTINUE;
 
             const now = Date.now();
             if (now - lastSwapTime < 100) return DND.DragMotionResult.MOVE_DROP;
 
-            const isVertical  = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-            const [px, py]    = global.get_pointer();
-            const [dx, dy]    = mainActor.get_transformed_position();
+            const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+            const [px, py] = global.get_pointer();
+            const [dx, dy] = mainActor.get_transformed_position();
             const localCursor = isVertical ? py - dy : px - dx;
 
             const slots = getFixedSlots(mainActor, isVertical, allBtns);
@@ -106,11 +106,11 @@ export function setupDragAndDrop(btn, app, dockUI) {
             let closestIndex = draggedIndex, minDiff = Infinity;
             for (let i = 0; i < allBtns.length; i++) {
                 if (!allBtns[i]._delegate?.app || allBtns[i]._delegate.app.is_module) continue;
-                
+
                 const diff = Math.abs(slots[i] - localCursor);
-                if (diff < minDiff) { 
-                    minDiff = diff; 
-                    closestIndex = i; 
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = i;
                 }
             }
 
@@ -138,7 +138,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
             displaced.forEach(({ b: dispBtn, offset }) => {
                 dispBtn.remove_all_transitions();
-                dispBtn._flipOffset    = (dispBtn._flipOffset || 0) + offset;
+                dispBtn._flipOffset = (dispBtn._flipOffset || 0) + offset;
                 dispBtn._flipStartTime = now;
             });
 
@@ -149,19 +149,19 @@ export function setupDragAndDrop(btn, app, dockUI) {
     const draggable = DND.makeDraggable(btn, { restoreOnSuccess: false });
 
     draggable.connect('drag-cancelled', () => {
-        if (draggable._dragActor) draggable._dragActor.opacity = 0; 
+        if (draggable._dragActor) draggable._dragActor.opacity = 0;
         const [px, py] = global.get_pointer();
         const [bx, by] = dockUI.boxActor.get_transformed_position();
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
-        
+
         if (!isOutside && btn && typeof btn.is_destroyed === 'function' && !btn.is_destroyed()) {
             btn.opacity = 255;
         }
     });
 
     draggable.connect('drag-begin', () => {
-        btn._wasDragged = true; 
+        btn._wasDragged = true;
         btn.opacity = 0;
         const mainActor = dockUI.actor;
         mainActor._isDragging = true;
@@ -173,10 +173,10 @@ export function setupDragAndDrop(btn, app, dockUI) {
         mainActor._fixedSlots = null;
         getFixedSlots(mainActor, isVertical, allBtns);
 
-        allBtns.forEach(b => { 
-            b.remove_all_transitions(); 
-            b._flipOffset = 0; 
-            b._flipStartTime = null; 
+        allBtns.forEach(b => {
+            b.remove_all_transitions();
+            b._flipOffset = 0;
+            b._flipStartTime = null;
         });
         startDragLoop(mainActor, isVertical, dockUI.settings);
     });
@@ -185,7 +185,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const mainActor = dockUI.actor;
         mainActor._isDragging = false;
         mainActor._lastIconClickTime = Date.now();
-        
+
         _setDefaultCursor();
         stopDragLoop(mainActor);
 
@@ -198,43 +198,42 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [bx, by] = dockUI.boxActor.get_transformed_position();
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
-        
+
         let appId = typeof app.get_id === 'function' ? app.get_id() : null;
 
         if (isOutside && appId) {
-            let updatedApps = dockUI.appManager.pinnedApps.filter(id => id !== appId);
-            dockUI.appManager.savePinnedApps(updatedApps); 
-            if (typeof dockUI.appManager.loadPinnedAppsSync === 'function') dockUI.appManager.loadPinnedAppsSync(); 
-            else dockUI.appManager.pinnedApps = updatedApps;
-            
+            try { dockUI.appManager.removeApp(app); } catch (_e) { }
+
             btn.opacity = 0;
             if (app.get_state() !== Shell.AppState.RUNNING) {
                 playTrashEffect(app, px, py, dockUI.settings.get_int('icon-size'));
             }
-            
-            mainActor._lastIconClickTime = 0; 
-            dockUI._renderDock(); 
-            resetMagnification(mainActor); 
+
+            mainActor._lastIconClickTime = 0;
+            dockUI._renderDock();
+            resetMagnification(mainActor);
             mainActor._fixedSlots = null;
-            return; 
+            return;
         }
-        
+
         btn.opacity = 255;
         btn._wasDragged = false;
         const currentBtns = getDockButtons(mainActor);
 
-        const newFavorites  = [];
+        const favManager = dockUI.appManager.favManager;
+        const currentFavIds = favManager.getFavoriteMap ? Object.keys(favManager.getFavoriteMap()) : favManager.getFavorites().map(a => a.get_id());
+        const newOrder = [];
         currentBtns.forEach(b => {
             if (b._delegate?.app && !b._delegate.app.is_module && typeof b._delegate.app.get_id === 'function') {
                 const id = b._delegate.app.get_id();
-                if (dockUI.appManager.pinnedApps.includes(id) || b === btn) {
-                    if (!newFavorites.includes(id)) newFavorites.push(id);
-                }
+                if (currentFavIds.includes(id) && !newOrder.includes(id)) newOrder.push(id);
             }
         });
-        dockUI.appManager.pinnedApps = newFavorites; 
-        dockUI.appManager.savePinnedApps(newFavorites);
-        if (typeof dockUI.appManager.loadPinnedAppsSync === 'function') dockUI.appManager.loadPinnedAppsSync();
+        if (typeof favManager.moveFavoriteToPos === 'function') {
+            newOrder.forEach((id, pos) => {
+                try { favManager.moveFavoriteToPos(id, pos); } catch (_e) { }
+            });
+        }
 
         const [dx, dy] = mainActor.get_transformed_position();
         const [dw, dh] = mainActor.get_transformed_size();
@@ -242,7 +241,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
         if (!isInsideMain) {
             currentBtns.forEach(b => {
-                b._flipOffset = 0; 
+                b._flipOffset = 0;
                 b._flipStartTime = null;
             });
             resetMagnification(mainActor);

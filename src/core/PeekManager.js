@@ -36,6 +36,15 @@ export default class PeekManager {
         });
 
         overlayActor.add_child(this.bigPreviewContainer);
+
+        if (this.dockUI && this.dockUI.actor) {
+            const dockParent = this.dockUI.actor.get_parent();
+            if (dockParent && dockParent === overlayActor) {
+                overlayActor.set_child_below_sibling(this.bigPreviewContainer, this.dockUI.actor);
+            } else {
+                overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
+            }
+        }
     }
 
     startPeek(targetWin) {

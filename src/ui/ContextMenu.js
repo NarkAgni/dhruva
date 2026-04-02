@@ -215,7 +215,11 @@ export default class AppContextMenu {
                 if (win.minimized) maxIcon = 'view-fullscreen-symbolic';
 
                 const maxBtn = this._createWindowControl(maxIcon, '40, 201, 64', () => {
+                    this._previousFocus = null; 
                     this.hide();
+                    
+                    win.activate(global.get_current_time());
+                    
                     if (win.minimized) {
                         animateRestore(win, this.buttonActor, this.dockUI.dockPosition);
                         Main.activateWindow(win);
@@ -280,10 +284,15 @@ export default class AppContextMenu {
                 });
 
                 thumbBtn.connect('clicked', () => {
+                    this._previousFocus = null; 
+                    
                     if (win.minimized) { 
                         animateRestore(win, this.buttonActor, this.dockUI.dockPosition);
                     }
+                    
+                    win.activate(global.get_current_time());
                     Main.activateWindow(win);
+                    
                     this.hide();
                 });
 
@@ -381,8 +390,12 @@ export default class AppContextMenu {
         this.dockUI._ignoringApps.add(appId);
         if (!this.dockUI._ignoreAppTimers) this.dockUI._ignoreAppTimers = [];
 
-        const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+        let timerId = 0;
+        timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
             if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
+            if (this.dockUI && this.dockUI._ignoreAppTimers) {
+                this.dockUI._ignoreAppTimers = this.dockUI._ignoreAppTimers.filter(id => id !== timerId);
+            }
             return GLib.SOURCE_REMOVE;
         });
         this.dockUI._ignoreAppTimers.push(timerId);

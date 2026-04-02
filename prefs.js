@@ -337,11 +337,14 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         monitorRow.connect('notify::selected', () => {
             const idx = monitorRow.get_selected();
-            settings.set_int('preferred-monitor', idx === 0 ? -1 : idx);
+            settings.set_string('preferred-monitor', idx === 0 ? -1 : idx);
         });
 
         this._settingsSignals.push(settings.connect('changed::preferred-monitor', syncMonitor));
         posGroup.add(monitorRow);
+
+        this._addSwitchRow(posGroup, settings, 'show-on-all-monitors', 'Show on All Monitors', 'Display the dock on every connected screen', 'video-display-symbolic', null);
+        this._addSwitchRow(posGroup, settings, 'isolate-monitors', 'Isolate Monitors', 'Only show apps running on the current monitor', 'video-display-symbolic', null);
 
         const fullWidthRow = this._addSwitchRow(posGroup, settings, 'full-width', 'Full Screen Width', 'Extend dock edge to edge', 'view-fullscreen-symbolic', null);
 
@@ -406,8 +409,10 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         const syncLayoutVisibility = () => {
             const isFullWidth = settings.get_boolean('full-width');
             const isFloatingEnabled = settings.get_boolean('enable-floating-dock');
+            const showOnAll = settings.get_boolean('show-on-all-monitors');
 
             alignmentRow.set_visible(isFullWidth);
+            monitorRow.set_visible(!showOnAll);
             
             sidePaddingRow.set_visible(!isFullWidth && !isFloatingEnabled);
             if (fullWidthRow) fullWidthRow.set_visible(!isFloatingEnabled);
@@ -418,6 +423,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         this._settingsSignals.push(settings.connect('changed::full-width', syncLayoutVisibility));
         this._settingsSignals.push(settings.connect('changed::enable-floating-dock', syncLayoutVisibility));
+        this._settingsSignals.push(settings.connect('changed::show-on-all-monitors', syncLayoutVisibility));
         syncLayoutVisibility();
     }
 
@@ -494,6 +500,13 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._settingsSignals.push(settings.connect('changed::full-width', syncRadiusVisibility));
         syncRadiusVisibility();
 
+        const badgesGroup = new Adw.PreferencesGroup({
+            title: 'App Notifications',
+            description: 'Unread message counters'
+        });
+        page.add(badgesGroup);
+        this._addSwitchRow(badgesGroup, settings, 'show-notification-badges', 'Show Notification Badges', 'Display unread message counts on app icons', 'user-available-symbolic');
+
         const indGroup = new Adw.PreferencesGroup({
             title: 'Indicators',
             description: 'Styles for currently active applications'
@@ -525,7 +538,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._addCustomSpinRow(indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', { lower: 2, upper: 12, step_increment: 1 }, createResetBtn);
         this._addCustomSpinRow(indExpander, settings, 'indicator-spacing', 'Indicator Spacing', 'Gap between icon and indicator', 'format-indent-more-symbolic', { lower: 0, upper: 20, step_increment: 1 }, createResetBtn);
         this._addSwitchRow(indExpander, settings, 'indicator-glow', 'Indicator Glow', 'Add a shining shadow effect', 'display-brightness-symbolic', null);
-
+        
         const syncThemeVisibility = () => {
             const theme = settings.get_string('dock-theme');
             const isDefault = theme === 'default';
@@ -638,12 +651,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._settingsSignals.push(settings.connect('changed::hover-zoom', syncZoomFactor));
         syncZoomFactor();
 
-        this._addSwitchRow(hoverGroup, settings, 'show-tooltips', 'Show Tooltips', 'Display app names on hover', 'dialog-information-symbolic', null);
-        const ttMarginRow = this._addCustomSpinRow(hoverGroup, settings, 'tooltip-margin', 'Tooltip Distance', 'Gap between dock and text', 'format-indent-less-symbolic', { lower: 0, upper: 50, step_increment: 1 }, createResetBtn);
-
-        const syncTooltipMargin = () => ttMarginRow.set_visible(settings.get_boolean('show-tooltips'));
-        this._settingsSignals.push(settings.connect('changed::show-tooltips', syncTooltipMargin));
-        syncTooltipMargin();
+        this._addSwitchRow(hoverGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
 
         this._addCustomSpinRow(hoverGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', { lower: 100, upper: 500, step_increment: 10 }, createResetBtn);
         this._addCustomSpinRow(hoverGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', { lower: 40, upper: 95, step_increment: 5 }, createResetBtn);
@@ -693,8 +701,15 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         page.add(utilGroup);
 
         this._addSwitchRow(utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
+        this._addComboRow(utilGroup, settings, 'quick-launch-modifier', 'Quick Launch Modifier', 'Use this modifier with number keys (1-9) to launch dock items', 'input-keyboard-symbolic', [
+            { name: 'Ctrl + 1-9', value: 'ctrl' },
+            { name: 'Alt + 1-9', value: 'alt' }
+        ], null);
 
         this._addSwitchRow(utilGroup, settings, 'isolate-workspaces', 'Isolate Workspaces', 'Only show apps running on the current workspace', 'focus-windows-symbolic', null);
+        
+        
+
         this._addSwitchRow(utilGroup, settings, 'scroll-action-dock', 'Dock Scroll Action', 'Scroll on empty dock area to switch workspaces', 'input-mouse-symbolic', null);
         this._addSwitchRow(utilGroup, settings, 'scroll-action-app', 'App Scroll Action', 'Scroll on app icons to cycle through its windows', 'view-restore-symbolic', null);
     }
@@ -738,6 +753,28 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._addSwitchRow(defaultFolderGroup, settings, 'show-videos', 'Videos', 'Shortcut to Videos', 'folder-videos-symbolic', null);
         this._addSwitchRow(defaultFolderGroup, settings, 'show-music', 'Music', 'Shortcut to Music', 'folder-music-symbolic', null);
 
+        const mountRow = new Adw.ActionRow({
+            title: 'Show USB &amp; Mounted Drives',
+            subtitle: 'Automatically show connected drives and partitions on the dock',
+            icon_name: 'drive-harddisk-symbolic'
+        });
+        
+        const mountToggle = new Gtk.Switch({
+            active: settings.get_boolean('show-mounts'),
+            valign: Gtk.Align.CENTER,
+        });
+        
+        settings.bind(
+            'show-mounts', 
+            mountToggle, 
+            'active', 
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        
+        mountRow.add_suffix(mountToggle);
+        
+        defaultFolderGroup.add(mountRow);
+        
         const customFoldersGroup = new Adw.PreferencesGroup({
             title: 'Custom Quick Folders',
             description: 'Add your own directory shortcuts to the dock'

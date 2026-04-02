@@ -19,10 +19,12 @@ import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-
+import PeekManager from '../core/PeekManager.js';
+import WorkspaceFilter from '../core/WorkspaceFilter.js';
+import { animateRestore } from './effects/WindowEffects.js';
 
 const FLIP_DURATION = 300;
-const TOOLTIP_DELAY_MS = 1000;
+const TOOLTIP_DELAY_MS = 600;
 
 function _setDefaultCursor() {
     try {
@@ -37,30 +39,66 @@ function _setDefaultCursor() {
 export function getDockButtons(dockActor) {
     try {
         const box = dockActor.boxActor || dockActor;
-        return box.get_children().filter(c =>
-            c.style_class?.includes('dock-app-button') ||
-            c.style_class?.includes('dock-separator') ||
-            c.style_class?.includes('dock-drag-handle')
-        );
+        return box.get_children().filter(c => {
+            if (c._isExternal) return true;
+            const sClass = typeof c.get_style_class_name === 'function' ? c.get_style_class_name() : (c.style_class || '');
+            return sClass.includes('dock-app-button') || sClass.includes('dock-separator') || sClass.includes('dock-drag-handle') || sClass.includes('clock-module');
+        });
     } catch (e) { return []; }
 }
 
 export function getFixedSlots(dockActor, isVertical, btns) {
-    if (dockActor._fixedSlots && dockActor._fixedSlots.length === btns.length)
-        return dockActor._fixedSlots;
-
+    const cached = dockActor ? dockActor._fixedSlots : null;
     const boxX = dockActor.boxActor ? dockActor.boxActor.x : 0;
     const boxY = dockActor.boxActor ? dockActor.boxActor.y : 0;
 
-    let rawSlots = btns.map(b => {
-        let localX = b.x + boxX;
-        let localY = b.y + boxY;
+    if (cached && cached.count === btns.length) {
+        let sameButtons = true;
+        for (let i = 0; i < btns.length; i++) {
+            if (cached.buttons[i] !== btns[i]) {
+                sameButtons = false;
+                break;
+            }
+
+            const b = btns[i];
+            const livePos = isVertical ? (b.y + boxY) + b.height / 2 : (b.x + boxX) + b.width / 2;
+            if (Math.abs(livePos - cached.centersByBtn[i]) > 2) {
+                sameButtons = false;
+                break;
+            }
+        }
+        if (sameButtons)
+            return cached;
+    }
+
+    const centersByBtn = btns.map(b => {
+        const localX = b.x + boxX;
+        const localY = b.y + boxY;
         return isVertical ? localY + b.height / 2 : localX + b.width / 2;
     });
 
-    rawSlots.sort((a, b) => a - b);
-    dockActor._fixedSlots = rawSlots;
-    return rawSlots;
+    const ordered = centersByBtn
+        .map((center, btnIndex) => ({ center, btnIndex }))
+        .sort((a, b) => (a.center - b.center) || (a.btnIndex - b.btnIndex));
+
+    const orderToBtn = ordered.map(item => item.btnIndex);
+    const orderedSlots = ordered.map(item => item.center);
+    const btnToOrder = new Array(btns.length);
+
+    for (let orderIndex = 0; orderIndex < orderToBtn.length; orderIndex++)
+        btnToOrder[orderToBtn[orderIndex]] = orderIndex;
+
+    const model = {
+        count: btns.length,
+        buttons: btns.slice(),
+        centersByBtn,
+        orderedSlots,
+        orderToBtn,
+        btnToOrder,
+    };
+
+    dockActor._fixedSlots = model;
+    return model;
 }
 
 export function stopDragLoop(dockActor) {
@@ -96,10 +134,7 @@ export function startDragLoop(dockActor, isVertical, settings) {
                             duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                         });
                     });
-
-                    if (dockActor.bgActor) {
-                        dockActor.bgActor.set_pivot_point(0.5, 0.5);
-                    }
+                    if (dockActor.bgActor) dockActor.bgActor.set_pivot_point(0.5, 0.5);
                     _dragWasOutside = true;
                 }
                 return GLib.SOURCE_CONTINUE;
@@ -131,6 +166,8 @@ function _hideTooltip(dockActor) {
     _clearTooltipDelay(dockActor);
     if (!dockActor) return;
     dockActor._tooltipHoveredIndex = -1;
+    dockActor._tooltipBridgeActive = false;
+    if (dockActor._magPeekManager) dockActor._magPeekManager.stopPeek();
     if (dockActor._magTooltip && dockActor._magTooltip.visible) {
         try {
             dockActor._magTooltip.remove_all_transitions();
@@ -142,16 +179,75 @@ function _hideTooltip(dockActor) {
     }
 }
 
+function _isInsideTooltip(dockActor, px, py, pad = 20) {
+    if (!dockActor || !dockActor._magTooltip || !dockActor._magTooltip.visible) return false;
+    const [tx, ty] = dockActor._magTooltip.get_transformed_position();
+    const [tw, th] = dockActor._magTooltip.get_transformed_size();
+    if (tw <= 0 || th <= 0) return false;
+    return (px >= tx - pad && px <= tx + tw + pad && py >= ty - pad && py <= ty + th + pad);
+}
+
+function _isPointerInDockTooltipBridge(dockActor, px, py, settings) {
+    if (!dockActor || !dockActor._magTooltip || !dockActor._magTooltip.visible) return false;
+
+    let lateralPad = 18;
+    let bridgePad = 12;
+    try {
+        const iconSize = settings.get_int('icon-size');
+        lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
+        bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
+    } catch (_e) { }
+
+    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+    const [dax, day] = dockActor.get_transformed_position();
+    const [daw, dah] = dockActor.get_transformed_size();
+    const [tx, ty] = dockActor._magTooltip.get_transformed_position();
+    const [tw, th] = dockActor._magTooltip.get_transformed_size();
+    if (daw <= 0 || dah <= 0 || tw <= 0 || th <= 0) return false;
+
+    const dockLeft = dax;
+    const dockRight = dax + daw;
+    const dockTop = day;
+    const dockBottom = day + dah;
+
+    const tipLeft = tx;
+    const tipRight = tx + tw;
+    const tipTop = ty;
+    const tipBottom = ty + th;
+
+    let left = 0, right = 0, top = 0, bottom = 0;
+
+    if (dockPos === 'BOTTOM') {
+        left = tipLeft - lateralPad;
+        right = tipRight + lateralPad;
+        top = tipBottom - bridgePad;
+        bottom = dockTop - 2;
+    } else if (dockPos === 'TOP') {
+        left = tipLeft - lateralPad;
+        right = tipRight + lateralPad;
+        top = dockBottom + 2;
+        bottom = tipTop + bridgePad;
+    } else if (dockPos === 'LEFT') {
+        left = dockRight - bridgePad;
+        right = tipLeft + bridgePad;
+        top = tipTop - lateralPad;
+        bottom = tipBottom + lateralPad;
+    } else {
+        left = tipRight - bridgePad;
+        right = dockLeft + bridgePad;
+        top = tipTop - lateralPad;
+        bottom = tipBottom + lateralPad;
+    }
+
+    return (px >= left && px <= right && py >= top && py <= bottom);
+}
+
 export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now = null) {
     try {
         if (!dockActor || dockActor._isDestroyed || dockActor._isHidden || !dockActor.visible) {
             _hideTooltip(dockActor);
             return;
         }
-
-        const tx = Math.abs(dockActor.translation_x || 0);
-        const ty = Math.abs(dockActor.translation_y || 0);
-        if (tx > 2 || ty > 2) return;
 
         const btns = getDockButtons(dockActor);
         const n = btns.length;
@@ -162,12 +258,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         const isMenu = isContextMenuOpen();
 
         if (isAppGrid || isMenu) {
-            _clearTooltipDelay(dockActor);
-            if (dockActor._magTooltip) {
-                dockActor._magTooltip.remove_all_transitions();
-                dockActor._magTooltip.opacity = 0;
-                dockActor._magTooltip.hide();
-            }
+            _hideTooltip(dockActor);
             if (isAppGrid) return;
         }
 
@@ -175,9 +266,9 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         const maxZoom = hoverZoom ? settings.get_double('hover-zoom-factor') : 1.0;
         const actualMaxZoom = 1.0 + (maxZoom - 1.0) * 2.0;
         const iconSize = settings.get_int('icon-size');
-        
+
         const RADIUS = iconSize * 3.5;
-        const piOverRadius = Math.PI / RADIUS; 
+        const piOverRadius = Math.PI / RADIUS;
         const zoomRange = actualMaxZoom - 1.0;
         const zoomEnabled = actualMaxZoom > 1.0;
 
@@ -186,139 +277,161 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         const localCursor = (isVertical ? cy - dy : cx - dx) / scaleFactor;
 
         const cached = dockActor._fixedSlots;
-        if (cached && cached.length === n) {
-            const b0 = btns[0];
+        if (cached && cached.count === n) {
             const boxX = dockActor.boxActor ? dockActor.boxActor.x : 0;
             const boxY = dockActor.boxActor ? dockActor.boxActor.y : 0;
-            const livePos = isVertical ? (b0.y + boxY) + b0.height / 2 : (b0.x + boxX) + b0.width / 2;
-            if (Math.abs(livePos - cached[0]) > 2) dockActor._fixedSlots = null;
+            let stale = false;
+
+            for (let i = 0; i < n; i++) {
+                if (cached.buttons[i] !== btns[i]) {
+                    stale = true;
+                    break;
+                }
+
+                const b = btns[i];
+                const livePos = isVertical ? (b.y + boxY) + b.height / 2 : (b.x + boxX) + b.width / 2;
+                if (Math.abs(livePos - cached.centersByBtn[i]) > 2) {
+                    stale = true;
+                    break;
+                }
+            }
+
+            if (stale)
+                dockActor._fixedSlots = null;
         }
 
-        const slots = getFixedSlots(dockActor, isVertical, btns);
+        const slotModel = getFixedSlots(dockActor, isVertical, btns);
+        if (!slotModel || !slotModel.orderedSlots || slotModel.orderedSlots.length !== n)
+            return;
+
+        const orderedSlots = slotModel.orderedSlots;
+        const centersByBtn = slotModel.centersByBtn;
+        const orderToBtn = slotModel.orderToBtn;
+        const btnToOrder = slotModel.btnToOrder;
 
         if (!dockActor._scalesCache || dockActor._scalesCache.length !== n) {
             dockActor._scalesCache = new Array(n).fill(1.0);
             dockActor._scaledCentersCache = new Array(n).fill(0);
         }
-        
+        if (!dockActor._orderedScalesCache || dockActor._orderedScalesCache.length !== n)
+            dockActor._orderedScalesCache = new Array(n).fill(1.0);
+        if (!dockActor._orderedCentersCache || dockActor._orderedCentersCache.length !== n)
+            dockActor._orderedCentersCache = new Array(n).fill(0);
+
         const scales = dockActor._scalesCache;
         const scaledCenters = dockActor._scaledCentersCache;
+        const orderedScales = dockActor._orderedScalesCache;
+        const orderedCenters = dockActor._orderedCentersCache;
 
-        for (let i = 0; i < n; i++) {
-            const b = btns[i];
-            
-            const isStaticEdge = b._isStatic || b.style_class?.includes('dock-separator') || b.style_class?.includes('clock-module') || b.style_class?.includes('dock-drag-handle');
-            
+        for (let orderIndex = 0; orderIndex < n; orderIndex++) {
+            const btnIndex = orderToBtn[orderIndex];
+            const b = btns[btnIndex];
+            const sClass = typeof b.get_style_class_name === 'function' ? b.get_style_class_name() : (b.style_class || '');
+            const isStaticEdge = b._isStatic || sClass.includes('dock-separator') || sClass.includes('clock-module') || sClass.includes('dock-drag-handle');
+
             if (!zoomEnabled || isStaticEdge) {
-                scales[i] = 1.0;
+                orderedScales[orderIndex] = 1.0;
                 continue;
             }
-            
-            const dist = Math.abs(localCursor - slots[i]);
-            if (dist >= RADIUS) {
-                scales[i] = 1.0;
-            } else {
-                scales[i] = 1.0 + zoomRange * ((Math.cos(dist * piOverRadius) + 1) * 0.5);
-            }
+            const dist = Math.abs(localCursor - orderedSlots[orderIndex]);
+            if (dist >= RADIUS) orderedScales[orderIndex] = 1.0;
+            else orderedScales[orderIndex] = 1.0 + zoomRange * ((Math.cos(dist * piOverRadius) + 1) * 0.5);
         }
 
-        scaledCenters[0] = slots[0];
-        for (let i = 1; i < n; i++) {
-            const gap = slots[i] - slots[i - 1];
-            scaledCenters[i] = scaledCenters[i - 1] + gap * (scales[i] + scales[i - 1]) * 0.5;
+        orderedCenters[0] = orderedSlots[0];
+        for (let orderIndex = 1; orderIndex < n; orderIndex++) {
+            const gap = orderedSlots[orderIndex] - orderedSlots[orderIndex - 1];
+            orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] + gap * (orderedScales[orderIndex] + orderedScales[orderIndex - 1]) * 0.5;
         }
 
-        let mappedCursor = scaledCenters[0];
+        for (let i = 0; i < n; i++) {
+            const orderIndex = btnToOrder[i];
+            scales[i] = orderedScales[orderIndex];
+            scaledCenters[i] = orderedCenters[orderIndex];
+        }
+
+        let mappedCursor = orderedCenters[0];
         if (n > 1) {
-            if (localCursor <= slots[0]) {
-                mappedCursor = scaledCenters[0] - (slots[0] - localCursor);
-            } else if (localCursor >= slots[n - 1]) {
-                mappedCursor = scaledCenters[n - 1] + (localCursor - slots[n - 1]);
-            } else {
-                for (let i = 0; i < n - 1; i++) {
-                    if (localCursor >= slots[i] && localCursor <= slots[i + 1]) {
-                        const gap = slots[i + 1] - slots[i];
-                        const t = gap > 0 ? (localCursor - slots[i]) / gap : 0;
-                        mappedCursor = scaledCenters[i] + t * (scaledCenters[i + 1] - scaledCenters[i]);
+            if (localCursor <= orderedSlots[0]) mappedCursor = orderedCenters[0] - (orderedSlots[0] - localCursor);
+            else if (localCursor >= orderedSlots[n - 1]) mappedCursor = orderedCenters[n - 1] + (localCursor - orderedSlots[n - 1]);
+            else {
+                for (let orderIndex = 0; orderIndex < n - 1; orderIndex++) {
+                    if (localCursor >= orderedSlots[orderIndex] && localCursor <= orderedSlots[orderIndex + 1]) {
+                        const gap = orderedSlots[orderIndex + 1] - orderedSlots[orderIndex];
+                        const t = gap > 0 ? (localCursor - orderedSlots[orderIndex]) / gap : 0;
+                        mappedCursor = orderedCenters[orderIndex] + t * (orderedCenters[orderIndex + 1] - orderedCenters[orderIndex]);
                         break;
                     }
                 }
             }
         }
 
-        if (Number.isNaN(mappedCursor)) mappedCursor = scaledCenters[0] || 0;
+        if (Number.isNaN(mappedCursor)) mappedCursor = orderedCenters[0] || 0;
         const zoomOffset = localCursor - mappedCursor;
         if (Number.isNaN(zoomOffset)) return;
 
         const axis = isVertical ? 'translation_y' : 'translation_x';
         const t = now || Date.now();
+        const SMOOTH_FACTOR = dockActor._isDragging ? 0.30 : 0.24;
         let leftExp = 0, rightExp = 0, topExp = 0, botExp = 0;
 
         if (zoomEnabled) {
-            let minVis = Infinity, maxVis = -Infinity;
-            let origMin = Infinity, origMax = -Infinity;
-
+            let minVis = Infinity, maxVis = -Infinity, origMin = Infinity, origMax = -Infinity;
             for (let i = 0; i < n; i++) {
                 if (btns[i].style_class?.includes('clock-module') || btns[i].style_class?.includes('dock-drag-handle')) continue;
-
                 const c = scaledCenters[i] + zoomOffset;
                 const half = (isVertical ? btns[i].height : btns[i].width) * scales[i] / 2;
                 if (c - half < minVis) minVis = c - half;
                 if (c + half > maxVis) maxVis = c + half;
 
-                const origC = slots[i];
+                const origC = centersByBtn[i];
                 const origHalf = (isVertical ? btns[i].height : btns[i].width) / 2;
                 if (origC - origHalf < origMin) origMin = origC - origHalf;
                 if (origC + origHalf > origMax) origMax = origC + origHalf;
             }
-
             if (minVis !== Infinity && origMin !== Infinity) {
-                if (isVertical) {
-                    topExp = Math.max(0, origMin - minVis);
-                    botExp = Math.max(0, maxVis - origMax);
-                } else {
-                    leftExp = Math.max(0, origMin - minVis);
-                    rightExp = Math.max(0, maxVis - origMax);
-                }
+                if (isVertical) { topExp = Math.max(0, origMin - minVis); botExp = Math.max(0, maxVis - origMax); } 
+                else { leftExp = Math.max(0, origMin - minVis); rightExp = Math.max(0, maxVis - origMax); }
             }
         }
 
         for (let i = 0; i < n; i++) {
             const b = btns[i];
-
-            let zoomTrans = zoomEnabled ? (scaledCenters[i] + zoomOffset) - slots[i] : 0;
-
+            let zoomTrans = zoomEnabled ? (scaledCenters[i] + zoomOffset) - centersByBtn[i] : 0;
             const isStaticEdge = b.style_class?.includes('clock-module') || b.style_class?.includes('dock-drag-handle');
             if (zoomEnabled && isStaticEdge) {
                 const isStartGroup = i < (n / 2);
-                zoomTrans = isVertical
-                    ? (isStartGroup ? -topExp : botExp)
-                    : (isStartGroup ? -leftExp : rightExp);
+                zoomTrans = isVertical ? (isStartGroup ? -topExp : botExp) : (isStartGroup ? -leftExp : rightExp);
             }
 
             let flipTrans = 0;
             if (b._flipOffset && b._flipStartTime) {
                 const elapsed = t - b._flipStartTime;
-                if (elapsed < FLIP_DURATION) {
-                    flipTrans = b._flipOffset * (1.0 - easeOutCirc(elapsed / FLIP_DURATION));
-                } else {
-                    b._flipOffset = 0;
-                    b._flipStartTime = null;
-                }
+                if (elapsed < FLIP_DURATION) flipTrans = b._flipOffset * (1.0 - easeOutCirc(elapsed / FLIP_DURATION));
+                else { b._flipOffset = 0; b._flipStartTime = null; }
             }
 
-            b.scale_x = scales[i];
-            b.scale_y = scales[i];
-            b.remove_transition(axis);
-            b[axis] = zoomTrans + flipTrans;
+            b.remove_transition('scale_x'); b.remove_transition('scale_y');
+            b.remove_transition('translation_x'); b.remove_transition('translation_y');
+
+            const targetScale = scales[i];
+            const targetTrans = zoomTrans + flipTrans;
+            const prevScale = Number.isFinite(b.scale_x) ? b.scale_x : 1.0;
+            const prevTrans = Number.isFinite(b[axis]) ? b[axis] : 0.0;
+
+            const smoothScale = prevScale + ((targetScale - prevScale) * SMOOTH_FACTOR);
+            const smoothTrans = prevTrans + ((targetTrans - prevTrans) * SMOOTH_FACTOR);
+
+            b.scale_x = smoothScale; b.scale_y = smoothScale;
+            b[axis] = smoothTrans;
 
             const appBox = typeof b.get_child === 'function' ? b.get_child() : null;
             if (appBox && typeof appBox.get_children === 'function') {
                 appBox.get_children().forEach(c => {
                     if (c._isIndicator) {
+                        c.remove_transition('scale_x'); c.remove_transition('scale_y');
                         c.set_pivot_point(0.5, 0.5);
-                        c.scale_x = 1.0 / scales[i];
-                        c.scale_y = 1.0 / scales[i];
+                        c.scale_x = 1.0 / smoothScale; c.scale_y = 1.0 / smoothScale;
                     }
                 });
             }
@@ -329,32 +442,41 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const baseH = dockActor.bgActor.height || dockActor.bgActor._baseH || dockActor.boxActor.height;
             const BUFFER = 16;
 
-            dockActor.bgActor.remove_transition('scale_x');
-            dockActor.bgActor.remove_transition('scale_y');
-            dockActor.bgActor.remove_transition('translation_x');
-            dockActor.bgActor.remove_transition('translation_y');
+            dockActor.bgActor.remove_transition('scale_x'); dockActor.bgActor.remove_transition('scale_y');
+            dockActor.bgActor.remove_transition('translation_x'); dockActor.bgActor.remove_transition('translation_y');
 
             if (isVertical) {
                 const newH = baseH + topExp + botExp + BUFFER;
-                dockActor.bgActor.scale_y = baseH > 0 ? newH / baseH : 1.0;
-                dockActor.bgActor.translation_y = (botExp - topExp) / 2;
+                const targetScaleY = baseH > 0 ? newH / baseH : 1.0;
+                const targetTransY = (botExp - topExp) / 2;
+                const prevScaleY = Number.isFinite(dockActor.bgActor.scale_y) ? dockActor.bgActor.scale_y : 1.0;
+                const prevTransY = Number.isFinite(dockActor.bgActor.translation_y) ? dockActor.bgActor.translation_y : 0.0;
+
+                dockActor.bgActor.scale_y = prevScaleY + ((targetScaleY - prevScaleY) * SMOOTH_FACTOR);
+                dockActor.bgActor.translation_y = prevTransY + ((targetTransY - prevTransY) * SMOOTH_FACTOR);
             } else {
                 const newW = baseW + leftExp + rightExp + BUFFER;
-                dockActor.bgActor.scale_x = baseW > 0 ? newW / baseW : 1.0;
-                dockActor.bgActor.translation_x = (rightExp - leftExp) / 2;
+                const targetScaleX = baseW > 0 ? newW / baseW : 1.0;
+                const targetTransX = (rightExp - leftExp) / 2;
+                const prevScaleX = Number.isFinite(dockActor.bgActor.scale_x) ? dockActor.bgActor.scale_x : 1.0;
+                const prevTransX = Number.isFinite(dockActor.bgActor.translation_x) ? dockActor.bgActor.translation_x : 0.0;
+
+                dockActor.bgActor.scale_x = prevScaleX + ((targetScaleX - prevScaleX) * SMOOTH_FACTOR);
+                dockActor.bgActor.translation_x = prevTransX + ((targetTransX - prevTransX) * SMOOTH_FACTOR);
             }
+            if (dockActor.floatManager && typeof dockActor.floatManager._alignHandlesToEdges === 'function') dockActor.floatManager._alignHandlesToEdges();
         }
 
         if (isAppGrid || isMenu) return;
 
-        if (!settings.get_boolean('show-tooltips')) {
+        if (!settings.get_boolean('show-apps-preview')) {
             _hideTooltip(dockActor);
             return;
         }
 
         let closestIndex = -1, minDiff = Infinity;
         for (let i = 0; i < n; i++) {
-            const visualCenter = zoomEnabled ? (scaledCenters[i] + zoomOffset) : slots[i];
+            const visualCenter = zoomEnabled ? (scaledCenters[i] + zoomOffset) : centersByBtn[i];
             const diff = Math.abs(localCursor - visualCenter);
             if (diff < minDiff) { minDiff = diff; closestIndex = i; }
         }
@@ -369,11 +491,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const btn = btns[closestIndex];
             let appName = '';
 
-            if (btn._delegate?.app) {
-                appName = btn._delegate.app.get_name();
-            } else if (typeof btn.get_child === 'function' && btn.get_child()?.has_style_class_name?.('dock-grid-icon')) {
-                appName = 'Applications';
-            }
+            if (btn._delegate?.app) appName = btn._delegate.app.get_name();
+            else if (typeof btn.get_child === 'function' && btn.get_child()?.has_style_class_name?.('dock-grid-icon')) appName = 'Applications';
 
             if (appName) {
                 if (dockActor._tooltipHoveredIndex !== closestIndex) {
@@ -384,6 +503,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                         dockActor._magTooltip.hide();
                     }
                     dockActor._tooltipHoveredIndex = closestIndex;
+                    dockActor._magTooltipAppId = null;
+
                     dockActor._tooltipDelayId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, TOOLTIP_DELAY_MS, () => {
                         dockActor._tooltipDelayId = null;
                         dockActor._tooltipReady = true;
@@ -396,53 +517,182 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 }
 
                 if (!dockActor._magTooltip) {
-                    dockActor._magTooltip = new St.Label({
+                    dockActor._magTooltip = new St.BoxLayout({
+                        vertical: true,
                         style_class: 'dhruva-tooltip',
-                        visible: false, reactive: false, track_hover: false,
+                        visible: false, reactive: true, track_hover: true,
                     });
+
+                    dockActor._magTooltip.connect('enter-event', () => {
+                        if (dockActor._leaveCheckId) { GLib.source_remove(dockActor._leaveCheckId); dockActor._leaveCheckId = null; }
+                        return Clutter.EVENT_PROPAGATE;
+                    });
+
+                    dockActor._magTooltip.connect('leave-event', () => {
+                        _checkPointerLeave(dockActor, settings);
+                        return Clutter.EVENT_PROPAGATE;
+                    });
+
                     Main.layoutManager.uiGroup.add_child(dockActor._magTooltip);
-                    dockActor.connect('destroy', () => {
-                        if (dockActor._magTooltip) {
-                            try { dockActor._magTooltip.destroy(); } catch(e) {}
-                            dockActor._magTooltip = null;
+                    if (!dockActor._magDestroyHandlerId) {
+                        dockActor._magDestroyHandlerId = dockActor.connect('destroy', () => {
+                            if (dockActor._magTooltip) { try { dockActor._magTooltip.destroy(); } catch (e) { } dockActor._magTooltip = null; }
+                            if (dockActor._magPeekManager) { dockActor._magPeekManager.destroy(); dockActor._magPeekManager = null; }
+                            dockActor._magDestroyHandlerId = null;
+                        });
+                    }
+                }
+
+                if (!dockActor._magPeekManager && dockActor._dockUI) {
+                    dockActor._magPeekManager = new PeekManager(dockActor._dockUI, Main.layoutManager.uiGroup);
+                }
+
+                let appId = btn._delegate?.app ? (typeof btn._delegate.app.get_id === 'function' ? btn._delegate.app.get_id() : btn._delegate.app.get_name()) : appName;
+
+                if (dockActor._tooltipReady && dockActor._magTooltipAppId !== appId) {
+                    dockActor._magTooltipAppId = appId;
+                    dockActor._magTooltip.destroy_all_children();
+
+                    const tBg = dockActor._tooltipBg || 'rgba(20, 20, 22, 0.92)';
+                    const tFg = dockActor._tooltipFg || 'rgba(255, 255, 255, 0.95)';
+                    
+                    dockActor._magTooltip.set_style(`background-color: ${tBg}; color: ${tFg}; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 16px rgba(0,0,0,0.5);`);
+
+                    const titleLbl = new St.Label({ text: appName, style: `font-weight: bold; text-align: center; color: ${tFg};` });
+                    dockActor._magTooltip.add_child(titleLbl);
+
+                    let windows = [];
+                    if (btn._delegate?.app && typeof btn._delegate.app.get_windows === 'function') {
+                        windows = btn._delegate.app.get_windows();
+                        if (settings.get_boolean('isolate-monitors') && dockActor._dockUI) {
+                            const currentMonitorIndex = dockActor._dockUI.monitorManager.getCurrentMonitor().index;
+                            windows = windows.filter(w => w.get_monitor() === currentMonitorIndex);
                         }
-                    });
+                        windows = WorkspaceFilter.filterWindows(windows, settings);
+                    }
+
+                    if (windows.length > 0) {
+                        const thumbBox = new St.BoxLayout({ vertical: false, style: 'spacing: 10px; margin-top: 10px;' });
+                        const customSize = settings.get_int('context-menu-size') || 200;
+
+                        windows.forEach(win => {
+                            const thumbBtn = new St.Button({ reactive: true, style_class: 'context-menu-thumb-btn' });
+                            thumbBtn.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
+                            
+                            const compPrivate = win.get_compositor_private();
+                            if (compPrivate) {
+                                const clone = new Clutter.Clone({ source: compPrivate, reactive: false });
+                                const rect = win.get_frame_rect();
+                                const w = Math.max(1, rect.width || 1);
+                                const h = Math.max(1, rect.height || 1);
+
+                                let thumbW = customSize;
+                                let thumbH = (h / w) * thumbW;
+                                if (thumbH > customSize * 0.8) { thumbH = customSize * 0.8; thumbW = (w / h) * thumbH; }
+
+                                clone.set_size(thumbW, thumbH);
+                                const padBin = new St.Bin({ child: clone, style: 'border-radius: 6px; overflow: hidden;' });
+                                thumbBtn.set_child(padBin);
+                            } else {
+                                thumbBtn.set_size(customSize, customSize * 0.6);
+                            }
+
+                            thumbBtn.connect('enter-event', () => {
+                                thumbBtn.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.6); transition-duration: 150ms; box-shadow: 0 4px 12px rgba(0,0,0,0.4);');
+                                if (dockActor._magPeekManager) dockActor._magPeekManager.startPeek(win);
+                                return Clutter.EVENT_PROPAGATE;
+                            });
+
+                            thumbBtn.connect('leave-event', () => {
+                                thumbBtn.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
+                                if (dockActor._magPeekManager) dockActor._magPeekManager.stopPeek();
+                                return Clutter.EVENT_PROPAGATE;
+                            });
+
+                            thumbBtn.connect('clicked', () => {
+                                if (win.minimized) animateRestore(win, btn, settings.get_string('dock-position') || 'BOTTOM');
+                                Main.activateWindow(win);
+                                _hideTooltip(dockActor);
+                            });
+
+                            thumbBox.add_child(thumbBtn);
+                        });
+
+                        if (windows.length > 2) {
+                            const scroll = new St.ScrollView({ vscrollbar_policy: St.PolicyType.NEVER, hscrollbar_policy: St.PolicyType.AUTOMATIC, enable_mouse_scrolling: true, style: `max-width: ${(customSize * 2.5) + 20}px;` });
+                            scroll.connect('scroll-event', (_actor, event) => {
+                                let dx = 0, dy = 0;
+                                const direction = event.get_scroll_direction();
+
+                                if (direction === Clutter.ScrollDirection.SMOOTH) {
+                                    [dx, dy] = event.get_scroll_delta();
+                                } else if (direction === Clutter.ScrollDirection.UP) dy = -1;
+                                else if (direction === Clutter.ScrollDirection.DOWN) dy = 1;
+                                else if (direction === Clutter.ScrollDirection.LEFT) dx = -1;
+                                else if (direction === Clutter.ScrollDirection.RIGHT) dx = 1;
+
+                                if (Math.abs(dy) > Math.abs(dx) && dy !== 0) { dx = dy; dy = 0; }
+
+                                if (dx !== 0) {
+                                    const adjustment = typeof scroll.get_hadjustment === 'function'
+                                        ? scroll.get_hadjustment()
+                                        : scroll.get_hscroll_bar().get_adjustment();
+
+                                    if (adjustment) {
+                                        const step = direction === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50;
+                                        let newVal = adjustment.get_value() + step;
+                                        const min = adjustment.get_lower();
+                                        const max = adjustment.get_upper() - adjustment.get_page_size();
+
+                                        if (newVal > max) newVal = max;
+                                        if (newVal < min) newVal = min;
+
+                                        adjustment.set_value(newVal);
+                                        return Clutter.EVENT_STOP;
+                                    }
+                                }
+                                return Clutter.EVENT_PROPAGATE;
+                            });
+                            scroll.add_child(thumbBox);
+                            dockActor._magTooltip.add_child(scroll);
+                        } else {
+                            dockActor._magTooltip.add_child(thumbBox);
+                        }
+                    }
                 }
-
-                const tBg = dockActor._tooltipBg || 'rgba(20, 20, 22, 0.92)';
-                const tFg = dockActor._tooltipFg || 'rgba(255, 255, 255, 0.95)';
-                dockActor._magTooltip.set_style(`background-color: ${tBg}; color: ${tFg};`);
-
-                if (dockActor._magTooltip.get_text() !== appName) {
-                    dockActor._magTooltip.set_text(appName);
-                }
-
-                const [, tw] = dockActor._magTooltip.get_preferred_width(-1);
-                const [, th] = dockActor._magTooltip.get_preferred_height(-1);
-                const [bx, by] = btn.get_transformed_position();
-                const [bw, bh] = btn.get_transformed_size();
-                const dockPos = settings.get_string('dock-position') || 'BOTTOM';
-
-                let tooltipMargin = 14;
-                try { tooltipMargin = settings.get_int('tooltip-margin'); } catch (e) { }
-
-                let tx = 0, ty = 0;
-
-                if (dockPos === 'BOTTOM') { tx = bx + bw / 2 - tw / 2; ty = by - th - tooltipMargin; }
-                else if (dockPos === 'TOP') { tx = bx + bw / 2 - tw / 2; ty = by + bh + tooltipMargin; }
-                else if (dockPos === 'LEFT') { tx = bx + bw + tooltipMargin; ty = by + bh / 2 - th / 2; }
-                else if (dockPos === 'RIGHT') { tx = bx - tw - tooltipMargin; ty = by + bh / 2 - th / 2; }
-
-                dockActor._magTooltip.set_position(tx, ty);
 
                 if (dockActor._tooltipReady && (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0)) {
+                    dockActor._magTooltip.queue_relayout();
+                    const [, tw] = dockActor._magTooltip.get_preferred_width(-1);
+                    const [, th] = dockActor._magTooltip.get_preferred_height(-1);
+                    const [bx, by] = btn.get_transformed_position();
+                    const [bw, bh] = btn.get_transformed_size();
+                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+
+                    const tooltipMargin = 0; 
+
+                    let tx = 0, ty = 0;
+                    if (dockPos === 'BOTTOM') { tx = bx + bw / 2 - tw / 2; ty = by - th - tooltipMargin; }
+                    else if (dockPos === 'TOP') { tx = bx + bw / 2 - tw / 2; ty = by + bh + tooltipMargin; }
+                    else if (dockPos === 'LEFT') { tx = bx + bw + tooltipMargin; ty = by + bh / 2 - th / 2; }
+                    else if (dockPos === 'RIGHT') { tx = bx - tw - tooltipMargin; ty = by + bh / 2 - th / 2; }
+
+                    dockActor._magTooltip.set_position(tx, ty);
                     dockActor._magTooltip.show();
+                    
+                    const parent = dockActor._magTooltip.get_parent();
+                    if (parent && dockActor._dockUI && dockActor._dockUI.actor) {
+                        parent.set_child_below_sibling(dockActor._magTooltip, dockActor._dockUI.actor);
+                    }
+
                     dockActor._magTooltip.remove_all_transitions();
                     dockActor._magTooltip.ease({ opacity: 255, duration: 220, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
                 }
             }
         } else {
-            _hideTooltip(dockActor);
+            const keepTooltipAlive = _isInsideTooltip(dockActor, cx, cy, 24) ||
+                _isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
+            if (!keepTooltipAlive) _hideTooltip(dockActor);
         }
     } catch (e) {
         _hideTooltip(dockActor);
@@ -453,45 +703,29 @@ export function resetMagnification(dockActor) {
     if (!dockActor || dockActor._isDestroyed) return;
     try {
         stopDragLoop(dockActor);
+        dockActor._lastMagMotionFrameTs = 0;
         dockActor._fixedSlots = null;
         _hideTooltip(dockActor);
 
-        if (dockActor._postClickTimerId) {
-            GLib.source_remove(dockActor._postClickTimerId);
-            dockActor._postClickTimerId = null;
-        }
+        if (dockActor._postClickTimerId) { GLib.source_remove(dockActor._postClickTimerId); dockActor._postClickTimerId = null; }
 
         getDockButtons(dockActor).forEach(btn => {
-            btn._flipOffset = 0;
-            btn._flipStartTime = null;
+            btn._flipOffset = 0; btn._flipStartTime = null;
             btn.remove_all_transitions();
-            btn.ease({
-                scale_x: 1.0, scale_y: 1.0, translation_x: 0, translation_y: 0,
-                duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
+            btn.ease({ scale_x: 1.0, scale_y: 1.0, translation_x: 0, translation_y: 0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
 
             const appBox = typeof btn.get_child === 'function' ? btn.get_child() : null;
             if (appBox && typeof appBox.get_children === 'function') {
                 appBox.get_children().forEach(c => {
-                    if (c._isIndicator) {
-                        c.ease({
-                            scale_x: 1.0, scale_y: 1.0,
-                            duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD
-                        });
-                    }
+                    if (c._isIndicator) { c.ease({ scale_x: 1.0, scale_y: 1.0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); }
                 });
             }
         });
 
         if (dockActor.bgActor) {
-            dockActor.bgActor._baseW = null;
-            dockActor.bgActor._baseH = null;
+            dockActor.bgActor._baseW = null; dockActor.bgActor._baseH = null;
             dockActor.bgActor.remove_all_transitions();
-            dockActor.bgActor.ease({
-                translation_x: 0, translation_y: 0,
-                scale_x: 1.0, scale_y: 1.0,
-                duration: 280, mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-            });
+            dockActor.bgActor.ease({ translation_x: 0, translation_y: 0, scale_x: 1.0, scale_y: 1.0, duration: 280, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
     } catch (e) { }
 }
@@ -501,8 +735,7 @@ function _checkPointerLeave(dockActor, settings) {
     dockActor._leaveCheckId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 30, () => {
         try {
             if (dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging || dockActor._launchingApp) {
-                dockActor._leaveCheckId = null;
-                return GLib.SOURCE_REMOVE;
+                dockActor._leaveCheckId = null; return GLib.SOURCE_REMOVE;
             }
 
             const [px, py] = global.get_pointer();
@@ -520,37 +753,37 @@ function _checkPointerLeave(dockActor, settings) {
 
             const inside = (px >= dax - padX && px <= dax + daw + padX && py >= day - padY && py <= day + dah + padY);
 
-            if (!inside) {
+            const insideTooltip = _isInsideTooltip(dockActor, px, py, 24);
+            const insideBridge = _isPointerInDockTooltipBridge(dockActor, px, py, settings);
+
+            if (!inside && !insideTooltip && !insideBridge) {
                 resetMagnification(dockActor);
                 dockActor._leaveCheckId = null;
                 return GLib.SOURCE_REMOVE;
             }
             return GLib.SOURCE_CONTINUE;
-        } catch (e) {
-            return GLib.SOURCE_REMOVE;
-        }
+        } catch (e) { return GLib.SOURCE_REMOVE; }
     });
 }
 
 export function isContextMenuOpen() {
     for (const child of Main.layoutManager.uiGroup.get_children()) {
         if (!child.mapped) continue;
-        if (child.style_class && child.style_class.includes('context-menu-overlay') && child.visible)
-            return true;
+        if (child.style_class && child.style_class.includes('context-menu-overlay') && child.visible) return true;
     }
     return false;
 }
 
 export function isAppGridOpen() {
     for (const child of Main.layoutManager.uiGroup.get_children()) {
-        if (child.style_class && child.style_class.includes('app-list-overlay') && child.visible)
-            return true;
+        if (child.style_class && child.style_class.includes('app-list-overlay') && child.visible) return true;
     }
     return false;
 }
 
 export function setupMagnification(dockActor, settings, dockPositionGetter) {
     teardownMagnification(dockActor);
+    dockActor._lastMagMotionFrameTs = 0;
     const dockPos = dockPositionGetter();
     const isVertical = dockPos === 'LEFT' || dockPos === 'RIGHT';
 
@@ -568,41 +801,11 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     }
 
     dockActor._magEnterId = dockActor.connect('enter-event', () => {
-        if (dockActor._leaveCheckId) {
-            GLib.source_remove(dockActor._leaveCheckId);
-            dockActor._leaveCheckId = null;
-        }
-        if (!dockActor._isDragging) {
-            dockActor._fixedSlots = null;
-            _setDefaultCursor();
-        }
+        if (dockActor._leaveCheckId) { GLib.source_remove(dockActor._leaveCheckId); dockActor._leaveCheckId = null; }
+        if (!dockActor._isDragging) { dockActor._fixedSlots = null; _setDefaultCursor(); }
     });
 
-    dockActor._magMotionId = dockActor.connect('motion-event', (_a, event) => {
-        try {
-            if (dockActor._isDestroyed) return Clutter.EVENT_PROPAGATE;
-            if (isContextMenuOpen()) {
-                _clearTooltipDelay(dockActor);
-                if (dockActor._magTooltip) {
-                    dockActor._magTooltip.remove_all_transitions();
-                    dockActor._magTooltip.opacity = 0;
-                    dockActor._magTooltip.hide();
-                }
-                return Clutter.EVENT_STOP;
-            }
-
-            const state = event.get_state();
-            if ((state & Clutter.ModifierType.BUTTON1_MASK) !== 0) {
-                return Clutter.EVENT_PROPAGATE;
-            }
-
-            const [cx, cy] = event.get_coords();
-            applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, Date.now());
-            _setDefaultCursor();
-
-            return Clutter.EVENT_PROPAGATE;
-        } catch (e) { return Clutter.EVENT_PROPAGATE; }
-    });
+    dockActor._magMotionId = null;
 
     dockActor._magLeaveId = dockActor.connect('leave-event', () => {
         if (dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging) return;
@@ -612,43 +815,50 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     dockActor._stageClickId = global.stage.connect('captured-event', (_stage, event) => {
         try {
             if (!dockActor || dockActor._isDestroyed || dockActor._isHidden) return Clutter.EVENT_PROPAGATE;
-
             const evType = event.type();
 
             if (evType === Clutter.EventType.MOTION) {
                 if (dockActor._isDragging) return Clutter.EVENT_PROPAGATE;
-
-                const state = event.get_state();
-                if ((state & Clutter.ModifierType.BUTTON1_MASK) !== 0) {
+                if ((event.get_state() & Clutter.ModifierType.BUTTON1_MASK) !== 0) return Clutter.EVENT_PROPAGATE;
+                const frameNow = Date.now();
+                const minFrameGap = dockActor._isDragging ? 8 : 16;
+                if (dockActor._lastMagMotionFrameTs && (frameNow - dockActor._lastMagMotionFrameTs) < minFrameGap) {
                     return Clutter.EVENT_PROPAGATE;
                 }
+                dockActor._lastMagMotionFrameTs = frameNow;
 
                 const [ex, ey] = event.get_coords();
                 const [dax, day] = dockActor.get_transformed_position();
                 const [daw, dah] = dockActor.get_transformed_size();
-
                 const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
-                const hoverZoom = settings.get_boolean('hover-zoom');
-                const maxZoom = hoverZoom ? settings.get_double('hover-zoom-factor') : 1.0;
-                const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
+                const actualMax = 1.0 + ((settings.get_boolean('hover-zoom') ? settings.get_double('hover-zoom-factor') : 1.0) - 1.0) * 2.0;
                 const overflow = settings.get_int('icon-size') * actualMax;
 
                 const padX = isVertical ? 25 : Math.max(25, overflow);
                 const padY = isVertical ? Math.max(25, overflow) : 25;
 
                 const onDock = ex >= dax - padX && ex <= dax + daw + padX && ey >= day - padY && ey <= day + dah + padY;
+                const insideTooltip = _isInsideTooltip(dockActor, ex, ey, 24);
+                const insideBridge = _isPointerInDockTooltipBridge(dockActor, ex, ey, settings);
+                const dockPos = settings.get_string('dock-position') || 'BOTTOM';
 
-                if (!onDock) return Clutter.EVENT_PROPAGATE;
+                if (!onDock && !insideTooltip && !insideBridge) return Clutter.EVENT_PROPAGATE;
+                if (insideTooltip || insideBridge) {
+                    dockActor._tooltipBridgeActive = true;
+                    return Clutter.EVENT_PROPAGATE;
+                }
+
+                if (dockPos === 'BOTTOM' && onDock && dockActor._tooltipBridgeActive && dockActor._magTooltip?.visible) {
+                    _hideTooltip(dockActor);
+                    return Clutter.EVENT_PROPAGATE;
+                }
+                dockActor._tooltipBridgeActive = false;
 
                 _setDefaultCursor();
 
                 if (isContextMenuOpen() || isAppGridOpen()) {
                     _clearTooltipDelay(dockActor);
-                    if (dockActor._magTooltip) {
-                        dockActor._magTooltip.remove_all_transitions();
-                        dockActor._magTooltip.opacity = 0;
-                        dockActor._magTooltip.hide();
-                    }
+                    if (dockActor._magTooltip) { dockActor._magTooltip.remove_all_transitions(); dockActor._magTooltip.opacity = 0; dockActor._magTooltip.hide(); }
                     return Clutter.EVENT_PROPAGATE;
                 }
 
@@ -658,75 +868,101 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
             if (evType === Clutter.EventType.BUTTON_PRESS) {
                 const [px, py] = event.get_coords();
-                dockActor._globalPressX = px;
-                dockActor._globalPressY = py;
-
+                dockActor._globalPressX = px; dockActor._globalPressY = py;
                 dockActor._lastIconClickTime = Date.now();
-                _clearTooltipDelay(dockActor);
-                dockActor._tooltipHoveredIndex = -1;
-                if (dockActor._magTooltip) {
-                    dockActor._magTooltip.remove_all_transitions();
-                    dockActor._magTooltip.opacity = 0;
-                    dockActor._magTooltip.hide();
+
+                const insideTooltip = _isInsideTooltip(dockActor, px, py, 20);
+                if (!insideTooltip) {
+                    _clearTooltipDelay(dockActor);
+                    dockActor._tooltipHoveredIndex = -1;
+                    if (dockActor._magTooltip) { 
+                        dockActor._magTooltip.remove_all_transitions(); 
+                        dockActor._magTooltip.opacity = 0; 
+                        dockActor._magTooltip.hide(); 
+                    }
                 }
+                
                 return Clutter.EVENT_PROPAGATE;
             }
 
             if (evType !== Clutter.EventType.BUTTON_RELEASE) return Clutter.EVENT_PROPAGATE;
-            if (dockActor._isDragging) return Clutter.EVENT_PROPAGATE;
-            if (isAppGridOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
+            if (dockActor._isDragging || isAppGridOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
 
-            const hoverZoom = settings.get_boolean('hover-zoom');
-            if (!hoverZoom) return Clutter.EVENT_PROPAGATE;
+            if (!settings.get_boolean('hover-zoom')) return Clutter.EVENT_PROPAGATE;
 
             const [ex, ey] = event.get_coords();
             const [dax, day] = dockActor.get_transformed_position();
             const [daw, dah] = dockActor.get_transformed_size();
 
             const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
-            const maxZoom = settings.get_double('hover-zoom-factor');
-            const actualMaxZoom = 1.0 + (maxZoom - 1.0) * 2.0;
-            const iconSize = settings.get_int('icon-size');
-            const maxOverflow = iconSize * actualMaxZoom;
+            const actualMaxZoom = 1.0 + (settings.get_double('hover-zoom-factor') - 1.0) * 2.0;
+            const maxOverflow = settings.get_int('icon-size') * actualMaxZoom;
 
             const padX = isVertical ? 25 : Math.max(25, maxOverflow);
             const padY = isVertical ? Math.max(25, maxOverflow) : 25;
 
-            if (ex < dax - padX || ex > dax + daw + padX || ey < day - padY || ey > day + dah + padY)
-                return Clutter.EVENT_PROPAGATE;
+            if (ex < dax - padX || ex > dax + daw + padX || ey < day - padY || ey > day + dah + padY) return Clutter.EVENT_PROPAGATE;
 
             const btns = getDockButtons(dockActor);
             const n = btns.length;
             if (!n || actualMaxZoom <= 1.0) return Clutter.EVENT_PROPAGATE;
 
-            const RADIUS = iconSize * 3.5;
+            const RADIUS = settings.get_int('icon-size') * 3.5;
             const scaleFactor = isVertical ? dockActor.scale_y : dockActor.scale_x;
             const localEx = (isVertical ? ey - day : ex - dax) / scaleFactor;
-
             const boxX = dockActor.boxActor ? dockActor.boxActor.x : 0;
             const boxY = dockActor.boxActor ? dockActor.boxActor.y : 0;
+            const slotModel = getFixedSlots(dockActor, isVertical, btns);
+            if (!slotModel || !slotModel.orderedSlots || slotModel.orderedSlots.length !== n)
+                return Clutter.EVENT_PROPAGATE;
 
-            const slots = btns.map(b => isVertical ? (b.y + boxY) + b.height / 2 : (b.x + boxX) + b.width / 2).sort((a, b) => a - b);
+            const orderedSlots = slotModel.orderedSlots;
+            const orderToBtn = slotModel.orderToBtn;
+            const btnToOrder = slotModel.btnToOrder;
+            const orderedScales = new Array(n).fill(1.0);
+            const orderedCenters = new Array(n).fill(0);
+            const scales = new Array(n).fill(1.0);
+            const scaledCenters = new Array(n).fill(0);
 
-            const scales = btns.map((b, i) => {
-                if (b.style_class?.includes('dock-separator') || b.style_class?.includes('clock-module') || b.style_class?.includes('dock-drag-handle')) return 1.0;
-                const dist = Math.abs(localEx - slots[i]);
-                if (dist >= RADIUS) return 1.0;
-                return 1.0 + (actualMaxZoom - 1.0) * ((Math.cos((dist / RADIUS) * Math.PI) + 1) / 2);
-            });
+            for (let orderIndex = 0; orderIndex < n; orderIndex++) {
+                const btnIndex = orderToBtn[orderIndex];
+                const b = btns[btnIndex];
+                const sClass = typeof b.get_style_class_name === 'function' ? b.get_style_class_name() : (b.style_class || '');
+                const isStaticEdge = b._isStatic || sClass.includes('dock-separator') || sClass.includes('clock-module') || sClass.includes('dock-drag-handle');
 
-            const scaledCenters = new Array(n);
-            scaledCenters[0] = slots[0];
-            for (let i = 1; i < n; i++) scaledCenters[i] = scaledCenters[i - 1] + (slots[i] - slots[i - 1]) * (scales[i] + scales[i - 1]) / 2;
+                if (isStaticEdge) {
+                    orderedScales[orderIndex] = 1.0;
+                    continue;
+                }
 
-            let mappedCursor = scaledCenters[0];
+                const dist = Math.abs(localEx - orderedSlots[orderIndex]);
+                if (dist >= RADIUS) orderedScales[orderIndex] = 1.0;
+                else orderedScales[orderIndex] = 1.0 + (actualMaxZoom - 1.0) * ((Math.cos((dist / RADIUS) * Math.PI) + 1) / 2);
+            }
+
+            orderedCenters[0] = orderedSlots[0];
+            for (let orderIndex = 1; orderIndex < n; orderIndex++) {
+                orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] +
+                    (orderedSlots[orderIndex] - orderedSlots[orderIndex - 1]) *
+                    (orderedScales[orderIndex] + orderedScales[orderIndex - 1]) / 2;
+            }
+
+            for (let i = 0; i < n; i++) {
+                const orderIndex = btnToOrder[i];
+                scales[i] = orderedScales[orderIndex];
+                scaledCenters[i] = orderedCenters[orderIndex];
+            }
+
+            let mappedCursor = orderedCenters[0];
             if (n > 1) {
-                if (localEx <= slots[0]) mappedCursor = scaledCenters[0] - (slots[0] - localEx);
-                else if (localEx >= slots[n - 1]) mappedCursor = scaledCenters[n - 1] + (localEx - slots[n - 1]);
+                if (localEx <= orderedSlots[0]) mappedCursor = orderedCenters[0] - (orderedSlots[0] - localEx);
+                else if (localEx >= orderedSlots[n - 1]) mappedCursor = orderedCenters[n - 1] + (localEx - orderedSlots[n - 1]);
                 else {
-                    for (let i = 0; i < n - 1; i++) {
-                        if (localEx >= slots[i] && localEx <= slots[i + 1]) {
-                            mappedCursor = scaledCenters[i] + ((localEx - slots[i]) / (slots[i + 1] - slots[i])) * (scaledCenters[i + 1] - scaledCenters[i]);
+                    for (let orderIndex = 0; orderIndex < n - 1; orderIndex++) {
+                        if (localEx >= orderedSlots[orderIndex] && localEx <= orderedSlots[orderIndex + 1]) {
+                            mappedCursor = orderedCenters[orderIndex] +
+                                ((localEx - orderedSlots[orderIndex]) / (orderedSlots[orderIndex + 1] - orderedSlots[orderIndex])) *
+                                (orderedCenters[orderIndex + 1] - orderedCenters[orderIndex]);
                             break;
                         }
                     }
@@ -741,32 +977,19 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 if (!btn._activateCallback) continue;
 
                 const scale = scales[i];
-                const btnW = btn.width, btnH = btn.height;
-                const visCenterLocal = scaledCenters[i] + zoomOffset;
-
                 let px = 0.5, py = 0.5;
-                if (dockPos === 'BOTTOM') py = 1.0;
-                else if (dockPos === 'TOP') py = 0.0;
-                else if (dockPos === 'LEFT') px = 0.0;
-                else if (dockPos === 'RIGHT') px = 1.0;
+                if (dockPos === 'BOTTOM') py = 1.0; else if (dockPos === 'TOP') py = 0.0; else if (dockPos === 'LEFT') px = 0.0; else if (dockPos === 'RIGHT') px = 1.0;
 
-                let visCenterX = isVertical
-                    ? dax + (boxX + btn.x + btnW * px) * dockActor.scale_x
-                    : dax + visCenterLocal * dockActor.scale_x;
-                let visCenterY = isVertical
-                    ? day + visCenterLocal * dockActor.scale_y
-                    : day + (boxY + btn.y + btnH * py) * dockActor.scale_y;
+                const visCenterX = isVertical ? dax + (boxX + btn.x + btn.width * px) * dockActor.scale_x : dax + (scaledCenters[i] + zoomOffset) * dockActor.scale_x;
+                const visCenterY = isVertical ? day + (scaledCenters[i] + zoomOffset) * dockActor.scale_y : day + (boxY + btn.y + btn.height * py) * dockActor.scale_y;
 
-                const visLeft = visCenterX - btnW * scale * px * dockActor.scale_x;
-                const visRight = visCenterX + btnW * scale * (1.0 - px) * dockActor.scale_x;
-                const visTop = visCenterY - btnH * scale * py * dockActor.scale_y;
-                const visBottom = visCenterY + btnH * scale * (1.0 - py) * dockActor.scale_y;
+                const visLeft = visCenterX - btn.width * scale * px * dockActor.scale_x;
+                const visRight = visCenterX + btn.width * scale * (1.0 - px) * dockActor.scale_x;
+                const visTop = visCenterY - btn.height * scale * py * dockActor.scale_y;
+                const visBottom = visCenterY + btn.height * scale * (1.0 - py) * dockActor.scale_y;
 
                 if (ex >= visLeft && ex <= visRight && ey >= visTop && ey <= visBottom) {
-                    if (btn._wasDragged) {
-                        btn._wasDragged = false;
-                        return Clutter.EVENT_STOP;
-                    }
+                    if (btn._wasDragged) { btn._wasDragged = false; return Clutter.EVENT_STOP; }
 
                     if (settings.get_boolean('lock-icons')) {
                         const dx = Math.abs(ex - (dockActor._globalPressX || ex));
@@ -776,11 +999,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
                     dockActor._lastIconClickTime = Date.now();
                     _clearTooltipDelay(dockActor);
-                    if (dockActor._magTooltip) {
-                        dockActor._magTooltip.remove_all_transitions();
-                        dockActor._magTooltip.opacity = 0;
-                        dockActor._magTooltip.hide();
-                    }
+                    if (dockActor._magTooltip) { dockActor._magTooltip.remove_all_transitions(); dockActor._magTooltip.opacity = 0; dockActor._magTooltip.hide(); }
 
                     btn._activateCallback(event.get_button(), event.get_state());
 
@@ -790,14 +1009,11 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                         if (isAppGridOpen()) resetMagnification(dockActor);
                         return GLib.SOURCE_REMOVE;
                     });
-
                     return Clutter.EVENT_STOP;
                 }
             }
             return Clutter.EVENT_PROPAGATE;
-        } catch (e) {
-            return Clutter.EVENT_PROPAGATE;
-        }
+        } catch (e) { return Clutter.EVENT_PROPAGATE; }
     });
 }
 
@@ -805,32 +1021,20 @@ export function teardownMagnification(dockActor) {
     if (!dockActor) return;
     try {
         stopDragLoop(dockActor);
-
-        if (dockActor._leaveCheckId) {
-            GLib.source_remove(dockActor._leaveCheckId);
-            dockActor._leaveCheckId = null;
-        }
-
-        if (dockActor._postClickTimerId) {
-            GLib.source_remove(dockActor._postClickTimerId);
-            dockActor._postClickTimerId = null;
-        }
+        dockActor._lastMagMotionFrameTs = 0;
+        if (dockActor._leaveCheckId) { GLib.source_remove(dockActor._leaveCheckId); dockActor._leaveCheckId = null; }
+        if (dockActor._postClickTimerId) { GLib.source_remove(dockActor._postClickTimerId); dockActor._postClickTimerId = null; }
 
         if (dockActor._magMotionId) { dockActor.disconnect(dockActor._magMotionId); dockActor._magMotionId = null; }
         if (dockActor._magLeaveId) { dockActor.disconnect(dockActor._magLeaveId); dockActor._magLeaveId = null; }
         if (dockActor._magEnterId) { dockActor.disconnect(dockActor._magEnterId); dockActor._magEnterId = null; }
-
-        if (dockActor._stageClickId) {
-            global.stage.disconnect(dockActor._stageClickId);
-            dockActor._stageClickId = null;
-        }
+        if (dockActor._stageClickId) { global.stage.disconnect(dockActor._stageClickId); dockActor._stageClickId = null; }
 
         _clearTooltipDelay(dockActor);
         dockActor._tooltipHoveredIndex = -1;
-        if (dockActor._magTooltip) {
-            dockActor._magTooltip.destroy();
-            dockActor._magTooltip = null;
-        }
+        if (dockActor._magDestroyHandlerId) { dockActor.disconnect(dockActor._magDestroyHandlerId); dockActor._magDestroyHandlerId = null; }
+        if (dockActor._magTooltip) { dockActor._magTooltip.destroy(); dockActor._magTooltip = null; }
+        if (dockActor._magPeekManager) { dockActor._magPeekManager.destroy(); dockActor._magPeekManager = null; }
 
         dockActor._fixedSlots = null;
         dockActor._lastIconClickTime = null;

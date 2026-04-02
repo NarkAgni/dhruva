@@ -33,69 +33,53 @@ export const DockThemes = {
         },
     },
 
-    // ─────────────────────────────────────────
-    //  5 SOLID / FLAT THEMES
-    // ─────────────────────────────────────────
 
-    // 1. The classic Linux dark panel — familiar to every GNOME user
     'carbon': {
         name: 'Carbon',
         css: (cfg) => `background-color: rgba(18, 18, 20, ${cfg.opacity}); background-gradient-direction: none;`,
     },
 
-    // 2. Nord — hugely popular among Linux riceers and devs
     'nord': {
         name: 'Nord',
         css: (cfg) => `background-color: rgba(36, 41, 51, ${cfg.opacity}); background-gradient-direction: none;`,
     },
 
-    // 3. Catppuccin Mocha — THE trending Linux theme in 2024-25
     'catppuccin': {
         name: 'Catppuccin Mocha',
         css: (cfg) => `background-color: rgba(30, 30, 46, ${cfg.opacity}); background-gradient-direction: none;`,
     },
 
-    // 4. Gruvbox — beloved by vim/neovim crowd
     'gruvbox': {
         name: 'Gruvbox Dark',
         css: (cfg) => `background-color: rgba(29, 32, 33, ${cfg.opacity}); background-gradient-direction: none;`,
     },
 
-    // 5. Frosted Glass / Ash — light, clean, great for light wallpapers
     'ash': {
         name: 'Ash Glass',
         css: (cfg) => `background-color: rgba(220, 220, 230, ${cfg.opacity * 0.65}); background-gradient-direction: none;`,
     },
 
-    // ─────────────────────────────────────────
-    //  5 GRADIENT THEMES
-    // ─────────────────────────────────────────
 
-    // 6. Dracula gradient — purple/pink, iconic among devs
     'dracula': {
         name: 'Dracula',
         css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(40, 42, 54, ${cfg.opacity}); background-gradient-end: rgba(68, 71, 90, ${cfg.opacity});`,
     },
 
-    // 7. Tokyo Night — extremely popular VS Code / Neovim colorscheme
     'tokyo-night': {
         name: 'Tokyo Night',
         css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(26, 27, 38, ${cfg.opacity}); background-gradient-end: rgba(36, 40, 59, ${cfg.opacity});`,
     },
 
-    // 8. Aurora — inspired by Northern Lights, green+teal, Linux wallpaper staple
     'aurora': {
         name: 'Aurora',
         css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(11, 52, 58, ${cfg.opacity}); background-gradient-end: rgba(14, 90, 75, ${cfg.opacity});`,
     },
 
-    // 9. Sunset — warm orange/pink, great for custom desktops
     'sunset': {
         name: 'Sunset',
         css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(30, 15, 40, ${cfg.opacity}); background-gradient-end: rgba(150, 50, 30, ${cfg.opacity});`,
     },
 
-    // 10. Slate Ocean — cool blue/grey, clean and professional
     'slate-ocean': {
         name: 'Slate Ocean',
         css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: vertical; background-gradient-start: rgba(15, 32, 56, ${cfg.opacity}); background-gradient-end: rgba(28, 58, 90, ${cfg.opacity});`,

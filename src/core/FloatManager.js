@@ -98,6 +98,8 @@ export default class FloatingManager {
         this._dragShield = null;
         this._isSimpleClick = false;
         this._suppressLeave = false;
+        this._layoutIdleId = null;
+        this._lastOpacityTarget = null;
 
         this._enableSignal = this.settings.connect('changed::enable-floating-dock', () => {
             if (!this.settings.get_boolean('enable-floating-dock')) {
@@ -359,7 +361,9 @@ export default class FloatingManager {
         this._animateFloatOpacity(isHovered);
 
         if (this.dockUI && typeof this.dockUI._updateLayout === 'function') {
-            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+            if (this._layoutIdleId) return;
+            this._layoutIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+                this._layoutIdleId = null;
                 if (!this.actor?.is_destroyed?.() && !this.dockUI._isDestroyed) {
                     this.dockUI._updateLayout();
                 }
@@ -369,7 +373,10 @@ export default class FloatingManager {
     }
 
     _animateFloatOpacity(isHovered) {
-        if (!this.settings.get_boolean('enable-floating-dock')) return;
+        if (!this.settings.get_boolean('enable-floating-dock')) {
+            this._lastOpacityTarget = null;
+            return;
+        }
         const isAlive = actor => actor && !actor.is_destroyed?.();
 
         let floatOpacity = this.settings.get_int('floating-dock-opacity') ?? 100;
@@ -384,6 +391,13 @@ export default class FloatingManager {
         const duration = applyHoverFull ? 100 : 300;
 
         if (this.actor && isAlive(this.actor)) {
+            const runningOpacityTransition = typeof this.actor.get_transition === 'function' && this.actor.get_transition('opacity');
+            if (this._lastOpacityTarget === targetOpacity &&
+                (runningOpacityTransition || Math.abs((this.actor.opacity ?? targetOpacity) - targetOpacity) <= 1)) {
+                return;
+            }
+
+            this._lastOpacityTarget = targetOpacity;
             this.actor.remove_transition('opacity');
             this.actor.ease({ opacity: targetOpacity, duration: duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
@@ -609,12 +623,77 @@ export default class FloatingManager {
         if (!this._releaseId) this._releaseId = global.stage.connect('button-release-event', this._onRelease.bind(this));
     }
 
+    _disconnectDragSignals() {
+        if (this._motionId) { global.stage.disconnect(this._motionId); this._motionId = null; }
+        if (this._releaseId) { global.stage.disconnect(this._releaseId); this._releaseId = null; }
+    }
+
+    _armSimpleClickGuard() {
+        this._isSimpleClick = true;
+        if (this._simpleClickGuardId) GLib.source_remove(this._simpleClickGuardId);
+        this._simpleClickGuardId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+            this._simpleClickGuardId = null;
+            this._isSimpleClick = false;
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _finishIncompleteDrag(asSimpleClick = false) {
+        this._removeDragShield();
+        this._disconnectDragSignals();
+
+        this.isDragging = false;
+        if (this.actor) {
+            this.actor._isDragging = false;
+            this.actor._wasRealDrag = false;
+        }
+
+        if (asSimpleClick) this._armSimpleClickGuard();
+
+        this._resetDockState();
+
+        if (this.actor && !this.actor.is_destroyed?.()) {
+            this.actor.remove_transition('scale_x');
+            this.actor.remove_transition('scale_y');
+            this.actor.remove_transition('translation_x');
+            this.actor.remove_transition('translation_y');
+            this.actor.scale_x = 1.0;
+            this.actor.scale_y = 1.0;
+            this.actor.translation_x = 0;
+            this.actor.translation_y = 0;
+        }
+
+        if (this.dockUI) this.dockUI._dropSettling = false;
+        this._checkHoverAfterDrop();
+    }
+
+    _finishFloatingDrag() {
+        this._removeDragShield();
+        this._disconnectDragSignals();
+        this.isDragging = false;
+        if (this.actor) {
+            this.actor._isDragging = false;
+            this.actor._wasRealDrag = false;
+        }
+        this._checkHoverAfterDrop();
+    }
+
     _onMotion(stage, event) {
         if (!this.isDragging || !this.actor) return Clutter.EVENT_PROPAGATE;
 
         const [px, py] = event.get_coords();
         const deltaX = px - this._dragStartX;
         const deltaY = py - this._dragStartY;
+        const state = typeof event.get_state === 'function' ? event.get_state() : 0;
+        const pointerState = global.get_pointer();
+        const mods = Array.isArray(pointerState) && pointerState.length >= 3 ? pointerState[2] : 0;
+        const buttonHeld = ((state | mods) & Clutter.ModifierType.BUTTON1_MASK) !== 0;
+
+        if (!buttonHeld) {
+            if (!this.isFloating) this._finishIncompleteDrag(false);
+            else this._finishFloatingDrag();
+            return Clutter.EVENT_STOP;
+        }
 
         if (!this.isFloating) {
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -654,79 +733,23 @@ export default class FloatingManager {
 
     _onRelease(stage, event) {
         if (!this.isDragging) return Clutter.EVENT_PROPAGATE;
-        if (event.get_button() !== 1) return Clutter.EVENT_PROPAGATE;
-
-        this._removeDragShield();
-
-        if (this._motionId) { global.stage.disconnect(this._motionId); this._motionId = null; }
-        if (this._releaseId) { global.stage.disconnect(this._releaseId); this._releaseId = null; }
+        if (event.get_button() !== 1) {
+            const pointerState = global.get_pointer();
+            const mods = Array.isArray(pointerState) && pointerState.length >= 3 ? pointerState[2] : 0;
+            if ((mods & Clutter.ModifierType.BUTTON1_MASK) !== 0) return Clutter.EVENT_PROPAGATE;
+        }
 
         const [px, py] = event.get_coords();
         const deltaX = px - this._dragStartX;
         const deltaY = py - this._dragStartY;
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
-        if (this.actor) { this.actor._wasRealDrag = false; }
-
-        if (!this.isFloating && distance <= 10) {
-            this.isDragging = false;
-            if (this.actor) { this.actor._isDragging = false; }
-
-            this._isSimpleClick = true;
-            if (this._simpleClickGuardId) GLib.source_remove(this._simpleClickGuardId);
-            this._simpleClickGuardId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
-                this._simpleClickGuardId = null;
-                this._isSimpleClick = false;
-                return GLib.SOURCE_REMOVE;
-            });
-
-            if (this._pullEffect) {
-                this.actor.remove_effect(this._pullEffect);
-                this._pullEffect = null;
-            }
-            return Clutter.EVENT_STOP;
-        }
-
         if (!this.isFloating) {
-            if (this._pullEffect) {
-                const startProgress = this._pullEffect.progress;
-                if (this.dockUI) this.dockUI._dropSettling = true;
-                this._isSimpleClick = true;
-
-                this._snapTimeline = new Clutter.Timeline({ duration: 350 });
-                this._snapTimeline.connect('new-frame', (tl) => {
-                    if (!this._pullEffect || !this.actor) { tl.stop(); return; }
-                    const t = tl.get_progress();
-                    const easeT = 1 - Math.pow(1 - t, 3);
-                    this._pullEffect.progress = startProgress * (1 - easeT);
-                    this._pullEffect.invalidate();
-                    this.actor.scale_x = 1.0;
-                    this.actor.scale_y = 1.0;
-                    this.actor.translation_x = 0;
-                    this.actor.translation_y = 0;
-                    this.actor.queue_redraw();
-                });
-                this._snapTimeline.connect('completed', () => {
-                    this._snapTimeline = null;
-                    this.isDragging = false;
-                    if (this.actor) this.actor._isDragging = false;
-                    this._resetDockState();
-                    this._isSimpleClick = false;
-                    this._checkHoverAfterDrop();
-                    if (this.dockUI) this.dockUI._dropSettling = false;
-                });
-                this._snapTimeline.start();
-            } else {
-                this.isDragging = false;
-                if (this.actor) this.actor._isDragging = false;
-                this._resetDockState();
-            }
+            this._finishIncompleteDrag(distance <= 10);
             return Clutter.EVENT_STOP;
         }
 
-        this.isDragging = false;
-        if (this.actor) { this.actor._isDragging = false; }
-        
+        this._finishFloatingDrag();
         return Clutter.EVENT_STOP;
     }
 
@@ -803,6 +826,7 @@ export default class FloatingManager {
 
         if (this._enableSignal) { this.settings.disconnect(this._enableSignal); this._enableSignal = null; }
         if (this._previewTimeout) { GLib.source_remove(this._previewTimeout); this._previewTimeout = null; }
+        if (this._layoutIdleId) { GLib.source_remove(this._layoutIdleId); this._layoutIdleId = null; }
         
         if (this._hoverTrackerId) { GLib.source_remove(this._hoverTrackerId); this._hoverTrackerId = null; }
         

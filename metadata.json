@@ -1,5 +1,5 @@
 {
-  "description": "A buttery smooth, highly animated Dock for GNOME Shell.\n\nFeatures:\n• Omni-Directional Placement\n• True Magnification\n• Magic Lamp (Genie) Effect\n• Chameleon Theme Engine\n• Full-Width & Alignment Options\n• Customizable Running Indicators\n• Smart First-Run Setup\n• Scroll-to-Cycle\n• Workspace Isolation\n• Quick System Modules\n• Custom Folders\n• Integrated Clock\n• Click Animations\n• Glassmorphism Context Menus\n• Anti-Collision System",
+  "description": "A buttery smooth, highly animated Dock for GNOME Shell.\n\nFeatures:\n• Omni-Directional Placement\n• True Magnification\n• Magic Lamp (Genie) Effect\n• Chameleon Theme Engine\n• Full-Width & Alignment Options\n• Customizable Running Indicators\n• Notification Badges\n• Quick Launch (Ctrl/Alt + 1-9)\n• Mounted Volumes\n• Smart First-Run Setup\n• Workspace Isolation\n• Quick System Modules\n• Custom Folders\n• Integrated Clock\n• Click Animations\n• Glassmorphism Context Menus\n• Anti-Collision System",
   "donations": {
     "buymeacoffee": "narkagni"
   },
@@ -10,9 +10,10 @@
     "46",
     "47",
     "48",
-    "49"
+    "49",
+    "50"
   ],
   "url": "https://github.com/narkagni/dhruva",
   "uuid": "dhruva@narkagni",
-  "version": 1
+  "version": 3
 }
