@@ -18,15 +18,20 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
 export default class MonitorManager {
-    constructor(settings) {
+    constructor(settings, fixedMonitorIndex = null) {
         this.settings = settings;
+        this.fixedMonitorIndex = fixedMonitorIndex;
     }
 
     getCurrentMonitor() {
         try {
-            const preferredIdx = this.settings.get_int('preferred-monitor');
             const monitors = Main.layoutManager.monitors;
 
+            if (this.fixedMonitorIndex !== null && this.fixedMonitorIndex >= 0 && this.fixedMonitorIndex < monitors.length) {
+                return { monitor: monitors[this.fixedMonitorIndex], index: this.fixedMonitorIndex };
+            }
+
+            const preferredIdx = this.settings.get_int('preferred-monitor');
             if (preferredIdx >= 0 && preferredIdx < monitors.length) {
                 return { monitor: monitors[preferredIdx], index: preferredIdx };
             }

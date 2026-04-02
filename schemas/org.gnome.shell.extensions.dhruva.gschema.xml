@@ -12,6 +12,16 @@
       <summary>Preferred Monitor</summary>
     </key>
 
+    <key name="show-on-all-monitors" type="b">
+      <default>false</default>
+      <summary>Show dock on all monitors</summary>
+    </key>
+
+    <key name="isolate-monitors" type="b">
+      <default>false</default>
+      <summary>Isolate Monitors</summary>
+    </key>
+
     <key name="full-width" type="b">
       <default>false</default>
       <summary>Full Width Dock</summary>
@@ -28,7 +38,7 @@
     </key>
 
     <key name="icon-size" type="i">
-      <default>42</default>
+      <default>48</default>
       <summary>Icon Size</summary>
     </key>
 
@@ -48,7 +58,7 @@
     </key>
 
     <key name="enable-floating-dock" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Enable Floating Dock</summary>
     </key>
 
@@ -93,7 +103,7 @@
     </key>
 
     <key name="dock-theme" type="s">
-      <default>'dracula'</default>
+      <default>'carbon'</default>
       <summary>Dock Theme Preset</summary>
     </key>
 
@@ -118,7 +128,7 @@
     </key>
 
     <key name="background-opacity" type="i">
-      <default>60</default>
+      <default>90</default>
       <summary>Background Opacity</summary>
     </key>
     <key name="border-radius" type="i">
@@ -137,7 +147,7 @@
     </key>
 
     <key name="stroke-opacity" type="i">
-      <default>25</default>
+      <default>15</default>
       <summary>Stroke Opacity</summary>
     </key>
 
@@ -205,6 +215,15 @@
       <summary>Edge Reveal Delay (Pressure) in ms</summary>
     </key>
 
+    <key name="quick-launch-modifier" type="s">
+      <choices>
+        <choice value='ctrl'/>
+        <choice value='alt'/>
+      </choices>
+      <default>'ctrl'</default>
+      <summary>Modifier for quick dock launch shortcuts</summary>
+    </key>
+
     <key name="click-effect" type="s">
       <default>'heartbeat'</default>
       <summary>Icon Click Effect</summary>
@@ -234,14 +253,9 @@
       <summary>Icon zoom multiplier on hover</summary>
     </key>
 
-    <key name="show-tooltips" type="b">
+    <key name="show-apps-preview" type="b">
       <default>true</default>
-      <summary>Show Tooltips</summary>
-    </key>
-
-    <key name="tooltip-margin" type="i">
-      <default>14</default>
-      <summary>Tooltip Margin</summary>
+      <summary>Show App Previews</summary>
     </key>
 
     <key name="context-menu-size" type="i">
@@ -282,6 +296,12 @@
     <key name="scroll-action-app" type="b">
       <default>false</default>
       <summary>Cycle windows on app icon scroll</summary>
+    </key>
+
+    <key name="show-mounts" type="b">
+      <default>true</default>
+      <summary>Show Mounted Drives</summary>
+      <description>Show connected USB drives, external HDDs, and mounted volumes on the dock.</description>
     </key>
 
     <key name="show-trash" type="b">
@@ -345,13 +365,18 @@
     </key>
 
     <key name="clock-font-size" type="i">
-      <default>19</default>
+      <default>20</default>
       <summary>Clock Font Size</summary>
     </key>
     
     <key name="clock-position" type="s">
       <default>'START'</default>
       <summary>Clock Position</summary>
+    </key>
+
+    <key name="show-notification-badges" type="b">
+      <default>true</default>
+      <summary>Show Notification Badges</summary>
     </key>
 
   </schema>
