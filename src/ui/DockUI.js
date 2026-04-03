@@ -978,8 +978,6 @@ export default class DockUI {
                             return;
                         }
 
-                        let windows = app.get_windows();
-
                         if (this.settings.get_boolean('isolate-monitors')) {
                             const currentMonitorIndex = this.monitorManager.getCurrentMonitor().index;
                             windows = windows.filter(w => w.get_monitor() === currentMonitorIndex);
@@ -987,8 +985,15 @@ export default class DockUI {
 
                         animateIconClick(iconBin, this.settings.get_string('click-effect'));
 
-                        if (windows.length > 0) {
-                            app.activate();
+                        const windows = app.get_windows();
+                        const focusWin = global.display.get_focus_window();
+                        const activeWin = windows.find(w => w === focusWin);
+
+                        if (activeWin) {
+                            animateMinimize(activeWin, btn, this.dockPosition);
+                        }
+                        else if (windows[0]) {
+                            animateRestore(windows[0], btn, this.dockPosition);
                         }
                         else {
                             this.actor._launchingApp = true;
