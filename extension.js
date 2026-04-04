@@ -15,6 +15,7 @@
 
 
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -26,11 +27,7 @@ export default class DhruvaExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         this._docks = [];
-        this._quickLaunchManager = new QuickLaunchManager(
-            this._settings,
-            () => this._getQuickLaunchDock()
-        );
-        
+
         this._monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => {
             this._reloadDocks();
         });
@@ -40,6 +37,28 @@ export default class DhruvaExtension extends Extension {
         });
 
         this._reloadDocks();
+
+        this._clearGnomeSwitchToApplicationShortcuts();
+
+        this._quickLaunchManager = new QuickLaunchManager(
+            this._settings,
+            () => this._getQuickLaunchDock()
+        );
+    }
+
+    _clearGnomeSwitchToApplicationShortcuts() {
+        let shellKeys;
+        
+        try { shellKeys = new Gio.Settings({ schema_id: 'org.gnome.shell.keybindings' }); } catch (_e) { }
+
+        if (shellKeys) {
+            for (let i = 1; i <= 9; i++) {
+                const key = `switch-to-application-${i}`;
+                try {
+                    if (shellKeys.is_writable(key)) shellKeys.set_strv(key, []);
+                } catch (_e) { }
+            }
+        }
     }
 
     _reloadDocks() {
@@ -101,6 +120,18 @@ export default class DhruvaExtension extends Extension {
     _getQuickLaunchDock() {
         if (!this._docks || this._docks.length === 0) return null;
 
+        const focusedMonitor = this._getFocusedMonitorIndex();
+        if (focusedMonitor !== null && focusedMonitor >= 0) {
+            const focusedDock = this._docks.find(dock => {
+                try {
+                    return dock.monitorManager.getCurrentMonitor().index === focusedMonitor;
+                } catch (_e) {
+                    return false;
+                }
+            });
+            if (focusedDock) return focusedDock;
+        }
+
         let pointerMonitor = null;
         try {
             if (typeof global.display.get_current_monitor === 'function')
@@ -118,16 +149,7 @@ export default class DhruvaExtension extends Extension {
             if (pointerDock) return pointerDock;
         }
 
-        const focusedMonitor = this._getFocusedMonitorIndex();
-        const focusedDock = this._docks.find(dock => {
-            try {
-                return dock.monitorManager.getCurrentMonitor().index === focusedMonitor;
-            } catch (_e) {
-                return false;
-            }
-        });
-
-        return focusedDock || this._docks[0];
+        return this._docks[0];
     }
 
     _getExternalActorsFromDock(dock) {

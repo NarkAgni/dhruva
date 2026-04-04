@@ -39,6 +39,9 @@ export function buildModules(dockUI, iconSize) {
     let gridModule = null;
     const settings = dockUI.settings;
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+    const hoverZoom = settings.get_boolean('hover-zoom');
+    const zoomFactor = settings.get_double('hover-zoom-factor');
+    const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
 
     const toggleAppWindow = (uri, possibleTitles, btnActor) => {
         const workspace = global.workspace_manager.get_active_workspace();
@@ -83,13 +86,17 @@ export function buildModules(dockUI, iconSize) {
         const isString = typeof iconOrName === 'string';
         const modIconSize = (isString && iconOrName.startsWith('user-trash')) ? Math.floor(iconSize * 0.95) : Math.floor(iconSize * 1.25);
 
+        const renderSize = Math.ceil(modIconSize * actualMaxZoom);
         const gicon = isString ? Gio.ThemedIcon.new(iconOrName) : iconOrName;
 
         const icon = new St.Icon({
             gicon: gicon,
-            icon_size: modIconSize,
+            icon_size: renderSize,
             style_class: 'dock-grid-icon'
         });
+        
+        icon.set_size(modIconSize, modIconSize);
+
         const iconBin = new St.Bin({
             child: icon,
             width: iconSize,
@@ -208,6 +215,21 @@ export function buildModules(dockUI, iconSize) {
             return Clutter.EVENT_PROPAGATE;
         });
 
+        btn._activateCallback = (buttonNum, state = 0) => {
+            if (buttonNum === 1) {
+                dockUI.actor._lastIconClickTime = Date.now();
+                animateIconClick(iconBin, settings.get_string('click-effect'));
+                clickAction(btn);
+            } else if (buttonNum === 3) {
+                const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
+                if (dockUI._activeContextMenu) {
+                    try { dockUI._activeContextMenu._forceDestroy(); } catch (e) { }
+                    dockUI._activeContextMenu = null;
+                }
+                new AppContextMenu(dockUI, btn._delegate.app, btn, isCtrl, dockUI.openPrefsCallback).show(dockUI.dockPosition);
+            }
+        };
+
         btn.connect('button-release-event', (_actor, event) => {
             if (dockUI._activeContextMenu) {
                 dockUI._activeContextMenu.hide();
@@ -223,17 +245,10 @@ export function buildModules(dockUI, iconSize) {
 
             if (button === 1) {
                 if (btn._wasDragged) { btn._wasDragged = false; return Clutter.EVENT_STOP; }
-                dockUI.actor._lastIconClickTime = Date.now();
-                animateIconClick(iconBin, settings.get_string('click-effect'));
-                clickAction(btn);
+                btn._activateCallback(1, state);
                 return Clutter.EVENT_STOP;
             } else if (button === 3) {
-                const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
-                if (dockUI._activeContextMenu) {
-                    try { dockUI._activeContextMenu._forceDestroy(); } catch (e) { }
-                    dockUI._activeContextMenu = null;
-                }
-                new AppContextMenu(dockUI, btn._delegate.app, btn, isCtrl, dockUI.openPrefsCallback).show(dockUI.dockPosition);
+                btn._activateCallback(3, state);
                 return Clutter.EVENT_STOP;
             }
             return Clutter.EVENT_PROPAGATE;
@@ -245,24 +260,126 @@ export function buildModules(dockUI, iconSize) {
     };
 
     if (settings.get_boolean('show-grid-button')) {
-        gridModule = createBtn('view-app-grid', 'Applications', () => {
-            try {
-                const isAppsPageVisible = Main.overview.visible &&
-                    Main.overview._overview?._controls?._appDisplay?.visible;
-                if (isAppsPageVisible) {
-                    Main.overview.hide();
-                } else {
-                    Main.overview.showApps();
-                }
-            } catch (_e) {
-                if (Main.overview.visible) {
-                    Main.overview.hide();
-                } else {
-                    Main.overview.showApps();
-                }
-            }
-            if (dockUI.actor) dockUI.actor._suppressZoom = true;
+        const customIconPath = settings.get_string('custom-grid-icon');
+        const hasCustomIcon = customIconPath && GLib.file_test(customIconPath, GLib.FileTest.EXISTS);
+        const useOldIcon = settings.get_boolean('use-old-grid-icon');
+        
+        const moduleFile = Gio.File.new_for_uri(import.meta.url);
+        const logoPath = moduleFile.get_parent().get_parent().get_parent().get_child('icons').get_child('logo.svg').get_path();
+        const hasLogo = GLib.file_test(logoPath, GLib.FileTest.EXISTS);
+        
+        let scaleMultiplier;
+        if (hasCustomIcon) {
+            scaleMultiplier = settings.get_int('custom-grid-icon-scale') / 100.0;
+        } else if (useOldIcon || !hasLogo) {
+            scaleMultiplier = 1.25;
+        } else {
+            scaleMultiplier = 0.90;
+        }
+        
+        const gridIconSize = Math.floor(iconSize * scaleMultiplier);
+        const gridRenderSize = Math.ceil(gridIconSize * actualMaxZoom);
+        const gridColor = settings.get_string('grid-icon-color') || '#ffffff';
+
+        let gridIcon;
+        if (hasCustomIcon) {
+            const gfile = Gio.File.new_for_path(customIconPath);
+            const gicon = new Gio.FileIcon({ file: gfile });
+            gridIcon = new St.Icon({
+                gicon: gicon,
+                icon_size: 256,
+                style_class: 'dock-grid-icon'
+            });
+        } else if (useOldIcon || !hasLogo) {
+            gridIcon = new St.Icon({
+                icon_name: 'view-app-grid-symbolic',
+                icon_size: gridRenderSize,
+                style_class: 'dock-grid-icon'
+            });
+        } else {
+            const gfile = Gio.File.new_for_path(logoPath);
+            const gicon = new Gio.FileIcon({ file: gfile });
+            gridIcon = new St.Icon({
+                gicon: gicon,
+                icon_size: gridRenderSize,
+                style_class: 'dock-grid-icon'
+            });
+        }
+
+        if (useOldIcon || (!hasCustomIcon && !hasLogo)) {
+            gridIcon.set_style(`color: ${gridColor};`);
+        }
+
+        gridIcon.set_pivot_point(0.5, 0.5);
+        gridIcon.set_size(gridIconSize, gridIconSize);
+
+        const gridIconBin = new St.Bin({
+            child: gridIcon, width: iconSize, height: iconSize,
+            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER
         });
+        gridIconBin.set_pivot_point(0.5, 0.5);
+
+        gridModule = new St.Bin({
+            child: gridIconBin, style_class: 'dock-app-button',
+            reactive: true, track_hover: true, can_focus: false
+        });
+        gridModule.set_pivot_point(0.5, 0.5);
+        gridModule._hasRunningIndicator = false;
+
+        if (hoverZoom) applyIconFilter(gridModule);
+
+        gridModule._activateCallback = (buttonNum) => {
+            if (buttonNum === 1) {
+                animateIconClick(gridIconBin, settings.get_string('click-effect'));
+                try {
+                    const isAppsPageVisible = Main.overview.visible &&
+                        Main.overview._overview?._controls?._appDisplay?.visible;
+
+                    if (isAppsPageVisible) {
+                        Main.overview.hide();
+                    } else {
+                        Main.overview.showApps();
+                    }
+                } catch (_e) {
+                    if (Main.overview.visible) {
+                        Main.overview.hide();
+                    } else {
+                        Main.overview.showApps();
+                    }
+                }
+                if (dockUI.actor) dockUI.actor._suppressZoom = true;
+            }
+        };
+
+        gridModule.connect('button-press-event', (_actor, event) => {
+            if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
+            return Clutter.EVENT_PROPAGATE;
+        });
+
+        gridModule.connect('button-release-event', (_actor, event) => {
+            if (dockUI._activeContextMenu) {
+                dockUI._activeContextMenu.hide();
+                return Clutter.EVENT_STOP;
+            }
+
+            if (event.get_button() === 1) {
+                if (dockUI.actor && dockUI.actor._lastIconClickTime !== undefined) 
+                    dockUI.actor._lastIconClickTime = Date.now();
+                gridModule._activateCallback(1);
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        });
+
+        gridModule._delegate = {
+            app: {
+                is_module: true,
+                get_id: () => 'dhruva-grid-button',
+                get_name: () => 'Applications',
+                get_state: () => 0,
+                get_windows: () => [],
+            }
+        };
     }
 
     if (!dockUI._hiddenWindowsByDesktopBtn) dockUI._hiddenWindowsByDesktopBtn = [];
@@ -270,20 +387,48 @@ export function buildModules(dockUI, iconSize) {
     if (settings.get_boolean('show-desktop-button')) {
         systemModules.push(createBtn('user-desktop', 'Show Desktop', () => {
             const workspace = global.workspace_manager.get_active_workspace();
-            const windows = workspace.list_windows().filter(w => w.get_window_type() !== 1 && !w.is_skip_taskbar() && !w.is_always_on_all_workspaces());
+            
+            const windows = workspace.list_windows().filter(w => 
+                w.get_window_type() === 0 && 
+                !w.is_skip_taskbar() && 
+                !w.is_always_on_all_workspaces()
+            );
+            
             const visibleWindows = windows.filter(w => !w.minimized);
 
             if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
-                dockUI._hiddenWindowsByDesktopBtn.forEach(w => {
-                    if (w && !w.is_destroyed()) {
-                        w.unminimize();
-                        Main.activateWindow(w);
-                    }
+                dockUI._hiddenWindowsByDesktopBtn.forEach((w, index) => {
+                    GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
+                        try {
+                            if (w && w.minimized) w.unminimize();
+                        } catch (e) {}
+                        return GLib.SOURCE_REMOVE;
+                    });
                 });
+                
+                try {
+                    const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
+                    if (topWin) {
+                        GLib.timeout_add(GLib.PRIORITY_DEFAULT, dockUI._hiddenWindowsByDesktopBtn.length * 40, () => {
+                            Main.activateWindow(topWin);
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    }
+                } catch (e) {}
+                
                 dockUI._hiddenWindowsByDesktopBtn = [];
+                
             } else {
                 dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
-                visibleWindows.forEach(w => w.minimize());
+                
+                visibleWindows.forEach((w, index) => {
+                    GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
+                        try {
+                            if (!w.minimized) w.minimize();
+                        } catch (e) {}
+                        return GLib.SOURCE_REMOVE;
+                    });
+                });
             }
         }));
     }
@@ -321,7 +466,7 @@ export function buildModules(dockUI, iconSize) {
     if (settings.get_boolean('show-trash')) {
         let trashIconName = 'user-trash';
         try {
-            const trashFile = Gio.File.new_for_uri('trash://');
+            const trashFile = Gio.File.new_for_uri('trash:///');
             const enumerator = trashFile.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
             if (enumerator.next_file(null)) {
                 trashIconName = 'user-trash-full';
@@ -329,7 +474,7 @@ export function buildModules(dockUI, iconSize) {
             enumerator.close(null);
         } catch (e) { }
 
-        systemModules.push(createBtn(trashIconName, 'Recycle Bin', (btn) => toggleAppWindow('trash://', ['Trash'], btn), ['Trash']));
+        systemModules.push(createBtn(trashIconName, 'Recycle Bin', (btn) => toggleAppWindow('trash:///', ['Trash'], btn), ['Trash']));
     }
 
     try {

@@ -94,6 +94,11 @@ export default class DockManager {
                         child.remove_all_transitions();
                     child.opacity = 255;
                 } catch (e) {}
+
+                if (this.dockUI && this.dockUI.autoHideManager && this.dockUI.autoHideManager.isHidden) {
+                    this.dockUI.autoHideManager._forceShow();
+                }
+
                 try { realDhruvaBox.add_child(child); } catch(e){}
                 
                 if (this.dockUI && typeof this.dockUI.onMusicPillInjected === 'function') {

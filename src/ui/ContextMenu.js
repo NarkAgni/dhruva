@@ -21,6 +21,7 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { DockThemes } from './Themes.js';
 import PeekManager from '../core/PeekManager.js';
 import { resetMagnification, applyRealtimeFrame } from './Magnifier.js';
 import { animateMinimize, animateRestore } from './effects/WindowEffects.js';
@@ -48,11 +49,7 @@ export default class AppContextMenu {
 
         global.stage.set_key_focus(null);
 
-        this.actor.connect('button-release-event', () => {
-            this.hide();
-            return Clutter.EVENT_STOP;
-        });
-        
+        this.actor.connect('button-release-event', () => { this.hide(); return Clutter.EVENT_STOP; });
         this.actor.connect('touch-event', (_actor, event) => {
             if (event.type() === Clutter.EventType.TOUCH_END) this.hide();
             return Clutter.EVENT_STOP;
@@ -60,67 +57,41 @@ export default class AppContextMenu {
 
         this.peekManager = new PeekManager(this.dockUI, this.actor);
 
-        this.panel = new St.BoxLayout({
-            vertical: true,
-            reactive: true,
-            style_class: 'context-menu-panel'
-        });
-
+        this.panel = new St.BoxLayout({ vertical: true, reactive: true, style_class: 'context-menu-panel' });
         this.panel.connect('button-release-event', () => Clutter.EVENT_STOP);
         this.panel.connect('touch-event', () => Clutter.EVENT_STOP);
 
-        this._applyChameleonPanelStyle(this.panel);
+        this._applyThemeStyle(this.panel);
         this._buildMenu();
         this.actor.add_child(this.panel);
     }
 
     _buildMenu() {
-        const titleBox = new St.BoxLayout({ 
-            vertical: false, 
-            x_align: Clutter.ActorAlign.CENTER, 
-            y_align: Clutter.ActorAlign.CENTER, 
-            style_class: 'context-menu-header-box' 
-        });
-        const titleLabel = new St.Label({ 
-            text: this.app.get_name(), 
-            style_class: 'context-menu-header-title' 
-        });
+        const titleBox = new St.BoxLayout({ vertical: false, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style_class: 'context-menu-header-box' });
+        titleBox.add_child(new St.Label({ text: this.app.get_name(), style_class: 'context-menu-header-title' }));
         
-        titleBox.add_child(titleLabel);
         this.panel.add_child(titleBox);
         this._addSeparator();
 
         let windows = this.app.get_windows();
 
         if (windows.length > 0) {
-            let customSize = this.dockUI.settings.get_int('context-menu-size');
+            const customSize = this.dockUI.settings.get_int('context-menu-size');
+            const thumbSpacing = 12, panelPadding = 24;
 
-            const thumbSpacing = 12;
-            const panelPadding = 24;
-
-            if (windows.length === 1) {
-                this._dynamicPanelWidth = customSize + panelPadding + 16;
-            } else {
-                this._dynamicPanelWidth = (customSize * 2) + thumbSpacing + panelPadding + 16;
-            }
-
-            if (this._dynamicPanelWidth < 200) this._dynamicPanelWidth = 200;
+            this._dynamicPanelWidth = Math.max(200, (windows.length === 1 ? customSize : (customSize * 2) + thumbSpacing) + panelPadding + 16);
 
             const thumbScroll = new St.ScrollView({
                 vscrollbar_policy: St.PolicyType.NEVER,
                 hscrollbar_policy: windows.length > 2 ? St.PolicyType.AUTOMATIC : St.PolicyType.NEVER,
-                enable_mouse_scrolling: true,
-                overlay_scrollbars: true,
-                style_class: 'context-menu-thumb-scroll'
+                enable_mouse_scrolling: true, overlay_scrollbars: true, style_class: 'context-menu-thumb-scroll'
             });
 
             thumbScroll.connect('scroll-event', (actor, event) => {
-                let dx = 0, dy = 0;
+                let [dx, dy] = event.get_scroll_direction() === Clutter.ScrollDirection.SMOOTH ? event.get_scroll_delta() : [0, 0];
                 const direction = event.get_scroll_direction();
-
-                if (direction === Clutter.ScrollDirection.SMOOTH) {
-                    [dx, dy] = event.get_scroll_delta();
-                } else if (direction === Clutter.ScrollDirection.UP) dy = -1;
+                
+                if (direction === Clutter.ScrollDirection.UP) dy = -1;
                 else if (direction === Clutter.ScrollDirection.DOWN) dy = 1;
                 else if (direction === Clutter.ScrollDirection.LEFT) dx = -1;
                 else if (direction === Clutter.ScrollDirection.RIGHT) dx = 1;
@@ -128,19 +99,10 @@ export default class AppContextMenu {
                 if (Math.abs(dy) > Math.abs(dx) && dy !== 0) { dx = dy; dy = 0; }
 
                 if (dx !== 0) {
-                    const adjustment = typeof thumbScroll.get_hadjustment === 'function'
-                        ? thumbScroll.get_hadjustment()
-                        : thumbScroll.get_hscroll_bar().get_adjustment();
-
+                    const adjustment = typeof thumbScroll.get_hadjustment === 'function' ? thumbScroll.get_hadjustment() : thumbScroll.get_hscroll_bar().get_adjustment();
                     if (adjustment) {
                         const step = direction === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50;
-                        let newVal = adjustment.get_value() + step;
-                        const min = adjustment.get_lower();
-                        const max = adjustment.get_upper() - adjustment.get_page_size();
-
-                        if (newVal > max) newVal = max;
-                        if (newVal < min) newVal = min;
-
+                        let newVal = Math.min(Math.max(adjustment.get_value() + step, adjustment.get_lower()), adjustment.get_upper() - adjustment.get_page_size());
                         adjustment.set_value(newVal);
                         return Clutter.EVENT_STOP;
                     }
@@ -148,16 +110,8 @@ export default class AppContextMenu {
                 return Clutter.EVENT_PROPAGATE;
             });
 
-            const thumbBox = new St.BoxLayout({
-                vertical: false,
-                reactive: true,
-                style_class: 'context-menu-thumb-box',
-                style: `spacing: ${thumbSpacing}px;`
-            });
-
-            if (windows.length <= 2) {
-                thumbBox.x_align = Clutter.ActorAlign.CENTER;
-            }
+            const thumbBox = new St.BoxLayout({ vertical: false, reactive: true, style_class: 'context-menu-thumb-box', style: `spacing: ${thumbSpacing}px;` });
+            if (windows.length <= 2) thumbBox.x_align = Clutter.ActorAlign.CENTER;
 
             windows.forEach(win => {
                 const card = new St.Widget({ layout_manager: new Clutter.BinLayout(), reactive: true });
@@ -167,110 +121,60 @@ export default class AppContextMenu {
                 if (compPrivate) {
                     const clone = new Clutter.Clone({ source: compPrivate, reactive: false });
                     const rect = win.get_frame_rect();
-                    const w = Math.max(1, rect.width || 1);
-                    const h = Math.max(1, rect.height || 1);
+                    const w = Math.max(1, rect.width || 1), h = Math.max(1, rect.height || 1);
 
-                    let thumbW = customSize;
-                    let thumbH = (h / w) * thumbW;
-                    if (thumbH > customSize * 0.8) { 
-                        thumbH = customSize * 0.8; 
-                        thumbW = (w / h) * thumbH; 
-                    }
+                    let thumbW = customSize, thumbH = (h / w) * thumbW;
+                    if (thumbH > customSize * 0.8) { thumbH = customSize * 0.8; thumbW = (w / h) * thumbH; }
 
                     clone.set_size(thumbW, thumbH);
-                    const padBin = new St.Bin({ child: clone, style: 'border-radius: 6px; overflow: hidden;' });
-                    thumbBtn.set_child(padBin);
+                    thumbBtn.set_child(new St.Bin({ child: clone, style: 'border-radius: 6px; overflow: hidden;' }));
                 }
 
                 let winTitleText = win.get_title() || 'Window';
                 if (winTitleText.length > 20) winTitleText = winTitleText.substring(0, 18) + '...';
 
                 const titleLbl = new St.Label({ text: winTitleText, style_class: 'context-menu-thumb-title', reactive: false });
-                const labelBin = new St.Bin({ 
-                    child: titleLbl, 
-                    x_align: Clutter.ActorAlign.FILL, 
-                    y_align: Clutter.ActorAlign.END, 
-                    x_expand: true, 
-                    y_expand: true, 
-                    style_class: 'context-menu-thumb-title-bin' 
-                });
-                
-                const controlsBox = new St.BoxLayout({ 
-                    vertical: false, 
-                    opacity: 0, 
-                    reactive: true, 
-                    style_class: 'context-menu-controls-box' 
-                });
+                const labelBin = new St.Bin({ child: titleLbl, x_align: Clutter.ActorAlign.FILL, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true, style_class: 'context-menu-thumb-title-bin' });
+                const controlsBox = new St.BoxLayout({ vertical: false, opacity: 0, reactive: true, style_class: 'context-menu-controls-box' });
 
                 if (!win.minimized) {
-                    const minBtn = this._createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
-                        this.hide();
-                        animateMinimize(win, this.buttonActor, this.dockUI.dockPosition);
-                    });
-                    controlsBox.add_child(minBtn);
+                    controlsBox.add_child(this._createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
+                        this.hide(); animateMinimize(win, this.buttonActor, this.dockUI.dockPosition);
+                    }));
                 }
 
                 const isMaximized = typeof win.is_maximized === 'function' ? win.is_maximized() : false;
-                let maxIcon = isMaximized ? 'window-restore-symbolic' : 'window-maximize-symbolic';
-                if (win.minimized) maxIcon = 'view-fullscreen-symbolic';
-
-                const maxBtn = this._createWindowControl(maxIcon, '40, 201, 64', () => {
-                    this._previousFocus = null; 
-                    this.hide();
-                    
+                controlsBox.add_child(this._createWindowControl(win.minimized ? 'view-fullscreen-symbolic' : (isMaximized ? 'window-restore-symbolic' : 'window-maximize-symbolic'), '40, 201, 64', () => {
+                    this._previousFocus = null; this.hide();
                     win.activate(global.get_current_time());
                     
-                    if (win.minimized) {
-                        animateRestore(win, this.buttonActor, this.dockUI.dockPosition);
-                        Main.activateWindow(win);
-                    } else if (isMaximized) {
-                        Main.activateWindow(win);
-                        win.unmaximize();
-                    } else {
-                        Main.activateWindow(win);
-                        win.maximize();
-                    }
-                });
-                controlsBox.add_child(maxBtn);
+                    if (win.minimized) { animateRestore(win, this.buttonActor, this.dockUI.dockPosition); Main.activateWindow(win); } 
+                    else if (isMaximized) { Main.activateWindow(win); win.unmaximize(); } 
+                    else { Main.activateWindow(win); win.maximize(); }
+                }));
 
-                const closeBtn = this._createWindowControl('window-close-symbolic', '255, 59, 48', () => {
+                controlsBox.add_child(this._createWindowControl('window-close-symbolic', '255, 59, 48', () => {
                     if (!windows.includes(win)) return;
-
                     win.delete(global.get_current_time());
-                    card.ease({
-                        scale_x: 0, scale_y: 0, opacity: 0, duration: 200,
-                        onComplete: () => { if (card) card.destroy(); }
-                    });
+                    card.ease({ scale_x: 0, scale_y: 0, opacity: 0, duration: 200, onComplete: () => { if (card) card.destroy(); } });
                     windows = windows.filter(w => w !== win);
-
                     this.peekManager.stopPeek();
 
                     if (windows.length === 0) {
                         this._addAppToIgnoreList(this.app);
                         if (this.dockUI.actor) this.dockUI.actor._lastIconClickTime = 0;
-                        this.dockUI._renderDock();
-                        this.hide();
+                        this.dockUI._renderDock(); this.hide();
                     }
-                });
+                }));
 
-                controlsBox.add_child(closeBtn);
+                const controlsBin = new St.Bin({ child: controlsBox, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true });
 
-                const controlsBin = new St.Bin({
-                    child: controlsBox,
-                    x_align: Clutter.ActorAlign.END, 
-                    y_align: Clutter.ActorAlign.START,
-                    x_expand: true, 
-                    y_expand: true,
-                });
-
-                card.add_child(thumbBtn);
-                card.add_child(labelBin);
-                card.add_child(controlsBin);
+                card.add_child(thumbBtn); card.add_child(labelBin); card.add_child(controlsBin);
 
                 card.connect('enter-event', () => {
                     controlsBox.ease({ opacity: 255, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_BACK });
                     titleLbl.ease({ opacity: 0, duration: 150 });
-                    thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.6); box-shadow: 0 4px 16px rgba(0,0,0,0.6); transition-duration: 150ms;');
+                    thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.6); transition-duration: 150ms;');
                     this.peekManager.startPeek(win);
                     return Clutter.EVENT_PROPAGATE;
                 });
@@ -278,21 +182,16 @@ export default class AppContextMenu {
                 card.connect('leave-event', () => {
                     controlsBox.ease({ opacity: 0, duration: 150, mode: Clutter.AnimationMode.EASE_IN_QUAD });
                     titleLbl.ease({ opacity: 255, duration: 150 });
-                    thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms; box-shadow: 0 4px 12px rgba(0,0,0,0.2);');
+                    thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
                     this.peekManager.stopPeek();
                     return Clutter.EVENT_PROPAGATE;
                 });
 
                 thumbBtn.connect('clicked', () => {
                     this._previousFocus = null; 
-                    
-                    if (win.minimized) { 
-                        animateRestore(win, this.buttonActor, this.dockUI.dockPosition);
-                    }
-                    
+                    if (win.minimized) animateRestore(win, this.buttonActor, this.dockUI.dockPosition);
                     win.activate(global.get_current_time());
                     Main.activateWindow(win);
-                    
                     this.hide();
                 });
 
@@ -307,29 +206,22 @@ export default class AppContextMenu {
         }
 
         if (this.app.is_module && typeof this.app.open === 'function') {
-            this.panel.add_child(this._createMenuItem(`Open ${this.app.get_name()}`, () => {
-                this.app.open();
-                this.hide();
-            }));
+            this.panel.add_child(this._createMenuItem(`Open ${this.app.get_name()}`, () => { this.app.open(); this.hide(); }));
             this._addSeparator();
         }
 
-        const appId = typeof this.app.get_id === 'function' ? this.app.get_id() : '';
-        if (appId === 'dhruva-module-recycle-bin') {
+        if ((typeof this.app.get_id === 'function' ? this.app.get_id() : '') === 'dhruva-module-recycle-bin') {
             this._addTrashActions();
         }
 
-        let appInfo = null;
-        if (typeof this.app.get_app_info === 'function') appInfo = this.app.get_app_info();
-
+        const appInfo = typeof this.app.get_app_info === 'function' ? this.app.get_app_info() : null;
         const actions = appInfo ? appInfo.list_actions() : [];
         let hasNewWindow = false;
         const quietContext = new Gio.AppLaunchContext();
 
         if (typeof this.app.can_open_new_window === 'function' && this.app.can_open_new_window()) {
             this.panel.add_child(this._createMenuItem('New Window', () => {
-                if (appInfo) appInfo.launch([], quietContext);
-                else this.app.open_new_window(-1);
+                if (appInfo) appInfo.launch([], quietContext); else this.app.open_new_window(-1);
                 this.hide();
             }));
             hasNewWindow = true;
@@ -338,87 +230,86 @@ export default class AppContextMenu {
         if (actions.length > 0) {
             actions.forEach(action => {
                 if (action.toLowerCase().includes('new-window') && hasNewWindow) return;
-                const actionName = appInfo.get_action_name(action);
-                this.panel.add_child(this._createMenuItem(actionName, () => {
-                    appInfo.launch_action(action, quietContext);
-                    this.hide();
-                }));
+                this.panel.add_child(this._createMenuItem(appInfo.get_action_name(action), () => { appInfo.launch_action(action, quietContext); this.hide(); }));
             });
         }
 
         if (hasNewWindow || actions.length > 0) this._addSeparator();
 
-        let isPinned = false;
-        if (typeof this.app.get_id === 'function') {
-            isPinned = this.appManager.hasApp(this.app);
-        }
-
         if (!this.app.is_module && typeof this.app.get_id === 'function') {
+            const isPinned = this.appManager.hasApp(this.app);
             this.panel.add_child(this._createCheckboxItem('Keep in Dock', isPinned, () => {
                 isPinned ? this.appManager.removeApp(this.app) : this.appManager.addApp(this.app);
-                this.dockUI._renderDock();
-                this.hide();
+                this.dockUI._renderDock(); this.hide();
             }));
         }
 
         if (this.app.get_state() === Shell.AppState.RUNNING) {
             this._addSeparator();
-            const quitText = windows.length > 1 ? 'Close All Windows' : (this.app.is_module ? 'Close Folder' : 'Quit');
-            
-            this.panel.add_child(this._createMenuItem(quitText, () => {
+            this.panel.add_child(this._createMenuItem(windows.length > 1 ? 'Close All Windows' : (this.app.is_module ? 'Close Folder' : 'Quit'), () => {
                 this._addAppToIgnoreList(this.app);
                 if (typeof this.app.request_quit === 'function') this.app.request_quit();
                 if (this.dockUI.actor) this.dockUI.actor._lastIconClickTime = 0;
-                this.dockUI._renderDock();
-                this.hide();
+                this.dockUI._renderDock(); this.hide();
             }, true));
         }
 
         if (this.isCtrlPressed && this.openPrefsCallback) {
             this._addSeparator();
-            this.panel.add_child(this._createMenuItem('⚙️  Dhruva Settings', () => {
-                this.hide();
-                this.openPrefsCallback();
-            }));
+            this.panel.add_child(this._createMenuItem('Dhruva Settings', () => { this.hide(); this.openPrefsCallback(); }));
         }
     }
 
     _addAppToIgnoreList(app) {
         if (!this.dockUI || typeof app.get_id !== 'function') return;
         const appId = app.get_id();
+        
         if (!this.dockUI._ignoringApps) this.dockUI._ignoringApps = new Set();
         this.dockUI._ignoringApps.add(appId);
+        
         if (!this.dockUI._ignoreAppTimers) this.dockUI._ignoreAppTimers = [];
 
-        let timerId = 0;
-        timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
-            if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
-            if (this.dockUI && this.dockUI._ignoreAppTimers) {
-                this.dockUI._ignoreAppTimers = this.dockUI._ignoreAppTimers.filter(id => id !== timerId);
-            }
+        const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+            if (this.dockUI?._ignoringApps) this.dockUI._ignoringApps.delete(appId);
+            if (this.dockUI?._ignoreAppTimers) this.dockUI._ignoreAppTimers = this.dockUI._ignoreAppTimers.filter(id => id !== timerId);
             return GLib.SOURCE_REMOVE;
         });
         this.dockUI._ignoreAppTimers.push(timerId);
     }
 
-    _applyChameleonPanelStyle(panel) {
-        if (this.dockUI.settings.get_string('dock-theme') !== 'chameleon') return;
-        const c = this.dockUI._chameleonColor?.bg;
-        const accent = this.dockUI._chameleonAccent || '#ffffff';
-        if (!c) return;
+    _applyThemeStyle(panel) {
+        if (!this.dockUI?.settings) return;
 
-        const hex = accent.replace('#', '');
-        const ar = parseInt(hex.substring(0, 2), 16);
-        const ag = parseInt(hex.substring(2, 4), 16);
-        const ab = parseInt(hex.substring(4, 6), 16);
+        const settings = this.dockUI.settings;
+        const themeId = settings.get_string('dock-theme') || 'default';
+        const opacity = settings.get_int('background-opacity') / 100.0;
+        
+        const sWidth = settings.get_int('stroke-width');
+        const sColor = settings.get_string('stroke-color') || '#ffffff';
+        const sOpacity = settings.get_int('stroke-opacity') / 100.0;
 
-        panel.set_style(`
-            background-color: rgba(${c.r}, ${c.g}, ${c.b}, 0.88);
-            border: 1px solid rgba(${ar}, ${ag}, ${ab}, 0.35);
-            padding: 12px;
-            border-radius: 18px;
-            box-shadow: 0 12px 40px rgba(${c.r}, ${c.g}, ${c.b}, 0.6);
-        `);
+        const hexToRgba = (hex, alpha) => {
+            const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+
+        let themeCss = sWidth > 0 ? `border: ${sWidth}px solid ${hexToRgba(sColor, sOpacity)};` : 'border: none;';
+
+        if (themeId === 'chameleon') {
+            const { r, g, b } = this.dockUI._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
+            themeCss += ` background-color: rgba(${r}, ${g}, ${b}, 0.88);`;
+        } else {
+            const config = {
+                opacity,
+                color1: hexToRgba(settings.get_string('background-color') || '#000000', opacity),
+                color2: hexToRgba(settings.get_string('background-gradient-color') || '#000000', opacity),
+                useGradient: settings.get_boolean('use-gradient'),
+                direction: settings.get_string('gradient-direction') || 'vertical'
+            };
+            themeCss += ` ${(DockThemes[themeId] || DockThemes['default']).css(config)}`;
+        }
+
+        panel.set_style(`${themeCss} padding: 12px; border-radius: 18px;`);
     }
 
     _addTrashActions() {
@@ -430,16 +321,8 @@ export default class AppContextMenu {
             iter.close(null);
         } catch (e) { }
 
-        const emptyBtn = new St.Button({
-            reactive: trashHasItems,
-            x_expand: true,
-            style_class: trashHasItems ? 'context-menu-action-btn-destructive' : 'context-menu-action-btn'
-        });
-
-        const label = new St.Label({
-            text: trashHasItems ? '🗑️  Empty Trash' : '✅  Trash is Empty',
-            style_class: trashHasItems ? 'context-menu-action-label-destructive' : 'context-menu-action-label'
-        });
+        const emptyBtn = new St.Button({ reactive: trashHasItems, x_expand: true, style_class: trashHasItems ? 'context-menu-action-btn-destructive' : 'context-menu-action-btn' });
+        const label = new St.Label({ text: trashHasItems ? 'Empty Trash' : 'Trash is Empty', style_class: trashHasItems ? 'context-menu-action-label-destructive' : 'context-menu-action-label' });
 
         if (!trashHasItems) {
             emptyBtn.set_opacity(100);
@@ -466,8 +349,8 @@ export default class AppContextMenu {
             style: `background-color: rgba(${rgbColor}, 0.40);`,
             reactive: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER
         });
+        
         btn.connect('clicked', onClick);
-
         btn.connect('enter-event', () => {
             btn.set_style(`background-color: rgba(${rgbColor}, 0.75); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.45); transition-duration: 150ms;`);
             btn.ease({ scale_x: 1.1, scale_y: 1.1, duration: 120 });
@@ -485,8 +368,7 @@ export default class AppContextMenu {
 
     _createMenuItem(text, onClick, isDestructive = false) {
         const btn = new St.Button({ reactive: true, x_expand: true, style_class: isDestructive ? 'context-menu-action-btn-destructive' : 'context-menu-action-btn' });
-        const label = new St.Label({ text, style_class: isDestructive ? 'context-menu-action-label-destructive' : 'context-menu-action-label' });
-        btn.set_child(label);
+        btn.set_child(new St.Label({ text, style_class: isDestructive ? 'context-menu-action-label-destructive' : 'context-menu-action-label' }));
         btn.connect('clicked', onClick);
         return btn;
     }
@@ -495,10 +377,11 @@ export default class AppContextMenu {
         const btn = new St.Button({ reactive: true, x_expand: true, style_class: 'context-menu-action-btn' });
         const box = new St.BoxLayout({ vertical: false, y_align: Clutter.ActorAlign.CENTER });
         const checkbox = new St.Bin({ style_class: isChecked ? 'context-menu-checkbox-box checked' : 'context-menu-checkbox-box' });
+        
         if (isChecked) checkbox.set_child(new St.Icon({ icon_name: 'object-select-symbolic', icon_size: 12, style: 'color: white; font-weight: bold;' }));
-        const label = new St.Label({ text, style_class: 'context-menu-action-label', y_align: Clutter.ActorAlign.CENTER });
+        
         box.add_child(checkbox);
-        box.add_child(label);
+        box.add_child(new St.Label({ text, style_class: 'context-menu-action-label', y_align: Clutter.ActorAlign.CENTER }));
         btn.set_child(box);
         btn.connect('clicked', onClick);
         return btn;
@@ -531,7 +414,6 @@ export default class AppContextMenu {
         
         this.actor.set_position(0, 0);
         this.actor.set_size(global.stage.width, global.stage.height);
-        
         this.panel.set_width(this._dynamicPanelWidth);
 
         const maxPanelHeight = monitor.height * 0.85;
@@ -556,13 +438,11 @@ export default class AppContextMenu {
         this.panel.opacity = 0;
         this.panel.set_scale(0.95, 0.95);
         this.panel.set_pivot_point(0.5, dockPosition === 'BOTTOM' ? 1.0 : 0.0);
-
         this.panel.ease({ opacity: 255, scale_x: 1.0, scale_y: 1.0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
     }
 
    _forceDestroy() {
-        if (this.dockUI && this.dockUI._activeContextMenu === this)
-            this.dockUI._activeContextMenu = null;
+        if (this.dockUI?._activeContextMenu === this) this.dockUI._activeContextMenu = null;
         if (this.peekManager) { this.peekManager.destroy(); this.peekManager = null; }
         if (this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
         if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null);
@@ -573,8 +453,7 @@ export default class AppContextMenu {
         if (this._isHiding) return;
         this._isHiding = true;
 
-        if (this.dockUI && this.dockUI._activeContextMenu === this)
-            this.dockUI._activeContextMenu = null;
+        if (this.dockUI?._activeContextMenu === this) this.dockUI._activeContextMenu = null;
         if (this.peekManager) this.peekManager.stopPeek();
 
         if (this.dockUI?.actor) {

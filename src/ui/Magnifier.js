@@ -23,6 +23,7 @@ import PeekManager from '../core/PeekManager.js';
 import WorkspaceFilter from '../core/WorkspaceFilter.js';
 import { animateRestore } from './effects/WindowEffects.js';
 
+
 const FLIP_DURATION = 300;
 const TOOLTIP_DELAY_MS = 600;
 
@@ -340,8 +341,36 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
         orderedCenters[0] = orderedSlots[0];
         for (let orderIndex = 1; orderIndex < n; orderIndex++) {
-            const gap = orderedSlots[orderIndex] - orderedSlots[orderIndex - 1];
-            orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] + gap * (orderedScales[orderIndex] + orderedScales[orderIndex - 1]) * 0.5;
+            const prevBtn = btns[orderToBtn[orderIndex - 1]];
+            const currBtn = btns[orderToBtn[orderIndex]];
+
+            const prevW = isVertical ? prevBtn.height : prevBtn.width;
+            const currW = isVertical ? currBtn.height : currBtn.width;
+
+            const prevScale = orderedScales[orderIndex - 1];
+            const currScale = orderedScales[orderIndex];
+
+            const originalGap = orderedSlots[orderIndex] - orderedSlots[orderIndex - 1];
+
+            const GAP_FACTOR = 2.0;
+            
+            let prevExtra = (prevW * prevScale - prevW) / GAP_FACTOR;
+            let currExtra = (currW * currScale - currW) / GAP_FACTOR;
+
+            const sClassP = typeof prevBtn.get_style_class_name === 'function' ? prevBtn.get_style_class_name() : (prevBtn.style_class || '');
+            const sClassC = typeof currBtn.get_style_class_name === 'function' ? currBtn.get_style_class_name() : (currBtn.style_class || '');
+
+            const prevIsStatic = prevBtn._isStatic || sClassP.includes('dock-separator') || sClassP.includes('clock-module');
+            const currIsStatic = currBtn._isStatic || sClassC.includes('dock-separator') || sClassC.includes('clock-module');
+
+            if (currIsStatic && prevScale > 1.0) {
+                currExtra += (prevW * (prevScale - 1.0)) * 0.25; 
+            }
+            if (prevIsStatic && currScale > 1.0) {
+                prevExtra += (currW * (currScale - 1.0)) * 0.25;
+            }
+
+            orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] + originalGap + prevExtra + currExtra;
         }
 
         for (let i = 0; i < n; i++) {
@@ -390,19 +419,15 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 if (origC + origHalf > origMax) origMax = origC + origHalf;
             }
             if (minVis !== Infinity && origMin !== Infinity) {
-                if (isVertical) { topExp = Math.max(0, origMin - minVis); botExp = Math.max(0, maxVis - origMax); } 
+                if (isVertical) { topExp = Math.max(0, origMin - minVis); botExp = Math.max(0, maxVis - origMax); }
                 else { leftExp = Math.max(0, origMin - minVis); rightExp = Math.max(0, maxVis - origMax); }
             }
         }
 
         for (let i = 0; i < n; i++) {
             const b = btns[i];
+
             let zoomTrans = zoomEnabled ? (scaledCenters[i] + zoomOffset) - centersByBtn[i] : 0;
-            const isStaticEdge = b.style_class?.includes('clock-module') || b.style_class?.includes('dock-drag-handle');
-            if (zoomEnabled && isStaticEdge) {
-                const isStartGroup = i < (n / 2);
-                zoomTrans = isVertical ? (isStartGroup ? -topExp : botExp) : (isStartGroup ? -leftExp : rightExp);
-            }
 
             let flipTrans = 0;
             if (b._flipOffset && b._flipStartTime) {
@@ -553,10 +578,27 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     dockActor._magTooltipAppId = appId;
                     dockActor._magTooltip.destroy_all_children();
 
-                    const tBg = dockActor._tooltipBg || 'rgba(20, 20, 22, 0.92)';
-                    const tFg = dockActor._tooltipFg || 'rgba(255, 255, 255, 0.95)';
-                    
-                    dockActor._magTooltip.set_style(`background-color: ${tBg}; color: ${tFg}; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 16px rgba(0,0,0,0.5);`);
+                    const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
+                    const tFg = dockActor._tooltipFg || '#ffffff';
+
+                    let sWidth = 1, sOpacity = 0.2;
+                    try {
+                        sWidth = settings.get_int('stroke-width');
+                        sOpacity = settings.get_int('stroke-opacity') / 100.0;
+                    } catch (e) { }
+
+                    let borderRgba = 'rgba(255,255,255,0.2)';
+                    if (tFg.startsWith('#')) {
+                        const r = parseInt(tFg.slice(1, 3), 16) || 255;
+                        const g = parseInt(tFg.slice(3, 5), 16) || 255;
+                        const b = parseInt(tFg.slice(5, 7), 16) || 255;
+                        borderRgba = `rgba(${r}, ${g}, ${b}, ${sOpacity})`;
+                    }
+
+                    const bgStyle = tBg.includes('background') ? tBg : `background-color: ${tBg};`;
+                    const borderStyle = sWidth > 0 ? `border: ${sWidth}px solid ${borderRgba};` : 'border: none;';
+
+                    dockActor._magTooltip.set_style(`${bgStyle} color: ${tFg}; padding: 10px 14px; border-radius: 12px; ${borderStyle} box-shadow: none;`);
 
                     const titleLbl = new St.Label({ text: appName, style: `font-weight: bold; text-align: center; color: ${tFg};` });
                     dockActor._magTooltip.add_child(titleLbl);
@@ -578,7 +620,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                         windows.forEach(win => {
                             const thumbBtn = new St.Button({ reactive: true, style_class: 'context-menu-thumb-btn' });
                             thumbBtn.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
-                            
+
                             const compPrivate = win.get_compositor_private();
                             if (compPrivate) {
                                 const clone = new Clutter.Clone({ source: compPrivate, reactive: false });
@@ -669,7 +711,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     const [bw, bh] = btn.get_transformed_size();
                     const dockPos = settings.get_string('dock-position') || 'BOTTOM';
 
-                    const tooltipMargin = 0; 
+                    const tooltipMargin = 0;
 
                     let tx = 0, ty = 0;
                     if (dockPos === 'BOTTOM') { tx = bx + bw / 2 - tw / 2; ty = by - th - tooltipMargin; }
@@ -679,7 +721,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
                     dockActor._magTooltip.set_position(tx, ty);
                     dockActor._magTooltip.show();
-                    
+
                     const parent = dockActor._magTooltip.get_parent();
                     if (parent && dockActor._dockUI && dockActor._dockUI.actor) {
                         parent.set_child_below_sibling(dockActor._magTooltip, dockActor._dockUI.actor);
@@ -740,7 +782,9 @@ function _checkPointerLeave(dockActor, settings) {
 
             const [px, py] = global.get_pointer();
             const [dax, day] = dockActor.get_transformed_position();
-            const [daw, dah] = dockActor.get_transformed_size();
+
+            const daw = dockActor._cachedW || dockActor.width || 0;
+            const dah = dockActor._cachedH || dockActor.height || 0;
 
             const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
             const hoverZoom = settings.get_boolean('hover-zoom');
@@ -875,13 +919,13 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 if (!insideTooltip) {
                     _clearTooltipDelay(dockActor);
                     dockActor._tooltipHoveredIndex = -1;
-                    if (dockActor._magTooltip) { 
-                        dockActor._magTooltip.remove_all_transitions(); 
-                        dockActor._magTooltip.opacity = 0; 
-                        dockActor._magTooltip.hide(); 
+                    if (dockActor._magTooltip) {
+                        dockActor._magTooltip.remove_all_transitions();
+                        dockActor._magTooltip.opacity = 0;
+                        dockActor._magTooltip.hide();
                     }
                 }
-                
+
                 return Clutter.EVENT_PROPAGATE;
             }
 
@@ -942,9 +986,36 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
             orderedCenters[0] = orderedSlots[0];
             for (let orderIndex = 1; orderIndex < n; orderIndex++) {
-                orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] +
-                    (orderedSlots[orderIndex] - orderedSlots[orderIndex - 1]) *
-                    (orderedScales[orderIndex] + orderedScales[orderIndex - 1]) / 2;
+                const prevBtn = btns[orderToBtn[orderIndex - 1]];
+                const currBtn = btns[orderToBtn[orderIndex]];
+
+                const prevW = isVertical ? prevBtn.height : prevBtn.width;
+                const currW = isVertical ? currBtn.height : currBtn.width;
+
+                const prevScale = orderedScales[orderIndex - 1];
+                const currScale = orderedScales[orderIndex];
+
+                const originalGap = orderedSlots[orderIndex] - orderedSlots[orderIndex - 1];
+
+                const GAP_FACTOR = 2.0;
+
+                let prevExtra = (prevW * prevScale - prevW) / GAP_FACTOR;
+                let currExtra = (currW * currScale - currW) / GAP_FACTOR;
+
+                const sClassP = typeof prevBtn.get_style_class_name === 'function' ? prevBtn.get_style_class_name() : (prevBtn.style_class || '');
+                const sClassC = typeof currBtn.get_style_class_name === 'function' ? currBtn.get_style_class_name() : (currBtn.style_class || '');
+
+                const prevIsStatic = prevBtn._isStatic || sClassP.includes('dock-separator') || sClassP.includes('clock-module');
+                const currIsStatic = currBtn._isStatic || sClassC.includes('dock-separator') || sClassC.includes('clock-module');
+
+                if (currIsStatic && prevScale > 1.0) {
+                    currExtra += (prevW * (prevScale - 1.0)) * 0.25;
+                }
+                if (prevIsStatic && currScale > 1.0) {
+                    prevExtra += (currW * (currScale - 1.0)) * 0.25;
+                }
+
+                orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] + originalGap + prevExtra + currExtra;
             }
 
             for (let i = 0; i < n; i++) {
@@ -1017,7 +1088,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     });
 }
 
-export function teardownMagnification(dockActor) {
+export function teardownMagnification(dockActor, skipReset = false) {
     if (!dockActor) return;
     try {
         stopDragLoop(dockActor);
@@ -1035,6 +1106,10 @@ export function teardownMagnification(dockActor) {
         if (dockActor._magDestroyHandlerId) { dockActor.disconnect(dockActor._magDestroyHandlerId); dockActor._magDestroyHandlerId = null; }
         if (dockActor._magTooltip) { dockActor._magTooltip.destroy(); dockActor._magTooltip = null; }
         if (dockActor._magPeekManager) { dockActor._magPeekManager.destroy(); dockActor._magPeekManager = null; }
+
+        if (!skipReset) {
+            resetMagnification(dockActor);
+        }
 
         dockActor._fixedSlots = null;
         dockActor._lastIconClickTime = null;

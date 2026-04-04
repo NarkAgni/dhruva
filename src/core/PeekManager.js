@@ -160,7 +160,7 @@ export default class PeekManager {
 
         const wrapBin = new St.Bin({
             child: clone,
-            style: 'border-radius: 14px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.7);'
+            style: 'border-radius: 14px; overflow: hidden; box-shadow: none;'
         });
 
         if (this._pendingWrapBin) {

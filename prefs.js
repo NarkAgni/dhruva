@@ -18,6 +18,7 @@ import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 export default class DhruvaPreferences extends ExtensionPreferences {
@@ -500,6 +501,28 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._settingsSignals.push(settings.connect('changed::full-width', syncRadiusVisibility));
         syncRadiusVisibility();
 
+        const sepGroup = new Adw.PreferencesGroup({
+            title: 'Separators',
+            description: 'Divider lines between dock items'
+        });
+        page.add(sepGroup);
+
+        const modSepExp = new Adw.ExpanderRow({ title: 'Module Separator', subtitle: 'Divides clock, grid, and system icons', icon_name: 'format-text-strikethrough-symbolic' });
+        modSepExp.add_suffix(createGroupReset(['separator-width', 'separator-height', 'separator-color', 'separator-opacity']));
+        sepGroup.add(modSepExp);
+        this._addCustomSpinRow(modSepExp, settings, 'separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', { lower: 0, upper: 10, step_increment: 1 }, createResetBtn);
+        this._addCustomSpinRow(modSepExp, settings, 'separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', { lower: 10, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addColorRow(modSepExp, settings, 'separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
+        this._addCustomSpinRow(modSepExp, settings, 'separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
+
+        const appSepExp = new Adw.ExpanderRow({ title: 'App Separator', subtitle: 'Divides pinned apps from running apps', icon_name: 'format-justify-center-symbolic' });
+        appSepExp.add_suffix(createGroupReset(['running-separator-width', 'running-separator-height', 'running-separator-color', 'running-separator-opacity']));
+        sepGroup.add(appSepExp);
+        this._addCustomSpinRow(appSepExp, settings, 'running-separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', { lower: 0, upper: 10, step_increment: 1 }, createResetBtn);
+        this._addCustomSpinRow(appSepExp, settings, 'running-separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', { lower: 10, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addColorRow(appSepExp, settings, 'running-separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
+        this._addCustomSpinRow(appSepExp, settings, 'running-separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
+
         const badgesGroup = new Adw.PreferencesGroup({
             title: 'App Notifications',
             description: 'Unread message counters'
@@ -701,10 +724,13 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         page.add(utilGroup);
 
         this._addSwitchRow(utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
-        this._addComboRow(utilGroup, settings, 'quick-launch-modifier', 'Quick Launch Modifier', 'Use this modifier with number keys (1-9) to launch dock items', 'input-keyboard-symbolic', [
-            { name: 'Ctrl + 1-9', value: 'ctrl' },
-            { name: 'Alt + 1-9', value: 'alt' }
-        ], null);
+
+        const qlRow = new Adw.ActionRow({
+            title: 'Quick launch',
+            subtitle: 'Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard. If Super + number still runs “Switch to application”, disable that binding in system shortcuts so Dhruva can own it.',
+        });
+        qlRow.add_prefix(new Gtk.Image({ icon_name: 'input-keyboard-symbolic' }));
+        utilGroup.add(qlRow);
 
         this._addSwitchRow(utilGroup, settings, 'isolate-workspaces', 'Isolate Workspaces', 'Only show apps running on the current workspace', 'focus-windows-symbolic', null);
         
@@ -735,6 +761,109 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             { name: 'Start', value: 'START' },
             { name: 'End', value: 'END' }
         ]);
+
+        const gridColorRow = this._addColorRow(modGroup, settings, 'grid-icon-color', 'App Grid Button Color', 'preferences-desktop-appearance-symbolic');
+
+        const oldGridIconRow = this._addSwitchRow(modGroup, settings, 'use-old-grid-icon', 'Use Old App Grid Icon', 'Show default dotted grid icon instead of Dhruva logo', 'view-app-grid-symbolic', null);
+
+        const customIconRow = new Adw.ActionRow({
+            title: 'Custom App Grid Icon',
+            subtitle: 'Size: 256x256 or 512x512 (.png, .svg, .ico)',
+            icon_name: 'image-x-generic-symbolic'
+        });
+        
+        const iconBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 8, valign: Gtk.Align.CENTER });
+        const chooseBtn = new Gtk.Button({ label: 'Browse...' });
+        
+        chooseBtn.connect('clicked', () => {
+            const dialog = new Gtk.FileDialog({ title: 'Select App Custom Grid Icon' });
+            const filter = new Gtk.FileFilter();
+            filter.set_name('Images (.png, .svg, .ico)');
+            filter.add_mime_type('image/png');
+            filter.add_mime_type('image/svg+xml');
+            filter.add_mime_type('image/x-icon');
+            filter.add_mime_type('image/vnd.microsoft.icon');
+            
+            const filterList = Gio.ListStore.new(Gtk.FileFilter);
+            filterList.append(filter);
+            dialog.set_filters(filterList);
+            
+            dialog.open(window, null, (dlg, res) => {
+                try {
+                    const file = dlg.open_finish(res);
+                    if (file) {
+                        const ext = file.get_basename().split('.').pop().toLowerCase();
+                        
+                        if (!['png', 'svg', 'ico'].includes(ext)) {
+                            console.error('[Dhruva] Invalid file format selected. Only PNG, SVG, or ICO allowed.');
+                            return;
+                        }
+
+                        const configDir = GLib.get_user_config_dir() + '/dhruva@narkagni/icon';
+                        GLib.mkdir_with_parents(configDir, 0o755);
+                        const dir = Gio.File.new_for_path(configDir);
+                        try {
+                            const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                            let fileInfo;
+                            while ((fileInfo = enumerator.next_file(null))) {
+                                dir.get_child(fileInfo.get_name()).delete(null);
+                            }
+                        } catch(e) {}
+                        
+                        const timestamp = Date.now();
+                        const destPath = `${configDir}/custom_grid_icon_${timestamp}.${ext}`;
+                        const destFile = Gio.File.new_for_path(destPath);
+                        
+                        file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
+                        settings.set_string('custom-grid-icon', destPath);
+                    }
+                } catch (e) {
+                    if (!e.message.includes('Dismissed')) console.error(e);
+                }
+            });
+        });
+
+        const resetIconBtn = new Gtk.Button({ icon_name: 'edit-undo-symbolic', css_classes: ['flat', 'circular'], tooltip_text: 'Reset to default icon' });
+        resetIconBtn.connect('clicked', () => { settings.set_string('custom-grid-icon', ''); });
+        
+        iconBox.append(chooseBtn);
+        iconBox.append(resetIconBtn);
+        customIconRow.add_suffix(iconBox);
+        modGroup.add(customIconRow);
+
+        const customIconScaleRow = this._addCustomSpinRow(
+            modGroup, 
+            settings, 
+            'custom-grid-icon-scale', 
+            'Custom Icon Scale (%)', 
+            'Adjust size multiplier (Default: 125)', 
+            'zoom-in-symbolic', 
+            { lower: 50, upper: 300, step_increment: 5 }, 
+            this._makeResetBtn(settings)
+        );
+
+        const syncGridSettingsVisibility = () => {
+            const showGrid = settings.get_boolean('show-grid-button');
+            const hasCustomIcon = settings.get_string('custom-grid-icon') !== '';
+            const useOldIcon = settings.get_boolean('use-old-grid-icon');
+            
+            gridPosRow.set_visible(showGrid);
+            customIconRow.set_visible(showGrid);
+            
+            oldGridIconRow.set_visible(showGrid && !hasCustomIcon);
+            customIconScaleRow.set_visible(showGrid && hasCustomIcon);
+            
+            gridColorRow.set_visible(showGrid && !hasCustomIcon && useOldIcon);
+            
+            resetIconBtn.set_sensitive(hasCustomIcon);
+        };
+        
+        this._settingsSignals.push(settings.connect('changed::custom-grid-icon', syncGridSettingsVisibility));
+        this._settingsSignals.push(settings.connect('changed::show-grid-button', syncGridSettingsVisibility));
+        
+        this._settingsSignals.push(settings.connect('changed::use-old-grid-icon', syncGridSettingsVisibility));
+        
+        syncGridSettingsVisibility();
 
         const syncGridBtn = () => gridPosRow.set_visible(settings.get_boolean('show-grid-button'));
         this._settingsSignals.push(settings.connect('changed::show-grid-button', syncGridBtn));

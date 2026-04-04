@@ -215,13 +215,49 @@
       <summary>Edge Reveal Delay (Pressure) in ms</summary>
     </key>
 
-    <key name="quick-launch-modifier" type="s">
-      <choices>
-        <choice value='ctrl'/>
-        <choice value='alt'/>
-      </choices>
-      <default>'ctrl'</default>
-      <summary>Modifier for quick dock launch shortcuts</summary>
+    <key name="quick-launch-accel-1" type="as">
+      <default><![CDATA[['<Super>1']]]></default>
+      <summary>Dhruva quick launch</summary>
+    </key>
+
+    <key name="quick-launch-accel-2" type="as">
+      <default><![CDATA[['<Super>2']]]></default>
+      <summary>Quick launch slot 2</summary>
+    </key>
+
+    <key name="quick-launch-accel-3" type="as">
+      <default><![CDATA[['<Super>3']]]></default>
+      <summary>Quick launch slot 3</summary>
+    </key>
+
+    <key name="quick-launch-accel-4" type="as">
+      <default><![CDATA[['<Super>4']]]></default>
+      <summary>Quick launch slot 4</summary>
+    </key>
+
+    <key name="quick-launch-accel-5" type="as">
+      <default><![CDATA[['<Super>5']]]></default>
+      <summary>Quick launch slot 5</summary>
+    </key>
+
+    <key name="quick-launch-accel-6" type="as">
+      <default><![CDATA[['<Super>6']]]></default>
+      <summary>Quick launch slot 6</summary>
+    </key>
+
+    <key name="quick-launch-accel-7" type="as">
+      <default><![CDATA[['<Super>7']]]></default>
+      <summary>Quick launch slot 7</summary>
+    </key>
+
+    <key name="quick-launch-accel-8" type="as">
+      <default><![CDATA[['<Super>8']]]></default>
+      <summary>Quick launch slot 8</summary>
+    </key>
+    
+    <key name="quick-launch-accel-9" type="as">
+      <default><![CDATA[['<Super>9']]]></default>
+      <summary>Quick launch slot 9</summary>
     </key>
 
     <key name="click-effect" type="s">
@@ -377,6 +413,66 @@
     <key name="show-notification-badges" type="b">
       <default>true</default>
       <summary>Show Notification Badges</summary>
+    </key>
+
+    <key name="separator-width" type="i">
+      <default>2</default>
+      <summary>Module Separator Width</summary>
+    </key>
+
+    <key name="separator-height" type="i">
+      <default>100</default>
+      <summary>Module Separator Height Percentage</summary>
+    </key>
+    
+    <key name="separator-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Module Separator Color</summary>
+    </key>
+
+    <key name="separator-opacity" type="i">
+      <default>40</default>
+      <summary>Module Separator Opacity</summary>
+    </key>
+
+    <key name="running-separator-width" type="i">
+      <default>2</default>
+      <summary>Pinned/Running Apps Separator Width</summary>
+    </key>
+
+    <key name="running-separator-height" type="i">
+      <default>100</default>
+      <summary>Pinned/Running Apps Separator Height Percentage</summary>
+    </key>
+
+    <key name="running-separator-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Pinned/Running Apps Separator Color</summary>
+    </key>
+
+    <key name="running-separator-opacity" type="i">
+      <default>12</default>
+      <summary>Pinned/Running Apps Separator Opacity</summary>
+    </key>
+
+    <key name="use-old-grid-icon" type="b">
+      <default>false</default>
+      <summary>Use old app grid icon</summary>
+    </key>
+
+    <key name="grid-icon-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>App Grid Icon Color</summary>
+    </key>
+
+    <key name="custom-grid-icon" type="s">
+      <default>''</default>
+      <summary>Custom Grid Icon Path</summary>
+    </key>
+
+    <key name="custom-grid-icon-scale" type="i">
+      <default>90</default>
+      <summary>Custom Grid Icon Scale Percentage</summary>
     </key>
 
   </schema>

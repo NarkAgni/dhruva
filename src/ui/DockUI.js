@@ -36,7 +36,7 @@ import { cleanupTrashEffects } from './effects/TrashEffect.js';
 import { animateIconClick } from './effects/IconClickEffect.js';
 import NotificationManager from '../core/NotificationManager.js';
 import { setupDragAndDrop, applyIconFilter } from './DragDrop.js';
-import { applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from './Themes.js';
+import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from './Themes.js';
 import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMagnification } from './Magnifier.js';
 import { setupWindowEffects, teardownWindowEffects, animateMinimize, animateRestore, animateLaunch } from './effects/WindowEffects.js';
 
@@ -87,6 +87,7 @@ export default class DockUI {
         });
 
         this.bgActor = new St.Widget({ name: 'DhruvaBackground', style_class: 'plank-like-dock-bg' });
+
         this.bgActor.clip_to_allocation = false;
         this.bgActor.reactive = true;
         this.bgActor.connect('button-press-event', (_actor, event) => {
@@ -146,7 +147,6 @@ export default class DockUI {
                 this.actor._fixedSlots = null;
                 this.actor._tooltipHoveredIndex = -1;
                 this.actor._magTooltipAppId = null;
-                try { resetMagnification(this.actor); } catch (_e) { }
             }
 
             if (this.settings.get_boolean('isolate-monitors')) {
@@ -235,11 +235,17 @@ export default class DockUI {
             'show-documents', 'show-pictures', 'show-videos', 'show-music', 'context-menu-size',
             'big-preview-size', 'minimize-effect', 'stroke-width', 'indicator-style', 'indicator-color',
             'indicator-size', 'indicator-spacing', 'indicator-glow', 'custom-folders', 'isolate-workspaces',
-            'isolate-monitors', 'show-notification-badges', 'show-mounts'
+            'isolate-monitors', 'show-notification-badges', 'show-mounts', 'custom-folders', 'isolate-workspaces',
+            'isolate-monitors', 'show-notification-badges', 'show-mounts', 'separator-width', 'separator-height',
+            'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
+            'running-separator-color', 'running-separator-opacity', 'grid-icon-color', 'custom-grid-icon', 
+            'custom-grid-icon-scale', 'use-old-grid-icon'
         ];
 
         settingsToWatch.forEach(key => {
             this.settingsSignals.push(this.settings.connect(`changed::${key}`, () => {
+                if (this.autoHideManager) this.autoHideManager._forceShow();
+
                 if (this.actor) {
                     try { resetMagnification(this.actor); } catch (e) { }
                 }
@@ -254,6 +260,8 @@ export default class DockUI {
             'gradient-direction'
         ].forEach(key => {
             this.settingsSignals.push(this.settings.connect(`changed::${key}`, () => {
+                if (this.autoHideManager) this.autoHideManager._forceShow();
+                
                 if (this.actor) {
                     try { resetMagnification(this.actor); } catch (e) { }
                 }
@@ -264,6 +272,8 @@ export default class DockUI {
 
         ['dock-position', 'full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
             this.settingsSignals.push(this.settings.connect(`changed::${key}`, () => {
+                if (this.autoHideManager) this.autoHideManager._forceShow();
+                
                 this.dockPosition = this.settings.get_string('dock-position');
                 this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
                 this._renderDock();
@@ -308,7 +318,7 @@ export default class DockUI {
         this._trashRefreshId = null;
 
         try {
-            const trashDir = Gio.File.new_for_uri('trash://');
+            const trashDir = Gio.File.new_for_uri('trash:///');
             this._trashMonitor = trashDir.monitor_directory(Gio.FileMonitorFlags.NONE, null);
             this._trashMonitorId = this._trashMonitor.connect('changed', () => {
                 if (this._isDestroyed) return;
@@ -392,7 +402,8 @@ export default class DockUI {
                 [, gridH] = this.gridBtn.get_preferred_height(-1);
             }
 
-            const sWidth = !isFullWidth ? this.settings.get_int('stroke-width') : 0;
+            const sWidth1 = !isFullWidth ? this.settings.get_int('stroke-width') : 0;
+            const sWidth = sWidth1;
 
             const hoverZoom = this.settings.get_boolean('hover-zoom');
             const maxZoom = hoverZoom ? this.settings.get_double('hover-zoom-factor') : 1.0;
@@ -570,6 +581,39 @@ export default class DockUI {
         } catch (e) { }
     }
 
+    _resolveTooltipColors(themeId) {
+        const settings = this.settings;
+
+        let rawOpacity = settings.get_int('background-opacity') / 100.0;
+        let opacity = Math.min(1.0, rawOpacity + 0.05);
+
+        const sColor = settings.get_string('stroke-color') || '#ffffff';
+        let tooltipCss = `background-color: rgba(20, 20, 22, ${opacity});`;
+        let tooltipFg = sColor;
+
+        if (themeId === 'chameleon') {
+            const { r, g, b } = this._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
+            tooltipCss = `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); background-gradient-direction: none;`;
+            tooltipFg = this._chameleonAccent || sColor;
+        } else {
+            const config = {
+                opacity: opacity,
+                color1: hexToRgba(settings.get_string('background-color') || '#000000', opacity),
+                color2: hexToRgba(settings.get_string('background-gradient-color') || '#000000', opacity),
+                useGradient: settings.get_boolean('use-gradient'),
+                direction: settings.get_string('gradient-direction') || 'vertical'
+            };
+
+            if (DockThemes && DockThemes[themeId]) {
+                tooltipCss = DockThemes[themeId].css(config);
+            } else if (themeId === 'default') {
+                tooltipCss = DockThemes['default'].css(config);
+            }
+        }
+
+        return { css: tooltipCss, fg: tooltipFg };
+    }
+
     _applyDynamicStyles() {
         if (this._isDestroyed) return;
         if (!this.actor || !this.actor.is_mapped()) return;
@@ -582,6 +626,7 @@ export default class DockUI {
             const sOpacity = this.settings.get_int('stroke-opacity') / 100.0;
 
             let borderStyle = sWidth > 0 && !isFullWidth ? `border: ${sWidth}px solid ${hexToRgba(sColorHex, sOpacity)};` : '';
+
             let baseLayoutCss = `border-radius: ${radius}px; ${borderStyle}`;
 
             const opacity = this.settings.get_int('background-opacity') / 100.0;
@@ -634,16 +679,11 @@ export default class DockUI {
 
             this.boxActor.set_style(`background-color: transparent; padding: ${boxPad}; spacing: ${gap}px;`);
 
-            if (currentTheme === 'chameleon' && this._chameleonColor) {
-                const bg = this._chameleonColor.bg;
-                this.actor._tooltipBg = `rgba(${bg.r}, ${bg.g}, ${bg.b}, 0.95)`;
-                this.actor._tooltipFg = this._chameleonAccent;
-                this.actor._clockFg = this._chameleonAccent;
-            } else {
-                this.actor._tooltipBg = 'rgba(20, 20, 22, 0.92)';
-                this.actor._tooltipFg = 'rgba(255, 255, 255, 0.95)';
-                this.actor._clockFg = 'rgba(255, 255, 255, 0.9)';
-            }
+            const tooltipColors = this._resolveTooltipColors(currentTheme);
+
+            this.actor._tooltipBg = tooltipColors.css;
+            this.actor._tooltipFg = tooltipColors.fg;
+            this.actor._clockFg = tooltipColors.fg;
 
             this.boxActor.get_children().forEach(c => {
                 if (c.has_style_class_name && c.has_style_class_name('clock-module')) {
@@ -656,6 +696,57 @@ export default class DockUI {
                 }
             });
         } catch (e) { }
+    }
+
+    _drawBackground(area) {
+        const cr = area.get_context();
+        const [width, height] = area.get_surface_size();
+        const settings = this.settings;
+
+        const isFullWidth = settings.get_boolean('full-width');
+        let radius = isFullWidth ? 0 : settings.get_int('border-radius');
+        const opacity = settings.get_int('background-opacity') / 100.0;
+
+        const bgColor = hexToRgba(settings.get_string('background-color'), opacity);
+
+        const sWidth1 = isFullWidth ? 0 : settings.get_int('stroke-width');
+        const totalStroke = sWidth1;
+
+        const bgX = totalStroke;
+        const bgY = totalStroke;
+        const bgW = width - (totalStroke * 2);
+        const bgH = height - (totalStroke * 2);
+
+        const drawRoundedRect = (ctx, x, y, w, h, r) => {
+            r = Math.max(0, Math.min(r, w / 2, h / 2));
+            if (r === 0) {
+                ctx.rectangle(x, y, w, h);
+                return;
+            }
+            ctx.newSubPath();
+            ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
+            ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+            ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+            ctx.arc(x + r, y + r, r, Math.PI, 3 * Math.PI / 2);
+            ctx.closePath();
+        };
+
+        drawRoundedRect(cr, bgX, bgY, bgW, bgH, radius);
+        const [r, g, b, a] = bgColor.match(/[\d.]+/g).map(Number);
+        cr.setSourceRGBA(r / 255, g / 255, b / 255, a);
+        cr.fill();
+
+        if (sWidth1 > 0) {
+            const offset1 = sWidth1 / 2.0;
+            drawRoundedRect(cr, bgX - offset1, bgY - offset1, bgW + sWidth1, bgH + sWidth1, radius + offset1);
+            const sColor1 = hexToRgba(settings.get_string('stroke-color'), settings.get_int('stroke-opacity') / 100.0);
+            const [sr1, sg1, sb1, sa1] = sColor1.match(/[\d.]+/g).map(Number);
+            cr.setSourceRGBA(sr1 / 255, sg1 / 255, sb1 / 255, sa1);
+            cr.setLineWidth(sWidth1);
+            cr.stroke();
+        }
+
+        cr.$dispose();
     }
 
     _getIndicatorProps() {
@@ -737,6 +828,7 @@ export default class DockUI {
                     if (c._delegate?.app?.get_id) id = c._delegate.app.get_id();
                     else if (c.has_style_class_name?.('clock-module')) id = 'dhruva-clock';
                     else if (c.get_child?.()?.has_style_class_name?.('dock-grid-icon')) id = 'dhruva-grid-button';
+                    else if (c.has_style_class_name?.('dock-separator')) id = c._sepId;
 
                     if (id) {
                         oldVisuals.set(id, {
@@ -978,6 +1070,10 @@ export default class DockUI {
                             return;
                         }
 
+                        let windows = app.get_windows();
+                        try {
+                            windows = WorkspaceFilter.filterWindows(windows, this.settings);
+                        } catch (_e) { }
                         if (this.settings.get_boolean('isolate-monitors')) {
                             const currentMonitorIndex = this.monitorManager.getCurrentMonitor().index;
                             windows = windows.filter(w => w.get_monitor() === currentMonitorIndex);
@@ -985,17 +1081,17 @@ export default class DockUI {
 
                         animateIconClick(iconBin, this.settings.get_string('click-effect'));
 
-                        const windows = app.get_windows();
                         const focusWin = global.display.get_focus_window();
                         const activeWin = windows.find(w => w === focusWin);
+                        const firstUnminimized = windows.find(w => !w.minimized);
 
-                        if (activeWin) {
+                        if (activeWin && !activeWin.minimized) {
                             animateMinimize(activeWin, btn, this.dockPosition);
-                        }
-                        else if (windows[0]) {
+                        } else if (firstUnminimized) {
+                            animateRestore(firstUnminimized, btn, this.dockPosition);
+                        } else if (windows[0]) {
                             animateRestore(windows[0], btn, this.dockPosition);
-                        }
-                        else {
+                        } else {
                             this.actor._launchingApp = true;
 
                             if (this._launchTimeoutId) GLib.source_remove(this._launchTimeoutId);
@@ -1069,100 +1165,53 @@ export default class DockUI {
             const systemModules = mods.systemModules || [];
             const clockModule = mods.clockModule || null;
 
-            let gridBtn = null;
-            if (this.settings.get_boolean('show-grid-button')) {
-                const gridIconSize = Math.floor(iconSize * 1.35);
-                const gridIcon = new St.Icon({
-                    icon_name: 'view-app-grid-symbolic',
-                    icon_size: gridIconSize,
-                    style_class: 'dock-grid-icon'
-                });
-                gridIcon.set_style('color: #ffffff;');
-                gridIcon.set_pivot_point(0.5, 0.5);
+            let gridBtn = mods.gridModule || null;
+            this.gridBtn = gridBtn;
 
-                const gridIconBin = new St.Bin({
-                    child: gridIcon, width: iconSize, height: iconSize,
-                    x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER
-                });
-                gridIconBin.set_pivot_point(0.5, 0.5);
-
-                gridBtn = new St.Bin({
-                    child: gridIconBin, style_class: 'dock-app-button',
-                    reactive: true, track_hover: true, can_focus: false
-                });
-                gridBtn.set_pivot_point(0.5, 0.5);
-                gridBtn._hasRunningIndicator = false;
-
+            if (this.gridBtn) {
                 let hasVisiblePill = externalActors.some(ea => this._hasExternalActorDockFootprint(ea));
-                gridBtn._isStatic = hasVisiblePill;
-
-                if (hoverZoom) applyIconFilter(gridBtn);
-
-                gridBtn._activateCallback = (buttonNum) => {
-                    if (buttonNum === 1) {
-                        animateIconClick(gridIconBin, this.settings.get_string('click-effect'));
-                        try {
-                            const isAppsPageVisible = Main.overview.visible &&
-                                Main.overview._overview?._controls?._appDisplay?.visible;
-
-                            if (isAppsPageVisible) {
-                                Main.overview.hide();
-                            } else {
-                                Main.overview.showApps();
-                            }
-                        } catch (_e) {
-                            if (Main.overview.visible) {
-                                Main.overview.hide();
-                            } else {
-                                Main.overview.showApps();
-                            }
-                        }
-                    }
-                };
-
-                gridBtn.connect('button-press-event', (_actor, event) => {
-                    if (this._activeContextMenu) return Clutter.EVENT_STOP;
-                    return Clutter.EVENT_PROPAGATE;
-                });
-
-                gridBtn.connect('button-release-event', (_actor, event) => {
-                    if (this._activeContextMenu) {
-                        this._activeContextMenu.hide();
-                        return Clutter.EVENT_STOP;
-                    }
-
-                    if (event.get_button() === 1) {
-                        if (this.actor._lastIconClickTime !== undefined) this.actor._lastIconClickTime = Date.now();
-                        gridBtn._activateCallback(1);
-                        return Clutter.EVENT_STOP;
-                    }
-                    return Clutter.EVENT_PROPAGATE;
-                });
-
-                this.gridBtn = gridBtn;
-
-                this.gridBtn._delegate = {
-                    app: {
-                        is_module: true,
-                        get_id: () => 'dhruva-grid-button',
-                        get_name: () => 'Applications',
-                        get_state: () => 0,
-                        get_windows: () => [],
-                    }
-                };
+                this.gridBtn._isStatic = hasVisiblePill;
             }
 
-            const createSeparator = (isFull = false) => {
+            const createSeparator = (type = 'module', sepId = 'dhruva-sep-default') => {
                 const sep = new St.Widget({ style_class: 'dock-separator' });
 
+                sep._sepId = sepId;
+
+                const wKey = type === 'module' ? 'separator-width' : 'running-separator-width';
+                const hKey = type === 'module' ? 'separator-height' : 'running-separator-height';
+                const cKey = type === 'module' ? 'separator-color' : 'running-separator-color';
+                const oKey = type === 'module' ? 'separator-opacity' : 'running-separator-opacity';
+
+                const width = this.settings.get_int(wKey);
+                const heightPercent = this.settings.get_int(hKey);
+                const colorHex = this.settings.get_string(cKey);
+                const opacity = this.settings.get_int(oKey) / 100.0;
+                const rgba = hexToRgba(colorHex, opacity);
+
+                const iconSize = this.settings.get_int('icon-size');
+                const lengthPx = Math.max(1, Math.floor(iconSize * (heightPercent / 100.0)));
+
                 if (isVerticalDock) {
-                    sep.set_style(`height: 2px; background-color: rgba(255,255,255,0.4); border-radius: 2px; margin: 4px 0;`);
-                    sep.set_x_align(Clutter.ActorAlign.FILL);
-                    sep.set_x_expand(true);
+                    sep.set_style(`height: ${width}px; background-color: ${rgba}; border-radius: ${width}px; margin: 4px 0;`);
+                    if (heightPercent >= 100) {
+                        sep.set_x_align(Clutter.ActorAlign.FILL);
+                        sep.set_x_expand(true);
+                    } else {
+                        sep.set_x_align(Clutter.ActorAlign.CENTER);
+                        sep.set_x_expand(false);
+                        sep.set_width(lengthPx);
+                    }
                 } else {
-                    sep.set_style(`width: 2px; background-color: rgba(255,255,255,0.4); border-radius: 2px; margin: 0 8px;`);
-                    sep.set_y_align(Clutter.ActorAlign.FILL);
-                    sep.set_y_expand(true);
+                    sep.set_style(`width: ${width}px; background-color: ${rgba}; border-radius: ${width}px; margin: 0 8px;`);
+                    if (heightPercent >= 100) {
+                        sep.set_y_align(Clutter.ActorAlign.FILL);
+                        sep.set_y_expand(true);
+                    } else {
+                        sep.set_y_align(Clutter.ActorAlign.CENTER);
+                        sep.set_y_expand(false);
+                        sep.set_height(lengthPx);
+                    }
                 }
                 return sep;
             };
@@ -1172,48 +1221,44 @@ export default class DockUI {
 
             let gridPos = 'END';
             try { gridPos = this.settings.get_string('grid-button-position'); } catch (e) { }
-
             let clockPos = 'END';
             try { clockPos = this.settings.get_string('clock-position'); } catch (e) { }
 
-            if (clockModule && clockPos === 'START') {
+            if (clockPos === 'START' && clockModule) {
                 startComponents.push(clockModule);
-                startComponents.push(createSeparator(true));
             }
 
-            if (gridPos !== 'START') {
-                if ((gridBtn && !isFullWidth) || systemModules.length > 0) {
-                    endComponents.push(createSeparator(false));
-                }
-                systemModules.forEach(m => endComponents.push(m));
-
-                if (externalActors.length > 0) {
-                    externalActors.forEach(ea => {
-                        if (ea.get_parent?.() === this._safeHouse) this._safeHouse.remove_child(ea);
-                        endComponents.push(ea);
-
-                        if (typeof this.onMusicPillInjected === 'function') {
-                            this.onMusicPillInjected(ea);
-                        }
-                    });
-                }
-
-                if (gridBtn && !isFullWidth) endComponents.push(gridBtn);
-            } else {
-                if (externalActors.length > 0) {
-                    externalActors.forEach(ea => {
-                        if (ea.get_parent?.() === this._safeHouse) this._safeHouse.remove_child(ea);
-                        endComponents.push(ea);
-
-                        if (typeof this.onMusicPillInjected === 'function') {
-                            this.onMusicPillInjected(ea);
-                        }
-                    });
-                }
+            if (startComponents.length > 0) {
+                startComponents.push(createSeparator('module', 'dhruva-sep-start'));
             }
 
-            if (clockModule && clockPos !== 'START') {
-                endComponents.push(createSeparator(true));
+            if (gridPos === 'START' && gridBtn && !isFullWidth) {
+                startComponents.push(gridBtn);
+            }
+
+            const actualEndItems = [];
+
+            systemModules.forEach(m => actualEndItems.push(m));
+
+            if (externalActors.length > 0) {
+                externalActors.forEach(ea => {
+                    if (ea.get_parent?.() === this._safeHouse) this._safeHouse.remove_child(ea);
+                    actualEndItems.push(ea);
+                    if (typeof this.onMusicPillInjected === 'function') this.onMusicPillInjected(ea);
+                });
+            }
+
+            if (gridPos !== 'START' && gridBtn && !isFullWidth) {
+                actualEndItems.push(gridBtn);
+            }
+
+            if (actualEndItems.length > 0) {
+                endComponents.push(createSeparator('module', 'dhruva-sep-end'));
+                actualEndItems.forEach(i => endComponents.push(i));
+            }
+
+            if (clockPos !== 'START' && clockModule) {
+                endComponents.push(createSeparator('module', 'dhruva-sep-clock'));
                 endComponents.push(clockModule);
             }
 
@@ -1222,32 +1267,23 @@ export default class DockUI {
                 if (c._delegate?.app?.get_id) cid = c._delegate.app.get_id();
                 else if (c.has_style_class_name?.('clock-module')) cid = 'dhruva-clock';
                 else if (c.get_child?.()?.has_style_class_name?.('dock-grid-icon')) cid = 'dhruva-grid-button';
+                else if (c.has_style_class_name?.('dock-separator')) cid = c._sepId;
 
                 if (cid && oldVisuals.has(cid)) {
                     let v = oldVisuals.get(cid);
-                    const sx = typeof v.sx === 'number' ? v.sx : 1.0;
-                    const sy = typeof v.sy === 'number' ? v.sy : 1.0;
-                    const tx = typeof v.tx === 'number' ? v.tx : 0;
-                    const ty = typeof v.ty === 'number' ? v.ty : 0;
 
-                    const nearDefault =
-                        Math.abs(sx - 1.0) <= 0.08 &&
-                        Math.abs(sy - 1.0) <= 0.08 &&
-                        Math.abs(tx) <= 6 &&
-                        Math.abs(ty) <= 6;
-
-                    c.scale_x = nearDefault ? sx : 1.0;
-                    c.scale_y = nearDefault ? sy : 1.0;
-                    c.translation_x = nearDefault ? tx : 0;
-                    c.translation_y = nearDefault ? ty : 0;
+                    c.scale_x = v.sx ?? 1.0;
+                    c.scale_y = v.sy ?? 1.0;
+                    c.translation_x = v.tx ?? 0;
+                    c.translation_y = v.ty ?? 0;
 
                     const appBox = c.get_child?.();
                     if (appBox && typeof appBox.get_children === 'function') {
                         appBox.get_children().forEach(child => {
                             if (child._isIndicator) {
                                 child.set_pivot_point(0.5, 0.5);
-                                child.scale_x = nearDefault ? (1.0 / Math.max(0.01, sx)) : 1.0;
-                                child.scale_y = nearDefault ? (1.0 / Math.max(0.01, sy)) : 1.0;
+                                child.scale_x = 1.0 / Math.max(0.01, c.scale_x);
+                                child.scale_y = 1.0 / Math.max(0.01, c.scale_y);
                             }
                         });
                     }
@@ -1255,16 +1291,10 @@ export default class DockUI {
             };
 
             startComponents.forEach(c => { applyOldVisuals(c); this.boxActor.add_child(c); });
-
             pinnedButtons.forEach(c => { applyOldVisuals(c); this.boxActor.add_child(c); });
 
             if (pinnedButtons.length > 0 && unpinnedButtons.length > 0) {
-                const runningSep = createSeparator(false);
-                if (isVerticalDock) {
-                    runningSep.set_style(`height: 2px; background-color: rgba(255,255,255,0.12); border-radius: 2px; margin: 4px 0;`);
-                } else {
-                    runningSep.set_style(`width: 2px; background-color: rgba(255,255,255,0.12); border-radius: 2px; margin: 0 8px;`);
-                }
+                const runningSep = createSeparator('running', 'dhruva-sep-running');
                 this.boxActor.add_child(runningSep);
             }
 
@@ -1293,44 +1323,65 @@ export default class DockUI {
             }
 
             if (hoverZoom || showTooltips) {
-                teardownMagnification(this.actor);
+                const setPivot = (btn) => {
+                    if (this.dockPosition === 'BOTTOM') btn.set_pivot_point(0.5, 1.0);
+                    else if (this.dockPosition === 'TOP') btn.set_pivot_point(0.5, 0.0);
+                    else if (this.dockPosition === 'LEFT') btn.set_pivot_point(0.0, 0.5);
+                    else if (this.dockPosition === 'RIGHT') btn.set_pivot_point(1.0, 0.5);
+                };
 
-                if (this._magnifierSetupIdleId) {
-                    GLib.source_remove(this._magnifierSetupIdleId);
-                    this._magnifierSetupIdleId = null;
-                }
-                this._magnifierSetupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                    this._magnifierSetupIdleId = null;
-                    if (this._isDestroyed || !this.actor || !this.boxActor) return GLib.SOURCE_REMOVE;
-                    setupMagnification(this.actor, this.settings, () => this.dockPosition);
-
-                    global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
-                        if (this._isDestroyed || !this.actor || !this.boxActor) return false;
-                        if (!this.actor.is_mapped()) return false;
-                        try {
-                            this.actor._fixedSlots = null;
-                            const [cx, cy] = global.get_pointer();
-                            const [ax, ay] = this.actor.get_transformed_position();
-
-                            const hoverZoom = this.settings.get_boolean('hover-zoom');
-                            const maxZoom = hoverZoom ? this.settings.get_double('hover-zoom-factor') : 1.0;
-                            const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
-                            const overflow = this.settings.get_int('icon-size') * actualMax;
-
-                            const padX = isVerticalDock ? 25 : Math.max(25, overflow);
-                            const padY = isVerticalDock ? Math.max(25, overflow) : 25;
-
-                            if (cx >= ax - padX && cx <= ax + this.actor.width + padX &&
-                                cy >= ay - padY && cy <= ay + this.actor.height + padY) {
-                                applyRealtimeFrame(this.actor, cx, cy, isVerticalDock, this.settings, Date.now());
-                            } else {
-                                resetMagnification(this.actor);
-                            }
-                        } catch (e) { }
-                        return false;
+                if (this.boxActor) {
+                    this.boxActor.get_children().forEach(c => {
+                        const sClass = typeof c.get_style_class_name === 'function' ? c.get_style_class_name() : (c.style_class || '');
+                        if (!sClass.includes('dock-separator')) setPivot(c);
                     });
-                    return GLib.SOURCE_REMOVE;
-                });
+                }
+                if (this.gridBtn) setPivot(this.gridBtn);
+
+                if (!this.actor._magEnterId) {
+                    if (this._magnifierSetupIdleId) {
+                        GLib.source_remove(this._magnifierSetupIdleId);
+                        this._magnifierSetupIdleId = null;
+                    }
+                    this._magnifierSetupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        this._magnifierSetupIdleId = null;
+                        if (this._isDestroyed || !this.actor || !this.boxActor) return GLib.SOURCE_REMOVE;
+                        setupMagnification(this.actor, this.settings, () => this.dockPosition);
+
+                        global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+                            if (this._isDestroyed || !this.actor || !this.boxActor) return false;
+                            if (!this.actor.is_mapped()) return false;
+                            try {
+                                this.actor._fixedSlots = null;
+                                const [cx, cy] = global.get_pointer();
+                                const [ax, ay] = this.actor.get_transformed_position();
+
+                                const hoverZoom = this.settings.get_boolean('hover-zoom');
+                                const maxZoom = hoverZoom ? this.settings.get_double('hover-zoom-factor') : 1.0;
+                                const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
+                                const overflow = this.settings.get_int('icon-size') * actualMax;
+
+                                const padX = isVerticalDock ? 25 : Math.max(25, overflow);
+                                const padY = isVerticalDock ? Math.max(25, overflow) : 25;
+
+                                const aw = this.actor._cachedW || this.actor.width || 0;
+                                const ah = this.actor._cachedH || this.actor.height || 0;
+
+                                if (cx >= ax - padX && cx <= ax + aw + padX &&
+                                    cy >= ay - padY && cy <= ay + ah + padY) {
+                                    applyRealtimeFrame(this.actor, cx, cy, isVerticalDock, this.settings, Date.now());
+                                } else {
+                                    resetMagnification(this.actor);
+                                }
+                            } catch (e) { }
+                            return false;
+                        });
+                        return GLib.SOURCE_REMOVE;
+                    });
+                } else {
+                    const [cx, cy] = global.get_pointer();
+                    applyRealtimeFrame(this.actor, cx, cy, isVerticalDock, this.settings, Date.now());
+                }
             } else {
                 teardownMagnification(this.actor);
             }
@@ -1364,7 +1415,7 @@ export default class DockUI {
         if (!actor) return false;
         if (actor.visible === false) return false;
         if (typeof actor.is_destroyed === 'function' && actor.is_destroyed()) return false;
-        
+
         if (actor.opacity === 0) return false;
 
         let width = 0;
@@ -1375,7 +1426,7 @@ export default class DockUI {
             let [minH, natH] = actor.get_preferred_height(-1);
             width = natW;
             height = natH;
-        } catch (_e) {}
+        } catch (_e) { }
 
         if (width <= 1 || height <= 1) {
             try { [width, height] = actor.get_transformed_size(); } catch (_e) { }
@@ -1573,26 +1624,30 @@ export default class DockUI {
             const lastOp = pillActor._lastOpacity !== undefined ? pillActor._lastOpacity : 255;
 
             if (currentOp < lastOp && currentOp < 255 && pillActor.visible) {
-                try { 
+                try {
                     if (typeof pillActor.remove_all_transitions === 'function') {
-                        pillActor.remove_all_transitions(); 
+                        pillActor.remove_all_transitions();
                     }
-                } catch(_e){}
+                } catch (_e) { }
                 pillActor.opacity = 0;
                 pillActor.visible = false;
                 pillActor._dhruvaHidden = true;
-            } 
+            }
             else if (currentOp === 0 && pillActor.visible) {
                 pillActor.visible = false;
-                pillActor._dhruvaHidden = true; 
-            } 
+                pillActor._dhruvaHidden = true;
+            }
             else if (currentOp > 0 && pillActor._dhruvaHidden && currentOp >= lastOp) {
                 pillActor.visible = true;
                 pillActor._dhruvaHidden = false;
+
+                if (this.autoHideManager && this.autoHideManager.isHidden) {
+                    this.autoHideManager._forceShow();
+                }
             }
 
             pillActor._lastOpacity = pillActor.opacity;
-            
+
             if (this.gridBtn) {
                 this.gridBtn._isStatic = (pillActor.visible && pillActor.width > 0);
             }
@@ -1600,6 +1655,10 @@ export default class DockUI {
             const currentWidth = pillActor.width;
             if (pillActor._lastKnownWidth !== currentWidth) {
                 pillActor._lastKnownWidth = currentWidth;
+
+                if (currentWidth > 15 && this.autoHideManager && this.autoHideManager.isHidden) {
+                    this.autoHideManager._forceShow();
+                }
 
                 if (this._pillAllocIdle) return;
                 this._pillAllocIdle = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
@@ -1621,7 +1680,7 @@ export default class DockUI {
             pillActor._dhruvaHidden = false;
             pillActor._lastOpacity = pillActor.opacity;
             pillActor.connect('notify::visible', updateState);
-            pillActor.connect('notify::allocation', updateState); 
+            pillActor.connect('notify::allocation', updateState);
             pillActor.connect('notify::opacity', updateState);
             pillActor._signalAttached = true;
         }
@@ -1675,7 +1734,11 @@ export default class DockUI {
             if (this.actor && typeof this.actor.queue_relayout === 'function') this.actor.queue_relayout();
             if (this.boxActor && typeof this.boxActor.queue_relayout === 'function') this.boxActor.queue_relayout();
             this._updateLayout();
-            this._applyOverviewDockMargin();
+
+            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                if (!this._isDestroyed) this._applyOverviewDockMargin();
+                return GLib.SOURCE_REMOVE;
+            });
         });
 
         this._overviewHidingId = Main.overview.connect('hiding', () => {
@@ -1760,6 +1823,10 @@ export default class DockUI {
             else if (pos === 'LEFT') controls.margin_left = Math.round(dockW + margin + extra);
             else if (pos === 'RIGHT') controls.margin_right = Math.round(dockW + margin + extra);
 
+            if (typeof controls.queue_relayout === 'function') {
+                controls.queue_relayout();
+            }
+
         } catch (_e) { }
     }
 
@@ -1778,6 +1845,10 @@ export default class DockUI {
             controls.margin_left = this._savedOverviewMargins.left;
             controls.margin_right = this._savedOverviewMargins.right;
             this._savedOverviewMargins = undefined;
+
+            if (typeof controls.queue_relayout === 'function') {
+                controls.queue_relayout();
+            }
 
         } catch (_e) { }
     }
@@ -1799,8 +1870,8 @@ export default class DockUI {
         this._cursorResetTimeouts.forEach(id => GLib.source_remove(id));
         this._cursorResetTimeouts = [];
 
-        const delays = Array.from({length: 100}, (_, i) => i * 50); 
-        
+        const delays = Array.from({ length: 100 }, (_, i) => i * 50);
+
         delays.forEach(delayMs => {
             const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {
                 this._cursorResetTimeouts = (this._cursorResetTimeouts || []).filter(id => id !== timeoutId);

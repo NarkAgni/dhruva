@@ -37,6 +37,7 @@ export default class AutoHideManager {
         this._updateTimerId = null;
         this._edgeRevealTimerId = null;
         this._hoverPollId = null;
+        this._edgePointerPollId = null;
         this._pointerUpdate = true;
         this._nextUpdateAt = 0;
 
@@ -108,11 +109,7 @@ export default class AutoHideManager {
                 this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
                     this._edgeRevealTimerId = null;
 
-                    const [px, py] = global.get_pointer();
-                    const [ex, ey] = this.edgeTrigger.get_transformed_position();
-                    const [ew, eh] = this.edgeTrigger.get_transformed_size();
-
-                    if (px >= ex - 40 && px <= ex + ew + 40 && py >= ey - 40 && py <= ey + eh + 40) {
+                    if (this._pointerInEdgeTriggerZone(8)) {
                         this._pointerUpdate = true;
                         this._show(true);
                     }
@@ -177,6 +174,95 @@ export default class AutoHideManager {
         } catch (e) { }
     }
 
+    _applyDockInputState(interactive) {
+        if (this._destroyed || !this.dockUI || !this.dockUI.actor || this.dockUI.actor._isDestroyed)
+            return;
+
+        const visit = a => {
+            if (!a) return;
+            try {
+                a.reactive = interactive;
+                const kids = a.get_children();
+                for (let i = 0; i < kids.length; i++)
+                    visit(kids[i]);
+            } catch (_e) { }
+        };
+
+        visit(this.dockUI.actor);
+    }
+
+    _stopEdgePointerPoll() {
+        if (this._edgePointerPollId) {
+            GLib.source_remove(this._edgePointerPollId);
+            this._edgePointerPollId = null;
+        }
+    }
+
+    _pointerInEdgeTriggerZone(pad = 4) {
+        if (!this.edgeTrigger) return false;
+        try {
+            if (!this.edgeTrigger.is_mapped?.() && !this.edgeTrigger.visible) return false;
+        } catch (_e) { }
+
+        const [px, py] = global.get_pointer();
+        const [ex, ey] = this.edgeTrigger.get_transformed_position();
+        const [ew, eh] = this.edgeTrigger.get_transformed_size();
+
+        return (px >= ex - pad && px <= ex + ew + pad &&
+            py >= ey - pad && py <= ey + eh + pad);
+    }
+
+    _startEdgePointerPoll() {
+        this._stopEdgePointerPoll();
+        if (this._destroyed || !this.isHidden) return;
+
+        const mode = this._getHideMode();
+        if (mode === 'none' || mode === 'never') return;
+
+        this._edgePointerPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 120, () => {
+            if (this._destroyed || !this.isHidden) {
+                this._edgePointerPollId = null;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            const m = this._getHideMode();
+            if (m === 'none' || m === 'never') {
+                this._edgePointerPollId = null;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            if (this._pointerInEdgeTriggerZone(6)) {
+                let pressureDelay = 0;
+                try {
+                    const delaySetting = this.settings.get_int('edge-dwell-delay');
+                    if (delaySetting >= 0) pressureDelay = delaySetting;
+                } catch (_e) { }
+
+                if (pressureDelay > 0) {
+                    this._stopEdgePointerPoll();
+                    this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
+                        this._edgeRevealTimerId = null;
+                        if (this._pointerInEdgeTriggerZone(8)) {
+                            this._pointerUpdate = true;
+                            this._show(true);
+                        } else if (this.isHidden) {
+                            this._startEdgePointerPoll();
+                        }
+                        return GLib.SOURCE_REMOVE;
+                    });
+                    return GLib.SOURCE_REMOVE;
+                }
+
+                this._pointerUpdate = true;
+                this._show(true);
+                this._edgePointerPollId = null;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
     _getHideMode() { return this.settings.get_string('hide-mode') || 'dodge-all'; }
     _getDockPosition() { return this.settings.get_string('dock-position') || 'BOTTOM'; }
 
@@ -191,25 +277,35 @@ export default class AutoHideManager {
         const pos = this._getDockPosition();
         const mode = this._getHideMode();
 
-        const T = 2;
-
-        const bounds = this._getTheoreticalDockBounds();
-        const dockX = bounds.x;
-        const dockY = bounds.y;
-        const dockW = bounds.width;
-        const dockH = bounds.height;
+        const T = 10;
 
         let ex = 0, ey = 0, ew = 0, eh = 0;
 
         switch (pos) {
             case 'BOTTOM':
-                ex = dockX; ew = dockW; ey = actualMonitor.y + actualMonitor.height - T; eh = T; break;
+                ex = actualMonitor.x;
+                ew = actualMonitor.width;
+                ey = actualMonitor.y + actualMonitor.height - T;
+                eh = T;
+                break;
             case 'TOP':
-                ex = dockX; ew = dockW; ey = actualMonitor.y; eh = T; break;
+                ex = actualMonitor.x;
+                ew = actualMonitor.width;
+                ey = actualMonitor.y;
+                eh = T;
+                break;
             case 'LEFT':
-                ex = actualMonitor.x; ew = T; ey = dockY; eh = dockH; break;
+                ex = actualMonitor.x;
+                ew = T;
+                ey = actualMonitor.y;
+                eh = actualMonitor.height;
+                break;
             case 'RIGHT':
-                ex = actualMonitor.x + actualMonitor.width - T; ew = T; ey = dockY; eh = dockH; break;
+                ex = actualMonitor.x + actualMonitor.width - T;
+                ew = T;
+                ey = actualMonitor.y;
+                eh = actualMonitor.height;
+                break;
         }
 
         this.edgeTrigger.set_position(ex, ey);
@@ -427,6 +523,7 @@ export default class AutoHideManager {
         if (this._hideTimerId) { GLib.source_remove(this._hideTimerId); this._hideTimerId = null; }
         if (this._showTimerId) { GLib.source_remove(this._showTimerId); this._showTimerId = null; }
         if (this._edgeRevealTimerId) { GLib.source_remove(this._edgeRevealTimerId); this._edgeRevealTimerId = null; }
+        this._stopEdgePointerPoll();
     }
 
     _startHoverPolling() {
@@ -471,13 +568,11 @@ export default class AutoHideManager {
         actor.remove_all_transitions();
         actor.show();
         actor.visible = true;
-        actor.reactive = true;
         actor.opacity = 255;
         actor.translation_x = 0;
         actor.translation_y = 0;
 
-        if (this.dockUI.bgActor) this.dockUI.bgActor.reactive = true;
-        if (this.dockUI.boxActor) this.dockUI.boxActor.reactive = true;
+        this._applyDockInputState(true);
 
         this._updateEdgeTrigger();
     }
@@ -487,6 +582,7 @@ export default class AutoHideManager {
 
         this._cancelTimers();
         this.isHidden = false;
+        this._stopEdgePointerPoll();
 
         this._startHoverPolling();
 
@@ -558,9 +654,7 @@ export default class AutoHideManager {
 
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
 
-        this.dockUI.actor.reactive = true;
-        if (this.dockUI.bgActor) this.dockUI.bgActor.reactive = true;
-        if (this.dockUI.boxActor) this.dockUI.boxActor.reactive = true;
+        this._applyDockInputState(true);
 
         this.dockUI.actor.remove_all_transitions();
 
@@ -598,6 +692,7 @@ export default class AutoHideManager {
             this.dockUI.actor.opacity = 255;
             this.dockUI.actor.translation_x = 0;
             this.dockUI.actor.translation_y = 0;
+            this._applyDockInputState(true);
             return;
         }
 
@@ -624,6 +719,7 @@ export default class AutoHideManager {
                     this.dockUI.actor.opacity = 0;
                     this.dockUI.actor.translation_x = 9999;
                     this.dockUI.actor.translation_y = 9999;
+                    this._applyDockInputState(false);
                     this._updateEdgeTrigger();
                 }
             }
@@ -639,9 +735,7 @@ export default class AutoHideManager {
             return;
         }
 
-        this.dockUI.actor.reactive = false;
-        if (this.dockUI.bgActor) this.dockUI.bgActor.reactive = false;
-        if (this.dockUI.boxActor) this.dockUI.boxActor.reactive = false;
+        this._applyDockInputState(false);
 
         this.dockUI.actor.remove_all_transitions();
 
@@ -680,8 +774,10 @@ export default class AutoHideManager {
                     
                     this.dockUI.actor.translation_x = 9999;
                     this.dockUI.actor.translation_y = 9999;
-                    
+
+                    this._applyDockInputState(false);
                     this._updateEdgeTrigger();
+                    this._startEdgePointerPoll();
                 }
             },
         });
