@@ -270,15 +270,28 @@ export default class DockUI {
             }));
         });
 
-        ['dock-position', 'full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
+        ['full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
             this.settingsSignals.push(this.settings.connect(`changed::${key}`, () => {
                 if (this.autoHideManager) this.autoHideManager._forceShow();
                 
-                this.dockPosition = this.settings.get_string('dock-position');
                 this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
                 this._renderDock();
             }));
         });
+
+        this.settingsSignals.push(this.settings.connect('changed::dock-position', () => {
+            if (this.autoHideManager) this.autoHideManager._forceShow();
+            
+            const newPos = this.settings.get_string('dock-position');
+            const isNewVertical = newPos === 'LEFT' || newPos === 'RIGHT';
+            const isOldVertical = this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT';
+            
+            if (isNewVertical !== isOldVertical) return;
+            
+            this.dockPosition = newPos;
+            this.boxActor.set_vertical(isNewVertical);
+            this._renderDock();
+        }));
 
         this.settingsSignals.push(this.settings.connect('changed::dock-margin', () => {
             if (!this._isDestroyed && this.dockManager) this.dockManager.updatePosition();

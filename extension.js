@@ -36,6 +36,20 @@ export default class DhruvaExtension extends Extension {
             this._reloadDocks();
         });
 
+        const getAxis = () => {
+            const pos = this._settings.get_string('dock-position');
+            return (pos === 'LEFT' || pos === 'RIGHT') ? 'vertical' : 'horizontal';
+        };
+        this._currentAxis = getAxis();
+
+        this._positionChangedId = this._settings.connect('changed::dock-position', () => {
+            const newAxis = getAxis();
+            if (this._currentAxis !== newAxis) {
+                this._currentAxis = newAxis;
+                this._reloadDocks();
+            }
+        });
+
         this._reloadDocks();
 
         this._clearGnomeSwitchToApplicationShortcuts();
@@ -320,6 +334,11 @@ export default class DhruvaExtension extends Extension {
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;
+        }
+
+        if (this._positionChangedId) {
+            this._settings.disconnect(this._positionChangedId);
+            this._positionChangedId = null;
         }
 
         if (this._quickLaunchManager) {
