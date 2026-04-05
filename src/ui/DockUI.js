@@ -132,7 +132,12 @@ export default class DockUI {
         this.queueRender = debounce(this._renderDock.bind(this), 5);
 
         this.appSystemSignals.push(this.appManager.appSystem.connect('installed-changed', () => this.queueRender()));
-        this.appSystemSignals.push(this.appManager.appSystem.connect('app-state-changed', () => this.queueRender()));
+        this.appSystemSignals.push(this.appManager.appSystem.connect('app-state-changed', () => {
+            if (this.actor) {
+                try { resetMagnification(this.actor, 400); } catch (e) { }
+            }
+            this.queueRender();
+        }));
 
         this.wmSignals.push(global.window_manager.connect('destroy', () => {
             if (this.actor) this.actor._lastIconClickTime = 0;
@@ -147,6 +152,8 @@ export default class DockUI {
                 this.actor._fixedSlots = null;
                 this.actor._tooltipHoveredIndex = -1;
                 this.actor._magTooltipAppId = null;
+                
+                try { resetMagnification(this.actor, 400); } catch (e) { }
             }
 
             if (this.settings.get_boolean('isolate-monitors')) {
@@ -1048,10 +1055,21 @@ export default class DockUI {
                     reactive: true, track_hover: true, can_focus: false,
                     clip_to_allocation: false
                 });
+
                 btn.set_pivot_point(0.5, 0.5);
                 btn._hasRunningIndicator = isRunning && showIndicators;
-
+                iconWrapper.set_style('background-color: transparent; border-radius: 8px; transition-duration: 150ms;');
                 btn._delegate = { app: app };
+
+                btn.connect('notify::hover', () => {
+                    if (this.settings.get_boolean('hover-zoom')) return;
+
+                    if (btn.hover) {
+                        iconWrapper.set_style('background-color: rgba(255, 255, 255, 0.15); border-radius: 8px; transition-duration: 150ms;');
+                    } else {
+                        iconWrapper.set_style('background-color: transparent; border-radius: 8px; transition-duration: 150ms;');
+                    }
+                });
 
                 setupDragAndDrop(btn, app, this);
                 if (hoverZoom) applyIconFilter(btn);
@@ -1654,6 +1672,10 @@ export default class DockUI {
                 pillActor.visible = true;
                 pillActor._dhruvaHidden = false;
 
+                if (this.actor) {
+                    try { resetMagnification(this.actor, 200); } catch (e) { }
+                }
+
                 if (this.autoHideManager && this.autoHideManager.isHidden) {
                     this.autoHideManager._forceShow();
                 }
@@ -1668,6 +1690,10 @@ export default class DockUI {
             const currentWidth = pillActor.width;
             if (pillActor._lastKnownWidth !== currentWidth) {
                 pillActor._lastKnownWidth = currentWidth;
+
+                if (this.actor) {
+                    try { resetMagnification(this.actor, 200); } catch (e) { }
+                }
 
                 if (currentWidth > 15 && this.autoHideManager && this.autoHideManager.isHidden) {
                     this.autoHideManager._forceShow();

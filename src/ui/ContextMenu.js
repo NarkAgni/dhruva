@@ -422,7 +422,9 @@ export default class AppContextMenu {
 
         const [btnX, btnY] = this.buttonActor.get_transformed_position();
         const [btnW, btnH] = this.buttonActor.get_transformed_size();
-        const gap = 14;
+        
+        const isZoomEnabled = this.dockUI.settings.get_boolean('hover-zoom');
+        const gap = isZoomEnabled ? 4 : 20;
 
         let posX = btnX + (btnW / 2) - (this._dynamicPanelWidth / 2);
         let posY = dockPosition === 'BOTTOM' ? btnY - panelH - gap : btnY + btnH + gap;

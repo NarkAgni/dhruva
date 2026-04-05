@@ -245,7 +245,7 @@ function _isPointerInDockTooltipBridge(dockActor, px, py, settings) {
 
 export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now = null) {
     try {
-        if (!dockActor || dockActor._isDestroyed || dockActor._isHidden || !dockActor.visible) {
+        if (!dockActor || dockActor._isDestroyed || dockActor._isHidden || !dockActor.visible || dockActor._suppressZoom) {
             _hideTooltip(dockActor);
             return;
         }
@@ -353,7 +353,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const originalGap = orderedSlots[orderIndex] - orderedSlots[orderIndex - 1];
 
             const GAP_FACTOR = 2.0;
-            
+
             let prevExtra = (prevW * prevScale - prevW) / GAP_FACTOR;
             let currExtra = (currW * currScale - currW) / GAP_FACTOR;
 
@@ -364,7 +364,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const currIsStatic = currBtn._isStatic || sClassC.includes('dock-separator') || sClassC.includes('clock-module');
 
             if (currIsStatic && prevScale > 1.0) {
-                currExtra += (prevW * (prevScale - 1.0)) * 0.25; 
+                currExtra += (prevW * (prevScale - 1.0)) * 0.25;
             }
             if (prevIsStatic && currScale > 1.0) {
                 prevExtra += (currW * (currScale - 1.0)) * 0.25;
@@ -447,16 +447,20 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const smoothScale = prevScale + ((targetScale - prevScale) * SMOOTH_FACTOR);
             const smoothTrans = prevTrans + ((targetTrans - prevTrans) * SMOOTH_FACTOR);
 
-            b.scale_x = smoothScale; b.scale_y = smoothScale;
-            b[axis] = smoothTrans;
+            if (zoomEnabled) {
+                b.scale_x = smoothScale; b.scale_y = smoothScale;
+            }
 
+            b[axis] = smoothTrans;
             const appBox = typeof b.get_child === 'function' ? b.get_child() : null;
             if (appBox && typeof appBox.get_children === 'function') {
                 appBox.get_children().forEach(c => {
                     if (c._isIndicator) {
                         c.remove_transition('scale_x'); c.remove_transition('scale_y');
                         c.set_pivot_point(0.5, 0.5);
-                        c.scale_x = 1.0 / smoothScale; c.scale_y = 1.0 / smoothScale;
+                        if (zoomEnabled) {
+                            c.scale_x = 1.0 / smoothScale; c.scale_y = 1.0 / smoothScale;
+                        }
                     }
                 });
             }
@@ -711,7 +715,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     const [bw, bh] = btn.get_transformed_size();
                     const dockPos = settings.get_string('dock-position') || 'BOTTOM';
 
-                    const tooltipMargin = 0;
+                    const isZoomEnabled = settings.get_boolean('hover-zoom');
+                    const tooltipMargin = isZoomEnabled ? 4 : 20;
 
                     let tx = 0, ty = 0;
                     if (dockPos === 'BOTTOM') { tx = bx + bw / 2 - tw / 2; ty = by - th - tooltipMargin; }
@@ -741,9 +746,21 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     }
 }
 
-export function resetMagnification(dockActor) {
+export function resetMagnification(dockActor, suppressForMs = 0) {
     if (!dockActor || dockActor._isDestroyed) return;
     try {
+        if (suppressForMs > 0) {
+            dockActor._suppressZoom = true;
+            if (dockActor._suppressTimeoutId) {
+                GLib.source_remove(dockActor._suppressTimeoutId);
+            }
+            dockActor._suppressTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, suppressForMs, () => {
+                dockActor._suppressZoom = false;
+                dockActor._suppressTimeoutId = null;
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+
         stopDragLoop(dockActor);
         dockActor._lastMagMotionFrameTs = 0;
         dockActor._fixedSlots = null;
@@ -935,6 +952,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             if (!settings.get_boolean('hover-zoom')) return Clutter.EVENT_PROPAGATE;
 
             const [ex, ey] = event.get_coords();
+            const buttonNum = event.get_button();
             const [dax, day] = dockActor.get_transformed_position();
             const [daw, dah] = dockActor.get_transformed_size();
 
@@ -1070,9 +1088,16 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
                     dockActor._lastIconClickTime = Date.now();
                     _clearTooltipDelay(dockActor);
-                    if (dockActor._magTooltip) { dockActor._magTooltip.remove_all_transitions(); dockActor._magTooltip.opacity = 0; dockActor._magTooltip.hide(); }
+                    if (dockActor._magTooltip) {
+                        dockActor._magTooltip.remove_all_transitions();
+                        dockActor._magTooltip.opacity = 0;
+                        dockActor._magTooltip.hide();
+                    }
 
                     btn._activateCallback(event.get_button(), event.get_state());
+                    if (buttonNum === 1) {
+                        resetMagnification(dockActor, 800);
+                    }
 
                     if (dockActor._postClickTimerId) GLib.source_remove(dockActor._postClickTimerId);
                     dockActor._postClickTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {

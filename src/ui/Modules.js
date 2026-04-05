@@ -186,8 +186,20 @@ export function buildModules(dockUI, iconSize) {
             track_hover: true,
             can_focus: false
         });
+
         btn.set_pivot_point(0.5, 0.5);
         btn._hasRunningIndicator = isRunning && settings.get_boolean('show-running-indicators');
+        iconBin.set_style('background-color: transparent; border-radius: 8px; transition-duration: 150ms;');
+
+        btn.connect('notify::hover', () => {
+            if (settings.get_boolean('hover-zoom')) return;
+
+            if (btn.hover) {
+                iconBin.set_style('background-color: rgba(255, 255, 255, 0.15); border-radius: 8px; transition-duration: 150ms;');
+            } else {
+                iconBin.set_style('background-color: transparent; border-radius: 8px; transition-duration: 150ms;');
+            }
+        });
 
         const safeId = `dhruva-module-${tooltipName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
@@ -323,8 +335,20 @@ export function buildModules(dockUI, iconSize) {
             child: gridIconBin, style_class: 'dock-app-button',
             reactive: true, track_hover: true, can_focus: false
         });
+
         gridModule.set_pivot_point(0.5, 0.5);
         gridModule._hasRunningIndicator = false;
+        gridIconBin.set_style('background-color: transparent; border-radius: 8px; transition-duration: 150ms;');
+
+        gridModule.connect('notify::hover', () => {
+            if (settings.get_boolean('hover-zoom')) return;
+
+            if (gridModule.hover) {
+                gridIconBin.set_style('background-color: rgba(255, 255, 255, 0.15); border-radius: 8px; transition-duration: 150ms;');
+            } else {
+                gridIconBin.set_style('background-color: transparent; border-radius: 8px; transition-duration: 150ms;');
+            }
+        });
 
         if (hoverZoom) applyIconFilter(gridModule);
 
