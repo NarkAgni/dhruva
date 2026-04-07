@@ -107,6 +107,58 @@ export default class DockUI {
             reactive: true,
             track_hover: true,
         });
+
+        const isExternalElement = (child) => {
+            if (!child) return false;
+            const sc = typeof child.get_style_class_name === 'function' ? child.get_style_class_name() : (child.style_class || '');
+            const isDhruvaElement = sc.includes('dock-app-button') || 
+                                    sc.includes('dock-separator') || 
+                                    sc.includes('dock-drag-handle') || 
+                                    (sc.includes('clock-module') && child.get_child?.()?.has_style_class_name?.('dock-clock-label')) || 
+                                    child._isModule;
+            return !isDhruvaElement; 
+        };
+
+        const _origSetChild = this.boxActor.set_child_at_index.bind(this.boxActor);
+        this.boxActor.set_child_at_index = (child, index) => {
+            if (isExternalElement(child)) return; 
+            _origSetChild(child, index);
+        };
+
+        const _origInsertChild = this.boxActor.insert_child_at_index.bind(this.boxActor);
+        this.boxActor.insert_child_at_index = (child, index) => {
+            if (!child._isExternal && isExternalElement(child)) {
+                child._isExternal = true;
+                _origInsertChild(child, -1); 
+                
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    if (!this._isDestroyed && typeof this.queueRender === 'function') this.queueRender();
+                    return GLib.SOURCE_REMOVE;
+                });
+                return;
+            }
+            if (child._isExternal && child.get_parent() === this.boxActor) return; 
+
+            _origInsertChild(child, index);
+        };
+
+        const _origAddChild = this.boxActor.add_child.bind(this.boxActor);
+        this.boxActor.add_child = (child) => {
+            if (!child._isExternal && isExternalElement(child)) {
+                child._isExternal = true;
+                _origAddChild(child);
+                
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    if (!this._isDestroyed && typeof this.queueRender === 'function') this.queueRender();
+                    return GLib.SOURCE_REMOVE;
+                });
+                return;
+            }
+            if (child._isExternal && child.get_parent() === this.boxActor) return; 
+
+            _origAddChild(child);
+        };
+
         this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
         this.boxActor.clip_to_allocation = false;
 
@@ -1255,6 +1307,19 @@ export default class DockUI {
             let clockPos = 'END';
             try { clockPos = this.settings.get_string('clock-position'); } catch (e) { }
 
+            let realExternals = [];
+            let gnomeGridBtn = null;
+            if (externalActors.length > 0) {
+                externalActors.forEach(ea => {
+                    const sc = typeof ea.get_style_class_name === 'function' ? ea.get_style_class_name() : (ea.style_class || '');
+                    if (sc.includes('show-apps')) {
+                        gnomeGridBtn = ea;
+                    } else {
+                        realExternals.push(ea);
+                    }
+                });
+            }
+
             if (clockPos === 'START' && clockModule) {
                 startComponents.push(clockModule);
             }
@@ -1263,24 +1328,33 @@ export default class DockUI {
                 startComponents.push(createSeparator('module', 'dhruva-sep-start'));
             }
 
-            if (gridPos === 'START' && gridBtn && !isFullWidth) {
-                startComponents.push(gridBtn);
+            if (gridPos === 'START') {
+                if (gridBtn && !isFullWidth) {
+                    startComponents.push(gridBtn);
+                } else if (gnomeGridBtn) {
+                    if (gnomeGridBtn.get_parent?.() === this._safeHouse) this._safeHouse.remove_child(gnomeGridBtn);
+                    startComponents.push(gnomeGridBtn);
+                }
             }
 
             const actualEndItems = [];
-
             systemModules.forEach(m => actualEndItems.push(m));
 
-            if (externalActors.length > 0) {
-                externalActors.forEach(ea => {
+            if (realExternals.length > 0) {
+                realExternals.forEach(ea => {
                     if (ea.get_parent?.() === this._safeHouse) this._safeHouse.remove_child(ea);
                     actualEndItems.push(ea);
                     if (typeof this.onMusicPillInjected === 'function') this.onMusicPillInjected(ea);
                 });
             }
 
-            if (gridPos !== 'START' && gridBtn && !isFullWidth) {
-                actualEndItems.push(gridBtn);
+            if (gridPos !== 'START') {
+                if (gridBtn && !isFullWidth) {
+                    actualEndItems.push(gridBtn);
+                } else if (gnomeGridBtn) {
+                    if (gnomeGridBtn.get_parent?.() === this._safeHouse) this._safeHouse.remove_child(gnomeGridBtn);
+                    actualEndItems.push(gnomeGridBtn);
+                }
             }
 
             if (actualEndItems.length > 0) {
@@ -1334,9 +1408,6 @@ export default class DockUI {
             endComponents.forEach(c => {
                 applyOldVisuals(c);
                 this.boxActor.add_child(c);
-                if (c._isExternal) {
-                    try { c.unref(); } catch (_e) { }
-                }
             });
 
             if (isFullWidth && this.gridBtn) {
@@ -1579,13 +1650,15 @@ export default class DockUI {
 
     _startMusicPopupMonitor() {
         if (this._musicPopupPollId) return;
-        this._musicPopupPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 220, () => {
+        this._musicPopupPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT_IDLE, 400, () => {
             if (this._isDestroyed) {
                 this._musicPopupPollId = null;
                 return GLib.SOURCE_REMOVE;
             }
 
-            const hasExternalActors = this._collectExternalActors().length > 0;
+            const externalActors = this._collectExternalActors();
+            const hasExternalActors = externalActors.length > 0;
+
             if (!hasExternalActors && !this._musicPopupOpen) {
                 return GLib.SOURCE_CONTINUE;
             }
@@ -1648,83 +1721,108 @@ export default class DockUI {
     onMusicPillInjected(pillActor) {
         if (!pillActor) return;
 
-        const updateState = () => {
+        if (pillActor._signalAttached) {
+            if (!this._isDestroyed) this._updatePillState(pillActor);
+            return;
+        }
+
+        pillActor._lastKnownWidth = -1;
+        pillActor._dhruvaHidden = false;
+        pillActor._lastOpacity = pillActor.opacity;
+        pillActor._signalAttached = true;
+
+        const onVisibility = () => {
             if (this._isDestroyed) return;
+            this._updatePillState(pillActor);
+        };
 
-            const currentOp = pillActor.opacity;
-            const lastOp = pillActor._lastOpacity !== undefined ? pillActor._lastOpacity : 255;
+        const onAllocation = () => {
+            if (this._isDestroyed) return;
+            const currentWidth = pillActor.width;
+            if (pillActor._lastKnownWidth === currentWidth) return;
+            pillActor._lastKnownWidth = currentWidth;
 
-            if (currentOp < lastOp && currentOp < 255 && pillActor.visible) {
-                try {
-                    if (typeof pillActor.remove_all_transitions === 'function') {
-                        pillActor.remove_all_transitions();
-                    }
-                } catch (_e) { }
-                pillActor.opacity = 0;
-                pillActor.visible = false;
-                pillActor._dhruvaHidden = true;
+            if (currentWidth > 15 && this.autoHideManager && this.autoHideManager.isHidden) {
+                this.autoHideManager._forceShow();
             }
-            else if (currentOp === 0 && pillActor.visible) {
-                pillActor.visible = false;
-                pillActor._dhruvaHidden = true;
-            }
-            else if (currentOp > 0 && pillActor._dhruvaHidden && currentOp >= lastOp) {
-                pillActor.visible = true;
-                pillActor._dhruvaHidden = false;
-
-                if (this.actor) {
-                    try { resetMagnification(this.actor, 200); } catch (e) { }
-                }
-
-                if (this.autoHideManager && this.autoHideManager.isHidden) {
-                    this.autoHideManager._forceShow();
-                }
-            }
-
-            pillActor._lastOpacity = pillActor.opacity;
 
             if (this.gridBtn) {
-                this.gridBtn._isStatic = (pillActor.visible && pillActor.width > 0);
+                this.gridBtn._isStatic = (pillActor.visible && currentWidth > 0);
             }
 
-            const currentWidth = pillActor.width;
-            if (pillActor._lastKnownWidth !== currentWidth) {
-                pillActor._lastKnownWidth = currentWidth;
-
-                if (this.actor) {
-                    try { resetMagnification(this.actor, 200); } catch (e) { }
-                }
-
-                if (currentWidth > 15 && this.autoHideManager && this.autoHideManager.isHidden) {
-                    this.autoHideManager._forceShow();
-                }
-
-                if (this._pillAllocIdle) return;
-                this._pillAllocIdle = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                    this._pillAllocIdle = null;
-                    if (!this._isDestroyed) {
-                        if (this.boxActor && typeof this.boxActor.queue_relayout === 'function') {
-                            this.boxActor.queue_relayout();
-                        }
-                        if (this._updateLayout) this._updateLayout();
-                        if (Main.overview.visible) this._applyOverviewDockMargin();
+            if (this._pillAllocIdle) return;
+            this._pillAllocIdle = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                this._pillAllocIdle = null;
+                if (!this._isDestroyed) {
+                    if (this.boxActor && typeof this.boxActor.queue_relayout === 'function') {
+                        this.boxActor.queue_relayout();
                     }
-                    return GLib.SOURCE_REMOVE;
-                });
+                    if (this._updateLayout) this._updateLayout();
+                    if (Main.overview.visible) this._applyOverviewDockMargin();
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+        };
+
+        const onOpacity = () => {
+            if (this._isDestroyed) return;
+            this._updatePillState(pillActor);
+        };
+
+        const onDestroy = () => {
+            if (this._pillSignalMap) this._pillSignalMap.delete(pillActor);
+            pillActor._signalAttached = false;
+            
+            if (!this._isDestroyed && typeof this.queueRender === 'function') {
+                this.queueRender();
             }
         };
 
-        if (!pillActor._signalAttached) {
-            pillActor._lastKnownWidth = -1;
-            pillActor._dhruvaHidden = false;
-            pillActor._lastOpacity = pillActor.opacity;
-            pillActor.connect('notify::visible', updateState);
-            pillActor.connect('notify::allocation', updateState);
-            pillActor.connect('notify::opacity', updateState);
-            pillActor._signalAttached = true;
+        const visibleId = pillActor.connect('notify::visible', onVisibility);
+        const allocId = pillActor.connect('notify::allocation', onAllocation);
+        const opacityId = pillActor.connect('notify::opacity', onOpacity);
+        const destroyId = pillActor.connect('destroy', onDestroy);
+
+        if (this._pillSignalMap) {
+            this._pillSignalMap.set(pillActor, { visibleId, allocId, opacityId, destroyId });
         }
 
-        updateState();
+        this._updatePillState(pillActor);
+    }
+
+    _updatePillState(pillActor) {
+        if (!pillActor || this._isDestroyed) return;
+
+        const currentOp = pillActor.opacity;
+        let visibilityChanged = false;
+
+        if (currentOp === 0 && pillActor.visible) {
+            pillActor.visible = false;
+            pillActor._dhruvaHidden = true;
+            visibilityChanged = true;
+        } else if (currentOp > 0 && pillActor._dhruvaHidden) {
+            pillActor.visible = true;
+            pillActor._dhruvaHidden = false;
+            visibilityChanged = true;
+
+            if (this.actor) {
+                try { resetMagnification(this.actor, 200); } catch (e) { }
+            }
+
+            if (this.autoHideManager && this.autoHideManager.isHidden) {
+                this.autoHideManager._forceShow();
+            }
+        }
+
+        pillActor._lastOpacity = currentOp;
+
+        if (this.gridBtn) {
+            this.gridBtn._isStatic = (pillActor.visible && pillActor.width > 0);
+        }
+
+        if (visibilityChanged && typeof this.queueRender === 'function') {
+            this.queueRender();
+        }
     }
 
     show() {
@@ -1909,7 +2007,7 @@ export default class DockUI {
         this._cursorResetTimeouts.forEach(id => GLib.source_remove(id));
         this._cursorResetTimeouts = [];
 
-        const delays = Array.from({ length: 100 }, (_, i) => i * 50);
+        const delays = [100, 300, 600, 1000];
 
         delays.forEach(delayMs => {
             const timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, () => {

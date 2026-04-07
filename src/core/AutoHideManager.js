@@ -78,7 +78,10 @@ export default class AutoHideManager {
 
         this._addSignal(this.dockUI.actor, 'enter-event', () => {
             this._pointerUpdate = true;
-            this._show();
+            if (this.dockUI && this.dockUI.actor) {
+                this.dockUI.actor._suppressZoom = false; 
+            }
+            this._show(false, false);
             return Clutter.EVENT_PROPAGATE;
         });
 
@@ -104,14 +107,16 @@ export default class AutoHideManager {
 
             if (pressureDelay === 0) {
                 this._pointerUpdate = true;
-                this._show(true);
+                if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
+                this._show(true, false);
             } else {
                 this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
                     this._edgeRevealTimerId = null;
 
                     if (this._pointerInEdgeTriggerZone(8)) {
                         this._pointerUpdate = true;
-                        this._show(true);
+                        if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
+                        this._show(true, false);
                     }
                     return GLib.SOURCE_REMOVE;
                 });
@@ -244,7 +249,8 @@ export default class AutoHideManager {
                         this._edgeRevealTimerId = null;
                         if (this._pointerInEdgeTriggerZone(8)) {
                             this._pointerUpdate = true;
-                            this._show(true);
+                            if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
+                            this._show(true, false);
                         } else if (this.isHidden) {
                             this._startEdgePointerPoll();
                         }
@@ -254,7 +260,8 @@ export default class AutoHideManager {
                 }
 
                 this._pointerUpdate = true;
-                this._show(true);
+                if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
+                this._show(true, false);
                 this._edgePointerPollId = null;
                 return GLib.SOURCE_REMOVE;
             }
@@ -472,12 +479,12 @@ export default class AutoHideManager {
         this._updateEdgeTrigger();
 
         if (this._shouldStayVisibleForTransientUI()) {
-            this._show(true);
+            this._show(true, false);
             return;
         }
 
         if (this._isHovering()) {
-            this._show();
+            this._show(false, false);
             return;
         }
 
@@ -497,7 +504,7 @@ export default class AutoHideManager {
             shouldHide = anyOverlap;
         }
 
-        shouldHide ? this._hide() : this._show();
+        shouldHide ? this._hide() : this._show(false, true); 
     }
 
     _scheduleUpdate(delay = 50) {
@@ -561,7 +568,10 @@ export default class AutoHideManager {
             this._hoverPollId = null;
         }
 
-        if (this.dockUI.actor) this.dockUI.actor._isHidden = false;
+        if (this.dockUI.actor) {
+            this.dockUI.actor._isHidden = false;
+            this.dockUI.actor._suppressZoom = false;
+        }
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
 
         const actor = this.dockUI.actor;
@@ -577,8 +587,13 @@ export default class AutoHideManager {
         this._updateEdgeTrigger();
     }
 
-    _show(force = false) {
-        if (!this.isHidden && !force && !this._hideTimerId && !this._showTimerId) return;
+    _show(force = false, suppressAnimations = false) {
+        if (!this.isHidden && !force && !this._hideTimerId && !this._showTimerId) {
+            if (!suppressAnimations && this.dockUI && this.dockUI.actor) {
+                this.dockUI.actor._suppressZoom = false;
+            }
+            return;
+        }
 
         this._cancelTimers();
         this.isHidden = false;
@@ -598,11 +613,11 @@ export default class AutoHideManager {
         if (unhideDelay > 0 && !force) {
             this._showTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, unhideDelay, () => {
                 this._showTimerId = null;
-                this._animateShow();
+                this._animateShow(suppressAnimations);
                 return GLib.SOURCE_REMOVE;
             });
         } else {
-            this._animateShow();
+            this._animateShow(suppressAnimations);
         }
     }
 
@@ -649,7 +664,7 @@ export default class AutoHideManager {
         });
     }
 
-    _animateShow() {
+    _animateShow(suppressAnimations = false) {
         if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
 
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
@@ -657,6 +672,12 @@ export default class AutoHideManager {
         this._applyDockInputState(true);
 
         this.dockUI.actor.remove_all_transitions();
+
+        if (suppressAnimations) {
+            this.dockUI.actor._suppressZoom = true;
+        } else {
+            this.dockUI.actor._suppressZoom = false;
+        }
 
         this.dockUI.actor.show();
         this.dockUI.actor.visible = true;
@@ -716,9 +737,8 @@ export default class AutoHideManager {
                         this._forceShow();
                         return;
                     }
+                    this.dockUI.actor.hide();
                     this.dockUI.actor.opacity = 0;
-                    this.dockUI.actor.translation_x = 9999;
-                    this.dockUI.actor.translation_y = 9999;
                     this._applyDockInputState(false);
                     this._updateEdgeTrigger();
                 }
@@ -738,6 +758,7 @@ export default class AutoHideManager {
         this._applyDockInputState(false);
 
         this.dockUI.actor.remove_all_transitions();
+        this.dockUI.actor._suppressZoom = true;
 
         const pos = this._getDockPosition();
         const offset = (this.settings.get_int('dock-margin') || 0) + 80;
@@ -770,10 +791,11 @@ export default class AutoHideManager {
                         this._forceShow();
                         return;
                     }
+
+                    this.dockUI.actor.hide();
                     this.dockUI.actor.opacity = 0;
-                    
-                    this.dockUI.actor.translation_x = 9999;
-                    this.dockUI.actor.translation_y = 9999;
+                    this.dockUI.actor.translation_x = tx;
+                    this.dockUI.actor.translation_y = ty;
 
                     this._applyDockInputState(false);
                     this._updateEdgeTrigger();

@@ -15,6 +15,7 @@
 
 
 import St from 'gi://St';
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
@@ -40,7 +41,17 @@ export default class DockManager {
 
         let dummyBox = new St.BoxLayout();
         
-        dhruvaDash._box = dummyBox; 
+        Object.defineProperty(dhruvaDash, '_box', {
+            get: () => {
+                let stack = new Error().stack || '';
+                if (stack.includes('appDisplay.js') || stack.includes('dash.js') || stack.includes('overviewControls.js')) {
+                    return dummyBox;
+                }
+                return realDhruvaBox;
+            },
+            configurable: true
+        });
+
         dhruvaDash._container = dhruvaDash;
         
         if (this._originalDash.showAppsButton) {
@@ -89,39 +100,58 @@ export default class DockManager {
                 child._isExternal = true;
                 child._dhruvaExternalOwner = this;
                 this._externalActors.add(child);
-                try {
-                    if (typeof child.remove_all_transitions === 'function')
-                        child.remove_all_transitions();
-                    child.opacity = 255;
-                } catch (e) {}
 
-                if (this.dockUI && this.dockUI.autoHideManager && this.dockUI.autoHideManager.isHidden) {
-                    this.dockUI.autoHideManager._forceShow();
+                if (this.dockUI && this.dockUI._safeHouse) {
+                    try { this.dockUI._safeHouse.add_child(child); } catch(e) {}
                 }
 
-                try { realDhruvaBox.add_child(child); } catch(e){}
+                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
+                    if (child && !(typeof child.is_destroyed === 'function' && child.is_destroyed())) {
+                        try {
+                            if (typeof child.remove_all_transitions === 'function') child.remove_all_transitions();
+                            child.opacity = 255;
+                        } catch (e) {}
+                    }
+                    
+                    if (this.dockUI && !this.dockUI._isDestroyed && typeof this.dockUI.queueRender === 'function') {
+                        this.dockUI.queueRender();
+                    }
+                    return GLib.SOURCE_REMOVE;
+                });
                 
-                if (this.dockUI && typeof this.dockUI.onMusicPillInjected === 'function') {
-                    this.dockUI.onMusicPillInjected(child);
-                }
-
-                if (this.dockUI && typeof this.dockUI.queueRender === 'function') {
-                    this.dockUI.queueRender();
-                }
-
                 return true;
             }
             return false;
         };
 
+        const releaseExternalWidget = (child) => {
+            if (child && child._isExternal) {
+                this._externalActors.delete(child);
+                child._isExternal = false;
+                child._dhruvaExternalOwner = null;
+                
+                if (this.dockUI && typeof this.dockUI.queueRender === 'function') {
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        if (this.dockUI && !this.dockUI._isDestroyed) this.dockUI.queueRender();
+                        return GLib.SOURCE_REMOVE;
+                    });
+                }
+            }
+        };
+
         const origDummyAdd = dummyBox.add_child.bind(dummyBox);
         const origDummyInsert = dummyBox.insert_child_at_index.bind(dummyBox);
+        const origDummyRemove = dummyBox.remove_child.bind(dummyBox);
         
         dummyBox.add_child = (child) => {
             if (!stealExternalWidget(child)) origDummyAdd(child);
         };
         dummyBox.insert_child_at_index = (child, index) => {
             if (!stealExternalWidget(child)) origDummyInsert(child, index);
+        };
+        dummyBox.remove_child = (child) => {
+            origDummyRemove(child);
+            releaseExternalWidget(child);
         };
 
         if (this._originalDash._box) {
@@ -134,6 +164,7 @@ export default class DockManager {
             if (!origBox._isHijacked) {
                 const _nativeOrigAdd = origBox.add_child.bind(origBox);
                 const _nativeOrigInsert = origBox.insert_child_at_index.bind(origBox);
+                const _nativeOrigRemove = origBox.remove_child.bind(origBox);
 
                 origBox.add_child = (child) => {
                     if (!stealExternalWidget(child)) _nativeOrigAdd(child);
@@ -141,10 +172,16 @@ export default class DockManager {
                 origBox.insert_child_at_index = (child, index) => {
                     if (!stealExternalWidget(child)) _nativeOrigInsert(child, index);
                 };
+                origBox.remove_child = (child) => {
+                    _nativeOrigRemove(child);
+                    releaseExternalWidget(child);
+                };
+                
                 origBox._isHijacked = true;
                 this._hijackedOrigBox = origBox;
                 this._nativeOrigAdd = _nativeOrigAdd;
                 this._nativeOrigInsert = _nativeOrigInsert;
+                this._nativeOrigRemove = _nativeOrigRemove;
             }
         }
     }
@@ -196,10 +233,11 @@ export default class DockManager {
     destroy() {
         const originalBox = this._originalDash?._box;
 
-        if (this._hijackedOrigBox && this._nativeOrigAdd && this._nativeOrigInsert) {
+        if (this._hijackedOrigBox && this._nativeOrigAdd && this._nativeOrigInsert && this._nativeOrigRemove) {
             try {
                 this._hijackedOrigBox.add_child = this._nativeOrigAdd;
                 this._hijackedOrigBox.insert_child_at_index = this._nativeOrigInsert;
+                this._hijackedOrigBox.remove_child = this._nativeOrigRemove;
                 this._hijackedOrigBox._isHijacked = false;
             } catch (_e) { }
         }
