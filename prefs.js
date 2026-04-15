@@ -1126,37 +1126,31 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             dialog.set_filters(filterList);
 
             dialog.open(window, null, (dlg, res) => {
-                try {
-                    const file = dlg.open_finish(res);
-                    if (file) {
-                        const ext = file.get_basename().split('.').pop().toLowerCase();
+                const file = dlg.open_finish(res);
+                if (file) {
+                    const ext = file.get_basename().split('.').pop().toLowerCase();
 
-                        if (!['png', 'svg', 'ico'].includes(ext)) {
-                            console.error('[Dhruva] Invalid file format selected. Only PNG, SVG, or ICO allowed.');
-                            return;
-                        }
-
-                        const configDir = GLib.get_user_config_dir() + '/dhruva@narkagni/icon';
-                        GLib.mkdir_with_parents(configDir, 0o755);
-                        const dir = Gio.File.new_for_path(configDir);
-                        try {
-                            const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                            let fileInfo;
-                            while ((fileInfo = enumerator.next_file(null))) {
-                                dir.get_child(fileInfo.get_name()).delete(null);
-                            }
-                        } catch (e) { }
-
-                        const timestamp = Date.now();
-                        const destPath = `${configDir}/custom_grid_icon_${timestamp}.${ext}`;
-                        const destFile = Gio.File.new_for_path(destPath);
-
-                        file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
-                        settings.set_string('custom-grid-icon', destPath);
+                    if (!['png', 'svg', 'ico'].includes(ext)) {
+                        return;
                     }
-                } catch (e) {
-                    if (!e.message.includes('Dismissed')) console.error(e);
+
+                    const configDir = GLib.get_user_config_dir() + '/dhruva@narkagni/icon';
+                    GLib.mkdir_with_parents(configDir, 0o755);
+                    const dir = Gio.File.new_for_path(configDir);
+                    const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                    let fileInfo;
+                    while ((fileInfo = enumerator.next_file(null))) {
+                        dir.get_child(fileInfo.get_name()).delete(null);
+                    }
+
+                    const timestamp = Date.now();
+                    const destPath = `${configDir}/custom_grid_icon_${timestamp}.${ext}`;
+                    const destFile = Gio.File.new_for_path(destPath);
+
+                    file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
+                    settings.set_string('custom-grid-icon', destPath);
                 }
+
             });
         });
 
@@ -1501,29 +1495,23 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             dialog.set_initial_name('dhruva_config.json');
 
             dialog.save(window, null, (dlg, res) => {
-                try {
-                    const file = dlg.save_finish(res);
-                    if (file) {
-                        const config = { settings: {}, favorites: [] };
+                const file = dlg.save_finish(res);
+                if (file) {
+                    const config = { settings: {}, favorites: [] };
 
-                        settings.list_keys().forEach(key => {
-                            config.settings[key] = settings.get_value(key).deep_unpack();
-                        });
+                    settings.list_keys().forEach(key => {
+                        config.settings[key] = settings.get_value(key).deep_unpack();
+                    });
 
-                        try {
-                            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-                            config.favorites = shellSettings.get_strv('favorite-apps');
-                        } catch (e) { console.error('[Dhruva] Failed to export favorite apps', e); }
+                    const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+                    config.favorites = shellSettings.get_strv('favorite-apps');
 
-                        const jsonStr = JSON.stringify(config, null, 2);
-                        const bytes = new GLib.Bytes(new TextEncoder().encode(jsonStr));
+                    const jsonStr = JSON.stringify(config, null, 2);
+                    const bytes = new GLib.Bytes(new TextEncoder().encode(jsonStr));
 
-                        file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (f, r) => {
-                            try { f.replace_contents_bytes_finish(r); } catch (e) { console.error('[Dhruva] Export write error:', e); }
-                        });
-                    }
-                } catch (e) {
-                    if (!e.message.includes('Dismissed')) console.error(e);
+                    file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (f, r) => {
+                        f.replace_contents_bytes_finish(r);
+                    });
                 }
             });
         });
@@ -1553,39 +1541,32 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             dialog.set_filters(filterList);
 
             dialog.open(window, null, (dlg, res) => {
-                try {
-                    const file = dlg.open_finish(res);
-                    if (file) {
-                        file.load_contents_async(null, (f, r) => {
-                            try {
-                                const [success, contents] = f.load_contents_finish(r);
-                                if (success) {
-                                    const jsonStr = new TextDecoder().decode(contents);
-                                    const config = JSON.parse(jsonStr);
+                const file = dlg.open_finish(res);
+                if (file) {
+                    file.load_contents_async(null, (f, r) => {
+                        const [success, contents] = f.load_contents_finish(r);
+                        if (success) {
+                            const jsonStr = new TextDecoder().decode(contents);
+                            const config = JSON.parse(jsonStr);
 
-                                    if (config.settings) {
-                                        Object.keys(config.settings).forEach(key => {
-                                            if (settings.settings_schema.has_key(key)) {
-                                                const typeStr = settings.settings_schema.get_key(key).get_value_type().dup_string();
-                                                const variant = new GLib.Variant(typeStr, config.settings[key]);
-                                                settings.set_value(key, variant);
-                                            }
-                                        });
+                            if (config.settings) {
+                                Object.keys(config.settings).forEach(key => {
+                                    if (settings.settings_schema.has_key(key)) {
+                                        const typeStr = settings.settings_schema.get_key(key).get_value_type().dup_string();
+                                        const variant = new GLib.Variant(typeStr, config.settings[key]);
+                                        settings.set_value(key, variant);
                                     }
+                                });
+                            }
 
-                                    if (config.favorites && Array.isArray(config.favorites)) {
-                                        try {
-                                            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-                                            shellSettings.set_strv('favorite-apps', config.favorites);
-                                        } catch (e) { console.error('[Dhruva] Failed to import favorite apps', e); }
-                                    }
-                                }
-                            } catch (e) { console.error('[Dhruva] Import parse error:', e); }
-                        });
-                    }
-                } catch (e) {
-                    if (!e.message.includes('Dismissed')) console.error(e);
+                            if (config.favorites && Array.isArray(config.favorites)) {
+                                const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+                                shellSettings.set_strv('favorite-apps', config.favorites);
+                            }
+                        }
+                    });
                 }
+
             });
         });
         backupGroup.add(importRow);
