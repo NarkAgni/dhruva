@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import St from 'gi://St';
@@ -21,11 +21,25 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
+function isActorAlive(actor) {
+    if (!actor) return false;
+    if (actor.__destroyed) return false;
+    try {
+        if (typeof actor.is_destroyed === 'function' && actor.is_destroyed()) return false;
+        let _dummy = actor.visible;
+    } catch (_e) {
+        return false;
+    }
+    return true;
+}
+
 const DRAG_THRESHOLD = 100;
 const DOUBLE_CLICK_TIME = 300;
 
 class DockPullEffect extends Clutter.DeformEffect {
-    static { GObject.registerClass(this); }
+    static {
+        GObject.registerClass(this);
+    }
 
     _init() {
         super._init();
@@ -56,24 +70,30 @@ class DockPullEffect extends Clutter.DeformEffect {
         const belly = Math.sin(t * Math.PI) * Math.pow(p, 1.5);
         if (this.dockPos === 'BOTTOM' || this.dockPos === 'TOP') {
             const bulge = belly * 0.20 * w;
-            if (v.tx < 0.5) v.x -= bulge; else v.x += bulge;
+            if (v.tx < 0.5) v.x -= bulge;
+            else v.x += bulge;
         } else {
             const bulge = belly * 0.20 * h;
-            if (v.ty < 0.5) v.y -= bulge; else v.y += bulge;
+            if (v.ty < 0.5) v.y -= bulge;
+            else v.y += bulge;
         }
 
         const tipWeight = Math.pow(t, 3.0);
         const pinchAmount = tipWeight * p * p;
         if (this.dockPos === 'BOTTOM' || this.dockPos === 'TOP') {
             const pinch = pinchAmount * 0.22 * w;
-            if (v.tx < 0.5) v.x += pinch; else v.x -= pinch;
+            if (v.tx < 0.5) v.x += pinch;
+            else v.x -= pinch;
         } else {
             const pinch = pinchAmount * 0.22 * h;
-            if (v.ty < 0.5) v.y += pinch; else v.y -= pinch;
+            if (v.ty < 0.5) v.y += pinch;
+            else v.y -= pinch;
         }
     }
 
-    vfunc_modify_paint_volume() { return false; }
+    vfunc_modify_paint_volume() {
+        return false;
+    }
 }
 
 export default class FloatingManager {
@@ -103,10 +123,16 @@ export default class FloatingManager {
 
         this._enableSignal = this.settings.connect('changed::enable-floating-dock', () => {
             if (!this.settings.get_boolean('enable-floating-dock')) {
-                if (this._handleStart) { this._handleStart.destroy(); this._handleStart = null; }
-                if (this._handleEnd) { this._handleEnd.destroy(); this._handleEnd = null; }
+                if (this._handleStart) {
+                    this._handleStart.destroy();
+                    this._handleStart = null;
+                }
+                if (this._handleEnd) {
+                    this._handleEnd.destroy();
+                    this._handleEnd = null;
+                }
                 this._handlesVisible = false;
-                
+
                 if (this.isFloating) {
                     this._snapBack();
                 }
@@ -125,7 +151,7 @@ export default class FloatingManager {
         floatSettings.forEach(key => {
             this._floatSignals.push(this.settings.connect(`changed::${key}`, () => {
                 this._previewMode = true;
-                
+
                 if (this._previewTimeout) GLib.source_remove(this._previewTimeout);
                 this._previewTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
                     this._previewMode = false;
@@ -133,7 +159,7 @@ export default class FloatingManager {
                     this._refreshLiveHandles();
                     return GLib.SOURCE_REMOVE;
                 });
-                
+
                 this._refreshLiveHandles();
             }));
         });
@@ -154,16 +180,18 @@ export default class FloatingManager {
 
         this._origRenderDock = this.dockUI._renderDock;
         this.dockUI._renderDock = () => {
+            if (!this.dockUI || this.dockUI._isDestroyed) return; 
+
             if (this._isSimpleClick || this.isDragging) return;
 
-            if (this._handleStart && isAlive(this._handleStart)) {
+            if (this._handleStart && isActorAlive(this._handleStart)) {
                 const p = this._handleStart.get_parent();
                 if (p) p.remove_child(this._handleStart);
             } else {
                 this._handleStart = null;
             }
 
-            if (this._handleEnd && isAlive(this._handleEnd)) {
+            if (this._handleEnd && isActorAlive(this._handleEnd)) {
                 const p = this._handleEnd.get_parent();
                 if (p) p.remove_child(this._handleEnd);
             } else {
@@ -171,24 +199,36 @@ export default class FloatingManager {
             }
 
             if (!this.dockUI || !this._origRenderDock) return;
-            this._origRenderDock.call(this.dockUI);
+            
+            try {
+                if (isActorAlive(this.dockUI.actor)) {
+                    this._origRenderDock.call(this.dockUI);
+                }
+            } catch (e) {}
 
             if (!this.settings.get_boolean('enable-floating-dock')) {
                 this._handlesVisible = false;
                 return;
             }
 
-            if (!this.actor || !isAlive(this.actor)) return;
+            if (!this.actor || !isActorAlive(this.actor)) return;
 
             this._ensureHandles();
             this._updateHandleStyles();
 
-            const [px, py] = global.get_pointer();
-            const [ax, ay] = this.actor.get_transformed_position();
-            const [aw, ah] = this.actor.get_transformed_size();
-            const isHovered = px >= ax && px <= ax + aw && py >= ay && py <= ay + ah;
+            let isHovered = false;
+            try {
+                if (isActorAlive(this.actor)) {
+                    const [px, py] = global.get_pointer();
+                    const [ax, ay] = this.actor.get_transformed_position();
+                    const [aw, ah] = this.actor.get_transformed_size();
+                    isHovered = px >= ax && px <= ax + aw && py >= ay && py <= ay + ah;
+                }
+            } catch (e) {
+                return;
+            }
 
-            if (isAlive(this.dockUI.boxActor)) {
+            if (isActorAlive(this.dockUI.boxActor)) {
                 if (this._handleStart && !this._handleStart.get_parent())
                     this.dockUI.boxActor.insert_child_at_index(this._handleStart, 0);
                 if (this._handleEnd && !this._handleEnd.get_parent())
@@ -199,19 +239,15 @@ export default class FloatingManager {
             const handleGap = this.settings.get_int('floating-d-gap') ?? 6;
             const activeSize = dThick + handleGap;
 
-            const floatOpacityVal = this.settings.get_int('floating-dock-opacity') ?? 100;
-            const floatOpacity = Math.max(35, floatOpacityVal);
-            const hoverFullOpacity = this.settings.get_boolean('floating-dock-hover-full-opacity');
-
             if (this.settings.get_boolean('enable-floating-dock')) {
                 this._animateFloatOpacity(isHovered);
 
-                if (isAlive(this.dockUI.bgActor)) this.dockUI.bgActor.opacity = 255;
-                if (isAlive(this.dockUI.boxActor)) this.dockUI.boxActor.opacity = 255;
+                if (isActorAlive(this.dockUI.bgActor)) this.dockUI.bgActor.opacity = 255;
+                if (isActorAlive(this.dockUI.boxActor)) this.dockUI.boxActor.opacity = 255;
             } else {
-                if (isAlive(this.actor)) this.actor.opacity = 255;
-                if (isAlive(this.dockUI.bgActor)) this.dockUI.bgActor.opacity = 255;
-                if (isAlive(this.dockUI.boxActor)) this.dockUI.boxActor.opacity = 255;
+                if (isActorAlive(this.actor)) this.actor.opacity = 255;
+                if (isActorAlive(this.dockUI.bgActor)) this.dockUI.bgActor.opacity = 255;
+                if (isActorAlive(this.dockUI.boxActor)) this.dockUI.boxActor.opacity = 255;
             }
 
             if (isHovered || this._previewMode || this.isDragging) {
@@ -252,12 +288,12 @@ export default class FloatingManager {
     }
 
     _applyHandleSizes(currentSize, isAnimated = true) {
-        if (!this._handleStart || !this._handleEnd) return;
+        if (!isActorAlive(this._handleStart) || !isActorAlive(this._handleEnd)) return;
 
         try {
             this._handleStart.get_parent();
             this._handleEnd.get_parent();
-        } catch(e) {
+        } catch (e) {
             this._handleStart = null;
             this._handleEnd = null;
             return;
@@ -281,22 +317,31 @@ export default class FloatingManager {
 
         const targetW = isVertical ? dLen : currentSize;
         const targetH = isVertical ? currentSize : dLen;
-        
+
         const duration = isAnimated ? 200 : 0;
         const mode = Clutter.AnimationMode.EASE_OUT_QUAD;
 
         try {
-            this._handleStart.ease({ width: targetW, height: targetH, duration, mode });
-            this._handleEnd.ease({ width: targetW, height: targetH, duration, mode });
+            this._handleStart.ease({
+                width: targetW,
+                height: targetH,
+                duration,
+                mode
+            });
+            this._handleEnd.ease({
+                width: targetW,
+                height: targetH,
+                duration,
+                mode
+            });
 
             if (this._handleStart._line) this._handleStart._line.set_size(isVertical ? dLen : dThick, isVertical ? dThick : dLen);
             if (this._handleEnd._line) this._handleEnd._line.set_size(isVertical ? dLen : dThick, isVertical ? dThick : dLen);
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     _updateHandleStyles() {
-        if (!this._handleStart || !this._handleEnd) return;
+        if (!isActorAlive(this._handleStart) || !isActorAlive(this._handleEnd)) return;
 
         const dockPos = this.settings.get_string('dock-position') || 'BOTTOM';
         const isVertical = dockPos === 'LEFT' || dockPos === 'RIGHT';
@@ -306,13 +351,13 @@ export default class FloatingManager {
         const dRad = this.settings.get_int('floating-d-curve') ?? 24;
         const dOffset = this.settings.get_int('floating-d-offset') || 0;
 
-        const styleStart = isVertical
-            ? `background-color: ${bgStr}; border-radius: ${dRad}px ${dRad}px 0px 0px;`
-            : `background-color: ${bgStr}; border-radius: ${dRad}px 0px 0px ${dRad}px;`;
+        const styleStart = isVertical ?
+            `background-color: ${bgStr}; border-radius: ${dRad}px ${dRad}px 0px 0px;` :
+            `background-color: ${bgStr}; border-radius: ${dRad}px 0px 0px ${dRad}px;`;
 
-        const styleEnd = isVertical
-            ? `background-color: ${bgStr}; border-radius: 0px 0px ${dRad}px ${dRad}px;`
-            : `background-color: ${bgStr}; border-radius: 0px ${dRad}px ${dRad}px 0px;`;
+        const styleEnd = isVertical ?
+            `background-color: ${bgStr}; border-radius: 0px 0px ${dRad}px ${dRad}px;` :
+            `background-color: ${bgStr}; border-radius: 0px ${dRad}px ${dRad}px 0px;`;
 
         if (this._handleStart._line) {
             this._handleStart._line.set_style(styleStart);
@@ -383,10 +428,10 @@ export default class FloatingManager {
         floatOpacity = Math.max(10, floatOpacity);
 
         const hoverFullOpacity = this.settings.get_boolean('floating-dock-hover-full-opacity');
-        
+
         const forceSliderValue = this._previewMode;
         const applyHoverFull = isHovered && hoverFullOpacity && !forceSliderValue;
-        
+
         const targetOpacity = applyHoverFull ? 255 : Math.round((floatOpacity / 100.0) * 255);
         const duration = applyHoverFull ? 100 : 300;
 
@@ -399,7 +444,11 @@ export default class FloatingManager {
 
             this._lastOpacityTarget = targetOpacity;
             this.actor.remove_transition('opacity');
-            this.actor.ease({ opacity: targetOpacity, duration: duration, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            this.actor.ease({
+                opacity: targetOpacity,
+                duration: duration,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD
+            });
         }
     }
 
@@ -429,7 +478,9 @@ export default class FloatingManager {
                 clip_to_allocation: false
             });
 
-            const sep = new St.Widget({ opacity: 0 });
+            const sep = new St.Widget({
+                opacity: 0
+            });
             handle.set_child(sep);
             handle._line = sep;
             handle.connect('button-press-event', this._onHandlePress.bind(this));
@@ -477,14 +528,21 @@ export default class FloatingManager {
         try {
             if (this._handleStart._line) {
                 this._handleStart._line.remove_transition('opacity');
-                this._handleStart._line.ease({ opacity: targetOpacity, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                this._handleStart._line.ease({
+                    opacity: targetOpacity,
+                    duration: 200,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                });
             }
             if (this._handleEnd._line) {
                 this._handleEnd._line.remove_transition('opacity');
-                this._handleEnd._line.ease({ opacity: targetOpacity, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                this._handleEnd._line.ease({
+                    opacity: targetOpacity,
+                    duration: 200,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                });
             }
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     _startHoverTracker() {
@@ -499,12 +557,23 @@ export default class FloatingManager {
                 return GLib.SOURCE_CONTINUE;
             }
 
-            const [px, py] = global.get_pointer();
-            const [ax, ay] = this.actor.get_transformed_position();
-            const [aw, ah] = this.actor.get_transformed_size();
+            let isHovered = false;
+            try {
+                if (this.actor && !this.actor.is_destroyed?.()) {
+                    const [px, py] = global.get_pointer();
+                    const [ax, ay] = this.actor.get_transformed_position();
+                    const [aw, ah] = this.actor.get_transformed_size();
 
-            const pad = 30; 
-            const isHovered = px >= ax - pad && px <= ax + aw + pad && py >= ay - pad && py <= ay + ah + pad;
+                    const pad = 30;
+                    isHovered = px >= ax - pad && px <= ax + aw + pad && py >= ay - pad && py <= ay + ah + pad;
+                } else {
+                    this._hoverTrackerId = null;
+                    return GLib.SOURCE_REMOVE;
+                }
+            } catch (e) {
+                this._hoverTrackerId = null;
+                return GLib.SOURCE_REMOVE;
+            }
 
             if (isHovered !== this._wasHovered) {
                 this._wasHovered = isHovered;
@@ -598,6 +667,11 @@ export default class FloatingManager {
     }
 
     _startDrag(event) {
+
+        if (this.dockUI && this.dockUI._activeFolderMenu) {
+            this.dockUI._activeFolderMenu.hide();
+        }
+
         const [px, py] = event.get_coords();
         const dockPos = this.settings.get_string('dock-position') || 'BOTTOM';
 
@@ -624,8 +698,14 @@ export default class FloatingManager {
     }
 
     _disconnectDragSignals() {
-        if (this._motionId) { global.stage.disconnect(this._motionId); this._motionId = null; }
-        if (this._releaseId) { global.stage.disconnect(this._releaseId); this._releaseId = null; }
+        if (this._motionId) {
+            global.stage.disconnect(this._motionId);
+            this._motionId = null;
+        }
+        if (this._releaseId) {
+            global.stage.disconnect(this._releaseId);
+            this._releaseId = null;
+        }
     }
 
     _armSimpleClickGuard() {
@@ -710,7 +790,12 @@ export default class FloatingManager {
 
                 this.actor.set_position(this._initialActorX + deltaX, this._initialActorY + deltaY);
                 this.actor.set_scale(0.85, 0.85);
-                this.actor.ease({ scale_x: 1.0, scale_y: 1.0, duration: 300, mode: Clutter.AnimationMode.EASE_OUT_ELASTIC });
+                this.actor.ease({
+                    scale_x: 1.0,
+                    scale_y: 1.0,
+                    duration: 300,
+                    mode: Clutter.AnimationMode.EASE_OUT_ELASTIC
+                });
 
                 if (this.dockUI?.autoHideManager) {
                     this.dockUI.autoHideManager.isHidden = false;
@@ -755,13 +840,23 @@ export default class FloatingManager {
 
     _createDragShield() {
         if (this._dragShield) return;
-        this._dragShield = new Clutter.Actor({ reactive: true, width: 30000, height: 30000, x: -10000, y: -10000, opacity: 0 });
+        this._dragShield = new Clutter.Actor({
+            reactive: true,
+            width: 30000,
+            height: 30000,
+            x: -10000,
+            y: -10000,
+            opacity: 0
+        });
         Main.uiGroup.add_child(this._dragShield);
         Main.uiGroup.set_child_above_sibling(this._dragShield, null);
     }
 
     _removeDragShield() {
-        if (this._dragShield) { this._dragShield.destroy(); this._dragShield = null; }
+        if (this._dragShield) {
+            this._dragShield.destroy();
+            this._dragShield = null;
+        }
     }
 
     _checkHoverAfterDrop() {
@@ -776,7 +871,10 @@ export default class FloatingManager {
     }
 
     _resetDockState() {
-        if (this._snapTimeline) { this._snapTimeline.stop(); this._snapTimeline = null; }
+        if (this._snapTimeline) {
+            this._snapTimeline.stop();
+            this._snapTimeline = null;
+        }
         if (this._pullEffect && this.actor && !this.actor.is_destroyed?.())
             this.actor.remove_effect(this._pullEffect);
         this._pullEffect = null;
@@ -806,7 +904,12 @@ export default class FloatingManager {
             const targetY = this.actor.y;
 
             this.actor.set_position(currentX, currentY);
-            this.actor.ease({ x: targetX, y: targetY, duration: 400, mode: Clutter.AnimationMode.EASE_OUT_QUINT });
+            this.actor.ease({
+                x: targetX,
+                y: targetY,
+                duration: 400,
+                mode: Clutter.AnimationMode.EASE_OUT_QUINT
+            });
         }
     }
 
@@ -824,15 +927,36 @@ export default class FloatingManager {
         }
         this._origShow = null;
 
-        if (this._enableSignal) { this.settings.disconnect(this._enableSignal); this._enableSignal = null; }
-        if (this._previewTimeout) { GLib.source_remove(this._previewTimeout); this._previewTimeout = null; }
-        if (this._layoutIdleId) { GLib.source_remove(this._layoutIdleId); this._layoutIdleId = null; }
-        
-        if (this._hoverTrackerId) { GLib.source_remove(this._hoverTrackerId); this._hoverTrackerId = null; }
-        
-        if (this._suppressLeaveTimeout) { GLib.source_remove(this._suppressLeaveTimeout); this._suppressLeaveTimeout = null; }
-        if (this._simpleClickGuardId) { GLib.source_remove(this._simpleClickGuardId); this._simpleClickGuardId = null; }
-        if (this._dropSettleTimeout) { GLib.source_remove(this._dropSettleTimeout); this._dropSettleTimeout = null; }
+        if (this._enableSignal) {
+            this.settings.disconnect(this._enableSignal);
+            this._enableSignal = null;
+        }
+        if (this._previewTimeout) {
+            GLib.source_remove(this._previewTimeout);
+            this._previewTimeout = null;
+        }
+        if (this._layoutIdleId) {
+            GLib.source_remove(this._layoutIdleId);
+            this._layoutIdleId = null;
+        }
+
+        if (this._hoverTrackerId) {
+            GLib.source_remove(this._hoverTrackerId);
+            this._hoverTrackerId = null;
+        }
+
+        if (this._suppressLeaveTimeout) {
+            GLib.source_remove(this._suppressLeaveTimeout);
+            this._suppressLeaveTimeout = null;
+        }
+        if (this._simpleClickGuardId) {
+            GLib.source_remove(this._simpleClickGuardId);
+            this._simpleClickGuardId = null;
+        }
+        if (this._dropSettleTimeout) {
+            GLib.source_remove(this._dropSettleTimeout);
+            this._dropSettleTimeout = null;
+        }
 
         this._isSimpleClick = false;
         this._suppressLeave = false;
@@ -852,20 +976,44 @@ export default class FloatingManager {
             this._origUpdatePosition = null;
         }
 
-        if (this._globalPressId) { global.stage.disconnect(this._globalPressId); this._globalPressId = null; }
+        if (this._globalPressId) {
+            global.stage.disconnect(this._globalPressId);
+            this._globalPressId = null;
+        }
 
         const isAlive = act => act && !act.is_destroyed?.();
 
-        if (this._motionIdHover && isAlive(this.actor)) { this.actor.disconnect(this._motionIdHover); this._motionIdHover = null; }
-        if (this._leaveId && isAlive(this.actor)) { this.actor.disconnect(this._leaveId); this._leaveId = null; }
-        if (this._pressId && isAlive(this.actor)) { this.actor.disconnect(this._pressId); this._pressId = null; }
-        if (this._motionId) { global.stage.disconnect(this._motionId); this._motionId = null; }
-        if (this._releaseId) { global.stage.disconnect(this._releaseId); this._releaseId = null; }
+        if (this._motionIdHover && isAlive(this.actor)) {
+            this.actor.disconnect(this._motionIdHover);
+            this._motionIdHover = null;
+        }
+        if (this._leaveId && isAlive(this.actor)) {
+            this.actor.disconnect(this._leaveId);
+            this._leaveId = null;
+        }
+        if (this._pressId && isAlive(this.actor)) {
+            this.actor.disconnect(this._pressId);
+            this._pressId = null;
+        }
+        if (this._motionId) {
+            global.stage.disconnect(this._motionId);
+            this._motionId = null;
+        }
+        if (this._releaseId) {
+            global.stage.disconnect(this._releaseId);
+            this._releaseId = null;
+        }
 
         this._resetDockState();
 
-        if (this._handleStart) { this._handleStart.destroy(); this._handleStart = null; }
-        if (this._handleEnd) { this._handleEnd.destroy(); this._handleEnd = null; }
+        if (this._handleStart) {
+            this._handleStart.destroy();
+            this._handleStart = null;
+        }
+        if (this._handleEnd) {
+            this._handleEnd.destroy();
+            this._handleEnd = null;
+        }
 
         this.dockUI = null;
         this.actor = null;

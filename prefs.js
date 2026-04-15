@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import Adw from 'gi://Adw';
@@ -19,7 +19,10 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {
+    ExtensionPreferences
+} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
 
 export default class DhruvaPreferences extends ExtensionPreferences {
 
@@ -46,12 +49,15 @@ export default class DhruvaPreferences extends ExtensionPreferences {
     }
 
     _buildAboutPage(window) {
-        const page = new Adw.PreferencesPage({ title: 'About', icon_name: 'help-about-symbolic' });
+        const page = new Adw.PreferencesPage({
+            title: 'About',
+            icon_name: 'help-about-symbolic'
+        });
         window.add(page);
-        
-        this._buildAboutHero(page); 
-        this._buildAboutLinks(page, window); 
-        this._buildAboutAuthor(page); 
+
+        this._buildAboutHero(page);
+        this._buildAboutLinks(page, window);
+        this._buildAboutAuthor(page);
         this._buildAboutDonations(page, window);
     }
 
@@ -172,7 +178,9 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             subtitle,
             icon_name: icon
         });
-        const sw = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+        const sw = new Gtk.Switch({
+            valign: Gtk.Align.CENTER
+        });
         settings.bind(key, sw, 'active', Gio.SettingsBindFlags.DEFAULT);
         row.add_suffix(sw);
 
@@ -227,9 +235,14 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         let buttons = [];
         optionsArr.forEach((opt, i) => {
-            const btn = new Gtk.ToggleButton({ label: opt.name });
+            const btn = new Gtk.ToggleButton({
+                label: opt.name
+            });
             if (i > 0) btn.set_group(buttons[0].btn);
-            buttons.push({ btn, value: opt.value });
+            buttons.push({
+                btn,
+                value: opt.value
+            });
             box.append(btn);
 
             btn.connect('toggled', () => {
@@ -301,11 +314,22 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         });
         page.add(posGroup);
 
-        this._addSegmentedRow(posGroup, settings, 'dock-position', 'Screen Edge', 'Which edge to attach to', 'go-bottom-symbolic', [
-            { name: 'Left', value: 'LEFT' },
-            { name: 'Bottom', value: 'BOTTOM' },
-            { name: 'Top', value: 'TOP' },
-            { name: 'Right', value: 'RIGHT' }
+        this._addSegmentedRow(posGroup, settings, 'dock-position', 'Screen Edge', 'Which edge to attach to', 'go-bottom-symbolic', [{
+            name: 'Left',
+            value: 'LEFT'
+        },
+        {
+            name: 'Bottom',
+            value: 'BOTTOM'
+        },
+        {
+            name: 'Top',
+            value: 'TOP'
+        },
+        {
+            name: 'Right',
+            value: 'RIGHT'
+        }
         ]);
 
         const display = Gdk.Display.get_default();
@@ -349,13 +373,25 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         const fullWidthRow = this._addSwitchRow(posGroup, settings, 'full-width', 'Full Screen Width', 'Extend dock edge to edge', 'view-fullscreen-symbolic', null);
 
-        const alignmentRow = this._addSegmentedRow(posGroup, settings, 'icon-alignment', 'Icon Alignment', 'Justification when Full Width is active', 'format-justify-center-symbolic', [
-            { name: 'Start', value: 'START' },
-            { name: 'Center', value: 'CENTER' },
-            { name: 'End', value: 'END' }
+        const alignmentRow = this._addSegmentedRow(posGroup, settings, 'icon-alignment', 'Icon Alignment', 'Justification when Full Width is active', 'format-justify-center-symbolic', [{
+            name: 'Start',
+            value: 'START'
+        },
+        {
+            name: 'Center',
+            value: 'CENTER'
+        },
+        {
+            name: 'End',
+            value: 'END'
+        }
         ]);
 
-        this._addCustomSpinRow(posGroup, settings, 'dock-margin', 'Edge Margin', 'Distance from screen edge', 'format-indent-less-symbolic', { lower: 0, upper: 50, step_increment: 1 }, createResetBtn);
+        this._addCustomSpinRow(posGroup, settings, 'dock-margin', 'Edge Margin', 'Distance from screen edge', 'format-indent-less-symbolic', {
+            lower: 0,
+            upper: 50,
+            step_increment: 1
+        }, createResetBtn);
 
         const floatingGroup = new Adw.PreferencesGroup({
             title: 'Floating Dock',
@@ -379,20 +415,48 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         ]);
         masterFloatReset.valign = Gtk.Align.CENTER;
         floatExpander.add_suffix(masterFloatReset);
-        
+
         floatingGroup.add(floatExpander);
 
-        this._addCustomSpinRow(floatExpander, settings, 'floating-side-line-opacity', 'Side Line Opacity', 'Visibility of the drag handles (0–100)', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
-        this._addCustomSpinRow(floatExpander, settings, 'floating-d-length', 'Handle Length', 'Length of the D-shape handle', 'go-up-symbolic', { lower: 5, upper: 100, step_increment: 1 }, createResetBtn);
-        this._addCustomSpinRow(floatExpander, settings, 'floating-d-thickness', 'Handle Thickness', 'Thickness of the D-shape (auto-clamped to fit dock)', 'go-next-symbolic', { lower: 1, upper: 50, step_increment: 1 }, createResetBtn);
-        this._addCustomSpinRow(floatExpander, settings, 'floating-d-curve', 'Handle Curve', 'Border radius for the D-shape', 'media-record-symbolic', { lower: 0, upper: 50, step_increment: 1 }, createResetBtn);
-        
-        this._addCustomSpinRow(floatExpander, settings, 'floating-d-offset', 'Handle Offset', 'Shift the handle inwards/outwards', 'format-justify-fill-symbolic', { lower: -50, upper: 50, step_increment: 1 }, createResetBtn);
-        
-        this._addCustomSpinRow(floatExpander, settings, 'floating-d-gap', 'Handle Gap', 'Space between the handle and icons', 'format-indent-more-symbolic', { lower: 0, upper: 100, step_increment: 1 }, createResetBtn);
+        this._addCustomSpinRow(floatExpander, settings, 'floating-side-line-opacity', 'Side Line Opacity', 'Visibility of the drag handles (0–100)', 'view-reveal-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
+        this._addCustomSpinRow(floatExpander, settings, 'floating-d-length', 'Handle Length', 'Length of the D-shape handle', 'go-up-symbolic', {
+            lower: 5,
+            upper: 100,
+            step_increment: 1
+        }, createResetBtn);
+        this._addCustomSpinRow(floatExpander, settings, 'floating-d-thickness', 'Handle Thickness', 'Thickness of the D-shape (auto-clamped to fit dock)', 'go-next-symbolic', {
+            lower: 1,
+            upper: 50,
+            step_increment: 1
+        }, createResetBtn);
+        this._addCustomSpinRow(floatExpander, settings, 'floating-d-curve', 'Handle Curve', 'Border radius for the D-shape', 'media-record-symbolic', {
+            lower: 0,
+            upper: 50,
+            step_increment: 1
+        }, createResetBtn);
 
-        this._addCustomSpinRow(floatExpander, settings, 'floating-dock-opacity', 'Dock Opacity', 'Overall opacity of the full dock while floating (icons, background, stroke, handles)', 'display-brightness-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
-        
+        this._addCustomSpinRow(floatExpander, settings, 'floating-d-offset', 'Handle Offset', 'Shift the handle inwards/outwards', 'format-justify-fill-symbolic', {
+            lower: -50,
+            upper: 50,
+            step_increment: 1
+        }, createResetBtn);
+
+        this._addCustomSpinRow(floatExpander, settings, 'floating-d-gap', 'Handle Gap', 'Space between the handle and icons', 'format-indent-more-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 1
+        }, createResetBtn);
+
+        this._addCustomSpinRow(floatExpander, settings, 'floating-dock-opacity', 'Dock Opacity', 'Overall opacity of the full dock while floating (icons, background, stroke, handles)', 'display-brightness-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
+
         this._addSwitchRow(floatExpander, settings, 'floating-dock-hover-full-opacity', 'Full Opacity on Hover', 'Instantly show full opacity when the cursor enters the floating dock', 'input-mouse-symbolic', null);
 
         const sizeGroup = new Adw.PreferencesGroup({
@@ -401,11 +465,27 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         });
         page.add(sizeGroup);
 
-        this._addCustomSpinRow(sizeGroup, settings, 'icon-size', 'Base Icon Size', 'Normal size of app icons', 'zoom-original-symbolic', { lower: 16, upper: 128, step_increment: 2 }, createResetBtn);
-        this._addCustomSpinRow(sizeGroup, settings, 'icon-spacing', 'Icon Gap', 'Distance between icons', 'format-indent-more-symbolic', { lower: 0, upper: 30, step_increment: 1 }, createResetBtn);
-        const sidePaddingRow = this._addCustomSpinRow(sizeGroup, settings, 'dock-padding', 'Side Padding', 'Extra gap inside dock ends', 'format-justify-fill-symbolic', { lower: 0, upper: 150, step_increment: 2 }, createResetBtn);
-        
-        this._addCustomSpinRow(sizeGroup, settings, 'dock-height', 'Dock Height / Thickness', 'Extra padding on top/bottom (or left/right)', 'format-justify-center-symbolic', { lower: 0, upper: 100, step_increment: 2 }, createResetBtn);
+        this._addCustomSpinRow(sizeGroup, settings, 'icon-size', 'Base Icon Size', 'Normal size of app icons', 'zoom-original-symbolic', {
+            lower: 16,
+            upper: 128,
+            step_increment: 2
+        }, createResetBtn);
+        this._addCustomSpinRow(sizeGroup, settings, 'icon-spacing', 'Icon Gap', 'Distance between icons', 'format-indent-more-symbolic', {
+            lower: 0,
+            upper: 30,
+            step_increment: 1
+        }, createResetBtn);
+        const sidePaddingRow = this._addCustomSpinRow(sizeGroup, settings, 'dock-padding', 'Side Padding', 'Extra gap inside dock ends', 'format-justify-fill-symbolic', {
+            lower: 0,
+            upper: 150,
+            step_increment: 2
+        }, createResetBtn);
+
+        this._addCustomSpinRow(sizeGroup, settings, 'dock-height', 'Dock Height / Thickness', 'Extra padding on top/bottom (or left/right)', 'format-justify-center-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 2
+        }, createResetBtn);
 
         const syncLayoutVisibility = () => {
             const isFullWidth = settings.get_boolean('full-width');
@@ -414,7 +494,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
             alignmentRow.set_visible(isFullWidth);
             monitorRow.set_visible(!showOnAll);
-            
+
             sidePaddingRow.set_visible(!isFullWidth && !isFloatingEnabled);
             if (fullWidthRow) fullWidthRow.set_visible(!isFloatingEnabled);
 
@@ -441,19 +521,54 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         });
         page.add(colorsGroup);
 
-        const themeOptions = [
-            { name: 'Custom Color',         value: 'default'     },
-            { name: 'Wallpaper Color',       value: 'chameleon'   },
-            { name: 'Carbon',               value: 'carbon'      },
-            { name: 'Nord',                 value: 'nord'        },
-            { name: 'Catppuccin Mocha',     value: 'catppuccin'  },
-            { name: 'Gruvbox Dark',         value: 'gruvbox'     },
-            { name: 'Ash Glass',            value: 'ash'         },
-            { name: 'Dracula',              value: 'dracula'     },
-            { name: 'Tokyo Night',          value: 'tokyo-night' },
-            { name: 'Aurora',               value: 'aurora'      },
-            { name: 'Sunset',               value: 'sunset'      },
-            { name: 'Slate Ocean',          value: 'slate-ocean' },
+        const themeOptions = [{
+            name: 'Custom Color',
+            value: 'default'
+        },
+        {
+            name: 'Wallpaper Color',
+            value: 'chameleon'
+        },
+        {
+            name: 'Carbon',
+            value: 'carbon'
+        },
+        {
+            name: 'Nord',
+            value: 'nord'
+        },
+        {
+            name: 'Catppuccin Mocha',
+            value: 'catppuccin'
+        },
+        {
+            name: 'Gruvbox Dark',
+            value: 'gruvbox'
+        },
+        {
+            name: 'Ash Glass',
+            value: 'ash'
+        },
+        {
+            name: 'Dracula',
+            value: 'dracula'
+        },
+        {
+            name: 'Tokyo Night',
+            value: 'tokyo-night'
+        },
+        {
+            name: 'Aurora',
+            value: 'aurora'
+        },
+        {
+            name: 'Sunset',
+            value: 'sunset'
+        },
+        {
+            name: 'Slate Ocean',
+            value: 'slate-ocean'
+        },
         ];
 
         this._addComboRow(colorsGroup, settings, 'dock-theme', 'Dock Theme', 'Choose a preset theme or use custom colors', 'preferences-desktop-theme-symbolic', themeOptions, null);
@@ -469,14 +584,27 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         const bgColorRow = this._addColorRow(colorsGroup, settings, 'background-color', 'Primary Color', 'preferences-desktop-appearance-symbolic');
         const useGradRow = this._addSwitchRow(colorsGroup, settings, 'use-gradient', 'Use Gradient', 'Blend with a second color', 'view-continuous-symbolic', null);
         const bgGradColorRow = this._addColorRow(colorsGroup, settings, 'background-gradient-color', 'Secondary Color', 'preferences-desktop-appearance-symbolic');
-        const gradDirRow = this._addSegmentedRow(colorsGroup, settings, 'gradient-direction', 'Gradient Direction', 'Flow of the gradient', 'view-refresh-symbolic', [
-            { name: 'Vertical', value: 'vertical' },
-            { name: 'Horizontal', value: 'horizontal' }
+        const gradDirRow = this._addSegmentedRow(colorsGroup, settings, 'gradient-direction', 'Gradient Direction', 'Flow of the gradient', 'view-refresh-symbolic', [{
+            name: 'Vertical',
+            value: 'vertical'
+        },
+        {
+            name: 'Horizontal',
+            value: 'horizontal'
+        }
         ]);
 
-        this._addCustomSpinRow(colorsGroup, settings, 'background-opacity', 'Background Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(colorsGroup, settings, 'background-opacity', 'Background Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
 
-        const radiusRow = this._addCustomSpinRow(colorsGroup, settings, 'border-radius', 'Border Radius', 'Corner roundness', 'media-record-symbolic', { lower: 0, upper: 50, step_increment: 1 }, createResetBtn);
+        const radiusRow = this._addCustomSpinRow(colorsGroup, settings, 'border-radius', 'Border Radius', 'Corner roundness', 'media-record-symbolic', {
+            lower: 0,
+            upper: 50,
+            step_increment: 1
+        }, createResetBtn);
 
         const strokeExpander = new Adw.ExpanderRow({
             title: 'Border Outline (Stroke)',
@@ -487,11 +615,19 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         strokeExpander.add_suffix(createGroupReset(['stroke-width', 'stroke-color', 'stroke-opacity']));
         colorsGroup.add(strokeExpander);
 
-        this._addCustomSpinRow(strokeExpander, settings, 'stroke-width', 'Stroke Width', 'Thickness in pixels (0 to disable)', 'format-text-strikethrough-symbolic', { lower: 0, upper: 10, step_increment: 1 }, createResetBtn);
+        this._addCustomSpinRow(strokeExpander, settings, 'stroke-width', 'Stroke Width', 'Thickness in pixels (0 to disable)', 'format-text-strikethrough-symbolic', {
+            lower: 0,
+            upper: 10,
+            step_increment: 1
+        }, createResetBtn);
 
         this._addColorRow(strokeExpander, settings, 'stroke-color', 'Stroke Color', 'preferences-desktop-appearance-symbolic');
 
-        this._addCustomSpinRow(strokeExpander, settings, 'stroke-opacity', 'Stroke Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(strokeExpander, settings, 'stroke-opacity', 'Stroke Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
 
         const syncRadiusVisibility = () => {
             const isFull = settings.get_boolean('full-width');
@@ -507,21 +643,53 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         });
         page.add(sepGroup);
 
-        const modSepExp = new Adw.ExpanderRow({ title: 'Module Separator', subtitle: 'Divides clock, grid, and system icons', icon_name: 'format-text-strikethrough-symbolic' });
+        const modSepExp = new Adw.ExpanderRow({
+            title: 'Module Separator',
+            subtitle: 'Divides clock, grid, and system icons',
+            icon_name: 'format-text-strikethrough-symbolic'
+        });
         modSepExp.add_suffix(createGroupReset(['separator-width', 'separator-height', 'separator-color', 'separator-opacity']));
         sepGroup.add(modSepExp);
-        this._addCustomSpinRow(modSepExp, settings, 'separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', { lower: 0, upper: 10, step_increment: 1 }, createResetBtn);
-        this._addCustomSpinRow(modSepExp, settings, 'separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', { lower: 10, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(modSepExp, settings, 'separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
+            lower: 0,
+            upper: 10,
+            step_increment: 1
+        }, createResetBtn);
+        this._addCustomSpinRow(modSepExp, settings, 'separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', {
+            lower: 10,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
         this._addColorRow(modSepExp, settings, 'separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
-        this._addCustomSpinRow(modSepExp, settings, 'separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(modSepExp, settings, 'separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
 
-        const appSepExp = new Adw.ExpanderRow({ title: 'App Separator', subtitle: 'Divides pinned apps from running apps', icon_name: 'format-justify-center-symbolic' });
+        const appSepExp = new Adw.ExpanderRow({
+            title: 'App Separator',
+            subtitle: 'Divides pinned apps from running apps',
+            icon_name: 'format-justify-center-symbolic'
+        });
         appSepExp.add_suffix(createGroupReset(['running-separator-width', 'running-separator-height', 'running-separator-color', 'running-separator-opacity']));
         sepGroup.add(appSepExp);
-        this._addCustomSpinRow(appSepExp, settings, 'running-separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', { lower: 0, upper: 10, step_increment: 1 }, createResetBtn);
-        this._addCustomSpinRow(appSepExp, settings, 'running-separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', { lower: 10, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(appSepExp, settings, 'running-separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
+            lower: 0,
+            upper: 10,
+            step_increment: 1
+        }, createResetBtn);
+        this._addCustomSpinRow(appSepExp, settings, 'running-separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', {
+            lower: 10,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
         this._addColorRow(appSepExp, settings, 'running-separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
-        this._addCustomSpinRow(appSepExp, settings, 'running-separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', { lower: 0, upper: 100, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(appSepExp, settings, 'running-separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+            lower: 0,
+            upper: 100,
+            step_increment: 5
+        }, createResetBtn);
 
         const badgesGroup = new Adw.PreferencesGroup({
             title: 'App Notifications',
@@ -548,20 +716,39 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         indGroup.add(indExpander);
 
         this._addSwitchRow(indExpander, settings, 'show-running-indicators', 'Show Indicators', 'Display active marks under icons', 'media-record-symbolic', createResetBtn);
-        this._addComboRow(indExpander, settings, 'indicator-style', 'Indicator Style', 'Shape of the indicator', 'view-list-symbolic', [
-            { name: 'Dot', value: 'dot' },
-            { name: 'Dash', value: 'dash' },
-            { name: 'Line', value: 'line' },
-            { name: 'Square', value: 'square' }
+        this._addComboRow(indExpander, settings, 'indicator-style', 'Indicator Style', 'Shape of the indicator', 'view-list-symbolic', [{
+            name: 'Dot',
+            value: 'dot'
+        },
+        {
+            name: 'Dash',
+            value: 'dash'
+        },
+        {
+            name: 'Line',
+            value: 'line'
+        },
+        {
+            name: 'Square',
+            value: 'square'
+        }
         ], null);
 
         let indColorRow = null;
         indColorRow = this._addColorRow(indExpander, settings, 'indicator-color', 'Indicator Color', 'preferences-desktop-appearance-symbolic');
 
-        this._addCustomSpinRow(indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', { lower: 2, upper: 12, step_increment: 1 }, createResetBtn);
-        this._addCustomSpinRow(indExpander, settings, 'indicator-spacing', 'Indicator Spacing', 'Gap between icon and indicator', 'format-indent-more-symbolic', { lower: 0, upper: 20, step_increment: 1 }, createResetBtn);
+        this._addCustomSpinRow(indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', {
+            lower: 2,
+            upper: 12,
+            step_increment: 1
+        }, createResetBtn);
+        this._addCustomSpinRow(indExpander, settings, 'indicator-spacing', 'Indicator Spacing', 'Gap between icon and indicator', 'format-indent-more-symbolic', {
+            lower: 0,
+            upper: 20,
+            step_increment: 1
+        }, createResetBtn);
         this._addSwitchRow(indExpander, settings, 'indicator-glow', 'Indicator Glow', 'Add a shining shadow effect', 'display-brightness-symbolic', null);
-        
+
         const syncThemeVisibility = () => {
             const theme = settings.get_string('dock-theme');
             const isDefault = theme === 'default';
@@ -595,23 +782,52 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         });
         page.add(visGroup);
 
-        const hideModeRow = this._addComboRow(visGroup, settings, 'hide-mode', 'Hide Mode', 'Intelligent dodge is recommended', 'go-bottom-symbolic', [
-            { name: 'Intelligent (Dodge Active)', value: 'intelligent' },
-            { name: 'Dodge All Windows', value: 'dodge-all' },
-            { name: 'Dodge Active Window', value: 'active' },
-            { name: 'Dodge Maximized', value: 'maximized' },
-            { name: 'Always Hide', value: 'always' },
-            { name: 'Never Hide', value: 'none' }
+        const hideModeRow = this._addComboRow(visGroup, settings, 'hide-mode', 'Hide Mode', 'Intelligent dodge is recommended', 'go-bottom-symbolic', [{
+            name: 'Intelligent (Dodge Active)',
+            value: 'intelligent'
+        },
+        {
+            name: 'Dodge All Windows',
+            value: 'dodge-all'
+        },
+        {
+            name: 'Dodge Active Window',
+            value: 'active'
+        },
+        {
+            name: 'Dodge Maximized',
+            value: 'maximized'
+        },
+        {
+            name: 'Always Hide',
+            value: 'always'
+        },
+        {
+            name: 'Never Hide',
+            value: 'none'
+        }
         ], null);
 
-        const hideDelayRow = this._addCustomSpinRow(visGroup, settings, 'hide-delay', 'Hide Delay', 'Milliseconds before hiding', 'preferences-system-time-symbolic', { lower: 0, upper: 2000, step_increment: 50 }, createResetBtn);
-        const unhideDelayRow = this._addCustomSpinRow(visGroup, settings, 'unhide-delay', 'Unhide Delay', 'Milliseconds before showing', 'preferences-system-time-symbolic', { lower: 0, upper: 2000, step_increment: 50 }, createResetBtn);
-        const dwellDelayRow = this._addCustomSpinRow(visGroup, settings, 'edge-dwell-delay', 'Edge Reveal Delay (Pressure)', 'Hold mouse at the edge for this long to reveal (ms)', 'timer-symbolic', { lower: 0, upper: 1500, step_increment: 50 }, createResetBtn);
+        const hideDelayRow = this._addCustomSpinRow(visGroup, settings, 'hide-delay', 'Hide Delay', 'Milliseconds before hiding', 'preferences-system-time-symbolic', {
+            lower: 0,
+            upper: 2000,
+            step_increment: 50
+        }, createResetBtn);
+        const unhideDelayRow = this._addCustomSpinRow(visGroup, settings, 'unhide-delay', 'Unhide Delay', 'Milliseconds before showing', 'preferences-system-time-symbolic', {
+            lower: 0,
+            upper: 2000,
+            step_increment: 50
+        }, createResetBtn);
+        const dwellDelayRow = this._addCustomSpinRow(visGroup, settings, 'edge-dwell-delay', 'Edge Reveal Delay (Pressure)', 'Hold mouse at the edge for this long to reveal (ms)', 'timer-symbolic', {
+            lower: 0,
+            upper: 1500,
+            step_increment: 50
+        }, createResetBtn);
 
         const syncDelayVisibility = () => {
             const isFloating = settings.get_boolean('enable-floating-dock');
             const isNone = settings.get_string('hide-mode') === 'none';
-            
+
             const showDelays = !isNone && !isFloating;
 
             if (visGroup) visGroup.set_visible(!isFloating);
@@ -626,49 +842,142 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._settingsSignals.push(settings.connect('changed::enable-floating-dock', syncDelayVisibility));
         syncDelayVisibility();
 
-        const animGroup = new Adw.PreferencesGroup({ title: 'Animations &amp; Effects' });
+        const animGroup = new Adw.PreferencesGroup({
+            title: 'Animations &amp; Effects'
+        });
         page.add(animGroup);
 
-        this._addComboRow(animGroup, settings, 'click-effect', 'Icon Click Effect', 'Animation when an app is clicked', 'input-mouse-symbolic', [
-            { name: 'None', value: 'none' },
-            { name: 'Bounce', value: 'bounce' },
-            { name: 'Jump', value: 'jump' },
-            { name: 'Heartbeat', value: 'heartbeat' },
-            { name: 'Spin', value: 'spin' },
-            { name: 'Flip', value: 'flip' },
-            { name: 'Squeeze', value: 'squeeze' },
-            { name: 'Glow', value: 'glow' },
-            { name: 'Shake', value: 'shake' },
-            { name: 'Jelly', value: 'jelly' },
-            { name: 'Tada', value: 'tada' },
-            { name: 'Swing', value: 'swing' },
-            { name: 'Dim', value: 'dim' },
-            { name: 'Move Up', value: 'move_up' },
-            { name: 'Move Down', value: 'move_down' },
-            { name: 'Move Left', value: 'move_left' },
-            { name: 'Move Right', value: 'move_right' },
-            { name: 'Enlarge', value: 'enlarge' },
-            { name: 'Shrink', value: 'shrink' },
-            { name: 'Roll (Wheel)', value: 'roll' },
-            { name: 'Squish (Drop)', value: 'squish' },
-            { name: 'Zoom Fade (Ghost)', value: 'zoom_fade' },
-            { name: '3D Spin (Coin)', value: 'spin_3d' }
+        this._addComboRow(animGroup, settings, 'click-effect', 'Icon Click Effect', 'Animation when an app is clicked', 'input-mouse-symbolic', [{
+            name: 'None',
+            value: 'none'
+        },
+        {
+            name: 'Bounce',
+            value: 'bounce'
+        },
+        {
+            name: 'Jump',
+            value: 'jump'
+        },
+        {
+            name: 'Heartbeat',
+            value: 'heartbeat'
+        },
+        {
+            name: 'Spin',
+            value: 'spin'
+        },
+        {
+            name: 'Flip',
+            value: 'flip'
+        },
+        {
+            name: 'Squeeze',
+            value: 'squeeze'
+        },
+        {
+            name: 'Glow',
+            value: 'glow'
+        },
+        {
+            name: 'Shake',
+            value: 'shake'
+        },
+        {
+            name: 'Jelly',
+            value: 'jelly'
+        },
+        {
+            name: 'Tada',
+            value: 'tada'
+        },
+        {
+            name: 'Swing',
+            value: 'swing'
+        },
+        {
+            name: 'Dim',
+            value: 'dim'
+        },
+        {
+            name: 'Move Up',
+            value: 'move_up'
+        },
+        {
+            name: 'Move Down',
+            value: 'move_down'
+        },
+        {
+            name: 'Move Left',
+            value: 'move_left'
+        },
+        {
+            name: 'Move Right',
+            value: 'move_right'
+        },
+        {
+            name: 'Enlarge',
+            value: 'enlarge'
+        },
+        {
+            name: 'Shrink',
+            value: 'shrink'
+        },
+        {
+            name: 'Roll (Wheel)',
+            value: 'roll'
+        },
+        {
+            name: 'Squish (Drop)',
+            value: 'squish'
+        },
+        {
+            name: 'Zoom Fade (Ghost)',
+            value: 'zoom_fade'
+        },
+        {
+            name: '3D Spin (Coin)',
+            value: 'spin_3d'
+        }
         ], null);
 
-        this._addComboRow(animGroup, settings, 'minimize-effect', 'Window Minimize Effect', 'Animation when minimizing or restoring', 'window-minimize-symbolic', [
-            { name: 'Magic Lamp', value: 'magic-lamp' },
-            { name: 'Snake', value: 'snake' },
-            { name: 'Vortex (Black Hole)', value: 'crt' },
-            { name: 'Origami (3D Fold)', value: 'origami' },
-            { name: 'Jelly (Squash & Stretch)', value: 'jelly' },
-            { name: 'None', value: 'none' }
+        this._addComboRow(animGroup, settings, 'minimize-effect', 'Window Minimize Effect', 'Animation when minimizing or restoring', 'window-minimize-symbolic', [{
+            name: 'Magic Lamp',
+            value: 'magic-lamp'
+        },
+        {
+            name: 'Snake',
+            value: 'snake'
+        },
+        {
+            name: 'Vortex (Black Hole)',
+            value: 'crt'
+        },
+        {
+            name: 'Origami (3D Fold)',
+            value: 'origami'
+        },
+        {
+            name: 'Jelly (Squash & Stretch)',
+            value: 'jelly'
+        },
+        {
+            name: 'None',
+            value: 'none'
+        }
         ], null);
 
-        const hoverGroup = new Adw.PreferencesGroup({ title: 'Interaction &amp; Previews' });
+        const hoverGroup = new Adw.PreferencesGroup({
+            title: 'Interaction &amp; Previews'
+        });
         page.add(hoverGroup);
 
         this._addSwitchRow(hoverGroup, settings, 'hover-zoom', 'Hover Zoom', 'Magnification effect on hover', 'zoom-in-symbolic', null);
-        const zoomFactorRow = this._addCustomSpinRow(hoverGroup, settings, 'hover-zoom-factor', 'Zoom Factor', 'Maximum multiplier', 'zoom-fit-best-symbolic', { lower: 1.1, upper: 3.0, step_increment: 0.1 }, createResetBtn, 2);
+        const zoomFactorRow = this._addCustomSpinRow(hoverGroup, settings, 'hover-zoom-factor', 'Zoom Factor', 'Maximum multiplier', 'zoom-fit-best-symbolic', {
+            lower: 1.1,
+            upper: 3.0,
+            step_increment: 0.1
+        }, createResetBtn, 2);
 
         const syncZoomFactor = () => zoomFactorRow.set_visible(settings.get_boolean('hover-zoom'));
         this._settingsSignals.push(settings.connect('changed::hover-zoom', syncZoomFactor));
@@ -676,8 +985,16 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         this._addSwitchRow(hoverGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
 
-        this._addCustomSpinRow(hoverGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', { lower: 100, upper: 500, step_increment: 10 }, createResetBtn);
-        this._addCustomSpinRow(hoverGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', { lower: 40, upper: 95, step_increment: 5 }, createResetBtn);
+        this._addCustomSpinRow(hoverGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', {
+            lower: 100,
+            upper: 500,
+            step_increment: 10
+        }, createResetBtn);
+        this._addCustomSpinRow(hoverGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', {
+            lower: 40,
+            upper: 95,
+            step_increment: 5
+        }, createResetBtn);
 
         const peekRow = this._addSwitchRow(
             hoverGroup,
@@ -695,8 +1012,11 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             'peek-animation-speed',
             'Peek Animation Speed',
             'Higher = slower animation (ms)',
-            'preferences-system-time-symbolic',
-            { lower: 200, upper: 3000, step_increment: 50 },
+            'preferences-system-time-symbolic', {
+            lower: 200,
+            upper: 3000,
+            step_increment: 50
+        },
             createResetBtn
         );
 
@@ -720,7 +1040,9 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         );
         syncPeekSpeedVisibility();
 
-        const utilGroup = new Adw.PreferencesGroup({ title: 'Multitasking &amp; Utilities' });
+        const utilGroup = new Adw.PreferencesGroup({
+            title: 'Multitasking &amp; Utilities'
+        });
         page.add(utilGroup);
 
         this._addSwitchRow(utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
@@ -729,12 +1051,14 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             title: 'Quick launch',
             subtitle: 'Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard. If Super + number still runs “Switch to application”, disable that binding in system shortcuts so Dhruva can own it.',
         });
-        qlRow.add_prefix(new Gtk.Image({ icon_name: 'input-keyboard-symbolic' }));
+        qlRow.add_prefix(new Gtk.Image({
+            icon_name: 'input-keyboard-symbolic'
+        }));
         utilGroup.add(qlRow);
 
         this._addSwitchRow(utilGroup, settings, 'isolate-workspaces', 'Isolate Workspaces', 'Only show apps running on the current workspace', 'focus-windows-symbolic', null);
-        
-        
+
+
 
         this._addSwitchRow(utilGroup, settings, 'scroll-action-dock', 'Dock Scroll Action', 'Scroll on empty dock area to switch workspaces', 'input-mouse-symbolic', null);
         this._addSwitchRow(utilGroup, settings, 'scroll-action-app', 'App Scroll Action', 'Scroll on app icons to cycle through its windows', 'view-restore-symbolic', null);
@@ -757,9 +1081,14 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._addSwitchRow(modGroup, settings, 'show-desktop-button', 'Show Desktop Button', 'Quickly minimize all windows', 'computer-symbolic', null);
 
         this._addSwitchRow(modGroup, settings, 'show-grid-button', 'Show Applications Button', 'App drawer launcher', 'view-app-grid-symbolic', null);
-        const gridPosRow = this._addSegmentedRow(modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [
-            { name: 'Start', value: 'START' },
-            { name: 'End', value: 'END' }
+        const gridPosRow = this._addSegmentedRow(modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [{
+            name: 'Start',
+            value: 'START'
+        },
+        {
+            name: 'End',
+            value: 'END'
+        }
         ]);
 
         const gridColorRow = this._addColorRow(modGroup, settings, 'grid-icon-color', 'App Grid Button Color', 'preferences-desktop-appearance-symbolic');
@@ -771,29 +1100,37 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             subtitle: 'Size: 256x256 or 512x512 (.png, .svg, .ico)',
             icon_name: 'image-x-generic-symbolic'
         });
-        
-        const iconBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 8, valign: Gtk.Align.CENTER });
-        const chooseBtn = new Gtk.Button({ label: 'Browse...' });
-        
+
+        const iconBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+            valign: Gtk.Align.CENTER
+        });
+        const chooseBtn = new Gtk.Button({
+            label: 'Browse...'
+        });
+
         chooseBtn.connect('clicked', () => {
-            const dialog = new Gtk.FileDialog({ title: 'Select App Custom Grid Icon' });
+            const dialog = new Gtk.FileDialog({
+                title: 'Select App Custom Grid Icon'
+            });
             const filter = new Gtk.FileFilter();
             filter.set_name('Images (.png, .svg, .ico)');
             filter.add_mime_type('image/png');
             filter.add_mime_type('image/svg+xml');
             filter.add_mime_type('image/x-icon');
             filter.add_mime_type('image/vnd.microsoft.icon');
-            
+
             const filterList = Gio.ListStore.new(Gtk.FileFilter);
             filterList.append(filter);
             dialog.set_filters(filterList);
-            
+
             dialog.open(window, null, (dlg, res) => {
                 try {
                     const file = dlg.open_finish(res);
                     if (file) {
                         const ext = file.get_basename().split('.').pop().toLowerCase();
-                        
+
                         if (!['png', 'svg', 'ico'].includes(ext)) {
                             console.error('[Dhruva] Invalid file format selected. Only PNG, SVG, or ICO allowed.');
                             return;
@@ -808,12 +1145,12 @@ export default class DhruvaPreferences extends ExtensionPreferences {
                             while ((fileInfo = enumerator.next_file(null))) {
                                 dir.get_child(fileInfo.get_name()).delete(null);
                             }
-                        } catch(e) {}
-                        
+                        } catch (e) { }
+
                         const timestamp = Date.now();
                         const destPath = `${configDir}/custom_grid_icon_${timestamp}.${ext}`;
                         const destFile = Gio.File.new_for_path(destPath);
-                        
+
                         file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
                         settings.set_string('custom-grid-icon', destPath);
                     }
@@ -823,22 +1160,31 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             });
         });
 
-        const resetIconBtn = new Gtk.Button({ icon_name: 'edit-undo-symbolic', css_classes: ['flat', 'circular'], tooltip_text: 'Reset to default icon' });
-        resetIconBtn.connect('clicked', () => { settings.set_string('custom-grid-icon', ''); });
-        
+        const resetIconBtn = new Gtk.Button({
+            icon_name: 'edit-undo-symbolic',
+            css_classes: ['flat', 'circular'],
+            tooltip_text: 'Reset to default icon'
+        });
+        resetIconBtn.connect('clicked', () => {
+            settings.set_string('custom-grid-icon', '');
+        });
+
         iconBox.append(chooseBtn);
         iconBox.append(resetIconBtn);
         customIconRow.add_suffix(iconBox);
         modGroup.add(customIconRow);
 
         const customIconScaleRow = this._addCustomSpinRow(
-            modGroup, 
-            settings, 
-            'custom-grid-icon-scale', 
-            'Custom Icon Scale (%)', 
-            'Adjust size multiplier (Default: 125)', 
-            'zoom-in-symbolic', 
-            { lower: 50, upper: 300, step_increment: 5 }, 
+            modGroup,
+            settings,
+            'custom-grid-icon-scale',
+            'Custom Icon Scale (%)',
+            'Adjust size multiplier (Default: 125)',
+            'zoom-in-symbolic', {
+            lower: 50,
+            upper: 300,
+            step_increment: 5
+        },
             this._makeResetBtn(settings)
         );
 
@@ -846,23 +1192,23 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             const showGrid = settings.get_boolean('show-grid-button');
             const hasCustomIcon = settings.get_string('custom-grid-icon') !== '';
             const useOldIcon = settings.get_boolean('use-old-grid-icon');
-            
+
             gridPosRow.set_visible(showGrid);
             customIconRow.set_visible(showGrid);
-            
+
             oldGridIconRow.set_visible(showGrid && !hasCustomIcon);
             customIconScaleRow.set_visible(showGrid && hasCustomIcon);
-            
+
             gridColorRow.set_visible(showGrid && !hasCustomIcon && useOldIcon);
-            
+
             resetIconBtn.set_sensitive(hasCustomIcon);
         };
-        
+
         this._settingsSignals.push(settings.connect('changed::custom-grid-icon', syncGridSettingsVisibility));
         this._settingsSignals.push(settings.connect('changed::show-grid-button', syncGridSettingsVisibility));
-        
+
         this._settingsSignals.push(settings.connect('changed::use-old-grid-icon', syncGridSettingsVisibility));
-        
+
         syncGridSettingsVisibility();
 
         const syncGridBtn = () => gridPosRow.set_visible(settings.get_boolean('show-grid-button'));
@@ -887,23 +1233,23 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             subtitle: 'Automatically show connected drives and partitions on the dock',
             icon_name: 'drive-harddisk-symbolic'
         });
-        
+
         const mountToggle = new Gtk.Switch({
             active: settings.get_boolean('show-mounts'),
             valign: Gtk.Align.CENTER,
         });
-        
+
         settings.bind(
-            'show-mounts', 
-            mountToggle, 
-            'active', 
+            'show-mounts',
+            mountToggle,
+            'active',
             Gio.SettingsBindFlags.DEFAULT
         );
-        
+
         mountRow.add_suffix(mountToggle);
-        
+
         defaultFolderGroup.add(mountRow);
-        
+
         const customFoldersGroup = new Adw.PreferencesGroup({
             title: 'Custom Quick Folders',
             description: 'Add your own directory shortcuts to the dock'
@@ -913,8 +1259,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         let customFolders = [];
         try {
             customFolders = JSON.parse(settings.get_string('custom-folders') || '[]');
-        } catch (e) {
-        }
+        } catch (e) { }
 
         const buildFolderList = () => {
             if (customFoldersGroup._rows) {
@@ -984,24 +1329,69 @@ export default class DhruvaPreferences extends ExtensionPreferences {
                 });
                 const inputGrp = new Adw.PreferencesGroup();
 
-                const nameInput = new Adw.EntryRow({ title: 'Name (e.g. Projects)' });
-                const pathInput = new Adw.EntryRow({ title: 'Path (e.g. /home/user/Projects)' });
+                const nameInput = new Adw.EntryRow({
+                    title: 'Name (e.g. Projects)'
+                });
+                const pathInput = new Adw.EntryRow({
+                    title: 'Path (e.g. /home/user/Projects)'
+                });
 
-                const iconOptions = [
-                    { name: 'Default Folder', value: 'folder-symbolic' },
-                    { name: 'Downloads', value: 'folder-download-symbolic' },
-                    { name: 'Documents', value: 'folder-documents-symbolic' },
-                    { name: 'Pictures', value: 'folder-pictures-symbolic' },
-                    { name: 'Videos', value: 'folder-videos-symbolic' },
-                    { name: 'Music', value: 'folder-music-symbolic' },
-                    { name: 'Public Share', value: 'folder-publicshare-symbolic' },
-                    { name: 'Templates', value: 'folder-templates-symbolic' },
-                    { name: 'Desktop', value: 'user-desktop-symbolic' },
-                    { name: 'Favorite (Heart)', value: 'emblem-favorite-symbolic' },
-                    { name: 'Star / Bookmark', value: 'bookmark-symbolic' },
-                    { name: 'Games', value: 'applications-games-symbolic' },
-                    { name: 'Code / Projects', value: 'applications-engineering-symbolic' },
-                    { name: 'Cloud / Remote', value: 'folder-remote-symbolic' }
+                const iconOptions = [{
+                    name: 'Default Folder',
+                    value: 'folder-symbolic'
+                },
+                {
+                    name: 'Downloads',
+                    value: 'folder-download-symbolic'
+                },
+                {
+                    name: 'Documents',
+                    value: 'folder-documents-symbolic'
+                },
+                {
+                    name: 'Pictures',
+                    value: 'folder-pictures-symbolic'
+                },
+                {
+                    name: 'Videos',
+                    value: 'folder-videos-symbolic'
+                },
+                {
+                    name: 'Music',
+                    value: 'folder-music-symbolic'
+                },
+                {
+                    name: 'Public Share',
+                    value: 'folder-publicshare-symbolic'
+                },
+                {
+                    name: 'Templates',
+                    value: 'folder-templates-symbolic'
+                },
+                {
+                    name: 'Desktop',
+                    value: 'user-desktop-symbolic'
+                },
+                {
+                    name: 'Favorite (Heart)',
+                    value: 'emblem-favorite-symbolic'
+                },
+                {
+                    name: 'Star / Bookmark',
+                    value: 'bookmark-symbolic'
+                },
+                {
+                    name: 'Games',
+                    value: 'applications-games-symbolic'
+                },
+                {
+                    name: 'Code / Projects',
+                    value: 'applications-engineering-symbolic'
+                },
+                {
+                    name: 'Cloud / Remote',
+                    value: 'folder-remote-symbolic'
+                }
                 ];
 
                 const iconModel = Gtk.StringList.new(iconOptions.map(opt => opt.name));
@@ -1049,27 +1439,156 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         page.add(clockGroup);
 
         this._addSwitchRow(clockGroup, settings, 'show-clock', 'Show Clock', 'Hidden automatically on left/right docks', 'document-open-recent-symbolic', null);
+
+
+        const use24hRow = this._addSwitchRow(clockGroup, settings, 'use-24h-clock', 'Use 24-Hour Clock', 'Display time in 24-hour format', 'preferences-system-time-symbolic', null);
+
         const createResetBtn = this._makeResetBtn(settings);
-        const clockSizeRow = this._addCustomSpinRow(clockGroup, settings, 'clock-font-size', 'Clock Text Size', 'Adjust font size', 'format-text-direction-symbolic', { lower: 10, upper: 36, step_increment: 1 }, createResetBtn);
-        const clockPosRow = this._addSegmentedRow(clockGroup, settings, 'clock-position', 'Clock Position', 'Separate from App Grid', 'format-justify-right-symbolic', [
-            { name: 'Start', value: 'START' },
-            { name: 'End', value: 'END' }
+        const clockSizeRow = this._addCustomSpinRow(clockGroup, settings, 'clock-font-size', 'Clock Text Size', 'Adjust font size', 'format-text-direction-symbolic', {
+            lower: 10,
+            upper: 36,
+            step_increment: 1
+        }, createResetBtn);
+        const clockPosRow = this._addSegmentedRow(clockGroup, settings, 'clock-position', 'Clock Position', 'Separate from App Grid', 'format-justify-right-symbolic', [{
+            name: 'Start',
+            value: 'START'
+        },
+        {
+            name: 'End',
+            value: 'END'
+        }
         ]);
 
         const syncClockVisibility = () => {
             const showClock = settings.get_boolean('show-clock');
             clockPosRow.set_visible(showClock);
             clockSizeRow.set_visible(showClock);
+            use24hRow.set_visible(showClock);
         };
+
         this._settingsSignals.push(settings.connect('changed::show-clock', syncClockVisibility));
         syncClockVisibility();
 
- 
+
         const dangerGroup = new Adw.PreferencesGroup({
             title: 'Danger Zone',
             description: 'Master controls for your settings'
         });
         page.add(dangerGroup);
+
+        const backupGroup = new Adw.PreferencesGroup({
+            title: 'Backup &amp; Restore',
+            description: 'Import or export your dock layout, themes, custom folders, and pinned apps'
+        });
+        page.add(backupGroup);
+
+        const exportRow = new Adw.ActionRow({
+            title: 'Export Configuration',
+            subtitle: 'Save your current settings and apps to a file',
+            icon_name: 'document-export-symbolic'
+        });
+
+        const exportBtn = new Gtk.Button({
+            label: 'Export',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['suggested-action'],
+            width_request: 100
+        });
+        exportRow.add_suffix(exportBtn);
+
+        exportBtn.connect('clicked', () => {
+            const dialog = new Gtk.FileDialog({ title: 'Export Dock Configuration' });
+            dialog.set_initial_name('dhruva_config.json');
+
+            dialog.save(window, null, (dlg, res) => {
+                try {
+                    const file = dlg.save_finish(res);
+                    if (file) {
+                        const config = { settings: {}, favorites: [] };
+
+                        settings.list_keys().forEach(key => {
+                            config.settings[key] = settings.get_value(key).deep_unpack();
+                        });
+
+                        try {
+                            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+                            config.favorites = shellSettings.get_strv('favorite-apps');
+                        } catch (e) { console.error('[Dhruva] Failed to export favorite apps', e); }
+
+                        const jsonStr = JSON.stringify(config, null, 2);
+                        const bytes = new GLib.Bytes(new TextEncoder().encode(jsonStr));
+
+                        file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (f, r) => {
+                            try { f.replace_contents_bytes_finish(r); } catch (e) { console.error('[Dhruva] Export write error:', e); }
+                        });
+                    }
+                } catch (e) {
+                    if (!e.message.includes('Dismissed')) console.error(e);
+                }
+            });
+        });
+        backupGroup.add(exportRow);
+
+        const importRow = new Adw.ActionRow({
+            title: 'Import Configuration',
+            subtitle: 'Load a previously saved configuration file',
+            icon_name: 'document-import-symbolic'
+        });
+
+        const importBtn = new Gtk.Button({
+            label: 'Import',
+            valign: Gtk.Align.CENTER,
+            width_request: 100
+        });
+        importRow.add_suffix(importBtn);
+
+        importBtn.connect('clicked', () => {
+            const dialog = new Gtk.FileDialog({ title: 'Import Dock Configuration' });
+            const filter = new Gtk.FileFilter();
+            filter.set_name('JSON Files');
+            filter.add_mime_type('application/json');
+
+            const filterList = Gio.ListStore.new(Gtk.FileFilter);
+            filterList.append(filter);
+            dialog.set_filters(filterList);
+
+            dialog.open(window, null, (dlg, res) => {
+                try {
+                    const file = dlg.open_finish(res);
+                    if (file) {
+                        file.load_contents_async(null, (f, r) => {
+                            try {
+                                const [success, contents] = f.load_contents_finish(r);
+                                if (success) {
+                                    const jsonStr = new TextDecoder().decode(contents);
+                                    const config = JSON.parse(jsonStr);
+
+                                    if (config.settings) {
+                                        Object.keys(config.settings).forEach(key => {
+                                            if (settings.settings_schema.has_key(key)) {
+                                                const typeStr = settings.settings_schema.get_key(key).get_value_type().dup_string();
+                                                const variant = new GLib.Variant(typeStr, config.settings[key]);
+                                                settings.set_value(key, variant);
+                                            }
+                                        });
+                                    }
+
+                                    if (config.favorites && Array.isArray(config.favorites)) {
+                                        try {
+                                            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+                                            shellSettings.set_strv('favorite-apps', config.favorites);
+                                        } catch (e) { console.error('[Dhruva] Failed to import favorite apps', e); }
+                                    }
+                                }
+                            } catch (e) { console.error('[Dhruva] Import parse error:', e); }
+                        });
+                    }
+                } catch (e) {
+                    if (!e.message.includes('Dismissed')) console.error(e);
+                }
+            });
+        });
+        backupGroup.add(importRow);
 
         const resetAllRow = new Adw.ActionRow({
             title: 'Reset All Settings',
@@ -1124,67 +1643,95 @@ export default class DhruvaPreferences extends ExtensionPreferences {
     }
 
     _buildAboutHero(page) {
-        const group = new Adw.PreferencesGroup(); 
+        const group = new Adw.PreferencesGroup();
         page.add(group);
-        
-        const heroBox = new Gtk.Box({ 
-            orientation: Gtk.Orientation.VERTICAL, 
-            spacing: 12, 
-            halign: Gtk.Align.CENTER, 
-            margin_top: 24, 
-            margin_bottom: 12 
+
+        const heroBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 12,
+            halign: Gtk.Align.CENTER,
+            margin_top: 24,
+            margin_bottom: 12
         });
 
         const logo = Gtk.Image.new_from_file(`${this.path}/icons/logo.svg`);
-        logo.set_pixel_size(128); 
+        logo.set_pixel_size(128);
         heroBox.append(logo);
-        
-        heroBox.append(new Gtk.Label({ label: '<span size="xx-large" weight="bold">Dhruva Dock</span>', use_markup: true, margin_top: 8 }));
-        heroBox.append(new Gtk.Label({ label: 'A beautifully crafted, highly customisable dock for GNOME Shell', css_classes: ['dim-label'], margin_bottom: 4 }));
-        heroBox.append(new Gtk.Label({ label: 'Version 1  •  GPL-3.0', css_classes: ['dim-label', 'caption'] }));
 
-        const row = new Adw.ActionRow(); 
-        row.set_child(heroBox); 
+        heroBox.append(new Gtk.Label({
+            label: '<span size="xx-large" weight="bold">Dhruva Dock</span>',
+            use_markup: true,
+            margin_top: 8
+        }));
+        heroBox.append(new Gtk.Label({
+            label: 'A beautifully crafted, highly customisable dock for GNOME Shell',
+            css_classes: ['dim-label'],
+            margin_bottom: 4
+        }));
+        heroBox.append(new Gtk.Label({
+            label: 'Version 1  •  GPL-3.0',
+            css_classes: ['dim-label', 'caption']
+        }));
+
+        const row = new Adw.ActionRow();
+        row.set_child(heroBox);
         group.add(row);
     }
 
 
     _buildAboutLinks(page, window) {
-        const group = new Adw.PreferencesGroup({ title: 'Links' }); 
+        const group = new Adw.PreferencesGroup({
+            title: 'Links'
+        });
         page.add(group);
-        
+
         const addLink = (title, subtitle, icon, url) => {
-            const row = new Adw.ActionRow({ title, subtitle, icon_name: icon, activatable: true });
-            row.add_suffix(new Gtk.Image({ icon_name: 'adw-external-link-symbolic', valign: Gtk.Align.CENTER, css_classes: ['dim-label'] }));
-            
+            const row = new Adw.ActionRow({
+                title,
+                subtitle,
+                icon_name: icon,
+                activatable: true
+            });
+            row.add_suffix(new Gtk.Image({
+                icon_name: 'adw-external-link-symbolic',
+                valign: Gtk.Align.CENTER,
+                css_classes: ['dim-label']
+            }));
+
             row.connect('activated', () => {
                 Gio.AppInfo.launch_default_for_uri(url, window.get_display().get_app_launch_context());
             });
             group.add(row);
         };
-        
+
 
         addLink('GitHub Repository', 'github.com/narkagni/dhruva', 'system-software-install-symbolic', 'https://github.com/narkagni/dhruva');
     }
 
 
     _buildAboutAuthor(page) {
-        const group = new Adw.PreferencesGroup({ title: 'Credits' }); 
+        const group = new Adw.PreferencesGroup({
+            title: 'Credits'
+        });
         page.add(group);
-        group.add(new Adw.ActionRow({ title: 'Narkagni', subtitle: 'Author &amp; Maintainer', icon_name: 'avatar-default-symbolic' }));
+        group.add(new Adw.ActionRow({
+            title: 'Narkagni',
+            subtitle: 'Author &amp; Maintainer',
+            icon_name: 'avatar-default-symbolic'
+        }));
 
         group.add(new Adw.ActionRow({
             title: 'Features',
             subtitle: 'Floating dock with drag-to-move · D-shape drag handles · Per-app running indicators · ' +
-                      'Hover zoom magnification · Window minimize effects (Magic Lamp, Snake, Vortex &amp; more) · ' +
-                      'Icon click animations (Bounce, Jelly, Heartbeat &amp; 20+ styles) · ' +
-                      'Intelligent auto-hide with edge pressure reveal · ' +
-                      'Chameleon theme (wallpaper colour matching) · ' +
-                      'Full-width dock mode · Multi-monitor support · ' +
-                      'Custom folders, Trash, Desktop button &amp; App Grid · ' +
-                      'Workspace isolation · Aero Peek window previews · ' +
-                      'Adjustable floating dock opacity with hover-reveal · ' +
-                      'Lock icons to prevent accidental reorder',
+                'Hover zoom magnification · Window minimize effects (Magic Lamp, Snake, Vortex &amp; more) · ' +
+                'Icon click animations (Bounce, Jelly, Heartbeat &amp; 20+ styles) · ' +
+                'Intelligent auto-hide with edge pressure reveal · ' +
+                'Chameleon theme (wallpaper colour matching) · ' +
+                'Full-width dock mode · Multi-monitor support · ' +
+                'Custom folders, Trash, Desktop button &amp; App Grid · ' +
+                'Workspace isolation · Aero Peek window previews · ' +
+                'Adjustable floating dock opacity with hover-reveal · ' +
+                'Lock icons to prevent accidental reorder',
             icon_name: 'starred-symbolic'
         }));
 
@@ -1197,19 +1744,23 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
 
     _buildAboutDonations(page, window) {
-        const group = new Adw.PreferencesGroup({ 
-            title: 'Support Development', 
-            description: 'If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!' 
-        }); 
-        page.add(group);
-        
-        const coffeeRow = new Adw.ActionRow({ 
-            title: 'Buy Me a Coffee', 
-            subtitle: 'buymeacoffee.com/narkagni', 
-            icon_name: 'emoji-food-symbolic', 
-            activatable: true 
+        const group = new Adw.PreferencesGroup({
+            title: 'Support Development',
+            description: 'If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!'
         });
-        coffeeRow.add_suffix(new Gtk.Image({ icon_name: 'adw-external-link-symbolic', valign: Gtk.Align.CENTER, css_classes: ['dim-label'] }));
+        page.add(group);
+
+        const coffeeRow = new Adw.ActionRow({
+            title: 'Buy Me a Coffee',
+            subtitle: 'buymeacoffee.com/narkagni',
+            icon_name: 'emoji-food-symbolic',
+            activatable: true
+        });
+        coffeeRow.add_suffix(new Gtk.Image({
+            icon_name: 'adw-external-link-symbolic',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['dim-label']
+        }));
         coffeeRow.connect('activated', () => {
             Gio.AppInfo.launch_default_for_uri('https://buymeacoffee.com/narkagni', window.get_display().get_app_launch_context());
         });
@@ -1220,24 +1771,30 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             if (address.length > 24) {
                 shortAddress = address.substring(0, 12) + '…' + address.slice(-8);
             }
-            
-            const row = new Adw.ActionRow({ title: coin, subtitle: shortAddress, icon_name: icon });
-            const copyBtn = new Gtk.Button({ 
-                icon_name: 'edit-copy-symbolic', 
-                valign: Gtk.Align.CENTER, 
-                css_classes: ['flat', 'circular'], 
-                tooltip_text: `Copy ${coin} address` 
+
+            const row = new Adw.ActionRow({
+                title: coin,
+                subtitle: shortAddress,
+                icon_name: icon
             });
-            
+            const copyBtn = new Gtk.Button({
+                icon_name: 'edit-copy-symbolic',
+                valign: Gtk.Align.CENTER,
+                css_classes: ['flat', 'circular'],
+                tooltip_text: `Copy ${coin} address`
+            });
+
             copyBtn.connect('clicked', () => {
                 window.get_display().get_clipboard().set_content(Gdk.ContentProvider.new_for_value(address));
-                try { 
-                    window.add_toast(new Adw.Toast({ title: `${coin} address copied!`, timeout: 2 })); 
-                } catch (error) {
-                }
+                try {
+                    window.add_toast(new Adw.Toast({
+                        title: `${coin} address copied!`,
+                        timeout: 2
+                    }));
+                } catch (error) { }
             });
-            
-            row.add_suffix(copyBtn); 
+
+            row.add_suffix(copyBtn);
             group.add(row);
         };
 

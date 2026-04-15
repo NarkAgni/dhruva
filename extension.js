@@ -1,23 +1,25 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import {
+    Extension
+} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import DockUI from './src/ui/DockUI.js';
 import QuickLaunchManager from './src/core/QuickLaunchManager.js';
@@ -62,15 +64,19 @@ export default class DhruvaExtension extends Extension {
 
     _clearGnomeSwitchToApplicationShortcuts() {
         let shellKeys;
-        
-        try { shellKeys = new Gio.Settings({ schema_id: 'org.gnome.shell.keybindings' }); } catch (_e) { }
+
+        try {
+            shellKeys = new Gio.Settings({
+                schema_id: 'org.gnome.shell.keybindings'
+            });
+        } catch (_e) {}
 
         if (shellKeys) {
             for (let i = 1; i <= 9; i++) {
                 const key = `switch-to-application-${i}`;
                 try {
                     if (shellKeys.is_writable(key)) shellKeys.set_strv(key, []);
-                } catch (_e) { }
+                } catch (_e) {}
             }
         }
     }
@@ -87,7 +93,9 @@ export default class DhruvaExtension extends Extension {
 
         if (showOnAll) {
             const numMonitors = global.display.get_n_monitors();
-            let monitorOrder = Array.from({ length: numMonitors }, (_v, i) => i);
+            let monitorOrder = Array.from({
+                length: numMonitors
+            }, (_v, i) => i);
 
             if (preferredMonitor !== null && preferredMonitor >= 0 && preferredMonitor < numMonitors) {
                 monitorOrder = [
@@ -127,7 +135,7 @@ export default class DhruvaExtension extends Extension {
         try {
             const focused = global.display.get_focus_window();
             if (focused) return focused.get_monitor();
-        } catch (_e) { }
+        } catch (_e) {}
         return Main.layoutManager.primaryIndex ?? 0;
     }
 
@@ -150,7 +158,7 @@ export default class DhruvaExtension extends Extension {
         try {
             if (typeof global.display.get_current_monitor === 'function')
                 pointerMonitor = global.display.get_current_monitor();
-        } catch (_e) { }
+        } catch (_e) {}
 
         if (pointerMonitor !== null && pointerMonitor >= 0) {
             const pointerDock = this._docks.find(dock => {
@@ -196,7 +204,7 @@ export default class DhruvaExtension extends Extension {
 
                 try {
                     if (actor.get_parent()) actor.get_parent().remove_child(actor);
-                } catch (_e) { }
+                } catch (_e) {}
 
                 actor._isExternal = true;
                 actor._signalAttached = false;
@@ -232,7 +240,7 @@ export default class DhruvaExtension extends Extension {
         actors.forEach(actor => {
             try {
                 if (actor.get_parent()) actor.get_parent().remove_child(actor);
-            } catch (_e) { }
+            } catch (_e) {}
 
             actor._isExternal = true;
             actor._signalAttached = false;
@@ -247,9 +255,11 @@ export default class DhruvaExtension extends Extension {
                 actor.scale_y = 1.0;
                 actor.translation_x = 0;
                 actor.translation_y = 0;
-            } catch (_e) { }
+            } catch (_e) {}
 
-            try { targetDock.boxActor.add_child(actor); } catch (_e) { }
+            try {
+                targetDock.boxActor.add_child(actor);
+            } catch (_e) {}
             if (typeof targetDock.onMusicPillInjected === 'function')
                 targetDock.onMusicPillInjected(actor);
         });
@@ -268,7 +278,7 @@ export default class DhruvaExtension extends Extension {
                     if (monitor && typeof monitor.index === 'number') {
                         return monitor.index;
                     }
-                } catch (_e) { }
+                } catch (_e) {}
             }
         }
         return null;
@@ -294,10 +304,12 @@ export default class DhruvaExtension extends Extension {
             externals.forEach(actor => {
                 try {
                     if (actor.get_parent()) actor.get_parent().remove_child(actor);
-                } catch (_e) { }
+                } catch (_e) {}
 
                 actor._isExternal = true;
-                try { targetDock.boxActor.add_child(actor); } catch (_e) { }
+                try {
+                    targetDock.boxActor.add_child(actor);
+                } catch (_e) {}
                 if (typeof targetDock.onMusicPillInjected === 'function') {
                     targetDock.onMusicPillInjected(actor);
                 }
@@ -330,7 +342,7 @@ export default class DhruvaExtension extends Extension {
             Main.layoutManager.disconnect(this._monitorsChangedId);
             this._monitorsChangedId = null;
         }
-        
+
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);
             this._settingsChangedId = null;

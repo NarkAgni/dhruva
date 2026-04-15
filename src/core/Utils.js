@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import GLib from 'gi://GLib';
@@ -19,38 +19,42 @@ import GLib from 'gi://GLib';
 
 export function debounce(func, wait) {
     let timeoutId = null;
-    
-    const wrapper = function(...args) {
+
+    const wrapper = function (...args) {
         if (timeoutId) GLib.source_remove(timeoutId);
-        
+
         timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, wait, () => {
             timeoutId = null;
-            try { func.apply(this, args); } catch (e) { }
+            try {
+                func.apply(this, args);
+            } catch (e) {}
             return GLib.SOURCE_REMOVE;
         });
     };
-    
+
     wrapper.cancel = () => {
-        if (timeoutId) { 
-            GLib.source_remove(timeoutId); 
-            timeoutId = null; 
+        if (timeoutId) {
+            GLib.source_remove(timeoutId);
+            timeoutId = null;
         }
     };
-    
+
     return wrapper;
 }
 
 export function hexToRgba(colorStr, alpha) {
-    let r = 20, g = 20, b = 20;
-    
+    let r = 20,
+        g = 20,
+        b = 20;
+
     if (colorStr.startsWith('#')) {
         let hex = colorStr.replace('#', '');
         if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-        
+
         r = parseInt(hex.substring(0, 2), 16) || 20;
         g = parseInt(hex.substring(2, 4), 16) || 20;
         b = parseInt(hex.substring(4, 6), 16) || 20;
-        
+
     } else if (colorStr.startsWith('rgb')) {
         const parts = colorStr.match(/[\d.]+/g);
         if (parts && parts.length >= 3) {
@@ -59,6 +63,6 @@ export function hexToRgba(colorStr, alpha) {
             b = parseInt(parts[2]);
         }
     }
-    
+
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }

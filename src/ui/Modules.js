@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import St from 'gi://St';
@@ -24,11 +24,18 @@ import PangoCairo from 'gi://PangoCairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import AppContextMenu from './ContextMenu.js';
-import { applyIconFilter } from './DragDrop.js';
+import {
+    applyIconFilter
+} from './DragDrop.js';
 import ScrollManager from '../core/ScrollManager.js';
 import WorkspaceFilter from '../core/WorkspaceFilter.js';
-import { animateIconClick } from './effects/IconClickEffect.js';
-import { animateMinimize, animateRestore } from './effects/WindowEffects.js';
+import {
+    animateIconClick
+} from './effects/IconClickEffect.js';
+import {
+    animateMinimize,
+    animateRestore
+} from './effects/WindowEffects.js';
 
 
 const _forcedFolderState = {};
@@ -60,7 +67,9 @@ export function buildModules(dockUI, iconSize) {
                 Main.activateWindow(targetWin);
             }
         } else {
-            try { Gio.AppInfo.launch_default_for_uri(uri, null); } catch (e) { }
+            try {
+                Gio.AppInfo.launch_default_for_uri(uri, null);
+            } catch (e) {}
 
             if (possibleTitles && possibleTitles.length > 0) {
                 const mainTitle = possibleTitles[0];
@@ -94,7 +103,7 @@ export function buildModules(dockUI, iconSize) {
             icon_size: renderSize,
             style_class: 'dock-grid-icon'
         });
-        
+
         icon.set_size(modIconSize, modIconSize);
 
         const iconBin = new St.Bin({
@@ -130,7 +139,7 @@ export function buildModules(dockUI, iconSize) {
                 const winTitle = w.get_title() || '';
                 return isNautilus && possibleTitles.some(t => winTitle.includes(t));
             });
-            
+
             let finalWins = WorkspaceFilter.filterWindows(filteredWins, settings);
 
             if (settings.get_boolean('isolate-monitors')) {
@@ -212,7 +221,9 @@ export function buildModules(dockUI, iconSize) {
                 get_windows: getMatchingWindows,
                 get_app_info: () => null,
                 can_open_new_window: () => false,
-                request_quit: () => { getMatchingWindows().forEach(w => w.delete(global.get_current_time())); },
+                request_quit: () => {
+                    getMatchingWindows().forEach(w => w.delete(global.get_current_time()));
+                },
                 open: () => clickAction(btn)
             }
         };
@@ -235,7 +246,9 @@ export function buildModules(dockUI, iconSize) {
             } else if (buttonNum === 3) {
                 const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
                 if (dockUI._activeContextMenu) {
-                    try { dockUI._activeContextMenu._forceDestroy(); } catch (e) { }
+                    try {
+                        dockUI._activeContextMenu._forceDestroy();
+                    } catch (e) {}
                     dockUI._activeContextMenu = null;
                 }
                 new AppContextMenu(dockUI, btn._delegate.app, btn, isCtrl, dockUI.openPrefsCallback).show(dockUI.dockPosition);
@@ -256,7 +269,10 @@ export function buildModules(dockUI, iconSize) {
             }
 
             if (button === 1) {
-                if (btn._wasDragged) { btn._wasDragged = false; return Clutter.EVENT_STOP; }
+                if (btn._wasDragged) {
+                    btn._wasDragged = false;
+                    return Clutter.EVENT_STOP;
+                }
                 btn._activateCallback(1, state);
                 return Clutter.EVENT_STOP;
             } else if (button === 3) {
@@ -275,11 +291,12 @@ export function buildModules(dockUI, iconSize) {
         const customIconPath = settings.get_string('custom-grid-icon');
         const hasCustomIcon = customIconPath && GLib.file_test(customIconPath, GLib.FileTest.EXISTS);
         const useOldIcon = settings.get_boolean('use-old-grid-icon');
-        
-        const moduleFile = Gio.File.new_for_uri(import.meta.url);
+
+        const moduleFile = Gio.File.new_for_uri(
+            import.meta.url);
         const logoPath = moduleFile.get_parent().get_parent().get_parent().get_child('icons').get_child('logo.svg').get_path();
         const hasLogo = GLib.file_test(logoPath, GLib.FileTest.EXISTS);
-        
+
         let scaleMultiplier;
         if (hasCustomIcon) {
             scaleMultiplier = settings.get_int('custom-grid-icon-scale') / 100.0;
@@ -288,7 +305,7 @@ export function buildModules(dockUI, iconSize) {
         } else {
             scaleMultiplier = 0.90;
         }
-        
+
         const gridIconSize = Math.floor(iconSize * scaleMultiplier);
         const gridRenderSize = Math.ceil(gridIconSize * actualMaxZoom);
         const gridColor = settings.get_string('grid-icon-color') || '#ffffff';
@@ -296,7 +313,9 @@ export function buildModules(dockUI, iconSize) {
         let gridIcon;
         if (hasCustomIcon) {
             const gfile = Gio.File.new_for_path(customIconPath);
-            const gicon = new Gio.FileIcon({ file: gfile });
+            const gicon = new Gio.FileIcon({
+                file: gfile
+            });
             gridIcon = new St.Icon({
                 gicon: gicon,
                 icon_size: 256,
@@ -310,7 +329,9 @@ export function buildModules(dockUI, iconSize) {
             });
         } else {
             const gfile = Gio.File.new_for_path(logoPath);
-            const gicon = new Gio.FileIcon({ file: gfile });
+            const gicon = new Gio.FileIcon({
+                file: gfile
+            });
             gridIcon = new St.Icon({
                 gicon: gicon,
                 icon_size: gridRenderSize,
@@ -326,14 +347,20 @@ export function buildModules(dockUI, iconSize) {
         gridIcon.set_size(gridIconSize, gridIconSize);
 
         const gridIconBin = new St.Bin({
-            child: gridIcon, width: iconSize, height: iconSize,
-            x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER
+            child: gridIcon,
+            width: iconSize,
+            height: iconSize,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER
         });
         gridIconBin.set_pivot_point(0.5, 0.5);
 
         gridModule = new St.Bin({
-            child: gridIconBin, style_class: 'dock-app-button',
-            reactive: true, track_hover: true, can_focus: false
+            child: gridIconBin,
+            style_class: 'dock-app-button',
+            reactive: true,
+            track_hover: true,
+            can_focus: false
         });
 
         gridModule.set_pivot_point(0.5, 0.5);
@@ -387,7 +414,7 @@ export function buildModules(dockUI, iconSize) {
             }
 
             if (event.get_button() === 1) {
-                if (dockUI.actor && dockUI.actor._lastIconClickTime !== undefined) 
+                if (dockUI.actor && dockUI.actor._lastIconClickTime !== undefined)
                     dockUI.actor._lastIconClickTime = Date.now();
                 gridModule._activateCallback(1);
                 return Clutter.EVENT_STOP;
@@ -411,13 +438,13 @@ export function buildModules(dockUI, iconSize) {
     if (settings.get_boolean('show-desktop-button')) {
         systemModules.push(createBtn('user-desktop', 'Show Desktop', () => {
             const workspace = global.workspace_manager.get_active_workspace();
-            
-            const windows = workspace.list_windows().filter(w => 
-                w.get_window_type() === 0 && 
-                !w.is_skip_taskbar() && 
+
+            const windows = workspace.list_windows().filter(w =>
+                w.get_window_type() === 0 &&
+                !w.is_skip_taskbar() &&
                 !w.is_always_on_all_workspaces()
             );
-            
+
             const visibleWindows = windows.filter(w => !w.minimized);
 
             if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
@@ -429,7 +456,7 @@ export function buildModules(dockUI, iconSize) {
                         return GLib.SOURCE_REMOVE;
                     });
                 });
-                
+
                 try {
                     const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
                     if (topWin) {
@@ -439,12 +466,12 @@ export function buildModules(dockUI, iconSize) {
                         });
                     }
                 } catch (e) {}
-                
+
                 dockUI._hiddenWindowsByDesktopBtn = [];
-                
+
             } else {
                 dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
-                
+
                 visibleWindows.forEach((w, index) => {
                     GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
                         try {
@@ -465,12 +492,28 @@ export function buildModules(dockUI, iconSize) {
         systemModules.push(createBtn('user-home', 'Home', (btn) => toggleAppWindow(`file://${homeDir}`, titles, btn), titles));
     }
 
-    if (settings.get_boolean('show-downloads')) systemModules.push(createBtn('folder-download', 'Downloads', (btn) => toggleAppWindow(`file://${GLib.get_home_dir()}/Downloads`, ['Downloads'], btn), ['Downloads']));
-    if (settings.get_boolean('show-documents')) systemModules.push(createBtn('folder-documents', 'Documents', (btn) => toggleAppWindow(`file://${GLib.get_home_dir()}/Documents`, ['Documents'], btn), ['Documents']));
-    if (settings.get_boolean('show-pictures')) systemModules.push(createBtn('folder-pictures', 'Pictures', (btn) => toggleAppWindow(`file://${GLib.get_home_dir()}/Pictures`, ['Pictures'], btn), ['Pictures']));
-    if (settings.get_boolean('show-videos')) systemModules.push(createBtn('folder-videos', 'Videos', (btn) => toggleAppWindow(`file://${GLib.get_home_dir()}/Videos`, ['Videos'], btn), ['Videos']));
-    if (settings.get_boolean('show-music')) systemModules.push(createBtn('folder-music', 'Music', (btn) => toggleAppWindow(`file://${GLib.get_home_dir()}/Music`, ['Music'], btn), ['Music']));
-    
+    const addHomeFolder = (setting, icon, dirEnum, fallback) => {
+        if (settings.get_boolean(setting)) {
+            const dirPath = GLib.get_user_special_dir(dirEnum);
+            if (dirPath) {
+                const file = Gio.File.new_for_path(dirPath);
+                const name = file.get_basename();
+                const uri = file.get_uri();
+                systemModules.push(createBtn(icon, name, (btn) => toggleAppWindow(uri, [name, fallback], btn), [name, fallback]));
+            } else {
+
+                const fallbackPath = `${GLib.get_home_dir()}/${fallback}`;
+                systemModules.push(createBtn(icon, fallback, (btn) => toggleAppWindow(`file://${fallbackPath}`, [fallback], btn), [fallback]));
+            }
+        }
+    };
+
+    addHomeFolder('show-downloads', 'folder-download', GLib.UserDirectory.DIRECTORY_DOWNLOAD, 'Downloads');
+    addHomeFolder('show-documents', 'folder-documents', GLib.UserDirectory.DIRECTORY_DOCUMENTS, 'Documents');
+    addHomeFolder('show-pictures', 'folder-pictures', GLib.UserDirectory.DIRECTORY_PICTURES, 'Pictures');
+    addHomeFolder('show-videos', 'folder-videos', GLib.UserDirectory.DIRECTORY_VIDEOS, 'Videos');
+    addHomeFolder('show-music', 'folder-music', GLib.UserDirectory.DIRECTORY_MUSIC, 'Music');
+
     if (settings.get_boolean('show-mounts')) {
         try {
             const volumeMonitor = Gio.VolumeMonitor.get();
@@ -479,7 +522,7 @@ export function buildModules(dockUI, iconSize) {
                 const name = mount.get_name();
                 const uri = mount.get_root().get_uri();
                 const gicon = mount.get_icon() || Gio.ThemedIcon.new('drive-harddisk-symbolic');
-                
+
                 systemModules.push(createBtn(gicon, name, (btn) => toggleAppWindow(uri, [name], btn), [name]));
             });
         } catch (e) {
@@ -496,7 +539,7 @@ export function buildModules(dockUI, iconSize) {
                 trashIconName = 'user-trash-full';
             }
             enumerator.close(null);
-        } catch (e) { }
+        } catch (e) {}
 
         systemModules.push(createBtn(trashIconName, 'Recycle Bin', (btn) => toggleAppWindow('trash:///', ['Trash'], btn), ['Trash']));
     }
@@ -512,13 +555,20 @@ export function buildModules(dockUI, iconSize) {
                 systemModules.push(createBtn(fIcon, fName, (btn) => toggleAppWindow(uri, [fName], btn), [fName]));
             });
         }
-    } catch (e) { }
+    } catch (e) {}
 
     if (settings.get_boolean('show-clock') && !isVertical) {
         let fontSize = 15;
-        try { fontSize = settings.get_int('clock-font-size'); } catch (e) { }
+        try {
+            fontSize = settings.get_int('clock-font-size');
+        } catch (e) {}
 
-        let currentTimeString = GLib.DateTime.new_now_local().format('%a %d | %I:%M %p');
+        let is24h = false;
+        try {
+            is24h = settings.get_boolean('use-24h-clock');
+        } catch (e) {}
+        let timeFormat = is24h ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
+        let currentTimeString = GLib.DateTime.new_now_local().format(timeFormat);
 
         const clockLabel = new St.DrawingArea({
             y_align: Clutter.ActorAlign.CENTER,
@@ -571,22 +621,41 @@ export function buildModules(dockUI, iconSize) {
             Clutter.Actor.prototype.ease.call(this, newProps);
         };
         const origScale = clockBtn.set_scale.bind(clockBtn);
-        clockBtn.set_scale = (sx, sy) => { if (sx === 1 && sy === 1) origScale(sx, sy); };
-        clockBtn._delegate = { app: { get_name: () => 'Date & Time', get_state: () => 0, get_windows: () => [] } };
+        clockBtn.set_scale = (sx, sy) => {
+            if (sx === 1 && sy === 1) origScale(sx, sy);
+        };
+        clockBtn._delegate = {
+            app: {
+                get_name: () => 'Date & Time',
+                get_state: () => 0,
+                get_windows: () => []
+            }
+        };
 
         const updateClock = () => {
-            currentTimeString = GLib.DateTime.new_now_local().format('%a %d | %I:%M %p');
+            let is24h = false;
+            try {
+                is24h = settings.get_boolean('use-24h-clock');
+            } catch (e) {}
+            let timeFormat = is24h ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
+
+            currentTimeString = GLib.DateTime.new_now_local().format(timeFormat);
             updateDimensions();
             clockLabel.queue_repaint();
             return GLib.SOURCE_CONTINUE;
         };
-
         updateClock();
         const timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, updateClock);
-        clockBtn.connect('destroy', () => { if (timeoutId) GLib.source_remove(timeoutId); });
+        clockBtn.connect('destroy', () => {
+            if (timeoutId) GLib.source_remove(timeoutId);
+        });
 
         clockModule = clockBtn;
     }
 
-    return { systemModules, clockModule, gridModule };
+    return {
+        systemModules,
+        clockModule,
+        gridModule
+    };
 }

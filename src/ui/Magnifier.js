@@ -1,31 +1,100 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import St from 'gi://St';
 import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+import cairo from 'gi://cairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import PeekManager from '../core/PeekManager.js';
 import WorkspaceFilter from '../core/WorkspaceFilter.js';
-import { animateRestore } from './effects/WindowEffects.js';
+import {
+    animateRestore
+} from './effects/WindowEffects.js';
 
 
 const FLIP_DURATION = 300;
 const TOOLTIP_DELAY_MS = 600;
+
+
+function traceMenuPath(cr, w, h, r, ah, aw, dockPos, ax, ay) {
+    ax = Math.max(r + aw / 2, Math.min(ax, w - r - aw / 2));
+    ay = Math.max(r + aw / 2, Math.min(ay, h - r - aw / 2));
+
+    cr.newPath();
+    if (dockPos === 'BOTTOM') {
+        cr.moveTo(r, 0);
+        cr.lineTo(w - r, 0);
+        cr.arc(w - r, r, r, -Math.PI / 2, 0);
+        cr.lineTo(w, h - ah - r);
+        cr.arc(w - r, h - ah - r, r, 0, Math.PI / 2);
+        cr.lineTo(ax + aw / 2, h - ah);
+        cr.lineTo(ax + 2, h - 2);
+        cr.curveTo(ax, h, ax, h, ax - 2, h - 2);
+        cr.lineTo(ax - aw / 2, h - ah);
+        cr.lineTo(r, h - ah);
+        cr.arc(r, h - ah - r, r, Math.PI / 2, Math.PI);
+        cr.lineTo(0, r);
+        cr.arc(r, r, r, Math.PI, 3 * Math.PI / 2);
+    } else if (dockPos === 'TOP') {
+        cr.moveTo(r, ah);
+        cr.lineTo(ax - aw / 2, ah);
+        cr.lineTo(ax - 2, 2);
+        cr.curveTo(ax, 0, ax, 0, ax + 2, 2);
+        cr.lineTo(ax + aw / 2, ah);
+        cr.lineTo(w - r, ah);
+        cr.arc(w - r, ah + r, r, -Math.PI / 2, 0);
+        cr.lineTo(w, h - r);
+        cr.arc(w - r, h - r, r, 0, Math.PI / 2);
+        cr.lineTo(r, h);
+        cr.arc(r, h - r, r, Math.PI / 2, Math.PI);
+        cr.lineTo(0, ah + r);
+        cr.arc(r, ah + r, r, Math.PI, 3 * Math.PI / 2);
+    } else if (dockPos === 'RIGHT') {
+        cr.moveTo(r, 0);
+        cr.lineTo(w - ah - r, 0);
+        cr.arc(w - ah - r, r, r, -Math.PI / 2, 0);
+        cr.lineTo(w - ah, ay - aw / 2);
+        cr.lineTo(w - 2, ay - 2);
+        cr.curveTo(w, ay, w, ay, w - 2, ay + 2);
+        cr.lineTo(w - ah, ay + aw / 2);
+        cr.lineTo(w - ah, h - r);
+        cr.arc(w - ah - r, h - r, r, 0, Math.PI / 2);
+        cr.lineTo(r, h);
+        cr.arc(r, h - r, r, Math.PI / 2, Math.PI);
+        cr.lineTo(0, r);
+        cr.arc(r, r, r, Math.PI, 3 * Math.PI / 2);
+    } else if (dockPos === 'LEFT') {
+        cr.moveTo(ah + r, 0);
+        cr.lineTo(w - r, 0);
+        cr.arc(w - r, r, r, -Math.PI / 2, 0);
+        cr.lineTo(w, h - r);
+        cr.arc(w - r, h - r, r, 0, Math.PI / 2);
+        cr.lineTo(ah + r, h);
+        cr.arc(ah + r, h - r, r, Math.PI / 2, Math.PI);
+        cr.lineTo(ah, ay + aw / 2);
+        cr.lineTo(2, ay + 2);
+        cr.curveTo(0, ay, 0, ay, 2, ay - 2);
+        cr.lineTo(ah, ay - aw / 2);
+        cr.lineTo(ah, r);
+        cr.arc(ah + r, r, r, Math.PI, 3 * Math.PI / 2);
+    }
+    cr.closePath();
+}
 
 function _setDefaultCursor() {
     try {
@@ -34,18 +103,29 @@ function _setDefaultCursor() {
         } else if (typeof Meta.Cursor !== 'undefined' && Meta.Cursor.DEFAULT !== undefined) {
             global.display.set_cursor(Meta.Cursor.DEFAULT);
         }
-    } catch (e) { }
+    } catch (e) {}
 }
 
 export function getDockButtons(dockActor) {
     try {
+        if (!dockActor || dockActor.__destroyed || (typeof dockActor.is_destroyed === 'function' && dockActor.is_destroyed())) return [];
+        
         const box = dockActor.boxActor || dockActor;
+        
+        if (!box || box.__destroyed || (typeof box.is_destroyed === 'function' && box.is_destroyed())) return [];
+
         return box.get_children().filter(c => {
+            if (!c || c.__destroyed) return false;
+            if (typeof c.is_destroyed === 'function' && c.is_destroyed()) return false;
+            if (typeof c.get_parent === 'function' && c.get_parent() === null) return false;
+            
             if (c._isExternal) return true;
             const sClass = typeof c.get_style_class_name === 'function' ? c.get_style_class_name() : (c.style_class || '');
             return sClass.includes('dock-app-button') || sClass.includes('dock-separator') || sClass.includes('dock-drag-handle') || sClass.includes('clock-module');
         });
-    } catch (e) { return []; }
+    } catch (e) {
+        return [];
+    }
 }
 
 export function getFixedSlots(dockActor, isVertical, btns) {
@@ -79,7 +159,10 @@ export function getFixedSlots(dockActor, isVertical, btns) {
     });
 
     const ordered = centersByBtn
-        .map((center, btnIndex) => ({ center, btnIndex }))
+        .map((center, btnIndex) => ({
+            center,
+            btnIndex
+        }))
         .sort((a, b) => (a.center - b.center) || (a.btnIndex - b.btnIndex));
 
     const orderToBtn = ordered.map(item => item.btnIndex);
@@ -100,6 +183,18 @@ export function getFixedSlots(dockActor, isVertical, btns) {
 
     dockActor._fixedSlots = model;
     return model;
+}
+
+function isActorAlive(actor) {
+    if (!actor) return false;
+    if (actor.__destroyed) return false;
+    try {
+        if (typeof actor.is_destroyed === 'function' && actor.is_destroyed()) return false;
+        let _dummy = actor.visible;
+    } catch (_e) {
+        return false;
+    }
+    return true;
 }
 
 export function stopDragLoop(dockActor) {
@@ -124,15 +219,32 @@ export function startDragLoop(dockActor, isVertical, settings) {
             const [dx, dy] = dockActor.get_transformed_position();
             const [dw, dh] = dockActor.get_transformed_size();
 
-            const pad = 24;
-            const isInsideDock = cx >= dx - pad && cx <= dx + dw + pad && cy >= dy - pad && cy <= dy + dh + pad;
+            let boundsLeft = dx,
+                boundsRight = dx + dw,
+                boundsTop = dy,
+                boundsBottom = dy + dh;
+            if (dockActor.bgActor) {
+                const [bx, by] = dockActor.bgActor.get_transformed_position();
+                const [bw, bh] = dockActor.bgActor.get_transformed_size();
+                boundsLeft = Math.min(boundsLeft, bx);
+                boundsRight = Math.max(boundsRight, bx + bw);
+                boundsTop = Math.min(boundsTop, by);
+                boundsBottom = Math.max(boundsBottom, by + bh);
+            }
+            const padX = isVertical ? 24 : 10;
+            const padY = isVertical ? 10 : 24;
+            const isInsideDock = cx >= boundsLeft - padX && cx <= boundsRight + padX && cy >= boundsTop - padY && cy <= boundsBottom + padY;
 
             if (!isInsideDock) {
                 if (!_dragWasOutside) {
                     getDockButtons(dockActor).forEach(btn => {
                         btn.ease({
-                            scale_x: 1.0, scale_y: 1.0, translation_x: 0, translation_y: 0,
-                            duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                            scale_x: 1.0,
+                            scale_y: 1.0,
+                            translation_x: 0,
+                            translation_y: 0,
+                            duration: 200,
+                            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                         });
                     });
                     if (dockActor.bgActor) dockActor.bgActor.set_pivot_point(0.5, 0.5);
@@ -173,10 +285,16 @@ function _hideTooltip(dockActor) {
         try {
             dockActor._magTooltip.remove_all_transitions();
             dockActor._magTooltip.ease({
-                opacity: 0, duration: 180, mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onComplete: () => { try { if (dockActor._magTooltip) dockActor._magTooltip.hide(); } catch (e) { } }
+                opacity: 0,
+                duration: 180,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onComplete: () => {
+                    try {
+                        if (dockActor._magTooltip) dockActor._magTooltip.hide();
+                    } catch (e) {}
+                }
             });
-        } catch (e) { }
+        } catch (e) {}
     }
 }
 
@@ -197,7 +315,7 @@ function _isPointerInDockTooltipBridge(dockActor, px, py, settings) {
         const iconSize = settings.get_int('icon-size');
         lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
         bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
-    } catch (_e) { }
+    } catch (_e) {}
 
     const dockPos = settings.get_string('dock-position') || 'BOTTOM';
     const [dax, day] = dockActor.get_transformed_position();
@@ -216,7 +334,10 @@ function _isPointerInDockTooltipBridge(dockActor, px, py, settings) {
     const tipTop = ty;
     const tipBottom = ty + th;
 
-    let left = 0, right = 0, top = 0, bottom = 0;
+    let left = 0,
+        right = 0,
+        top = 0,
+        bottom = 0;
 
     if (dockPos === 'BOTTOM') {
         left = tipLeft - lateralPad;
@@ -262,6 +383,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             _hideTooltip(dockActor);
             if (isAppGrid) return;
         }
+
+
 
         const hoverZoom = settings.get_boolean('hover-zoom') && !isAppGrid;
         const maxZoom = hoverZoom ? settings.get_double('hover-zoom-factor') : 1.0;
@@ -402,10 +525,16 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         const axis = isVertical ? 'translation_y' : 'translation_x';
         const t = now || Date.now();
         const SMOOTH_FACTOR = dockActor._isDragging ? 0.30 : 0.24;
-        let leftExp = 0, rightExp = 0, topExp = 0, botExp = 0;
+        let leftExp = 0,
+            rightExp = 0,
+            topExp = 0,
+            botExp = 0;
 
         if (zoomEnabled) {
-            let minVis = Infinity, maxVis = -Infinity, origMin = Infinity, origMax = -Infinity;
+            let minVis = Infinity,
+                maxVis = -Infinity,
+                origMin = Infinity,
+                origMax = -Infinity;
             for (let i = 0; i < n; i++) {
                 if (btns[i].style_class?.includes('clock-module') || btns[i].style_class?.includes('dock-drag-handle')) continue;
                 const c = scaledCenters[i] + zoomOffset;
@@ -419,8 +548,13 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 if (origC + origHalf > origMax) origMax = origC + origHalf;
             }
             if (minVis !== Infinity && origMin !== Infinity) {
-                if (isVertical) { topExp = Math.max(0, origMin - minVis); botExp = Math.max(0, maxVis - origMax); }
-                else { leftExp = Math.max(0, origMin - minVis); rightExp = Math.max(0, maxVis - origMax); }
+                if (isVertical) {
+                    topExp = Math.max(0, origMin - minVis);
+                    botExp = Math.max(0, maxVis - origMax);
+                } else {
+                    leftExp = Math.max(0, origMin - minVis);
+                    rightExp = Math.max(0, maxVis - origMax);
+                }
             }
         }
 
@@ -433,11 +567,16 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             if (b._flipOffset && b._flipStartTime) {
                 const elapsed = t - b._flipStartTime;
                 if (elapsed < FLIP_DURATION) flipTrans = b._flipOffset * (1.0 - easeOutCirc(elapsed / FLIP_DURATION));
-                else { b._flipOffset = 0; b._flipStartTime = null; }
+                else {
+                    b._flipOffset = 0;
+                    b._flipStartTime = null;
+                }
             }
 
-            b.remove_transition('scale_x'); b.remove_transition('scale_y');
-            b.remove_transition('translation_x'); b.remove_transition('translation_y');
+            b.remove_transition('scale_x');
+            b.remove_transition('scale_y');
+            b.remove_transition('translation_x');
+            b.remove_transition('translation_y');
 
             const targetScale = scales[i];
             const targetTrans = zoomTrans + flipTrans;
@@ -448,7 +587,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const smoothTrans = prevTrans + ((targetTrans - prevTrans) * SMOOTH_FACTOR);
 
             if (zoomEnabled) {
-                b.scale_x = smoothScale; b.scale_y = smoothScale;
+                b.scale_x = smoothScale;
+                b.scale_y = smoothScale;
             }
 
             b[axis] = smoothTrans;
@@ -456,10 +596,12 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             if (appBox && typeof appBox.get_children === 'function') {
                 appBox.get_children().forEach(c => {
                     if (c._isIndicator) {
-                        c.remove_transition('scale_x'); c.remove_transition('scale_y');
+                        c.remove_transition('scale_x');
+                        c.remove_transition('scale_y');
                         c.set_pivot_point(0.5, 0.5);
                         if (zoomEnabled) {
-                            c.scale_x = 1.0 / smoothScale; c.scale_y = 1.0 / smoothScale;
+                            c.scale_x = 1.0 / smoothScale;
+                            c.scale_y = 1.0 / smoothScale;
                         }
                     }
                 });
@@ -471,8 +613,10 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const baseH = dockActor.bgActor.height || dockActor.bgActor._baseH || dockActor.boxActor.height;
             const BUFFER = 16;
 
-            dockActor.bgActor.remove_transition('scale_x'); dockActor.bgActor.remove_transition('scale_y');
-            dockActor.bgActor.remove_transition('translation_x'); dockActor.bgActor.remove_transition('translation_y');
+            dockActor.bgActor.remove_transition('scale_x');
+            dockActor.bgActor.remove_transition('scale_y');
+            dockActor.bgActor.remove_transition('translation_x');
+            dockActor.bgActor.remove_transition('translation_y');
 
             if (isVertical) {
                 const newH = baseH + topExp + botExp + BUFFER;
@@ -503,11 +647,15 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             return;
         }
 
-        let closestIndex = -1, minDiff = Infinity;
+        let closestIndex = -1,
+            minDiff = Infinity;
         for (let i = 0; i < n; i++) {
             const visualCenter = zoomEnabled ? (scaledCenters[i] + zoomOffset) : centersByBtn[i];
             const diff = Math.abs(localCursor - visualCenter);
-            if (diff < minDiff) { minDiff = diff; closestIndex = i; }
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIndex = i;
+            }
         }
 
         let isHovering = false;
@@ -520,7 +668,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             const btn = btns[closestIndex];
             let appName = '';
 
-            if (btn._delegate?.app) appName = btn._delegate.app.get_name();
+            if (btn._delegate?.isFolder) appName = btn._delegate.folderData.name;
+            else if (btn._delegate?.app) appName = btn._delegate.app.get_name();
             else if (typeof btn.get_child === 'function' && btn.get_child()?.has_style_class_name?.('dock-grid-icon')) appName = 'Applications';
 
             if (appName) {
@@ -540,20 +689,40 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                         try {
                             const [pcx, pcy] = global.get_pointer();
                             applyRealtimeFrame(dockActor, pcx, pcy, isVertical, settings, Date.now());
-                        } catch (e) { }
+                        } catch (e) {}
                         return GLib.SOURCE_REMOVE;
                     });
                 }
 
+
                 if (!dockActor._magTooltip) {
-                    dockActor._magTooltip = new St.BoxLayout({
-                        vertical: true,
-                        style_class: 'dhruva-tooltip',
-                        visible: false, reactive: true, track_hover: true,
+                    dockActor._magTooltip = new St.Widget({
+                        layout_manager: new Clutter.BinLayout(),
+                        visible: false,
+                        reactive: true,
+                        track_hover: true,
+                        style: 'background-color: transparent;'
                     });
 
+                    dockActor._magTooltipBg = new St.DrawingArea({
+                        x_expand: true,
+                        y_expand: true,
+                        style: 'background-color: transparent;'
+                    });
+                    dockActor._magTooltipBox = new St.BoxLayout({
+                        vertical: true,
+                        style_class: 'dhruva-tooltip',
+                        style: 'background-color: transparent; border: none; box-shadow: none;'
+                    });
+
+                    dockActor._magTooltip.add_child(dockActor._magTooltipBg);
+                    dockActor._magTooltip.add_child(dockActor._magTooltipBox);
+
                     dockActor._magTooltip.connect('enter-event', () => {
-                        if (dockActor._leaveCheckId) { GLib.source_remove(dockActor._leaveCheckId); dockActor._leaveCheckId = null; }
+                        if (dockActor._leaveCheckId) {
+                            GLib.source_remove(dockActor._leaveCheckId);
+                            dockActor._leaveCheckId = null;
+                        }
                         return Clutter.EVENT_PROPAGATE;
                     });
 
@@ -565,8 +734,16 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     Main.layoutManager.uiGroup.add_child(dockActor._magTooltip);
                     if (!dockActor._magDestroyHandlerId) {
                         dockActor._magDestroyHandlerId = dockActor.connect('destroy', () => {
-                            if (dockActor._magTooltip) { try { dockActor._magTooltip.destroy(); } catch (e) { } dockActor._magTooltip = null; }
-                            if (dockActor._magPeekManager) { dockActor._magPeekManager.destroy(); dockActor._magPeekManager = null; }
+                            if (dockActor._magTooltip) {
+                                try {
+                                    dockActor._magTooltip.destroy();
+                                } catch (e) {}
+                                dockActor._magTooltip = null;
+                            }
+                            if (dockActor._magPeekManager) {
+                                dockActor._magPeekManager.destroy();
+                                dockActor._magPeekManager = null;
+                            }
                             dockActor._magDestroyHandlerId = null;
                         });
                     }
@@ -576,20 +753,21 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     dockActor._magPeekManager = new PeekManager(dockActor._dockUI, Main.layoutManager.uiGroup);
                 }
 
-                let appId = btn._delegate?.app ? (typeof btn._delegate.app.get_id === 'function' ? btn._delegate.app.get_id() : btn._delegate.app.get_name()) : appName;
+                let appId = btn._delegate?.app ? (typeof btn._delegate.app.get_id === 'function' ? btn._delegate.app.get_id() : btn._delegate.app.get_name()) : (btn._delegate?.isFolder ? btn._delegate.folderData.id : appName);
 
                 if (dockActor._tooltipReady && dockActor._magTooltipAppId !== appId) {
                     dockActor._magTooltipAppId = appId;
-                    dockActor._magTooltip.destroy_all_children();
+                    dockActor._magTooltipBox.destroy_all_children();
 
                     const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
                     const tFg = dockActor._tooltipFg || '#ffffff';
 
-                    let sWidth = 1, sOpacity = 0.2;
+                    let sWidth = 1,
+                        sOpacity = 0.2;
                     try {
                         sWidth = settings.get_int('stroke-width');
                         sOpacity = settings.get_int('stroke-opacity') / 100.0;
-                    } catch (e) { }
+                    } catch (e) {}
 
                     let borderRgba = 'rgba(255,255,255,0.2)';
                     if (tFg.startsWith('#')) {
@@ -599,13 +777,96 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                         borderRgba = `rgba(${r}, ${g}, ${b}, ${sOpacity})`;
                     }
 
-                    const bgStyle = tBg.includes('background') ? tBg : `background-color: ${tBg};`;
-                    const borderStyle = sWidth > 0 ? `border: ${sWidth}px solid ${borderRgba};` : 'border: none;';
 
-                    dockActor._magTooltip.set_style(`${bgStyle} color: ${tFg}; padding: 10px 14px; border-radius: 12px; ${borderStyle} box-shadow: none;`);
+                    let bgRgba = 'rgba(20, 20, 22, 0.92)';
+                    let match = tBg.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
+                    if (!match) match = tBg.match(/background-color:\s*(rgba?\([^)]+\))/);
 
-                    const titleLbl = new St.Label({ text: appName, style: `font-weight: bold; text-align: center; color: ${tFg};` });
-                    dockActor._magTooltip.add_child(titleLbl);
+                    if (match) {
+                        let color = match[1];
+                        if (color === 'rgba(0, 0, 0, 0)' || color === 'transparent') {
+                            let allColors = tBg.match(/rgba?\([^)]+\)/g);
+                            if (allColors) {
+                                bgRgba = allColors.find(c => c !== 'rgba(0, 0, 0, 0)' && c.replace(/\s/g, '') !== 'rgba(0,0,0,0)') || bgRgba;
+                            }
+                        } else {
+                            bgRgba = color;
+                        }
+                    } else if (tBg.startsWith('#')) {
+                        bgRgba = tBg;
+                    }
+
+                    dockActor._magTooltipBg._bgRgba = bgRgba;
+                    dockActor._magTooltipBg._strokeRgba = borderRgba;
+                    dockActor._magTooltipBg._sWidth = sWidth;
+
+                    if (!dockActor._magTooltipBg._repaintConnected) {
+                        dockActor._magTooltipBg._repaintConnected = true;
+                        dockActor._magTooltipBg.connect('repaint', (area) => {
+                            const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+                            const cr = area.get_context();
+                            const [fullW, fullH] = area.get_surface_size();
+                            const r = 12;
+                            const ah = 8;
+                            const aw = 16;
+
+                            const sw = area._sWidth || 0;
+                            const half = sw / 2;
+                            const w = fullW - sw;
+                            const h = fullH - sw;
+
+                            let ax = (area._arrowCenter || fullW / 2) - half;
+                            let ay = (area._arrowCenter || fullH / 2) - half;
+
+                            const parseRgba = (str) => {
+                                let m = (str || '').match(/[\d.]+/g);
+                                return m ? m.map(Number) : [0, 0, 0, 0];
+                            };
+
+                            cr.save();
+                            cr.setOperator(cairo.Operator.CLEAR);
+                            cr.paint();
+                            cr.restore();
+
+                            cr.translate(half, half);
+                            traceMenuPath(cr, w, h, r, ah, aw, dockPos, ax, ay);
+
+                            const [br, bg, bb, ba] = parseRgba(area._bgRgba);
+                            cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);
+                            cr.fillPreserve();
+
+                            if (sw > 0) {
+                                const [sr, sg, sb, sa] = parseRgba(area._strokeRgba);
+                                cr.setSourceRGBA(sr / 255, sg / 255, sb / 255, sa);
+                                cr.setLineWidth(sw);
+                                cr.setLineJoin(cairo.LineJoin.ROUND);
+                                cr.stroke();
+                            } else {
+                                cr.newPath();
+                            }
+                            cr.$dispose();
+                        });
+                    }
+
+
+                    const ah = 8;
+                    let padBottom = 10,
+                        padTop = 10,
+                        padLeft = 14,
+                        padRight = 14;
+                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+                    if (dockPos === 'BOTTOM') padBottom += ah;
+                    else if (dockPos === 'TOP') padTop += ah;
+                    else if (dockPos === 'LEFT') padLeft += ah;
+                    else if (dockPos === 'RIGHT') padRight += ah;
+
+                    dockActor._magTooltipBox.set_style(`color: ${tFg}; padding: ${padTop}px ${padRight}px ${padBottom}px ${padLeft}px; background-color: transparent; border: none; box-shadow: none;`);
+
+                    const titleLbl = new St.Label({
+                        text: appName,
+                        style: `font-weight: bold; text-align: center; color: ${tFg};`
+                    });
+                    dockActor._magTooltipBox.add_child(titleLbl);
 
                     let windows = [];
                     if (btn._delegate?.app && typeof btn._delegate.app.get_windows === 'function') {
@@ -618,26 +879,41 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     }
 
                     if (windows.length > 0) {
-                        const thumbBox = new St.BoxLayout({ vertical: false, style: 'spacing: 10px; margin-top: 10px;' });
+                        const thumbBox = new St.BoxLayout({
+                            vertical: false,
+                            style: 'spacing: 10px; margin-top: 10px;'
+                        });
                         const customSize = settings.get_int('context-menu-size') || 200;
 
                         windows.forEach(win => {
-                            const thumbBtn = new St.Button({ reactive: true, style_class: 'context-menu-thumb-btn' });
+                            const thumbBtn = new St.Button({
+                                reactive: true,
+                                style_class: 'context-menu-thumb-btn'
+                            });
                             thumbBtn.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
 
                             const compPrivate = win.get_compositor_private();
                             if (compPrivate) {
-                                const clone = new Clutter.Clone({ source: compPrivate, reactive: false });
+                                const clone = new Clutter.Clone({
+                                    source: compPrivate,
+                                    reactive: false
+                                });
                                 const rect = win.get_frame_rect();
                                 const w = Math.max(1, rect.width || 1);
                                 const h = Math.max(1, rect.height || 1);
 
                                 let thumbW = customSize;
                                 let thumbH = (h / w) * thumbW;
-                                if (thumbH > customSize * 0.8) { thumbH = customSize * 0.8; thumbW = (w / h) * thumbH; }
+                                if (thumbH > customSize * 0.8) {
+                                    thumbH = customSize * 0.8;
+                                    thumbW = (w / h) * thumbH;
+                                }
 
                                 clone.set_size(thumbW, thumbH);
-                                const padBin = new St.Bin({ child: clone, style: 'border-radius: 6px; overflow: hidden;' });
+                                const padBin = new St.Bin({
+                                    child: clone,
+                                    style: 'border-radius: 6px; overflow: hidden;'
+                                });
                                 thumbBtn.set_child(padBin);
                             } else {
                                 thumbBtn.set_size(customSize, customSize * 0.6);
@@ -665,9 +941,15 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                         });
 
                         if (windows.length > 2) {
-                            const scroll = new St.ScrollView({ vscrollbar_policy: St.PolicyType.NEVER, hscrollbar_policy: St.PolicyType.AUTOMATIC, enable_mouse_scrolling: true, style: `max-width: ${(customSize * 2.5) + 20}px;` });
+                            const scroll = new St.ScrollView({
+                                vscrollbar_policy: St.PolicyType.NEVER,
+                                hscrollbar_policy: St.PolicyType.AUTOMATIC,
+                                enable_mouse_scrolling: true,
+                                style: `max-width: ${(customSize * 2.5) + 20}px;`
+                            });
                             scroll.connect('scroll-event', (_actor, event) => {
-                                let dx = 0, dy = 0;
+                                let dx = 0,
+                                    dy = 0;
                                 const direction = event.get_scroll_direction();
 
                                 if (direction === Clutter.ScrollDirection.SMOOTH) {
@@ -677,12 +959,15 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                                 else if (direction === Clutter.ScrollDirection.LEFT) dx = -1;
                                 else if (direction === Clutter.ScrollDirection.RIGHT) dx = 1;
 
-                                if (Math.abs(dy) > Math.abs(dx) && dy !== 0) { dx = dy; dy = 0; }
+                                if (Math.abs(dy) > Math.abs(dx) && dy !== 0) {
+                                    dx = dy;
+                                    dy = 0;
+                                }
 
                                 if (dx !== 0) {
-                                    const adjustment = typeof scroll.get_hadjustment === 'function'
-                                        ? scroll.get_hadjustment()
-                                        : scroll.get_hscroll_bar().get_adjustment();
+                                    const adjustment = typeof scroll.get_hadjustment === 'function' ?
+                                        scroll.get_hadjustment() :
+                                        scroll.get_hscroll_bar().get_adjustment();
 
                                     if (adjustment) {
                                         const step = direction === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50;
@@ -700,40 +985,102 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                                 return Clutter.EVENT_PROPAGATE;
                             });
                             scroll.add_child(thumbBox);
-                            dockActor._magTooltip.add_child(scroll);
+                            dockActor._magTooltipBox.add_child(scroll);
                         } else {
-                            dockActor._magTooltip.add_child(thumbBox);
+                            dockActor._magTooltipBox.add_child(thumbBox);
                         }
                     }
                 }
 
                 if (dockActor._tooltipReady && (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0)) {
-                    dockActor._magTooltip.queue_relayout();
-                    const [, tw] = dockActor._magTooltip.get_preferred_width(-1);
-                    const [, th] = dockActor._magTooltip.get_preferred_height(-1);
+                    dockActor._magTooltipBox.queue_relayout();
+                    let [, tw] = dockActor._magTooltipBox.get_preferred_width(-1);
+                    let [, th] = dockActor._magTooltipBox.get_preferred_height(-1);
+                    if (tw < 48 || th < 28) {
+                        tw = dockActor._lastTooltipW || Math.max(120, settings.get_int('icon-size') * 2);
+                        th = dockActor._lastTooltipH || 56;
+                    }
+                    dockActor._lastTooltipW = tw;
+                    dockActor._lastTooltipH = th;
                     const [bx, by] = btn.get_transformed_position();
                     const [bw, bh] = btn.get_transformed_size();
                     const dockPos = settings.get_string('dock-position') || 'BOTTOM';
 
-                    const isZoomEnabled = settings.get_boolean('hover-zoom');
-                    const tooltipMargin = isZoomEnabled ? 4 : 20;
+                    let tx = 0,
+                        ty = 0;
+                    const gap = 8;
 
-                    let tx = 0, ty = 0;
-                    if (dockPos === 'BOTTOM') { tx = bx + bw / 2 - tw / 2; ty = by - th - tooltipMargin; }
-                    else if (dockPos === 'TOP') { tx = bx + bw / 2 - tw / 2; ty = by + bh + tooltipMargin; }
-                    else if (dockPos === 'LEFT') { tx = bx + bw + tooltipMargin; ty = by + bh / 2 - th / 2; }
-                    else if (dockPos === 'RIGHT') { tx = bx - tw - tooltipMargin; ty = by + bh / 2 - th / 2; }
+                    const iconCenterX = bx + bw / 2;
+                    const iconCenterY = by + bh / 2;
 
+                    if (dockPos === 'BOTTOM') {
+                        tx = iconCenterX - tw / 2;
+                        ty = by - th - gap;
+                        dockActor._magTooltip.set_pivot_point(0.5, 1.0);
+                    } else if (dockPos === 'TOP') {
+                        tx = iconCenterX - tw / 2;
+                        ty = by + bh + gap;
+                        dockActor._magTooltip.set_pivot_point(0.5, 0.0);
+                    } else if (dockPos === 'LEFT') {
+                        tx = bx + bw + gap;
+                        ty = iconCenterY - th / 2;
+                        dockActor._magTooltip.set_pivot_point(0.0, 0.5);
+                    } else if (dockPos === 'RIGHT') {
+                        tx = bx - tw - gap;
+                        ty = iconCenterY - th / 2;
+                        dockActor._magTooltip.set_pivot_point(1.0, 0.5);
+                    }
+
+                    if (tx < 10) tx = 10;
+                    if (tx + tw > global.stage.width - 10) tx = global.stage.width - tw - 10;
+                    if (ty < 10) ty = 10;
+                    if (ty + th > global.stage.height - 10) ty = global.stage.height - th - 10;
+
+                    const minArrowPad = 18;
+                    if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
+                        dockActor._magTooltipBg._arrowCenter = Math.max(minArrowPad, Math.min(iconCenterX - tx, tw - minArrowPad));
+                    } else {
+                        dockActor._magTooltipBg._arrowCenter = Math.max(minArrowPad, Math.min(iconCenterY - ty, th - minArrowPad));
+                    }
+                    dockActor._magTooltip.set_size(tw, th);
+                    dockActor._magTooltipBg.queue_repaint();
                     dockActor._magTooltip.set_position(tx, ty);
                     dockActor._magTooltip.show();
 
                     const parent = dockActor._magTooltip.get_parent();
                     if (parent && dockActor._dockUI && dockActor._dockUI.actor) {
-                        parent.set_child_below_sibling(dockActor._magTooltip, dockActor._dockUI.actor);
+                        try {
+                            const sibling = dockActor._dockUI.actor;
+                            const siblingParent = sibling?.get_parent?.();
+                            if (sibling && siblingParent === parent)
+                                parent.set_child_below_sibling(dockActor._magTooltip, sibling);
+                        } catch (_e) {}
                     }
 
                     dockActor._magTooltip.remove_all_transitions();
-                    dockActor._magTooltip.ease({ opacity: 255, duration: 220, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                    dockActor._magTooltip.ease({
+                        opacity: 255,
+                        duration: 220,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                    });
+                } else if (dockActor._tooltipReady && dockActor._magTooltip.visible && dockActor._magTooltipBg) {
+                    const [bx, by] = btn.get_transformed_position();
+                    const [bw, bh] = btn.get_transformed_size();
+                    const [tx, ty] = dockActor._magTooltip.get_transformed_position();
+                    const [tw, th] = dockActor._magTooltip.get_transformed_size();
+                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+                    const minArrowPad = 18;
+
+                    if (tw > 0 && th > 0) {
+                        if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
+                            const iconCenterX = bx + bw / 2;
+                            dockActor._magTooltipBg._arrowCenter = Math.max(minArrowPad, Math.min(iconCenterX - tx, tw - minArrowPad));
+                        } else {
+                            const iconCenterY = by + bh / 2;
+                            dockActor._magTooltipBg._arrowCenter = Math.max(minArrowPad, Math.min(iconCenterY - ty, th - minArrowPad));
+                        }
+                        dockActor._magTooltipBg.queue_repaint();
+                    }
                 }
             }
         } else {
@@ -747,7 +1094,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 }
 
 export function resetMagnification(dockActor, suppressForMs = 0) {
-    if (!dockActor || dockActor._isDestroyed) return;
+    if (!dockActor || dockActor.__destroyed || (typeof dockActor.is_destroyed === 'function' && dockActor.is_destroyed())) return;
     try {
         if (suppressForMs > 0) {
             dockActor._suppressZoom = true;
@@ -766,27 +1113,58 @@ export function resetMagnification(dockActor, suppressForMs = 0) {
         dockActor._fixedSlots = null;
         _hideTooltip(dockActor);
 
-        if (dockActor._postClickTimerId) { GLib.source_remove(dockActor._postClickTimerId); dockActor._postClickTimerId = null; }
+        if (dockActor._postClickTimerId) {
+            GLib.source_remove(dockActor._postClickTimerId);
+            dockActor._postClickTimerId = null;
+        }
 
         getDockButtons(dockActor).forEach(btn => {
-            btn._flipOffset = 0; btn._flipStartTime = null;
-            btn.remove_all_transitions();
-            btn.ease({ scale_x: 1.0, scale_y: 1.0, translation_x: 0, translation_y: 0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-
-            const appBox = typeof btn.get_child === 'function' ? btn.get_child() : null;
-            if (appBox && typeof appBox.get_children === 'function') {
-                appBox.get_children().forEach(c => {
-                    if (c._isIndicator) { c.ease({ scale_x: 1.0, scale_y: 1.0, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD }); }
+            btn._flipOffset = 0;
+            btn._flipStartTime = null;
+            
+            if (isActorAlive(btn)) {
+                btn.remove_all_transitions();
+                btn.ease({
+                    scale_x: 1.0,
+                    scale_y: 1.0,
+                    translation_x: 0,
+                    translation_y: 0,
+                    duration: 180,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD
                 });
+            }
+
+            if (isActorAlive(btn)) {
+                const appBox = typeof btn.get_child === 'function' ? btn.get_child() : null;
+                if (isActorAlive(appBox) && typeof appBox.get_children === 'function') {
+                    appBox.get_children().forEach(c => {
+                        if (c._isIndicator && isActorAlive(c)) {
+                            c.ease({
+                                scale_x: 1.0,
+                                scale_y: 1.0,
+                                duration: 180,
+                                mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                            });
+                        }
+                    });
+                }
             }
         });
 
-        if (dockActor.bgActor) {
-            dockActor.bgActor._baseW = null; dockActor.bgActor._baseH = null;
+        if (isActorAlive(dockActor.bgActor)) {
+            dockActor.bgActor._baseW = null;
+            dockActor.bgActor._baseH = null;
             dockActor.bgActor.remove_all_transitions();
-            dockActor.bgActor.ease({ translation_x: 0, translation_y: 0, scale_x: 1.0, scale_y: 1.0, duration: 280, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            dockActor.bgActor.ease({
+                translation_x: 0,
+                translation_y: 0,
+                scale_x: 1.0,
+                scale_y: 1.0,
+                duration: 280,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD
+            });
         }
-    } catch (e) { }
+    } catch (e) {}
 }
 
 function _checkPointerLeave(dockActor, settings) {
@@ -794,7 +1172,8 @@ function _checkPointerLeave(dockActor, settings) {
     dockActor._leaveCheckId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 30, () => {
         try {
             if (dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging || dockActor._launchingApp) {
-                dockActor._leaveCheckId = null; return GLib.SOURCE_REMOVE;
+                dockActor._leaveCheckId = null;
+                return GLib.SOURCE_REMOVE;
             }
 
             const [px, py] = global.get_pointer();
@@ -809,10 +1188,22 @@ function _checkPointerLeave(dockActor, settings) {
             const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
             const overflow = settings.get_int('icon-size') * actualMax;
 
-            const padX = isVertical ? 25 : Math.max(25, overflow);
-            const padY = isVertical ? Math.max(25, overflow) : 25;
+            let boundsLeft = dax,
+                boundsRight = dax + daw,
+                boundsTop = day,
+                boundsBottom = day + dah;
+            if (dockActor.bgActor) {
+                const [bx, by] = dockActor.bgActor.get_transformed_position();
+                const [bw, bh] = dockActor.bgActor.get_transformed_size();
+                boundsLeft = Math.min(boundsLeft, bx);
+                boundsRight = Math.max(boundsRight, bx + bw);
+                boundsTop = Math.min(boundsTop, by);
+                boundsBottom = Math.max(boundsBottom, by + bh);
+            }
+            const padX = isVertical ? Math.max(20, overflow) : 10;
+            const padY = isVertical ? 10 : Math.max(20, overflow);
 
-            const inside = (px >= dax - padX && px <= dax + daw + padX && py >= day - padY && py <= day + dah + padY);
+            const inside = (px >= boundsLeft - padX && px <= boundsRight + padX && py >= boundsTop - padY && py <= boundsBottom + padY);
 
             const insideTooltip = _isInsideTooltip(dockActor, px, py, 24);
             const insideBridge = _isPointerInDockTooltipBridge(dockActor, px, py, settings);
@@ -823,7 +1214,9 @@ function _checkPointerLeave(dockActor, settings) {
                 return GLib.SOURCE_REMOVE;
             }
             return GLib.SOURCE_CONTINUE;
-        } catch (e) { return GLib.SOURCE_REMOVE; }
+        } catch (e) {
+            return GLib.SOURCE_REMOVE;
+        }
     });
 }
 
@@ -841,38 +1234,53 @@ export function isAppGridOpen() {
     }
     return false;
 }
-
 export function setupMagnification(dockActor, settings, dockPositionGetter) {
+    if (!isActorAlive(dockActor)) return;
     teardownMagnification(dockActor);
+    if (!isActorAlive(dockActor)) return;
     dockActor._lastMagMotionFrameTs = 0;
     const dockPos = dockPositionGetter();
-    const isVertical = dockPos === 'LEFT' || dockPos === 'RIGHT';
 
     getDockButtons(dockActor).forEach(btn => {
+        if (!isActorAlive(btn)) return;
         if (dockPos === 'BOTTOM') btn.set_pivot_point(0.5, 1.0);
         else if (dockPos === 'TOP') btn.set_pivot_point(0.5, 0.0);
         else if (dockPos === 'LEFT') btn.set_pivot_point(0.0, 0.5);
         else if (dockPos === 'RIGHT') btn.set_pivot_point(1.0, 0.5);
     });
-    if (dockActor.bgActor) {
+    if (isActorAlive(dockActor.bgActor)) {
         if (dockPos === 'BOTTOM') dockActor.bgActor.set_pivot_point(0.5, 1.0);
         else if (dockPos === 'TOP') dockActor.bgActor.set_pivot_point(0.5, 0.0);
         else if (dockPos === 'LEFT') dockActor.bgActor.set_pivot_point(0.0, 0.5);
         else if (dockPos === 'RIGHT') dockActor.bgActor.set_pivot_point(1.0, 0.5);
     }
 
-    dockActor._magEnterId = dockActor.connect('enter-event', () => {
-        if (dockActor._leaveCheckId) { GLib.source_remove(dockActor._leaveCheckId); dockActor._leaveCheckId = null; }
-        if (!dockActor._isDragging) { dockActor._fixedSlots = null; _setDefaultCursor(); }
-    });
+    if (!isActorAlive(dockActor)) return;
+    try {
+        dockActor._magEnterId = dockActor.connect('enter-event', () => {
+            if (!isActorAlive(dockActor)) return;
+            if (dockActor._leaveCheckId) {
+                GLib.source_remove(dockActor._leaveCheckId);
+                dockActor._leaveCheckId = null;
+            }
+            if (!dockActor._isDragging) {
+                dockActor._fixedSlots = null;
+                _setDefaultCursor();
+            }
+        });
+    } catch (e) { dockActor._magEnterId = null; }
 
     dockActor._magMotionId = null;
 
-    dockActor._magLeaveId = dockActor.connect('leave-event', () => {
-        if (dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging) return;
-        _checkPointerLeave(dockActor, settings);
-    });
+    if (!isActorAlive(dockActor)) return;
+    try {
+        dockActor._magLeaveId = dockActor.connect('leave-event', () => {
+            if (!isActorAlive(dockActor) || dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging) return;
+            _checkPointerLeave(dockActor, settings);
+        });
+    } catch (e) { dockActor._magLeaveId = null; }
 
+    if (!isActorAlive(dockActor)) return;
     dockActor._stageClickId = global.stage.connect('captured-event', (_stage, event) => {
         try {
             if (!dockActor || dockActor._isDestroyed || dockActor._isHidden) return Clutter.EVENT_PROPAGATE;
@@ -890,15 +1298,30 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
                 const [ex, ey] = event.get_coords();
                 const [dax, day] = dockActor.get_transformed_position();
-                const [daw, dah] = dockActor.get_transformed_size();
+                const daw = dockActor._cachedW || dockActor.width || 0;
+                const dah = dockActor._cachedH || dockActor.height || 0;
+
+                let boundsLeft = dax,
+                    boundsRight = dax + daw,
+                    boundsTop = day,
+                    boundsBottom = day + dah;
+                if (dockActor.bgActor) {
+                    const [bx, by] = dockActor.bgActor.get_transformed_position();
+                    const [bw, bh] = dockActor.bgActor.get_transformed_size();
+                    boundsLeft = Math.min(boundsLeft, bx);
+                    boundsRight = Math.max(boundsRight, bx + bw);
+                    boundsTop = Math.min(boundsTop, by);
+                    boundsBottom = Math.max(boundsBottom, by + bh);
+                }
+
                 const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
                 const actualMax = 1.0 + ((settings.get_boolean('hover-zoom') ? settings.get_double('hover-zoom-factor') : 1.0) - 1.0) * 2.0;
                 const overflow = settings.get_int('icon-size') * actualMax;
 
-                const padX = isVertical ? 25 : Math.max(25, overflow);
-                const padY = isVertical ? Math.max(25, overflow) : 25;
+                const padX = isVertical ? Math.max(20, overflow) : 10;
+                const padY = isVertical ? 10 : Math.max(20, overflow);
 
-                const onDock = ex >= dax - padX && ex <= dax + daw + padX && ey >= day - padY && ey <= day + dah + padY;
+                const onDock = ex >= boundsLeft - padX && ex <= boundsRight + padX && ey >= boundsTop - padY && ey <= boundsBottom + padY;
                 const insideTooltip = _isInsideTooltip(dockActor, ex, ey, 24);
                 const insideBridge = _isPointerInDockTooltipBridge(dockActor, ex, ey, settings);
                 const dockPos = settings.get_string('dock-position') || 'BOTTOM';
@@ -919,7 +1342,11 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
                 if (isContextMenuOpen() || isAppGridOpen()) {
                     _clearTooltipDelay(dockActor);
-                    if (dockActor._magTooltip) { dockActor._magTooltip.remove_all_transitions(); dockActor._magTooltip.opacity = 0; dockActor._magTooltip.hide(); }
+                    if (dockActor._magTooltip) {
+                        dockActor._magTooltip.remove_all_transitions();
+                        dockActor._magTooltip.opacity = 0;
+                        dockActor._magTooltip.hide();
+                    }
                     return Clutter.EVENT_PROPAGATE;
                 }
 
@@ -929,7 +1356,8 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
             if (evType === Clutter.EventType.BUTTON_PRESS) {
                 const [px, py] = event.get_coords();
-                dockActor._globalPressX = px; dockActor._globalPressY = py;
+                dockActor._globalPressX = px;
+                dockActor._globalPressY = py;
                 dockActor._lastIconClickTime = Date.now();
 
                 const insideTooltip = _isInsideTooltip(dockActor, px, py, 20);
@@ -960,13 +1388,88 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             const actualMaxZoom = 1.0 + (settings.get_double('hover-zoom-factor') - 1.0) * 2.0;
             const maxOverflow = settings.get_int('icon-size') * actualMaxZoom;
 
-            const padX = isVertical ? 25 : Math.max(25, maxOverflow);
-            const padY = isVertical ? Math.max(25, maxOverflow) : 25;
+            let boundsLeft = dax,
+                boundsRight = dax + daw,
+                boundsTop = day,
+                boundsBottom = day + dah;
+            if (dockActor.bgActor) {
+                const [bx, by] = dockActor.bgActor.get_transformed_position();
+                const [bw, bh] = dockActor.bgActor.get_transformed_size();
+                boundsLeft = Math.min(boundsLeft, bx);
+                boundsRight = Math.max(boundsRight, bx + bw);
+                boundsTop = Math.min(boundsTop, by);
+                boundsBottom = Math.max(boundsBottom, by + bh);
+            }
+            const padX = isVertical ? Math.max(20, maxOverflow) : 10;
+            const padY = isVertical ? 10 : Math.max(20, maxOverflow);
 
-            if (ex < dax - padX || ex > dax + daw + padX || ey < day - padY || ey > day + dah + padY) return Clutter.EVENT_PROPAGATE;
+            if (ex < boundsLeft - padX || ex > boundsRight + padX || ey < boundsTop - padY || ey > boundsBottom + padY) return Clutter.EVENT_PROPAGATE;
+
+            const invokeButton = (targetBtn) => {
+                if (!targetBtn || typeof targetBtn._activateCallback !== 'function')
+                    return false;
+
+                if (targetBtn._wasDragged) {
+                    targetBtn._wasDragged = false;
+                    return true;
+                }
+
+                if (settings.get_boolean('lock-icons')) {
+                    const dx = Math.abs(ex - (dockActor._globalPressX || ex));
+                    const dy = Math.abs(ey - (dockActor._globalPressY || ey));
+                    if (dx > 15 || dy > 15) return true;
+                }
+
+                dockActor._lastIconClickTime = Date.now();
+                _clearTooltipDelay(dockActor);
+                if (dockActor._magTooltip) {
+                    dockActor._magTooltip.remove_all_transitions();
+                    dockActor._magTooltip.opacity = 0;
+                    dockActor._magTooltip.hide();
+                }
+
+                targetBtn._activateCallback(buttonNum, event.get_state());
+                if (buttonNum === 1) resetMagnification(dockActor, 800);
+
+                if (dockActor._postClickTimerId) GLib.source_remove(dockActor._postClickTimerId);
+                dockActor._postClickTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+                    dockActor._postClickTimerId = null;
+                    if (isAppGridOpen()) resetMagnification(dockActor);
+                    return GLib.SOURCE_REMOVE;
+                });
+                return true;
+            };
 
             const btns = getDockButtons(dockActor);
             const n = btns.length;
+            if (!n) return Clutter.EVENT_PROPAGATE;
+
+
+            for (let i = n - 1; i >= 0; i--) {
+                const btn = btns[i];
+                if (!btn || typeof btn._activateCallback !== 'function') continue;
+                const [bx, by] = btn.get_transformed_position();
+                const [bw, bh] = btn.get_transformed_size();
+                if (bw <= 0 || bh <= 0) continue;
+                if (ex >= bx && ex <= bx + bw && ey >= by && ey <= by + bh) {
+                    if (invokeButton(btn)) return Clutter.EVENT_STOP;
+                }
+            }
+
+
+            try {
+                const picked = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, ex, ey);
+                let cur = picked;
+                let hops = 0;
+                while (cur && hops < 12) {
+                    if (typeof cur._activateCallback === 'function') {
+                        if (invokeButton(cur)) return Clutter.EVENT_STOP;
+                    }
+                    cur = typeof cur.get_parent === 'function' ? cur.get_parent() : null;
+                    hops++;
+                }
+            } catch (_e) {}
+
             if (!n || actualMaxZoom <= 1.0) return Clutter.EVENT_PROPAGATE;
 
             const RADIUS = settings.get_int('icon-size') * 3.5;
@@ -1066,8 +1569,12 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 if (!btn._activateCallback) continue;
 
                 const scale = scales[i];
-                let px = 0.5, py = 0.5;
-                if (dockPos === 'BOTTOM') py = 1.0; else if (dockPos === 'TOP') py = 0.0; else if (dockPos === 'LEFT') px = 0.0; else if (dockPos === 'RIGHT') px = 1.0;
+                let px = 0.5,
+                    py = 0.5;
+                if (dockPos === 'BOTTOM') py = 1.0;
+                else if (dockPos === 'TOP') py = 0.0;
+                else if (dockPos === 'LEFT') px = 0.0;
+                else if (dockPos === 'RIGHT') px = 1.0;
 
                 const visCenterX = isVertical ? dax + (boxX + btn.x + btn.width * px) * dockActor.scale_x : dax + (scaledCenters[i] + zoomOffset) * dockActor.scale_x;
                 const visCenterY = isVertical ? day + (scaledCenters[i] + zoomOffset) * dockActor.scale_y : day + (boxY + btn.y + btn.height * py) * dockActor.scale_y;
@@ -1078,67 +1585,138 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 const visBottom = visCenterY + btn.height * scale * (1.0 - py) * dockActor.scale_y;
 
                 if (ex >= visLeft && ex <= visRight && ey >= visTop && ey <= visBottom) {
-                    if (btn._wasDragged) { btn._wasDragged = false; return Clutter.EVENT_STOP; }
-
-                    if (settings.get_boolean('lock-icons')) {
-                        const dx = Math.abs(ex - (dockActor._globalPressX || ex));
-                        const dy = Math.abs(ey - (dockActor._globalPressY || ey));
-                        if (dx > 15 || dy > 15) return Clutter.EVENT_STOP;
-                    }
-
-                    dockActor._lastIconClickTime = Date.now();
-                    _clearTooltipDelay(dockActor);
-                    if (dockActor._magTooltip) {
-                        dockActor._magTooltip.remove_all_transitions();
-                        dockActor._magTooltip.opacity = 0;
-                        dockActor._magTooltip.hide();
-                    }
-
-                    btn._activateCallback(event.get_button(), event.get_state());
-                    if (buttonNum === 1) {
-                        resetMagnification(dockActor, 800);
-                    }
-
-                    if (dockActor._postClickTimerId) GLib.source_remove(dockActor._postClickTimerId);
-                    dockActor._postClickTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-                        dockActor._postClickTimerId = null;
-                        if (isAppGridOpen()) resetMagnification(dockActor);
-                        return GLib.SOURCE_REMOVE;
-                    });
-                    return Clutter.EVENT_STOP;
+                    if (invokeButton(btn)) return Clutter.EVENT_STOP;
                 }
             }
             return Clutter.EVENT_PROPAGATE;
-        } catch (e) { return Clutter.EVENT_PROPAGATE; }
+        } catch (e) {
+            return Clutter.EVENT_PROPAGATE;
+        }
     });
+}
+
+
+
+export function setMagnifierPauseState(dockActor, reason, isPaused) {
+    if (!dockActor) return;
+
+    if (!dockActor._magPauseReasons) {
+        dockActor._magPauseReasons = new Set();
+    }
+
+    if (isPaused) {
+        dockActor._magPauseReasons.add(reason);
+        dockActor._suppressZoom = true;
+        resetMagnification(dockActor);
+    } else {
+        dockActor._magPauseReasons.delete(reason);
+
+        if (dockActor._magPauseReasons.size === 0) {
+            dockActor._suppressZoom = false;
+        }
+    }
 }
 
 export function teardownMagnification(dockActor, skipReset = false) {
     if (!dockActor) return;
-    try {
-        stopDragLoop(dockActor);
-        dockActor._lastMagMotionFrameTs = 0;
-        if (dockActor._leaveCheckId) { GLib.source_remove(dockActor._leaveCheckId); dockActor._leaveCheckId = null; }
-        if (dockActor._postClickTimerId) { GLib.source_remove(dockActor._postClickTimerId); dockActor._postClickTimerId = null; }
 
-        if (dockActor._magMotionId) { dockActor.disconnect(dockActor._magMotionId); dockActor._magMotionId = null; }
-        if (dockActor._magLeaveId) { dockActor.disconnect(dockActor._magLeaveId); dockActor._magLeaveId = null; }
-        if (dockActor._magEnterId) { dockActor.disconnect(dockActor._magEnterId); dockActor._magEnterId = null; }
-        if (dockActor._stageClickId) { global.stage.disconnect(dockActor._stageClickId); dockActor._stageClickId = null; }
-
-        _clearTooltipDelay(dockActor);
-        dockActor._tooltipHoveredIndex = -1;
-        if (dockActor._magDestroyHandlerId) { dockActor.disconnect(dockActor._magDestroyHandlerId); dockActor._magDestroyHandlerId = null; }
-        if (dockActor._magTooltip) { dockActor._magTooltip.destroy(); dockActor._magTooltip = null; }
-        if (dockActor._magPeekManager) { dockActor._magPeekManager.destroy(); dockActor._magPeekManager = null; }
-
-        if (!skipReset) {
-            resetMagnification(dockActor);
+    function _alive() {
+        if (dockActor.__destroyed) return false;
+        try {
+            if (typeof dockActor.is_destroyed === 'function' && dockActor.is_destroyed()) return false;
+            void dockActor.visible;
+            return true;
+        } catch (_e) {
+            return false;
         }
+    }
 
-        dockActor._fixedSlots = null;
-        dockActor._lastIconClickTime = null;
-    } catch (e) { }
+    if (!_alive()) return;
+
+    stopDragLoop(dockActor);
+
+    try { dockActor._lastMagMotionFrameTs = 0; } catch (_e) {}
+
+    try {
+        if (dockActor._leaveCheckId) {
+            GLib.source_remove(dockActor._leaveCheckId);
+            dockActor._leaveCheckId = null;
+        }
+    } catch (_e) {}
+
+    try {
+        if (dockActor._postClickTimerId) {
+            GLib.source_remove(dockActor._postClickTimerId);
+            dockActor._postClickTimerId = null;
+        }
+    } catch (_e) {}
+
+    if (_alive()) {
+        try {
+            if (dockActor._magMotionId) {
+                dockActor.disconnect(dockActor._magMotionId);
+            }
+        } catch (_e) {}
+        dockActor._magMotionId = null;
+
+        try {
+            if (dockActor._magLeaveId) {
+                dockActor.disconnect(dockActor._magLeaveId);
+            }
+        } catch (_e) {}
+        dockActor._magLeaveId = null;
+
+        try {
+            if (dockActor._magEnterId) {
+                dockActor.disconnect(dockActor._magEnterId);
+            }
+        } catch (_e) {}
+        dockActor._magEnterId = null;
+    } else {
+        dockActor._magMotionId = null;
+        dockActor._magLeaveId = null;
+        dockActor._magEnterId = null;
+    }
+
+    try {
+        if (dockActor._stageClickId) {
+            global.stage.disconnect(dockActor._stageClickId);
+            dockActor._stageClickId = null;
+        }
+    } catch (_e) { dockActor._stageClickId = null; }
+
+    _clearTooltipDelay(dockActor);
+    try { dockActor._tooltipHoveredIndex = -1; } catch (_e) {}
+
+    if (_alive()) {
+        try {
+            if (dockActor._magDestroyHandlerId) {
+                dockActor.disconnect(dockActor._magDestroyHandlerId);
+            }
+        } catch (_e) {}
+    }
+    dockActor._magDestroyHandlerId = null;
+
+    try {
+        if (dockActor._magTooltip) {
+            dockActor._magTooltip.destroy();
+            dockActor._magTooltip = null;
+        }
+    } catch (_e) { dockActor._magTooltip = null; }
+
+    try {
+        if (dockActor._magPeekManager) {
+            dockActor._magPeekManager.destroy();
+            dockActor._magPeekManager = null;
+        }
+    } catch (_e) { dockActor._magPeekManager = null; }
+
+    if (!skipReset && _alive()) {
+        resetMagnification(dockActor);
+    }
+
+    try { dockActor._fixedSlots = null; } catch (_e) {}
+    try { dockActor._lastIconClickTime = null; } catch (_e) {}
 }
 
 function easeOutCirc(t) {

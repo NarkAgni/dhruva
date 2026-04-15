@@ -1,14 +1,29 @@
 <div align="center">
-  <img src="icons/logo.svg" alt="Dhruva Logo" width="120" height="120">
 
-  <h1>Dhruva</h1>
+<img src="icons/logo.svg" alt="Dhruva Logo" width="140" height="140">
 
-  <p><strong>A buttery smooth, deeply animated dock for GNOME Shell</strong></p>
-  <p>Built with obsessive attention to detail - every pixel, every animation, every setting.</p>
+<h1>Dhruva</h1>
 
-  <br>
-  
-  <img src="https://img.shields.io/badge/GNOME_Shell-45 | 46 | 47 | 48 | 49-blue?style=flat-square">
+<p><strong>A buttery smooth, deeply animated dock for GNOME Shell</strong></p>
+<p>Built with obsessive attention to detail - every pixel, every animation, every setting.</p>
+
+<br>
+
+<img src="https://img.shields.io/badge/GNOME_Shell-45_|_46_|_47_|_48_|_49_|_50-4A86CF?style=for-the-badge&logo=gnome&logoColor=white">
+&nbsp
+<img src="https://img.shields.io/badge/License-GPL_3.0-green?style=for-the-badge">
+&nbsp
+<img src="https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge">
+
+<br><br>
+
+<a href="https://extensions.gnome.org/extension/9495/dhruva/">
+  <img src="https://extensions.gnome.org/static/images/gnome-extensions.svg" alt="Get it on GNOME Extensions" height="56">
+</a>
+&nbsp&nbsp
+<a href="https://buymeacoffee.com/narkagni">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="56">
+</a>
 
 </div>
 
@@ -22,7 +37,7 @@ Dhruva is a **feature-complete dock extension** for GNOME Shell that does not co
 
 Most dock extensions give you a panel and call it a day. Dhruva gives you real magnification, six window minimize effects with custom physics, 20+ icon click animations, a floating mode with elastic pull-out, a Chameleon theme engine that reads your wallpaper, Aero Peek-style window previews, workspace isolation, and a fully modular preferences window - all in a single extension.
 
-> Whether you're a minimalist who just wants a clean bottom bar, or a power user who wants every detail dialed in - Dhruva adapts to you.
+> Whether you're a minimalist who just wants a clean bottom bar, or a power user who wants every detail dialed in - **Dhruva adapts to you.**
 
 <br>
 
@@ -31,7 +46,7 @@ Most dock extensions give you a panel and call it a day. Dhruva gives you real m
 ## Gallery
 
 <div align="center">
-  <img src="media/dock.png" alt="Dhruva Dock — Main Preview" width="100%" style="border-radius: 12px; margin-bottom: 12px;">
+  <img src="media/dock.png" alt="Dhruva Dock - Main Preview" width="100%" style="border-radius: 14px margin-bottom: 10px">
   <p><sub>The dock in action - smooth magnification, running indicators, and glassmorphism context menu</sub></p>
 </div>
 
@@ -40,32 +55,42 @@ Most dock extensions give you a panel and call it a day. Dhruva gives you real m
 <table>
   <tr>
     <td align="center" width="50%">
-      <img src="media/magnifier.gif" alt="Magnification" width="100%" style="border-radius: 8px;">
-      <br><sub><b>True Magnification</b></sub>
+      <img src="media/magnifier.gif" alt="Magnification" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>True Magnification</b></sub>
     </td>
     <td align="center" width="50%">
-      <img src="media/genie.gif" alt="Window Minimize Effects" width="100%" style="border-radius: 8px;">
-      <br><sub><b>Window Minimize & Restore Effects</b></sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="50%">
-      <img src="media/float.gif" alt="Floating Dock" width="100%" style="border-radius: 8px;">
-      <br><sub><b>Floating Mode with D-Shape Handles</b></sub>
-    </td>
-    <td align="center" width="50%">
-      <img src="media/peek.gif" alt="Context Menu with Peek" width="100%" style="border-radius: 8px;">
-      <br><sub><b>Glassmorphism Context Menu + Aero Peek</b></sub>
+      <img src="media/genie.gif" alt="Window Minimize Effects" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Window Minimize & Restore Effects</b></sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <img src="media/iconeffects.gif" alt="Chameleon Theme" width="100%" style="border-radius: 8px;">
-      <br><sub><b>Icon Click Effects</b></sub>
+      <img src="media/float.gif" alt="Floating Dock" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Floating Mode with D-Shape Handles</b></sub>
     </td>
     <td align="center" width="50%">
-      <img src="media/prefs.png" alt="Preferences Window" width="100%" style="border-radius: 8px;">
-      <br><sub><b>Fully-Featured Preferences Window</b></sub>
+      <img src="media/peek.gif" alt="Context Menu with Peek" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Glassmorphism Context Menu + Aero Peek</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="media/iconeffects.gif" alt="Icon Click Effects" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Icon Click Effects</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="media/prefs.png" alt="Preferences Window" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Fully-Featured Preferences Window</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="media/folder.png" alt="Stack and Folder Groups" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Stack & Folder Groups</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="media/emojis.png" alt="Emojis for Icons" width="100%" style="border-radius: 10px">
+      <br><br><sub><b>Emojis for Icons</b></sub>
     </td>
   </tr>
 </table>
@@ -100,10 +125,10 @@ Most dock extensions give you a panel and call it a day. Dhruva gives you real m
 
 ### Window Effects
 
-Six handcrafted **minimize & restore animations**, all targeting the exact dock icon position:
+Six handcrafted **minimize & restore animations**, all taring the exact dock icon position:
 
 | Effect | Description |
-|---|---|
+|:---|:---|
 | **Magic Lamp** | Classic genie suck-into-dock |
 | **Snake** | Window slithers into the icon |
 | **Vortex** | Spiraling collapse into the dock |
@@ -149,18 +174,31 @@ Plus an animated **app launch effect** - new windows burst open from the icon po
 
 ### Auto-Hide
 
-- **Smart Auto-Hide** - Hides when a window overlaps; stays visible otherwise
+- **Smart Auto-Hide** - Hides when a window overlaps stays visible otherwise
 - **Dodge Mode** - Duck only when the active window is in the way
 - **Always Visible** - Disable auto-hide entirely
 - **Edge Pressure Reveal** - Hover the screen edge to summon the dock
 - **Custom Delays** - Separate hide delay, unhide delay, and edge dwell time
 
+### Stack & Folder Groups *(New)*
+
+- **Icon Stacking** - Hold `Ctrl` and drag one icon onto another to instantly create a grouped stack or folder right on the dock
+- **Mouse-Driven Grouping** - No menus or setup required pure drag-and-drop with your mouse
+- **Clean & Native** - Stacks look and feel like a regular dock icon or use Emojis as icon
+
+### Import & Export Settings *(New)*
+
+- **Export Your Setup** - Save your entire dock configuration - themes, animations, layout, modules - into a single portable file
+- **Import with One Click** - Restore or switch your entire style instantly from a saved config
+- **Share Your Theme** - Send your dock setup to friends or the community they can load it in seconds
+- **Safe Backup** - Back up before reinstalling or experimenting, then restore in one click
+
 ### Modules & Quick Access
 
 Built-in dock modules you can toggle individually:
 
-- **App Grid button** - One click to GNOME's app overview (configurable position)
-- **Trash** - Drag files onto it; animated shred effect on empty
+- **App Grid Button** - One click to GNOME's app overview (configurable position)
+- **Trash** - Drag files onto it animated shred effect on empty
 - **Desktop Button** - Show/hide the desktop
 - **Home / Downloads / Documents / Pictures / Videos / Music** - Quick folder access
 - **Custom Folders** - Add any directory as a dock module
@@ -180,20 +218,24 @@ Built-in dock modules you can toggle individually:
 
 ## Installation
 
-### From GNOME Extensions (Recommended)
+### From GNOME Extensions *(Recommended)*
+
+The easiest way - no terminal needed. Click install, enable, and you're done.
 
 <div align="center">
-    <img src="https://img.shields.io/badge/COMING-SOON-4A86CF?style=for-the-badge&logo=gnome&logoColor=white" height="42">
+  <a href="https://extensions.gnome.org/extension/9495/dhruva/">
+    <img src="https://extensions.gnome.org/static/images/gnome-extensions.svg" alt="Get it on GNOME Extensions" height="128">
+  </a>
 </div>
 
 <br>
 
 ### From Source
 
-**Requirements:** GNOME Shell 45–49 · `libglib2.0-bin`
+**Requirements:** GNOME Shell 45–50 · `libglib2.0-bin`
 
 ```bash
-# 1. Clone
+# 1. Clone the repository
 git clone https://github.com/narkagni/dhruva.git
 cd dhruva
 
@@ -204,7 +246,7 @@ make install
 #    X11:     Alt+F2 → type 'r' → Enter
 #    Wayland: Log out and back in
 
-# 4. Enable
+# 4. Enable the extension
 gnome-extensions enable dhruva@narkagni
 ```
 
@@ -217,21 +259,37 @@ make uninstall
 
 ---
 
-## ❤️ Support Development
+## ☕ Support Development
 
-Dhruva is free and open-source. If it made your desktop a better place, consider buying me a coffee.
+Dhruva is **completely free and open-source** - no ads, no subscriptions, no paywalls, ever.
+
+Every feature you see - the smooth animations, the Chameleon engine, the floating dock physics, the glassmorphism menus, the 22 click effects - is designed, coded, and maintained in spare time. This project exists purely out of love for a beautiful Linux desktop.
+
+If Dhruva brought a little joy to your daily workflow, consider showing some love back. Even the price of a single coffee keeps the motivation alive and helps fund new features, bug fixes, and better documentation.
+
+**You don't have to. But if Dhruva made your desktop feel a little more *you* - it would mean a lot. 🙏**
 
 <div align="center">
-  <a href="https://buymeacoffee.com/narkagni">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42">
-  </a>
+
+<br>
+
+<a href="https://buymeacoffee.com/narkagni">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="64">
+</a>
+
+<br><br>
+
+*Not in a position to donate? A GitHub ⭐ star or sharing Dhruva with a friend is just as appreciated!*
+
 </div>
 
 <br>
 
 <details>
-  <summary><b>Crypto</b></summary>
+  <summary><b>Crypto Donations</b></summary>
   <br>
+
+  Prefer crypto? Every satoshi and gwei is deeply appreciated - thank you for supporting open-source!
 
   **Bitcoin (BTC)**
   ```
@@ -241,7 +299,7 @@ Dhruva is free and open-source. If it made your desktop a better place, consider
   ```
   0xf43c3f83e53495ea06676c0d9d4fc87ce627ffa3
   ```
-  **Tether (USDT — TRC20)**
+  **Tether (USDT - TRC20)**
   ```
   THnqG9nchLgaf1LzGK3CqdmNpRxw59hs82
   ```
@@ -251,6 +309,10 @@ Dhruva is free and open-source. If it made your desktop a better place, consider
 
 ---
 
-<p align="center">
-  Made with ❤️ by <strong><a href="https://github.com/narkagni">Narkagni</a></strong> &nbsp;·&nbsp; GPL-3.0
-</p>
+<div align="center">
+
+Made with ❤️ by **[Narkagni](https://github.com/narkagni)** &nbsp·&nbsp GPL-3.0 License
+
+*If you enjoy Dhruva, share it with someone who deserves a beautiful Linux desktop.*
+
+</div>

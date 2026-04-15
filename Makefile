@@ -21,6 +21,7 @@ install: build-schemas
 	cp -r schemas/     $(INSTALL_PATH)/schemas/
 	cp src/core/*.js   $(INSTALL_PATH)/src/core/
 	cp src/ui/*.js     $(INSTALL_PATH)/src/ui/
+	cp src/ui/*.json     $(INSTALL_PATH)/src/ui/
 	cp src/ui/effects/*.js  $(INSTALL_PATH)/src/ui/effects/
 	@echo "Dhruva installed. Restart GNOME Shell to apply."
 

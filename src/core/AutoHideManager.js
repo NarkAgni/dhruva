@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import St from 'gi://St';
@@ -19,6 +19,12 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import {
+    setMagnifierPauseState
+} from '../ui/Magnifier.js';
+
+
+const AUTO_HIDE_MAGNIFIER_REASON = 'auto-hide-manager';
 
 
 export default class AutoHideManager {
@@ -40,6 +46,8 @@ export default class AutoHideManager {
         this._edgePointerPollId = null;
         this._pointerUpdate = true;
         this._nextUpdateAt = 0;
+
+        this._pauseReasons = new Set();
 
         this._trackedWin = null;
         this._trackedWinSignals = [];
@@ -78,9 +86,6 @@ export default class AutoHideManager {
 
         this._addSignal(this.dockUI.actor, 'enter-event', () => {
             this._pointerUpdate = true;
-            if (this.dockUI && this.dockUI.actor) {
-                this.dockUI.actor._suppressZoom = false; 
-            }
             this._show(false, false);
             return Clutter.EVENT_PROPAGATE;
         });
@@ -98,7 +103,7 @@ export default class AutoHideManager {
             try {
                 const delaySetting = this.settings.get_int('edge-dwell-delay');
                 if (delaySetting >= 0) pressureDelay = delaySetting;
-            } catch (e) { }
+            } catch (e) {}
 
             if (this._edgeRevealTimerId) {
                 GLib.source_remove(this._edgeRevealTimerId);
@@ -107,7 +112,6 @@ export default class AutoHideManager {
 
             if (pressureDelay === 0) {
                 this._pointerUpdate = true;
-                if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
                 this._show(true, false);
             } else {
                 this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
@@ -115,7 +119,6 @@ export default class AutoHideManager {
 
                     if (this._pointerInEdgeTriggerZone(8)) {
                         this._pointerUpdate = true;
-                        if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
                         this._show(true, false);
                     }
                     return GLib.SOURCE_REMOVE;
@@ -138,7 +141,7 @@ export default class AutoHideManager {
         this._addSignal(this.settings, 'changed::hide-mode', () => {
             this._updateEdgeTrigger();
             this._cancelTimers();
-            this._scheduleUpdate(0); 
+            this._scheduleUpdate(0);
         });
 
         this._addSignal(this.settings, 'changed::dock-position', () => this._updateEdgeTrigger());
@@ -146,6 +149,22 @@ export default class AutoHideManager {
 
         this._scheduleUpdate(100);
     }
+
+
+    setPauseState(reason, isPaused) {
+        if (isPaused) {
+            this._pauseReasons.add(reason);
+            this._forceShow();
+        } else {
+            this._pauseReasons.delete(reason);
+        }
+        this._scheduleUpdate(0);
+    }
+
+    isPaused() {
+        return this._pauseReasons.size > 0;
+    }
+
 
     _trackFocusedWindow() {
         if (this._destroyed) return;
@@ -155,7 +174,9 @@ export default class AutoHideManager {
 
         if (this._trackedWin && this._trackedWinSignals) {
             this._trackedWinSignals.forEach(id => {
-                try { this._trackedWin.disconnect(id); } catch (e) { }
+                try {
+                    this._trackedWin.disconnect(id);
+                } catch (e) {}
             });
         }
 
@@ -167,7 +188,7 @@ export default class AutoHideManager {
                 this._trackedWinSignals.push(this._trackedWin.connect('size-changed', () => this._scheduleUpdate()));
                 this._trackedWinSignals.push(this._trackedWin.connect('position-changed', () => this._scheduleUpdate()));
                 this._trackedWinSignals.push(this._trackedWin.connect('notify::maximized-vertically', () => this._scheduleUpdate()));
-            } catch (e) { }
+            } catch (e) {}
         }
     }
 
@@ -175,8 +196,18 @@ export default class AutoHideManager {
         if (this._destroyed) return;
         try {
             const id = obj.connect(event, cb);
-            this.signals.push({ obj, id });
-        } catch (e) { }
+            this.signals.push({
+                obj,
+                id
+            });
+        } catch (e) {}
+    }
+
+    _setAutoHideMagnifierPaused(isPaused) {
+        if (!this.dockUI || !this.dockUI.actor || this.dockUI.actor._isDestroyed) return;
+        try {
+            setMagnifierPauseState(this.dockUI.actor, AUTO_HIDE_MAGNIFIER_REASON, isPaused);
+        } catch (_e) {}
     }
 
     _applyDockInputState(interactive) {
@@ -190,7 +221,7 @@ export default class AutoHideManager {
                 const kids = a.get_children();
                 for (let i = 0; i < kids.length; i++)
                     visit(kids[i]);
-            } catch (_e) { }
+            } catch (_e) {}
         };
 
         visit(this.dockUI.actor);
@@ -207,7 +238,7 @@ export default class AutoHideManager {
         if (!this.edgeTrigger) return false;
         try {
             if (!this.edgeTrigger.is_mapped?.() && !this.edgeTrigger.visible) return false;
-        } catch (_e) { }
+        } catch (_e) {}
 
         const [px, py] = global.get_pointer();
         const [ex, ey] = this.edgeTrigger.get_transformed_position();
@@ -241,7 +272,7 @@ export default class AutoHideManager {
                 try {
                     const delaySetting = this.settings.get_int('edge-dwell-delay');
                     if (delaySetting >= 0) pressureDelay = delaySetting;
-                } catch (_e) { }
+                } catch (_e) {}
 
                 if (pressureDelay > 0) {
                     this._stopEdgePointerPoll();
@@ -249,7 +280,6 @@ export default class AutoHideManager {
                         this._edgeRevealTimerId = null;
                         if (this._pointerInEdgeTriggerZone(8)) {
                             this._pointerUpdate = true;
-                            if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
                             this._show(true, false);
                         } else if (this.isHidden) {
                             this._startEdgePointerPoll();
@@ -260,7 +290,6 @@ export default class AutoHideManager {
                 }
 
                 this._pointerUpdate = true;
-                if (this.dockUI && this.dockUI.actor) this.dockUI.actor._suppressZoom = false;
                 this._show(true, false);
                 this._edgePointerPollId = null;
                 return GLib.SOURCE_REMOVE;
@@ -270,15 +299,19 @@ export default class AutoHideManager {
         });
     }
 
-    _getHideMode() { return this.settings.get_string('hide-mode') || 'dodge-all'; }
-    _getDockPosition() { return this.settings.get_string('dock-position') || 'BOTTOM'; }
+    _getHideMode() {
+        return this.settings.get_string('hide-mode') || 'dodge-all';
+    }
+    _getDockPosition() {
+        return this.settings.get_string('dock-position') || 'BOTTOM';
+    }
 
     _updateEdgeTrigger() {
         if (!this.edgeTrigger || this._destroyed || !this.dockUI || this.dockUI._isDestroyed) return;
 
         const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorData || !monitorData.monitor) return;
-        
+
         const actualMonitor = monitorData.monitor;
 
         const pos = this._getDockPosition();
@@ -286,32 +319,37 @@ export default class AutoHideManager {
 
         const T = 10;
 
-        let ex = 0, ey = 0, ew = 0, eh = 0;
+        const bounds = this._getTheoreticalDockBounds();
+
+        let ex = 0,
+            ey = 0,
+            ew = 0,
+            eh = 0;
 
         switch (pos) {
             case 'BOTTOM':
-                ex = actualMonitor.x;
-                ew = actualMonitor.width;
+                ex = bounds.x;
+                ew = bounds.width;
                 ey = actualMonitor.y + actualMonitor.height - T;
                 eh = T;
                 break;
             case 'TOP':
-                ex = actualMonitor.x;
-                ew = actualMonitor.width;
+                ex = bounds.x;
+                ew = bounds.width;
                 ey = actualMonitor.y;
                 eh = T;
                 break;
             case 'LEFT':
                 ex = actualMonitor.x;
                 ew = T;
-                ey = actualMonitor.y;
-                eh = actualMonitor.height;
+                ey = bounds.y;
+                eh = bounds.height;
                 break;
             case 'RIGHT':
                 ex = actualMonitor.x + actualMonitor.width - T;
                 ew = T;
-                ey = actualMonitor.y;
-                eh = actualMonitor.height;
+                ey = bounds.y;
+                eh = bounds.height;
                 break;
         }
 
@@ -334,19 +372,41 @@ export default class AutoHideManager {
         let dh = this.dockUI.actor._cachedH || this.dockUI.actor.height || 48;
 
         const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
-        if (!monitorData || !monitorData.monitor) return { x: 0, y: 0, width: dw, height: dh };
+        if (!monitorData || !monitorData.monitor) return {
+            x: 0,
+            y: 0,
+            width: dw,
+            height: dh
+        };
         const monitor = Main.layoutManager.getWorkAreaForMonitor(monitorData.index);
 
         const pos = this._getDockPosition();
         const margin = this.settings.get_int('dock-margin') || 0;
 
         switch (pos) {
-            case 'TOP': return { x: monitor.x + (monitor.width - dw) / 2, y: monitor.y + margin, width: dw, height: dh };
-            case 'BOTTOM': return { x: monitor.x + (monitor.width - dw) / 2, y: monitor.y + monitor.height - dh - margin, width: dw, height: dh };
-            case 'LEFT': return { x: monitor.x + margin, y: monitor.y + (monitor.height - dh) / 2, width: dw, height: dh };
-            case 'RIGHT': return { x: monitor.x + monitor.width - dw - margin, y: monitor.y + (monitor.height - dh) / 2, width: dw, height: dh };
+            case 'TOP':
+                return {
+                    x: monitor.x + (monitor.width - dw) / 2, y: monitor.y + margin, width: dw, height: dh
+                };
+            case 'BOTTOM':
+                return {
+                    x: monitor.x + (monitor.width - dw) / 2, y: monitor.y + monitor.height - dh - margin, width: dw, height: dh
+                };
+            case 'LEFT':
+                return {
+                    x: monitor.x + margin, y: monitor.y + (monitor.height - dh) / 2, width: dw, height: dh
+                };
+            case 'RIGHT':
+                return {
+                    x: monitor.x + monitor.width - dw - margin, y: monitor.y + (monitor.height - dh) / 2, width: dw, height: dh
+                };
         }
-        return { x: 0, y: 0, width: dw, height: dh };
+        return {
+            x: 0,
+            y: 0,
+            width: dw,
+            height: dh
+        };
     }
 
     _isHovering() {
@@ -365,24 +425,43 @@ export default class AutoHideManager {
 
         if (!this.isHidden) {
             let hoverZoom = false;
-            try { hoverZoom = this.settings.get_boolean('hover-zoom'); } catch (e) { }
+            try {
+                hoverZoom = this.settings.get_boolean('hover-zoom');
+            } catch (e) {}
 
             let maxZoom = 1.0;
             if (hoverZoom) {
-                try { maxZoom = this.settings.get_double('hover-zoom-factor'); } catch (e) { }
+                try {
+                    maxZoom = this.settings.get_double('hover-zoom-factor');
+                } catch (e) {}
             }
 
             const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
             let iconSize = 48;
-            try { iconSize = this.settings.get_int('icon-size'); } catch (e) { }
+            try {
+                iconSize = this.settings.get_int('icon-size');
+            } catch (e) {}
 
             const overflow = iconSize * actualMax;
 
-            padX = isVertical ? 25 : Math.max(25, overflow);
-            padY = isVertical ? Math.max(25, overflow) : 25;
+            padX = isVertical ? Math.max(20, overflow) : 10;
+            padY = isVertical ? 10 : Math.max(20, overflow);
         }
 
-        return (px >= dax - padX && px <= dax + daw + padX && py >= day - padY && py <= day + dah + padY);
+        let boundsLeft = dax,
+            boundsRight = dax + daw,
+            boundsTop = day,
+            boundsBottom = day + dah;
+        if (this.dockUI.actor.bgActor) {
+            const [bx, by] = this.dockUI.actor.bgActor.get_transformed_position();
+            const [bw, bh] = this.dockUI.actor.bgActor.get_transformed_size();
+            boundsLeft = Math.min(boundsLeft, bx);
+            boundsRight = Math.max(boundsRight, bx + bw);
+            boundsTop = Math.min(boundsTop, by);
+            boundsBottom = Math.max(boundsBottom, by + bh);
+        }
+
+        return (px >= boundsLeft - padX && px <= boundsRight + padX && py >= boundsTop - padY && py <= boundsBottom + padY);
     }
 
     _isValidWindow(win) {
@@ -407,6 +486,8 @@ export default class AutoHideManager {
     _shouldStayVisibleForTransientUI() {
         if (!this.dockUI || this.dockUI._isDestroyed) return false;
 
+        if (this.isPaused()) return true;
+
         if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
             return true;
         }
@@ -415,7 +496,7 @@ export default class AutoHideManager {
             if (typeof this.dockUI.shouldIgnoreAutoHide === 'function' && this.dockUI.shouldIgnoreAutoHide()) {
                 return true;
             }
-        } catch (_e) { }
+        } catch (_e) {}
 
         return false;
     }
@@ -504,7 +585,7 @@ export default class AutoHideManager {
             shouldHide = anyOverlap;
         }
 
-        shouldHide ? this._hide() : this._show(false, true); 
+        shouldHide ? this._hide() : this._show(false, true);
     }
 
     _scheduleUpdate(delay = 50) {
@@ -515,7 +596,10 @@ export default class AutoHideManager {
         if (this._updateTimerId && this._nextUpdateAt && this._nextUpdateAt <= targetAt) {
             return;
         }
-        if (this._updateTimerId) { GLib.source_remove(this._updateTimerId); this._updateTimerId = null; }
+        if (this._updateTimerId) {
+            GLib.source_remove(this._updateTimerId);
+            this._updateTimerId = null;
+        }
         this._nextUpdateAt = targetAt;
 
         this._updateTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
@@ -527,9 +611,18 @@ export default class AutoHideManager {
     }
 
     _cancelTimers() {
-        if (this._hideTimerId) { GLib.source_remove(this._hideTimerId); this._hideTimerId = null; }
-        if (this._showTimerId) { GLib.source_remove(this._showTimerId); this._showTimerId = null; }
-        if (this._edgeRevealTimerId) { GLib.source_remove(this._edgeRevealTimerId); this._edgeRevealTimerId = null; }
+        if (this._hideTimerId) {
+            GLib.source_remove(this._hideTimerId);
+            this._hideTimerId = null;
+        }
+        if (this._showTimerId) {
+            GLib.source_remove(this._showTimerId);
+            this._showTimerId = null;
+        }
+        if (this._edgeRevealTimerId) {
+            GLib.source_remove(this._edgeRevealTimerId);
+            this._edgeRevealTimerId = null;
+        }
         this._stopEdgePointerPoll();
     }
 
@@ -568,10 +661,8 @@ export default class AutoHideManager {
             this._hoverPollId = null;
         }
 
-        if (this.dockUI.actor) {
+        if (this.dockUI.actor)
             this.dockUI.actor._isHidden = false;
-            this.dockUI.actor._suppressZoom = false;
-        }
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
 
         const actor = this.dockUI.actor;
@@ -585,13 +676,12 @@ export default class AutoHideManager {
         this._applyDockInputState(true);
 
         this._updateEdgeTrigger();
+        this._setAutoHideMagnifierPaused(false);
     }
 
-    _show(force = false, suppressAnimations = false) {
+    _show(force = false, _suppressAnimations = false) {
         if (!this.isHidden && !force && !this._hideTimerId && !this._showTimerId) {
-            if (!suppressAnimations && this.dockUI && this.dockUI.actor) {
-                this.dockUI.actor._suppressZoom = false;
-            }
+            this._setAutoHideMagnifierPaused(false);
             return;
         }
 
@@ -607,17 +697,19 @@ export default class AutoHideManager {
 
         let unhideDelay = 0;
         if (this._pointerUpdate) {
-            try { unhideDelay = this.settings.get_int('unhide-delay'); } catch (e) { }
+            try {
+                unhideDelay = this.settings.get_int('unhide-delay');
+            } catch (e) {}
         }
 
         if (unhideDelay > 0 && !force) {
             this._showTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, unhideDelay, () => {
                 this._showTimerId = null;
-                this._animateShow(suppressAnimations);
+                this._animateShow();
                 return GLib.SOURCE_REMOVE;
             });
         } else {
-            this._animateShow(suppressAnimations);
+            this._animateShow();
         }
     }
 
@@ -634,7 +726,9 @@ export default class AutoHideManager {
         this._cancelTimers();
 
         let hideDelay = 200;
-        try { hideDelay = this.settings.get_int('hide-delay'); } catch (e) { }
+        try {
+            hideDelay = this.settings.get_int('hide-delay');
+        } catch (e) {}
 
         this._hideTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, hideDelay, () => {
             this._hideTimerId = null;
@@ -664,7 +758,7 @@ export default class AutoHideManager {
         });
     }
 
-    _animateShow(suppressAnimations = false) {
+    _animateShow() {
         if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
 
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
@@ -672,12 +766,6 @@ export default class AutoHideManager {
         this._applyDockInputState(true);
 
         this.dockUI.actor.remove_all_transitions();
-
-        if (suppressAnimations) {
-            this.dockUI.actor._suppressZoom = true;
-        } else {
-            this.dockUI.actor._suppressZoom = false;
-        }
 
         this.dockUI.actor.show();
         this.dockUI.actor.visible = true;
@@ -695,12 +783,21 @@ export default class AutoHideManager {
         const dw = this.dockUI.actor._cachedW || this.dockUI.actor.width || 100;
         const dh = this.dockUI.actor._cachedH || this.dockUI.actor.height || 48;
 
-        let startTx = 0, startTy = 0;
+        let startTx = 0,
+            startTy = 0;
         switch (pos) {
-            case 'TOP': startTy = -(dh + offset); break;
-            case 'BOTTOM': startTy = dh + offset; break;
-            case 'LEFT': startTx = -(dw + offset); break;
-            case 'RIGHT': startTx = dw + offset; break;
+            case 'TOP':
+                startTy = -(dh + offset);
+                break;
+            case 'BOTTOM':
+                startTy = dh + offset;
+                break;
+            case 'LEFT':
+                startTx = -(dw + offset);
+                break;
+            case 'RIGHT':
+                startTx = dw + offset;
+                break;
         }
 
         if (Math.abs(this.dockUI.actor.translation_x) > 5000 || Math.abs(this.dockUI.actor.translation_y) > 5000) {
@@ -714,6 +811,7 @@ export default class AutoHideManager {
             this.dockUI.actor.translation_x = 0;
             this.dockUI.actor.translation_y = 0;
             this._applyDockInputState(true);
+            this._setAutoHideMagnifierPaused(false);
             return;
         }
 
@@ -741,6 +839,8 @@ export default class AutoHideManager {
                     this.dockUI.actor.opacity = 0;
                     this._applyDockInputState(false);
                     this._updateEdgeTrigger();
+                } else {
+                    this._setAutoHideMagnifierPaused(false);
                 }
             }
         });
@@ -758,7 +858,7 @@ export default class AutoHideManager {
         this._applyDockInputState(false);
 
         this.dockUI.actor.remove_all_transitions();
-        this.dockUI.actor._suppressZoom = true;
+        this._setAutoHideMagnifierPaused(true);
 
         const pos = this._getDockPosition();
         const offset = (this.settings.get_int('dock-margin') || 0) + 80;
@@ -766,13 +866,22 @@ export default class AutoHideManager {
         const dw = this.dockUI.actor._cachedW || this.dockUI.actor.width || 100;
         const dh = this.dockUI.actor._cachedH || this.dockUI.actor.height || 48;
 
-        let tx = 0, ty = 0;
+        let tx = 0,
+            ty = 0;
 
         switch (pos) {
-            case 'TOP': ty = -(dh + offset); break;
-            case 'BOTTOM': ty = dh + offset; break;
-            case 'LEFT': tx = -(dw + offset); break;
-            case 'RIGHT': tx = dw + offset; break;
+            case 'TOP':
+                ty = -(dh + offset);
+                break;
+            case 'BOTTOM':
+                ty = dh + offset;
+                break;
+            case 'LEFT':
+                tx = -(dw + offset);
+                break;
+            case 'RIGHT':
+                tx = dw + offset;
+                break;
         }
 
         this._isAnimating = true;
@@ -806,14 +915,23 @@ export default class AutoHideManager {
     }
 
     destroy() {
+        this._setAutoHideMagnifierPaused(false);
         this._destroyed = true;
         this._cancelTimers();
-        if (this._updateTimerId) { GLib.source_remove(this._updateTimerId); this._updateTimerId = null; }
+        if (this._updateTimerId) {
+            GLib.source_remove(this._updateTimerId);
+            this._updateTimerId = null;
+        }
         this._nextUpdateAt = 0;
-        if (this._hoverPollId) { GLib.source_remove(this._hoverPollId); this._hoverPollId = null; }
+        if (this._hoverPollId) {
+            GLib.source_remove(this._hoverPollId);
+            this._hoverPollId = null;
+        }
 
         for (const s of this.signals) {
-            try { if (s.id && s.obj) s.obj.disconnect(s.id); } catch (e) { }
+            try {
+                if (s.id && s.obj) s.obj.disconnect(s.id);
+            } catch (e) {}
         }
         this.signals = [];
 
@@ -821,13 +939,15 @@ export default class AutoHideManager {
             try {
                 Main.layoutManager.removeChrome(this.edgeTrigger);
                 this.edgeTrigger.destroy();
-            } catch (e) { }
+            } catch (e) {}
             this.edgeTrigger = null;
         }
 
         if (this._trackedWin && this._trackedWinSignals) {
             this._trackedWinSignals.forEach(id => {
-                try { this._trackedWin.disconnect(id); } catch (e) { }
+                try {
+                    this._trackedWin.disconnect(id);
+                } catch (e) {}
             });
             this._trackedWinSignals = [];
             this._trackedWin = null;

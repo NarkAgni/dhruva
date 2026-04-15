@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import Gio from 'gi://Gio';
@@ -88,8 +88,14 @@ export const DockThemes = {
     'chameleon': {
         name: 'Chameleon (Wallpaper Color)',
         css: (cfg) => {
-            const c = (cfg.chameleonColor && cfg.chameleonColor.bg) || { r: 30, g: 30, b: 40 };
-            const r1 = c.r, g1 = c.g, b1 = c.b;
+            const c = (cfg.chameleonColor && cfg.chameleonColor.bg) || {
+                r: 30,
+                g: 30,
+                b: 40
+            };
+            const r1 = c.r,
+                g1 = c.g,
+                b1 = c.b;
             const r2 = Math.max(0, Math.floor(r1 * 0.7));
             const g2 = Math.max(0, Math.floor(g1 * 0.7));
             const b2 = Math.max(0, Math.floor(b1 * 0.7));
@@ -109,7 +115,8 @@ function _rgbToHsl(r, g, b) {
 
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
-    let h = 0, s = 0;
+    let h = 0,
+        s = 0;
     const l = (max + min) / 2;
 
     if (max !== min) {
@@ -117,12 +124,22 @@ function _rgbToHsl(r, g, b) {
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 
         switch (max) {
-            case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-            case g: h = ((b - r) / d + 2) / 6; break;
-            case b: h = ((r - g) / d + 4) / 6; break;
+            case r:
+                h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+                break;
+            case g:
+                h = ((b - r) / d + 2) / 6;
+                break;
+            case b:
+                h = ((r - g) / d + 4) / 6;
+                break;
         }
     }
-    return { h: h * 360, s, l };
+    return {
+        h: h * 360,
+        s,
+        l
+    };
 }
 
 function _hslToRgb(h, s, l) {
@@ -139,7 +156,11 @@ function _hslToRgb(h, s, l) {
 
     if (s === 0) {
         const v = Math.round(l * 255);
-        return { r: v, g: v, b: v };
+        return {
+            r: v,
+            g: v,
+            b: v
+        };
     }
 
     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
@@ -157,7 +178,10 @@ function _rgbToHex(r, g, b) {
 }
 
 export function getChameleonAccentColor(rawR, rawG, rawB) {
-    const { h, s } = _rgbToHsl(rawR, rawG, rawB);
+    const {
+        h,
+        s
+    } = _rgbToHsl(rawR, rawG, rawB);
 
     if (s < 0.05) return '#ffffff';
 
@@ -167,13 +191,19 @@ export function getChameleonAccentColor(rawR, rawG, rawB) {
 
 export function extractWallpaperDominantColor() {
     try {
-        const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
+        const bgSettings = new Gio.Settings({
+            schema: 'org.gnome.desktop.background'
+        });
 
         let wallpaperUri = '';
-        try { wallpaperUri = bgSettings.get_string('picture-uri-dark'); } catch (e) { }
+        try {
+            wallpaperUri = bgSettings.get_string('picture-uri-dark');
+        } catch (e) {}
 
         if (!wallpaperUri) {
-            try { wallpaperUri = bgSettings.get_string('picture-uri'); } catch (e) { }
+            try {
+                wallpaperUri = bgSettings.get_string('picture-uri');
+            } catch (e) {}
         }
 
         if (!wallpaperUri) return null;
@@ -191,7 +221,10 @@ export function extractWallpaperDominantColor() {
         const rowstride = pixbuf.get_rowstride();
         const pixels = pixbuf.get_pixels();
 
-        let totalR = 0, totalG = 0, totalB = 0, count = 0;
+        let totalR = 0,
+            totalG = 0,
+            totalB = 0,
+            count = 0;
         const step = 4;
 
         for (let y = 0; y < h; y += step) {
@@ -213,10 +246,21 @@ export function extractWallpaperDominantColor() {
             }
         }
 
-        const fallbackBg  = { r: 30, g: 30, b: 40 };
-        const fallbackRaw = { r: 90, g: 100, b: 130 };
+        const fallbackBg = {
+            r: 30,
+            g: 30,
+            b: 40
+        };
+        const fallbackRaw = {
+            r: 90,
+            g: 100,
+            b: 130
+        };
 
-        if (count === 0) return { bg: fallbackBg, raw: fallbackRaw };
+        if (count === 0) return {
+            bg: fallbackBg,
+            raw: fallbackRaw
+        };
 
         const rawR = Math.floor(totalR / count);
         const rawG = Math.floor(totalG / count);
@@ -227,8 +271,16 @@ export function extractWallpaperDominantColor() {
         const bgB = Math.floor(rawB * 0.55);
 
         return {
-            bg:  { r: bgR, g: bgG, b: bgB },
-            raw: { r: rawR, g: rawG, b: rawB },
+            bg: {
+                r: bgR,
+                g: bgG,
+                b: bgB
+            },
+            raw: {
+                r: rawR,
+                g: rawG,
+                b: rawB
+            },
         };
     } catch (e) {
         console.error('[Dhruva Chameleon] Wallpaper color extract error:', e.message);

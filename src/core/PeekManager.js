@@ -1,17 +1,17 @@
 /*
-* Dhruva GNOME Extension
-* Copyright (C) 2026 NarkAgni
-* * This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* any later version.
-* * This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-* * You should have received a copy of the GNU General Public License
-* along with this program. If not, see https://www.gnu.org/licenses/. 
-*/
+ * Dhruva GNOME Extension
+ * Copyright (C) 2026 NarkAgni
+ * * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * any later version.
+ * * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ * * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see https://www.gnu.org/licenses/. 
+ */
 
 
 import St from 'gi://St';
@@ -38,11 +38,18 @@ export default class PeekManager {
         overlayActor.add_child(this.bigPreviewContainer);
 
         if (this.dockUI && this.dockUI.actor) {
-            const dockParent = this.dockUI.actor.get_parent();
-            if (dockParent && dockParent === overlayActor) {
-                overlayActor.set_child_below_sibling(this.bigPreviewContainer, this.dockUI.actor);
-            } else {
-                overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
+            try {
+                const sibling = this.dockUI.actor;
+                const dockParent = sibling.get_parent();
+                if (dockParent && dockParent === overlayActor) {
+                    overlayActor.set_child_below_sibling(this.bigPreviewContainer, sibling);
+                } else {
+                    overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
+                }
+            } catch (_e) {
+                try {
+                    overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
+                } catch (__e) {}
             }
         }
     }
@@ -71,7 +78,9 @@ export default class PeekManager {
         this._swapPreview(targetWin);
 
         let peekEnabled = true;
-        try { peekEnabled = this.settings.get_boolean('peek-effect'); } catch (e) { }
+        try {
+            peekEnabled = this.settings.get_boolean('peek-effect');
+        } catch (e) {}
         if (!peekEnabled) return;
 
         if (this._peekTimer) {
@@ -134,18 +143,23 @@ export default class PeekManager {
         const compPrivate = win.get_compositor_private();
         if (!compPrivate) return;
 
-        const { monitor } = this.dockUI.monitorManager.getCurrentMonitor();
+        const {
+            monitor
+        } = this.dockUI.monitorManager.getCurrentMonitor();
         const rect = win.get_frame_rect();
         const w = Math.max(1, rect.width || 1);
         const h = Math.max(1, rect.height || 1);
 
         let scalePercent = 70;
-        try { scalePercent = this.settings.get_int('big-preview-size'); } catch (e) { }
+        try {
+            scalePercent = this.settings.get_int('big-preview-size');
+        } catch (e) {}
 
         const maxW = monitor.width * (scalePercent / 100);
         const maxH = monitor.height * (scalePercent / 100);
 
-        let previewW = w, previewH = h;
+        let previewW = w,
+            previewH = h;
         if (previewW > maxW) {
             previewW = maxW;
             previewH = (h / w) * previewW;
@@ -155,7 +169,10 @@ export default class PeekManager {
             previewW = (w / h) * previewH;
         }
 
-        const clone = new Clutter.Clone({ source: compPrivate, reactive: false });
+        const clone = new Clutter.Clone({
+            source: compPrivate,
+            reactive: false
+        });
         clone.set_size(previewW, previewH);
 
         const wrapBin = new St.Bin({
@@ -172,7 +189,7 @@ export default class PeekManager {
         const targetY = monitor.y + (monitor.height / 2) - (previewH / 2);
 
         const alreadyVisible = this.bigPreviewContainer.opacity > 50;
-        
+
         this.bigPreviewContainer.remove_all_transitions();
 
         if (alreadyVisible) {
@@ -187,7 +204,7 @@ export default class PeekManager {
                         wrapBin.destroy();
                         return;
                     }
-                    
+
                     this._pendingWrapBin = null;
                     this.bigPreviewContainer.destroy_all_children();
                     this.bigPreviewContainer.add_child(wrapBin);
@@ -240,8 +257,14 @@ export default class PeekManager {
     }
 
     destroy() {
-        if (this._hideTimer) { GLib.source_remove(this._hideTimer); this._hideTimer = null; }
-        if (this._peekTimer) { GLib.source_remove(this._peekTimer); this._peekTimer = null; }
+        if (this._hideTimer) {
+            GLib.source_remove(this._hideTimer);
+            this._hideTimer = null;
+        }
+        if (this._peekTimer) {
+            GLib.source_remove(this._peekTimer);
+            this._peekTimer = null;
+        }
 
         if (this._isPeeking) {
             this._ghostWindows(255, 200, Clutter.AnimationMode.EASE_OUT_QUAD);

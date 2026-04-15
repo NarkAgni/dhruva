@@ -400,6 +400,11 @@
       <summary>Show Clock</summary>
     </key>
 
+    <key name="use-24h-clock" type="b">
+      <default>false</default>
+      <summary>Use 24-hour clock format</summary>
+    </key>
+
     <key name="clock-font-size" type="i">
       <default>20</default>
       <summary>Clock Font Size</summary>
@@ -473,6 +478,12 @@
     <key name="custom-grid-icon-scale" type="i">
       <default>90</default>
       <summary>Custom Grid Icon Scale Percentage</summary>
+    </key>
+
+    <key name="app-folders" type="s">
+      <default>'[]'</default>
+      <summary>JSON array of app folders (stacking)</summary>
+      <description>Stores custom folders containing multiple app IDs.</description>
     </key>
 
   </schema>
