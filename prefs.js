@@ -1047,7 +1047,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         page.add(utilGroup);
 
         this._addSwitchRow(utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
-
+        this._addSwitchRow(utilGroup, settings, 'show-unpinned-apps', 'Show Unpinned Apps', 'Display running apps that are not pinned to the dock', 'view-paged-symbolic', null);
         const qlRow = new Adw.ActionRow({
             title: 'Quick launch',
             subtitle: 'Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard. If Super + number still runs “Switch to application”, disable that binding in system shortcuts so Dhruva can own it.',

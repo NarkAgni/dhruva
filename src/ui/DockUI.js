@@ -370,7 +370,7 @@ export default class DockUI {
             'isolate-monitors', 'show-notification-badges', 'show-mounts', 'separator-width', 'separator-height',
             'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
             'running-separator-color', 'running-separator-opacity', 'grid-icon-color', 'custom-grid-icon',
-            'custom-grid-icon-scale', 'use-old-grid-icon', 'app-folders'
+            'custom-grid-icon-scale', 'use-old-grid-icon', 'app-folders', 'show-unpinned-apps'
         ];
 
         settingsToWatch.forEach(key => {

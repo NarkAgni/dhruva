@@ -1008,7 +1008,10 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
                     let tx = 0,
                         ty = 0;
-                    const gap = 8;
+                    
+                    const btnClass = typeof btn.get_style_class_name === 'function' ? btn.get_style_class_name() : (btn.style_class || '');
+                    const isClock = btnClass.includes('clock-module') || appName === 'Date & Time';
+                    const gap = isClock ? 24 : 8;
 
                     const iconCenterX = bx + bw / 2;
                     const iconCenterY = by + bh / 2;

@@ -266,7 +266,11 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
             let favIds = [];
             try {
-                favIds = dockUI.appManager.favManager.getFavorites().map(a => typeof a.get_id === 'function' ? a.get_id() : '');
+                if (dockUI.settings.get_boolean('independent-dock')) {
+                    favIds = dockUI.appManager.pinnedApps || [];
+                } else {
+                    favIds = dockUI.appManager.favManager.getFavorites().map(a => typeof a.get_id === 'function' ? a.get_id() : '');
+                }
             } catch (e) {}
 
             const isDraggedPinned = isDraggedFolder || favIds.includes(draggedId);
@@ -386,7 +390,6 @@ export function setupDragAndDrop(btn, app, dockUI) {
             draggable._dragActor.destroy();
         }
 
-
         if (btn._wasMerged) {
             btn._wasMerged = false;
             btn.opacity = 255;
@@ -435,31 +438,45 @@ export function setupDragAndDrop(btn, app, dockUI) {
         currentBtns.forEach(b => {
             if (b._delegate) {
                 if (b._delegate.isFolder) {
-
                 } else if (b._delegate.app && !b._delegate.app.is_module && typeof b._delegate.app.get_id === 'function') {
                     newOrderIds.push(b._delegate.app.get_id());
                 }
             }
         });
 
-        const favManager = dockUI.appManager.favManager;
-        const currentFavIds = favManager.getFavorites().map(a => a.get_id());
+        const isIndependent = dockUI.settings.get_boolean('independent-dock');
 
-        const finalFavOrder = newOrderIds.filter(id => currentFavIds.includes(id) || id === entityId);
-
-        currentFavIds.forEach(id => {
-            if (!finalFavOrder.includes(id)) {
-                finalFavOrder.push(id);
-            }
-        });
-
-        try {
-            const shellSettings = new Gio.Settings({
-                schema_id: 'org.gnome.shell'
+        if (isIndependent) {
+            const currentPinnedIds = dockUI.appManager.pinnedApps || [];
+            const finalPinnedOrder = newOrderIds.filter(id => currentPinnedIds.includes(id) || id === entityId);
+            
+            currentPinnedIds.forEach(id => {
+                if (!finalPinnedOrder.includes(id)) {
+                    finalPinnedOrder.push(id);
+                }
             });
-            shellSettings.set_strv('favorite-apps', finalFavOrder);
-        } catch (e) {
-            console.error('[Dhruva] Failed to reorder favorites:', e);
+
+            dockUI.appManager.savePinnedApps(finalPinnedOrder);
+        } else {
+            const favManager = dockUI.appManager.favManager;
+            const currentFavIds = favManager.getFavorites().map(a => a.get_id());
+
+            const finalFavOrder = newOrderIds.filter(id => currentFavIds.includes(id) || id === entityId);
+
+            currentFavIds.forEach(id => {
+                if (!finalFavOrder.includes(id)) {
+                    finalFavOrder.push(id);
+                }
+            });
+
+            try {
+                const shellSettings = new Gio.Settings({
+                    schema_id: 'org.gnome.shell'
+                });
+                shellSettings.set_strv('favorite-apps', finalFavOrder);
+            } catch (e) {
+                console.error('[Dhruva] Failed to reorder favorites:', e);
+            }
         }
 
         if (!isInsideMain) {

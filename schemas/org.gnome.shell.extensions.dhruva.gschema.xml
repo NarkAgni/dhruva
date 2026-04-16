@@ -492,5 +492,11 @@
       <description>Use Dhruva's own pinned apps and custom app grid instead of GNOME's native dash.</description>
     </key>
 
+    <key name="show-unpinned-apps" type="b">
+      <default>true</default>
+      <summary>Show Unpinned Apps</summary>
+      <description>Show running apps that are not pinned to the dock.</description>
+  </key>
+
   </schema>
 </schemalist>

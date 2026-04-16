@@ -162,20 +162,28 @@ export default class AppManager {
     }
 
     getDisplayApps() {
+        let showUnpinned = true;
+        try {
+            showUnpinned = this.settings.get_boolean('show-unpinned-apps');
+        } catch (e) {}
+
         if (!this.isIndependent()) {
             const favorites = this.favManager.getFavorites();
             const runningApps = this.appSystem.get_running();
             const favIds = new Set(favorites.map(a => a.get_id()));
 
             let displayApps = [...favorites];
-            runningApps.forEach(app => {
-                if (!favIds.has(app.get_id())) {
-                    const activeWins = app.get_windows().filter(w => !w.is_skip_taskbar());
-                    if (activeWins.length > 0) {
-                        displayApps.push(app);
+            
+            if (showUnpinned) {
+                runningApps.forEach(app => {
+                    if (!favIds.has(app.get_id())) {
+                        const activeWins = app.get_windows().filter(w => !w.is_skip_taskbar());
+                        if (activeWins.length > 0) {
+                            displayApps.push(app);
+                        }
                     }
-                }
-            });
+                });
+            }
             return displayApps;
         }
 
@@ -198,14 +206,16 @@ export default class AppManager {
 
         if (needsSave) this.savePinnedApps();
 
-        runningApps.forEach(app => {
-            if (runningIds.has(app.get_id())) {
-                const activeWins = app.get_windows().filter(w => !w.is_skip_taskbar());
-                if (activeWins.length > 0) {
-                    displayApps.push(app);
+        if (showUnpinned) {
+            runningApps.forEach(app => {
+                if (runningIds.has(app.get_id())) {
+                    const activeWins = app.get_windows().filter(w => !w.is_skip_taskbar());
+                    if (activeWins.length > 0) {
+                        displayApps.push(app);
+                    }
                 }
-            }
-        });
+            });
+        }
 
         return displayApps;
     }
