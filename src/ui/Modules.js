@@ -382,6 +382,15 @@ export function buildModules(dockUI, iconSize) {
         gridModule._activateCallback = (buttonNum) => {
             if (buttonNum === 1) {
                 animateIconClick(gridIconBin, settings.get_string('click-effect'));
+                
+                if (settings.get_boolean('independent-dock')) {
+                    if (dockUI.appGridUI) {
+                        dockUI.appGridUI.toggle(dockUI.dockPosition);
+                    }
+                    if (dockUI.actor) dockUI.actor._suppressZoom = true;
+                    return;
+                }
+
                 try {
                     const isAppsPageVisible = Main.overview.visible &&
                         Main.overview._overview?._controls?._appDisplay?.visible;

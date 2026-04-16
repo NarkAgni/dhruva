@@ -486,5 +486,11 @@
       <description>Stores custom folders containing multiple app IDs.</description>
     </key>
 
+    <key name="independent-dock" type="b">
+      <default>false</default>
+      <summary>Independent Dock Mode</summary>
+      <description>Use Dhruva's own pinned apps and custom app grid instead of GNOME's native dash.</description>
+    </key>
+
   </schema>
 </schemalist>

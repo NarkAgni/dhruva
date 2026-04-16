@@ -17,7 +17,6 @@
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-
 export default class DockManager {
     constructor(dockUI, settings) {
         this.dockUI = dockUI;
@@ -25,11 +24,24 @@ export default class DockManager {
         this._originalDash = Main.overview.dash;
         this._externalActors = new Set();
 
-        this._takeoverGnomeDash();
+        this._applyDashState();
+
+        this._settingSignalId = this.settings.connect('changed::independent-dock', () => {
+            this._applyDashState();
+        });
+    }
+
+    _applyDashState() {
+        if (this.settings.get_boolean('independent-dock')) {
+            this._restoreGnomeDash();
+        } else {
+            this._takeoverGnomeDash();
+        }
     }
 
     _takeoverGnomeDash() {
         if (!this._originalDash) return;
+        if (this._hijackedOrigBox) return;
 
         this._originalDash.opacity = 0;
         this._originalDash.scale_x = 0;
@@ -145,52 +157,7 @@ export default class DockManager {
         }
     }
 
-    updatePosition() {
-        if (!this.dockUI || this.dockUI._isDestroyed || !this.dockUI.actor || !this.dockUI.boxActor) return;
-        if (!this.dockUI.actor.is_mapped()) return;
-
-        try {
-            this.dockUI.actor.remove_all_transitions();
-            this.dockUI.actor.translation_x = 0;
-            this.dockUI.actor.translation_y = 0;
-
-            const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
-            if (!monitorResult || !monitorResult.monitor) return;
-
-            const workArea = Main.layoutManager.getWorkAreaForMonitor(monitorResult.index);
-            const margin = this.settings.get_int('dock-margin');
-            const pos = this.settings.get_string('dock-position');
-            const isFullWidth = this.settings.get_boolean('full-width');
-
-            let xPos = 0,
-                yPos = 0;
-            const aw = this.dockUI.actor.width;
-            const ah = this.dockUI.actor.height;
-
-            if (pos === 'TOP') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
-                yPos = workArea.y + margin + 2;
-            } else if (pos === 'BOTTOM') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
-                yPos = workArea.y + workArea.height - ah - margin;
-            } else if (pos === 'LEFT') {
-                xPos = workArea.x + margin;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
-            } else if (pos === 'RIGHT') {
-                xPos = workArea.x + workArea.width - aw - margin;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
-            }
-
-            this.dockUI.actor.set_position(xPos, yPos);
-
-            if (this.dockUI.autoHideManager) {
-                this.dockUI.autoHideManager.isVisible = true;
-                this.dockUI.autoHideManager.isAnimating = false;
-            }
-        } catch (e) {}
-    }
-
-    destroy() {
+    _restoreGnomeDash() {
         const originalBox = this._originalDash?._box;
 
         if (this._hijackedOrigBox && this._nativeOrigAdd && this._nativeOrigInsert && this._nativeOrigRemove) {
@@ -243,6 +210,72 @@ export default class DockManager {
         this._nativeOrigAdd = null;
         this._nativeOrigInsert = null;
         this._nativeOrigAddActor = null;
+    }
+
+    updatePosition() {
+        if (!this.dockUI || this.dockUI._isDestroyed || !this.dockUI.actor || !this.dockUI.boxActor) return;
+        if (!this.dockUI.actor.is_mapped()) return;
+
+        try {
+            this.dockUI.actor.remove_all_transitions();
+            this.dockUI.actor.translation_x = 0;
+            this.dockUI.actor.translation_y = 0;
+
+            const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
+            if (!monitorResult || !monitorResult.monitor) return;
+
+            const actualMonitor = monitorResult.monitor;
+            let topOffset = 0;
+            if (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) {
+                topOffset = Main.panel.height || 27;
+            }
+
+            const workArea = {
+                x: actualMonitor.x,
+                y: actualMonitor.y + topOffset,
+                width: actualMonitor.width,
+                height: actualMonitor.height - topOffset
+            };
+            const margin = this.settings.get_int('dock-margin');
+            const pos = this.settings.get_string('dock-position');
+            const isFullWidth = this.settings.get_boolean('full-width');
+
+            let xPos = 0,
+                yPos = 0;
+            const aw = this.dockUI.actor.width;
+            const ah = this.dockUI.actor.height;
+
+            if (pos === 'TOP') {
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y + margin + 2;
+            } else if (pos === 'BOTTOM') {
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y + workArea.height - ah - margin;
+            } else if (pos === 'LEFT') {
+                xPos = workArea.x + margin;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+            } else if (pos === 'RIGHT') {
+                xPos = workArea.x + workArea.width - aw - margin;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+            }
+
+            this.dockUI.actor.set_position(xPos, yPos);
+
+            if (this.dockUI.autoHideManager) {
+                this.dockUI.autoHideManager.isVisible = true;
+                this.dockUI.autoHideManager.isAnimating = false;
+            }
+        } catch (e) {}
+    }
+
+    destroy() {
+        if (this._settingSignalId) {
+            this.settings.disconnect(this._settingSignalId);
+            this._settingSignalId = null;
+        }
+
+        this._restoreGnomeDash();
+        
         this.dockUI = null;
         this.settings = null;
     }

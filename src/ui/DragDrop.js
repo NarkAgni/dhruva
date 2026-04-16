@@ -14,7 +14,6 @@
  */
 
 
-import St from 'gi://St';
 import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';

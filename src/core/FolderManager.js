@@ -14,31 +14,97 @@
  */
 
 
-export default class FolderManager {
-    constructor(settings) {
-        this.settings = settings;
-        this.folders = this._loadFolders();
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 
+
+export default class FolderManager {
+    constructor(settings, uuid) {
+        this.settings = settings;
+        this.uuid = uuid || 'dhruva@narkagni'; 
+        
+        this.extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), this.uuid]);
+        this.dbPath = GLib.build_filenamev([this.extConfigDir, 'dhruva-folders.json']);
+
+        this.folders = [];
+        this._loadFoldersAsync();
 
         this._settingsSignal = this.settings.connect('changed::app-folders', () => {
-            this.folders = this._loadFolders();
+            if (!this.isIndependent()) {
+                this._loadFoldersAsync();
+            }
+        });
+
+        this._indepSignal = this.settings.connect('changed::independent-dock', () => {
+            this._loadFoldersAsync();
         });
     }
 
-    _loadFolders() {
-        try {
-            const data = this.settings.get_string('app-folders');
-            return JSON.parse(data || '[]');
-        } catch (e) {
-            console.error('[Dhruva] Failed to parse app folders:', e);
-            return [];
+    isIndependent() {
+        return this.settings.get_boolean('independent-dock');
+    }
+
+    onStateChanged(callback) {
+        this._onStateChangedCallback = callback;
+    }
+
+    _loadFoldersAsync() {
+        if (this.isIndependent()) {
+            const file = Gio.File.new_for_path(this.dbPath);
+            file.load_contents_async(null, (obj, res) => {
+                try {
+                    let [success, contents] = obj.load_contents_finish(res);
+                    if (success) {
+                        const decoder = new TextDecoder('utf-8');
+                        const parsed = JSON.parse(decoder.decode(contents));
+                        this.folders = Array.isArray(parsed) ? parsed : [];
+                    } else {
+                        this.folders = [];
+                    }
+                } catch (e) {
+                    this.folders = [];
+                }
+                if (typeof this._onStateChangedCallback === 'function') {
+                    this._onStateChangedCallback();
+                }
+            });
+        } else {
+            try {
+                const data = this.settings.get_string('app-folders');
+                this.folders = JSON.parse(data || '[]');
+            } catch (e) {
+                console.error('[Dhruva] Failed to parse app folders:', e);
+                this.folders = [];
+            }
+            if (typeof this._onStateChangedCallback === 'function') {
+                this._onStateChangedCallback();
+            }
         }
     }
 
     _saveFolders() {
-        this.settings.set_string('app-folders', JSON.stringify(this.folders));
+        if (this.isIndependent()) {
+            try {
+                GLib.mkdir_with_parents(this.extConfigDir, 0o755);
+                const dataStr = JSON.stringify(this.folders, null, 2);
+                
+                const file = Gio.File.new_for_path(this.dbPath);
+                const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
+                
+                file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
+                    try {
+                        obj.replace_contents_finish(res);
+                    } catch (e) {
+                        console.error("[Dhruva] Error saving independent folders:", e);
+                    }
+                });
+            } catch (e) {
+                console.error("[Dhruva] Error setting up save independent folders:", e);
+            }
+        } else {
+            this.settings.set_string('app-folders', JSON.stringify(this.folders));
+        }
     }
-
 
     createFolder(name = "New Folder", icon = "folder-symbolic") {
         const newFolder = {
@@ -52,7 +118,6 @@ export default class FolderManager {
         return newFolder.id;
     }
 
-
     addAppToFolder(folderId, appId) {
         const folder = this.folders.find(f => f.id === folderId);
         if (folder && !folder.apps.includes(appId)) {
@@ -62,7 +127,6 @@ export default class FolderManager {
         }
         return false;
     }
-
 
     removeAppFromFolder(folderId, appId) {
         const folder = this.folders.find(f => f.id === folderId);
@@ -79,7 +143,6 @@ export default class FolderManager {
         return false;
     }
 
-
     updateFolder(folderId, newName, newIcon) {
         const folder = this.folders.find(f => f.id === folderId);
         if (folder) {
@@ -90,7 +153,6 @@ export default class FolderManager {
         }
         return false;
     }
-
 
     deleteFolder(folderId) {
         this.folders = this.folders.filter(f => f.id !== folderId);
@@ -105,6 +167,10 @@ export default class FolderManager {
         if (this._settingsSignal) {
             this.settings.disconnect(this._settingsSignal);
             this._settingsSignal = null;
+        }
+        if (this._indepSignal) {
+            this.settings.disconnect(this._indepSignal);
+            this._indepSignal = null;
         }
     }
 }

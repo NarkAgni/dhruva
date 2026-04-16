@@ -100,7 +100,7 @@ function traceMenuPath(cr, w, h, r, ah, aw, dockPos, ax, ay) {
 }
 
 export default class AppContextMenu {
-    constructor(dockUI, app, buttonActor, isCtrlPressed = false, openPrefsCallback = null) {
+    constructor(dockUI, app, buttonActor, isCtrlPressed = false, openPrefsCallback = null, disablePeek = false) {
         this.dockUI = dockUI;
         this.appManager = dockUI.appManager;
         this.app = app;
@@ -130,8 +130,9 @@ export default class AppContextMenu {
             return Clutter.EVENT_STOP;
         });
 
-        this.peekManager = new PeekManager(this.dockUI, this.actor);
-
+        if (!disablePeek) {
+            this.peekManager = new PeekManager(this.dockUI, this.actor);
+        }
 
         this.menuContainer = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
@@ -371,7 +372,8 @@ export default class AppContextMenu {
                         }
                     });
                     windows = windows.filter(w => w !== win);
-                    this.peekManager.stopPeek();
+
+                    if (this.peekManager) this.peekManager.stopPeek();
 
                     if (windows.length === 0) {
                         this._addAppToIgnoreList(this.app);
@@ -404,7 +406,9 @@ export default class AppContextMenu {
                         duration: 150
                     });
                     thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.6); transition-duration: 150ms;');
-                    this.peekManager.startPeek(win);
+
+                    if (this.peekManager) this.peekManager.startPeek(win);
+
                     return Clutter.EVENT_PROPAGATE;
                 });
 
@@ -419,7 +423,9 @@ export default class AppContextMenu {
                         duration: 150
                     });
                     thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
-                    this.peekManager.stopPeek();
+
+                    if (this.peekManager) this.peekManager.stopPeek();
+
                     return Clutter.EVENT_PROPAGATE;
                 });
 
@@ -507,7 +513,8 @@ export default class AppContextMenu {
 
         if (!this.app.is_module && typeof this.app.get_id === 'function' && (!this.buttonActor || !this.buttonActor._inFolder)) {
             const isPinned = this.appManager.hasApp(this.app);
-            this.panel.add_child(this._createCheckboxItem('Keep in Dock', isPinned, () => {
+            const pinLabel = isPinned ? 'Unpin from Dhruva' : 'Pin to Dhruva';
+            this.panel.add_child(this._createMenuItem(pinLabel, () => {
                 isPinned ? this.appManager.removeApp(this.app) : this.appManager.addApp(this.app);
                 this.dockUI._renderDock();
                 this.hide();
@@ -839,13 +846,18 @@ export default class AppContextMenu {
             global.stage.set_key_focus(this.actor);
             this.actor.grab_key_focus();
 
-            if (this.dockUI?.actor) {
+            if (this.dockUI && this.dockUI.actor) {
                 try {
                     const parent = this.actor.get_parent();
-                    const sibling = this.dockUI.actor;
-                    const siblingParent = sibling?.get_parent?.();
-                    if (parent && sibling && parent === siblingParent) {
-                        parent.set_child_below_sibling(this.actor, sibling);
+
+                    if (!this.peekManager) {
+                        if (parent) parent.set_child_above_sibling(this.actor, null);
+                    }
+                    else {
+                        const sibling = this.dockUI.actor;
+                        const siblingParent = sibling?.get_parent?.();
+                        if (parent && sibling && parent === siblingParent)
+                            parent.set_child_below_sibling(this.actor, sibling);
                     }
                 } catch (_e) { }
             }
@@ -878,7 +890,9 @@ export default class AppContextMenu {
             const [btnW, btnH] = this.buttonActor.get_transformed_size();
 
             let isInsideFolder = this.buttonActor && this.buttonActor._inFolder;
-            let gap = isInsideFolder ? -8 : 20;
+            let isAppGrid = !this.peekManager && !isInsideFolder;
+
+            let gap = isInsideFolder ? -8 : (isAppGrid ? -8 : 22);
 
             let posX = btnX + (btnW / 2) - (this._dynamicPanelWidth / 2);
             let posY = btnY;
@@ -903,14 +917,18 @@ export default class AppContextMenu {
             if (posX + this._dynamicPanelWidth > monitor.x + monitor.width - gap) posX = monitor.x + monitor.width - this._dynamicPanelWidth - gap;
             if (dockPosition !== 'BOTTOM' && posY + panelH > monitor.y + monitor.height - gap) posY = monitor.y + monitor.height - panelH - gap;
 
+            posX = Math.round(posX);
+            posY = Math.round(posY);
+
             if (dockPosition === 'BOTTOM' || dockPosition === 'TOP') {
-                this.bgDrawingArea._arrowCenter = (btnX + btnW / 2) - posX;
+                this.bgDrawingArea._arrowCenter = Math.round((btnX + btnW / 2) - posX);
             } else {
-                this.bgDrawingArea._arrowCenter = (btnY + btnH / 2) - posY;
+                this.bgDrawingArea._arrowCenter = Math.round((btnY + btnH / 2) - posY);
             }
             this.bgDrawingArea.queue_repaint();
 
             this.menuContainer.set_position(posX, posY);
+            
             this.menuContainer.opacity = 0;
             this.menuContainer.set_scale(0.95, 0.95);
             this.menuContainer.ease({

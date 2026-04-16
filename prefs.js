@@ -371,6 +371,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         this._addSwitchRow(posGroup, settings, 'show-on-all-monitors', 'Show on All Monitors', 'Display the dock on every connected screen', 'video-display-symbolic', null);
         this._addSwitchRow(posGroup, settings, 'isolate-monitors', 'Isolate Monitors', 'Only show apps running on the current monitor', 'video-display-symbolic', null);
 
+        this._addSwitchRow(posGroup, settings, 'independent-dock', 'Independent Dock Mode', 'Use completely separate pinned apps and custom app launcher', 'system-run-symbolic', null);
         const fullWidthRow = this._addSwitchRow(posGroup, settings, 'full-width', 'Full Screen Width', 'Extend dock edge to edge', 'view-fullscreen-symbolic', null);
 
         const alignmentRow = this._addSegmentedRow(posGroup, settings, 'icon-alignment', 'Icon Alignment', 'Justification when Full Width is active', 'format-justify-center-symbolic', [{
@@ -1495,24 +1496,44 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             dialog.set_initial_name('dhruva_config.json');
 
             dialog.save(window, null, (dlg, res) => {
-                const file = dlg.save_finish(res);
-                if (file) {
-                    const config = { settings: {}, favorites: [] };
+                let file;
+                try { file = dlg.save_finish(res); } catch (_) { return; }
+                if (!file) return;
 
-                    settings.list_keys().forEach(key => {
-                        config.settings[key] = settings.get_value(key).deep_unpack();
-                    });
+                const isIndependent = settings.get_boolean('independent-dock');
+                const uuid = this.metadata.uuid || 'dhruva@narkagni';
+                const extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
 
-                    const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-                    config.favorites = shellSettings.get_strv('favorite-apps');
+                const config = { settings: {}, favorites: [], pinnedApps: null, folders: null };
 
-                    const jsonStr = JSON.stringify(config, null, 2);
-                    const bytes = new GLib.Bytes(new TextEncoder().encode(jsonStr));
+                settings.list_keys().forEach(key => {
+                    if (isIndependent && key === 'app-folders') return;
+                    config.settings[key] = settings.get_value(key).deep_unpack();
+                });
 
-                    file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (f, r) => {
-                        f.replace_contents_bytes_finish(r);
-                    });
+                if (isIndependent) {
+                    try {
+                        const appsPath = GLib.build_filenamev([extConfigDir, 'dhruva-apps.json']);
+                        const [ok, contents] = GLib.file_get_contents(appsPath);
+                        if (ok) config.pinnedApps = JSON.parse(new TextDecoder().decode(contents));
+                    } catch (_) { config.pinnedApps = []; }
+
+                    try {
+                        const foldersPath = GLib.build_filenamev([extConfigDir, 'dhruva-folders.json']);
+                        const [ok, contents] = GLib.file_get_contents(foldersPath);
+                        if (ok) config.folders = JSON.parse(new TextDecoder().decode(contents));
+                    } catch (_) { config.folders = []; }
+                } else {
+                    try {
+                        const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+                        config.favorites = shellSettings.get_strv('favorite-apps');
+                    } catch (_) { }
                 }
+
+                const jsonStr = JSON.stringify(config, null, 2);
+                const path = file.get_path();
+                if (path) GLib.file_set_contents(path, jsonStr);
+
             });
         });
         backupGroup.add(exportRow);
@@ -1541,32 +1562,54 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             dialog.set_filters(filterList);
 
             dialog.open(window, null, (dlg, res) => {
-                const file = dlg.open_finish(res);
-                if (file) {
-                    file.load_contents_async(null, (f, r) => {
-                        const [success, contents] = f.load_contents_finish(r);
-                        if (success) {
-                            const jsonStr = new TextDecoder().decode(contents);
-                            const config = JSON.parse(jsonStr);
+                let file;
+                try { file = dlg.open_finish(res); } catch (_) { return; }
+                if (!file) return;
 
-                            if (config.settings) {
-                                Object.keys(config.settings).forEach(key => {
-                                    if (settings.settings_schema.has_key(key)) {
-                                        const typeStr = settings.settings_schema.get_key(key).get_value_type().dup_string();
-                                        const variant = new GLib.Variant(typeStr, config.settings[key]);
-                                        settings.set_value(key, variant);
-                                    }
-                                });
-                            }
+                file.load_contents_async(null, (f, r) => {
+                    let success, contents;
+                    try { [success, contents] = f.load_contents_finish(r); } catch (_) { return; }
+                    if (!success) return;
 
-                            if (config.favorites && Array.isArray(config.favorites)) {
+                    let config;
+                    try { config = JSON.parse(new TextDecoder().decode(contents)); } catch (_) { return; }
+
+                    const isIndependent = settings.get_boolean('independent-dock');
+                    const uuid = this.metadata.uuid || 'dhruva@narkagni';
+                    const extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
+
+                    if (config.settings) {
+                        Object.keys(config.settings).forEach(key => {
+                            try {
+                                if (settings.settings_schema.has_key(key)) {
+                                    const typeStr = settings.settings_schema.get_key(key).get_value_type().dup_string();
+                                    const variant = new GLib.Variant(typeStr, config.settings[key]);
+                                    settings.set_value(key, variant);
+                                }
+                            } catch (_) { }
+                        });
+                    }
+
+                    if (isIndependent) {
+                        if (config.pinnedApps && Array.isArray(config.pinnedApps)) {
+                            GLib.mkdir_with_parents(extConfigDir, 0o755);
+                            const appsPath = GLib.build_filenamev([extConfigDir, 'dhruva-apps.json']);
+                            GLib.file_set_contents(appsPath, JSON.stringify(config.pinnedApps, null, 2));
+                        }
+                        if (config.folders && Array.isArray(config.folders)) {
+                            GLib.mkdir_with_parents(extConfigDir, 0o755);
+                            const foldersPath = GLib.build_filenamev([extConfigDir, 'dhruva-folders.json']);
+                            GLib.file_set_contents(foldersPath, JSON.stringify(config.folders, null, 2));
+                        }
+                    } else {
+                        if (config.favorites && Array.isArray(config.favorites)) {
+                            try {
                                 const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
                                 shellSettings.set_strv('favorite-apps', config.favorites);
-                            }
+                            } catch (_) { }
                         }
-                    });
-                }
-
+                    }
+                });
             });
         });
         backupGroup.add(importRow);

@@ -117,7 +117,7 @@ export default class AutoHideManager {
                 this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
                     this._edgeRevealTimerId = null;
 
-                    if (this._pointerInEdgeTriggerZone(8)) {
+                    if (this._pointerInEdgeTriggerZone(2)) {
                         this._pointerUpdate = true;
                         this._show(true, false);
                     }
@@ -267,7 +267,7 @@ export default class AutoHideManager {
                 return GLib.SOURCE_REMOVE;
             }
 
-            if (this._pointerInEdgeTriggerZone(6)) {
+            if (this._pointerInEdgeTriggerZone(2)) {
                 let pressureDelay = 0;
                 try {
                     const delaySetting = this.settings.get_int('edge-dwell-delay');
@@ -278,7 +278,7 @@ export default class AutoHideManager {
                     this._stopEdgePointerPoll();
                     this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
                         this._edgeRevealTimerId = null;
-                        if (this._pointerInEdgeTriggerZone(8)) {
+                        if (this._pointerInEdgeTriggerZone(2)) {
                             this._pointerUpdate = true;
                             this._show(true, false);
                         } else if (this.isHidden) {
@@ -313,43 +313,37 @@ export default class AutoHideManager {
         if (!monitorData || !monitorData.monitor) return;
 
         const actualMonitor = monitorData.monitor;
-
         const pos = this._getDockPosition();
         const mode = this._getHideMode();
 
-        const T = 10;
+        const T = 1;
 
-        const bounds = this._getTheoreticalDockBounds();
-
-        let ex = 0,
-            ey = 0,
-            ew = 0,
-            eh = 0;
+        let ex = 0, ey = 0, ew = 0, eh = 0;
 
         switch (pos) {
             case 'BOTTOM':
-                ex = bounds.x;
-                ew = bounds.width;
+                ex = actualMonitor.x;
+                ew = actualMonitor.width;
                 ey = actualMonitor.y + actualMonitor.height - T;
                 eh = T;
                 break;
             case 'TOP':
-                ex = bounds.x;
-                ew = bounds.width;
+                ex = actualMonitor.x;
+                ew = actualMonitor.width;
                 ey = actualMonitor.y;
                 eh = T;
                 break;
             case 'LEFT':
                 ex = actualMonitor.x;
                 ew = T;
-                ey = bounds.y;
-                eh = bounds.height;
+                ey = actualMonitor.y;
+                eh = actualMonitor.height;
                 break;
             case 'RIGHT':
                 ex = actualMonitor.x + actualMonitor.width - T;
                 ew = T;
-                ey = bounds.y;
-                eh = bounds.height;
+                ey = actualMonitor.y;
+                eh = actualMonitor.height;
                 break;
         }
 
@@ -485,9 +479,11 @@ export default class AutoHideManager {
 
     _shouldStayVisibleForTransientUI() {
         if (!this.dockUI || this.dockUI._isDestroyed) return false;
+        if (Main.overview.visible && !this.settings.get_boolean('independent-dock')) {
+            return true;
+        }
 
         if (this.isPaused()) return true;
-
         if (this.dockUI._isFloating || this.dockUI._activeContextMenu || (this.dockUI.appGridUI && this.dockUI.appGridUI.isOpen)) {
             return true;
         }
@@ -649,8 +645,10 @@ export default class AutoHideManager {
         });
     }
 
-    _forceShow() {
+    _forceShow(force = false) {
         if (this._destroyed || !this.dockUI || !this.dockUI.actor) return;
+
+        if (!force && Main.overview.visible && this.settings.get_boolean('independent-dock')) return;
 
         this._cancelTimers();
         this._isAnimating = false;
@@ -680,6 +678,8 @@ export default class AutoHideManager {
     }
 
     _show(force = false, _suppressAnimations = false) {
+        if (!force && Main.overview.visible && this.settings.get_boolean('independent-dock')) return;
+
         if (!this.isHidden && !force && !this._hideTimerId && !this._showTimerId) {
             this._setAutoHideMagnifierPaused(false);
             return;
@@ -692,7 +692,6 @@ export default class AutoHideManager {
         this._startHoverPolling();
 
         if (this.dockUI && this.dockUI.actor) this.dockUI.actor._isHidden = false;
-
         if (this.edgeTrigger) this.edgeTrigger.reactive = false;
 
         let unhideDelay = 0;
