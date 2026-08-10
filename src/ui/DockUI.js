@@ -55,7 +55,9 @@ import {
     DockThemes,
     applyDockTheme,
     extractWallpaperDominantColor,
-    getChameleonAccentColor
+    getChameleonAccentColor,
+    getIconDominantColor,
+    clearIconColorCache
 } from './Themes.js';
 import {
     setupWindowEffects,
@@ -365,7 +367,7 @@ export default class DockUI {
             'clock-position', 'clock-font-size', 'show-desktop-button', 'show-home', 'show-downloads',
             'show-documents', 'show-pictures', 'show-videos', 'show-music', 'context-menu-size',
             'big-preview-size', 'minimize-effect', 'stroke-width', 'indicator-style', 'indicator-color',
-            'indicator-size', 'indicator-spacing', 'indicator-glow', 'indicator-overlay', 'custom-folders', 'isolate-workspaces',
+            'indicator-match-icon-color', 'indicator-size', 'indicator-spacing', 'indicator-glow', 'indicator-overlay', 'custom-folders', 'isolate-workspaces',
             'isolate-monitors', 'show-notification-badges', 'show-mounts', 'custom-folders', 'isolate-workspaces',
             'isolate-monitors', 'show-notification-badges', 'show-mounts', 'separator-width', 'separator-height',
             'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
@@ -375,6 +377,7 @@ export default class DockUI {
 
         settingsToWatch.forEach(key => {
             this.settingsSignals.push(this.settings.connect(`changed::${key}`, () => {
+                clearIconColorCache();
                 if (this.autoHideManager) this.autoHideManager._forceShow();
                 this.queueRender();
                 this._updateLayout();
@@ -1031,7 +1034,7 @@ export default class DockUI {
         cr.$dispose();
     }
 
-    _getIndicatorProps() {
+    _getIndicatorProps(customColor = null) {
         const indStyle = this.settings.get_string('indicator-style') || 'dot';
         const indSize = this.settings.get_int('indicator-size') || 4;
         const indGap = this.settings.get_int('indicator-spacing') || 4;
@@ -1043,9 +1046,10 @@ export default class DockUI {
         try {
             currentTheme = this.settings.get_string('dock-theme');
         } catch (e) { }
-        const indColor = (currentTheme === 'chameleon' && this._chameleonAccent) ?
-            this._chameleonAccent :
-            (this.settings.get_string('indicator-color') || '#ffffff');
+        const indColor = customColor ? customColor :
+            ((currentTheme === 'chameleon' && this._chameleonAccent) ?
+                this._chameleonAccent :
+                (this.settings.get_string('indicator-color') || '#ffffff'));
 
         let dw = indSize,
             dh = indSize,
@@ -1358,7 +1362,11 @@ export default class DockUI {
                 }
 
                 if (isRunning && showIndicators) {
-                    const indProps = this._getIndicatorProps();
+                    let customIndColor = null;
+                    if (this.settings.get_boolean('indicator-match-icon-color')) {
+                        customIndColor = getIconDominantColor(app);
+                    }
+                    const indProps = this._getIndicatorProps(customIndColor);
                     const indStyle = this.settings.get_string('indicator-style') || 'dot';
                     const indGap = this.settings.get_int('indicator-spacing') || 4;
                     const numDots = (finalActiveWindows.length > 1 && indStyle !== 'line') ? 2 : 1;

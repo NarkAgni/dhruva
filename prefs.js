@@ -711,7 +711,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             icon_name: 'media-record-symbolic',
             expanded: true
         });
-        const masterIndReset = createGroupReset(['show-running-indicators', 'indicator-style', 'indicator-color', 'indicator-size', 'indicator-spacing', 'indicator-overlay', 'indicator-glow']);
+        const masterIndReset = createGroupReset(['show-running-indicators', 'indicator-style', 'indicator-color', 'indicator-match-icon-color', 'indicator-size', 'indicator-spacing', 'indicator-overlay', 'indicator-glow']);
         masterIndReset.valign = Gtk.Align.CENTER;
         indExpander.add_suffix(masterIndReset);
         indGroup.add(indExpander);
@@ -737,6 +737,16 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         let indColorRow = null;
         indColorRow = this._addColorRow(indExpander, settings, 'indicator-color', 'Indicator Color', 'preferences-desktop-appearance-symbolic');
+        this._addSwitchRow(indExpander, settings, 'indicator-match-icon-color', 'Match Icon Color', 'Use dominant color of application icon for indicator', 'color-select-symbolic', createResetBtn);
+
+        const syncIndColorSensitivity = () => {
+            if (indColorRow) {
+                const matchIcon = settings.get_boolean('indicator-match-icon-color');
+                indColorRow.set_sensitive(!matchIcon);
+            }
+        };
+        settings.connect('changed::indicator-match-icon-color', syncIndColorSensitivity);
+        syncIndColorSensitivity();
 
         this._addCustomSpinRow(indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', {
             lower: 2,

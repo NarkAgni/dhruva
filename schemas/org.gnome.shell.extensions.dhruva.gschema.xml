@@ -166,6 +166,11 @@
       <summary>Running App Indicator Color</summary>
     </key>
 
+    <key name="indicator-match-icon-color" type="b">
+      <default>false</default>
+      <summary>Match indicator color with app icon dominant color</summary>
+    </key>
+
     <key name="indicator-size" type="i">
       <default>6</default>
       <summary>Indicator Size</summary>

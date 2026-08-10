@@ -36,6 +36,9 @@ import {
     animateMinimize,
     animateRestore
 } from './effects/WindowEffects.js';
+import {
+    getIconDominantColor
+} from './Themes.js';
 
 
 const _forcedFolderState = {};
@@ -167,7 +170,11 @@ export function buildModules(dockUI, iconSize) {
         const isRunning = activeWins.length > 0 || (possibleTitles.length > 0 && _forcedFolderState[possibleTitles[0]] !== undefined);
 
         if (isRunning && settings.get_boolean('show-running-indicators')) {
-            const indProps = dockUI._getIndicatorProps();
+            let customIndColor = null;
+            if (settings.get_boolean('indicator-match-icon-color')) {
+                customIndColor = getIconDominantColor(gicon);
+            }
+            const indProps = dockUI._getIndicatorProps(customIndColor);
             const indStyle = settings.get_string('indicator-style') || 'dot';
             const indGap = settings.get_int('indicator-spacing') || 4;
             const numDots = (activeWins.length > 1 && (indStyle === 'dot' || indStyle === 'square')) ? 2 : 1;

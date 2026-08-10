@@ -16,6 +16,8 @@
 
 import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
+import Gtk from 'gi://Gtk';
+import Gdk from 'gi://Gdk';
 
 
 export const DockThemes = {
@@ -297,4 +299,264 @@ export function applyDockTheme(bgActor, themeId, baseLayoutCss, customConfig) {
 
     const themeCss = theme.css(customConfig);
     bgActor.set_style(`${baseLayoutCss} ${themeCss}`);
+}
+
+const DOMINANT_COLOR_ICON_SIZE = 64;
+const _iconColorCache = new Map();
+
+export function clearIconColorCache() {
+    _iconColorCache.clear();
+}
+
+function _ColorLuminance(r, g, b, dlum = 0) {
+    const rClamped = Math.round(Math.min(Math.max(r * (1 + dlum), 0), 255));
+    const gClamped = Math.round(Math.min(Math.max(g * (1 + dlum), 0), 255));
+    const bClamped = Math.round(Math.min(Math.max(b * (1 + dlum), 0), 255));
+    return `#${rClamped.toString(16).padStart(2, '0')}${gClamped.toString(16).padStart(2, '0')}${bClamped.toString(16).padStart(2, '0')}`;
+}
+
+function _RGBtoHSV(r, g, b) {
+    const M = Math.max(r, g, b);
+    const m = Math.min(r, g, b);
+    const c = M - m;
+
+    let h = 0;
+    if (c === 0) {
+        h = 0;
+    } else if (M === r) {
+        h = ((g - b) / c) % 6;
+    } else if (M === g) {
+        h = (b - r) / c + 2;
+    } else {
+        h = (r - g) / c + 4;
+    }
+
+    if (h < 0) h += 6;
+    h /= 6;
+
+    const v = M / 255;
+    const s = M !== 0 ? c / M : 0;
+
+    return { h, s, v };
+}
+
+function _HSVtoRGB(h, s, v) {
+    const c = v * s;
+    const h1 = h * 6;
+    const x = c * (1 - Math.abs((h1 % 2) - 1));
+    const m = v - c;
+
+    let r = 0, g = 0, b = 0;
+    if (h1 <= 1) {
+        r = c + m; g = x + m; b = m;
+    } else if (h1 <= 2) {
+        r = x + m; g = c + m; b = m;
+    } else if (h1 <= 3) {
+        r = m; g = c + m; b = x + m;
+    } else if (h1 <= 4) {
+        r = m; g = x + m; b = c + m;
+    } else if (h1 <= 5) {
+        r = x + m; g = m; b = c + m;
+    } else {
+        r = c + m; g = m; b = x + m;
+    }
+
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
+}
+
+function _resamplePixels(pixels, resampleX, resampleY) {
+    const resampledPixels = [];
+    const limit = pixels.length / (resampleX * resampleY) / 4;
+    for (let i = 0; i < limit; i++) {
+        const pixel = i * resampleX * resampleY;
+        resampledPixels.push(pixels[pixel * 4]);
+        resampledPixels.push(pixels[pixel * 4 + 1]);
+        resampledPixels.push(pixels[pixel * 4 + 2]);
+        resampledPixels.push(pixels[pixel * 4 + 3]);
+    }
+    return resampledPixels;
+}
+
+function _getIconPixBuf(app) {
+    if (!app) return null;
+    let gicon = null;
+
+    if (typeof app.create_icon_texture === 'function') {
+        try {
+            const iconTexture = app.create_icon_texture(DOMINANT_COLOR_ICON_SIZE);
+            if (iconTexture && typeof iconTexture.get_gicon === 'function')
+                gicon = iconTexture.get_gicon();
+        } catch (e) {}
+    }
+
+    if (!gicon) {
+        if (typeof app.get_icon === 'function')
+            gicon = app.get_icon();
+        else if (app.get_app_info && app.get_app_info())
+            gicon = app.get_app_info().get_icon();
+        else if (app.gicon)
+            gicon = app.gicon;
+        else
+            gicon = app;
+    }
+
+    if (!gicon) return null;
+
+    try {
+        if (gicon instanceof Gio.FileIcon) {
+            const file = gicon.get_file();
+            const path = file ? file.get_path() : null;
+            if (path && !path.includes('image-missing'))
+                return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
+        } else if (gicon instanceof Gio.ThemedIcon) {
+            const display = Gdk.Display.get_default();
+            const themeLoader = display ? Gtk.IconTheme.get_for_display(display) : (Gtk.IconTheme.get_default ? Gtk.IconTheme.get_default() : new Gtk.IconTheme());
+            if (themeLoader) {
+                let iconFile = null;
+
+                if (typeof themeLoader.lookup_by_gicon === 'function') {
+                    try {
+                        const paintable = themeLoader.lookup_by_gicon(gicon, DOMINANT_COLOR_ICON_SIZE, 1, Gtk.TextDirection.NONE, 0);
+                        if (paintable && paintable.get_file) {
+                            const f = paintable.get_file();
+                            if (f && f.get_path() && !f.get_path().includes('image-missing'))
+                                iconFile = f.get_path();
+                        }
+                    } catch (e) {}
+                }
+
+                if (!iconFile && typeof themeLoader.choose_icon === 'function') {
+                    try {
+                        const iconNames = gicon.get_names ? gicon.get_names() : [];
+                        const iconInfo = themeLoader.choose_icon(iconNames, DOMINANT_COLOR_ICON_SIZE, 0);
+                        if (iconInfo) {
+                            const f = iconInfo.get_file ? iconInfo.get_file() : null;
+                            if (f && f.get_path() && !f.get_path().includes('image-missing'))
+                                iconFile = f.get_path();
+                            else if (typeof iconInfo.load_icon === 'function')
+                                return iconInfo.load_icon();
+                        }
+                    } catch (e) {}
+                }
+
+                if (!iconFile) {
+                    const iconNames = gicon.get_names ? gicon.get_names() : [];
+                    for (const name of iconNames) {
+                        try {
+                            let info = null;
+                            if (typeof themeLoader.lookup_icon === 'function') {
+                                info = themeLoader.lookup_icon(name, null, DOMINANT_COLOR_ICON_SIZE, 1, Gtk.TextDirection.NONE, 0);
+                            }
+                            if (info) {
+                                const f = info.get_file ? info.get_file() : null;
+                                const p = f ? f.get_path() : null;
+                                if (p && !p.includes('image-missing') && !p.includes('missing')) {
+                                    iconFile = p;
+                                    break;
+                                }
+                            }
+                        } catch (e) {}
+                    }
+                }
+
+                if (iconFile) {
+                    return GdkPixbuf.Pixbuf.new_from_file_at_scale(iconFile, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
+                }
+            }
+        } else if (typeof gicon.load === 'function') {
+            const [iconBuffer] = gicon.load(DOMINANT_COLOR_ICON_SIZE, null);
+            if (iconBuffer)
+                return GdkPixbuf.Pixbuf.new_from_stream(iconBuffer, null);
+        }
+    } catch (e) {}
+
+    return null;
+}
+
+export function getIconDominantColor(app) {
+    if (!app) return null;
+
+    let cacheKey = null;
+    if (typeof app.get_id === 'function') {
+        cacheKey = app.get_id();
+    } else if (app.to_string) {
+        cacheKey = app.to_string();
+    } else if (typeof app === 'string') {
+        cacheKey = app;
+    }
+
+    if (cacheKey && _iconColorCache.has(cacheKey)) {
+        return _iconColorCache.get(cacheKey);
+    }
+
+    try {
+        const pixBuf = _getIconPixBuf(app);
+        if (!pixBuf) return null;
+
+        const width = pixBuf.get_width();
+        const height = pixBuf.get_height();
+
+        let resampleX = 1;
+        let resampleY = 1;
+
+        if (height >= 2 * DOMINANT_COLOR_ICON_SIZE)
+            resampleY = Math.floor(height / DOMINANT_COLOR_ICON_SIZE);
+
+        if (width >= 2 * DOMINANT_COLOR_ICON_SIZE)
+            resampleX = Math.floor(width / DOMINANT_COLOR_ICON_SIZE);
+
+        let pixels = pixBuf.get_pixels();
+        if (resampleX !== 1 || resampleY !== 1)
+            pixels = _resamplePixels(pixels, resampleX, resampleY);
+
+        let total = 0,
+            rTotal = 0,
+            gTotal = 0,
+            bTotal = 0;
+
+        const limit = pixels.length;
+        for (let offset = 0; offset < limit; offset += 4) {
+            const r = pixels[offset];
+            const g = pixels[offset + 1];
+            const b = pixels[offset + 2];
+            const a = pixels[offset + 3];
+
+            const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+            const relevance = 0.1 * 255 * 255 + 0.9 * a * saturation;
+
+            rTotal += r * relevance;
+            gTotal += g * relevance;
+            bTotal += b * relevance;
+
+            total += relevance;
+        }
+
+        if (total === 0) return null;
+
+        total *= 255;
+
+        const r = rTotal / total;
+        const g = gTotal / total;
+        const b = bTotal / total;
+
+        const hsv = _RGBtoHSV(r * 255, g * 255, b * 255);
+
+        if (hsv.s > 0.15)
+            hsv.s = 0.65;
+        hsv.v = 0.90;
+
+        const rgb = _HSVtoRGB(hsv.h, hsv.s, hsv.v);
+        const hexColor = _ColorLuminance(rgb.r, rgb.g, rgb.b, 0);
+
+        if (cacheKey) {
+            _iconColorCache.set(cacheKey, hexColor);
+        }
+        return hexColor;
+    } catch (e) {
+        return null;
+    }
 }
