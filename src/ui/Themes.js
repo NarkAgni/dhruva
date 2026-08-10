@@ -15,9 +15,9 @@
 
 
 import Gio from 'gi://Gio';
+import St from 'gi://St';
 import GdkPixbuf from 'gi://GdkPixbuf';
-import Gtk from 'gi://Gtk';
-import Gdk from 'gi://Gdk';
+
 
 
 export const DockThemes = {
@@ -413,49 +413,27 @@ function _getIconPixBuf(app) {
             if (path && !path.includes('image-missing'))
                 return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
         } else if (gicon instanceof Gio.ThemedIcon) {
-            const display = Gdk.Display.get_default();
-            const themeLoader = display ? Gtk.IconTheme.get_for_display(display) : (Gtk.IconTheme.get_default ? Gtk.IconTheme.get_default() : new Gtk.IconTheme());
+            const themeLoader = (typeof St !== 'undefined' && St.IconTheme) ?
+                ((St.IconTheme.get_for_display && typeof global !== 'undefined' && global.display) ? St.IconTheme.get_for_display(global.display) : St.IconTheme.new()) :
+                null;
+
             if (themeLoader) {
-                let iconFile = null;
+                let iconInfo = null;
 
                 if (typeof themeLoader.lookup_by_gicon === 'function') {
                     try {
-                        const paintable = themeLoader.lookup_by_gicon(gicon, DOMINANT_COLOR_ICON_SIZE, 1, Gtk.TextDirection.NONE, 0);
-                        if (paintable && paintable.get_file) {
-                            const f = paintable.get_file();
-                            if (f && f.get_path() && !f.get_path().includes('image-missing'))
-                                iconFile = f.get_path();
-                        }
+                        iconInfo = themeLoader.lookup_by_gicon(gicon, DOMINANT_COLOR_ICON_SIZE, 0);
                     } catch (e) {}
                 }
 
-                if (!iconFile && typeof themeLoader.choose_icon === 'function') {
-                    try {
-                        const iconNames = gicon.get_names ? gicon.get_names() : [];
-                        const iconInfo = themeLoader.choose_icon(iconNames, DOMINANT_COLOR_ICON_SIZE, 0);
-                        if (iconInfo) {
-                            const f = iconInfo.get_file ? iconInfo.get_file() : null;
-                            if (f && f.get_path() && !f.get_path().includes('image-missing'))
-                                iconFile = f.get_path();
-                            else if (typeof iconInfo.load_icon === 'function')
-                                return iconInfo.load_icon();
-                        }
-                    } catch (e) {}
-                }
-
-                if (!iconFile) {
+                if (!iconInfo) {
                     const iconNames = gicon.get_names ? gicon.get_names() : [];
                     for (const name of iconNames) {
                         try {
-                            let info = null;
                             if (typeof themeLoader.lookup_icon === 'function') {
-                                info = themeLoader.lookup_icon(name, null, DOMINANT_COLOR_ICON_SIZE, 1, Gtk.TextDirection.NONE, 0);
-                            }
-                            if (info) {
-                                const f = info.get_file ? info.get_file() : null;
-                                const p = f ? f.get_path() : null;
-                                if (p && !p.includes('image-missing') && !p.includes('missing')) {
-                                    iconFile = p;
+                                const info = themeLoader.lookup_icon(name, DOMINANT_COLOR_ICON_SIZE, 0);
+                                if (info) {
+                                    iconInfo = info;
                                     break;
                                 }
                             }
@@ -463,8 +441,25 @@ function _getIconPixBuf(app) {
                     }
                 }
 
-                if (iconFile) {
-                    return GdkPixbuf.Pixbuf.new_from_file_at_scale(iconFile, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
+                if (iconInfo) {
+                    if (typeof iconInfo.load_icon === 'function') {
+                        try {
+                            const pix = iconInfo.load_icon();
+                            if (pix) return pix;
+                        } catch (e) {}
+                    }
+
+                    let iconFile = null;
+                    if (typeof iconInfo.get_filename === 'function') {
+                        iconFile = iconInfo.get_filename();
+                    } else if (typeof iconInfo.get_file === 'function') {
+                        const f = iconInfo.get_file();
+                        iconFile = f ? f.get_path() : null;
+                    }
+
+                    if (iconFile && !iconFile.includes('image-missing') && !iconFile.includes('missing')) {
+                        return GdkPixbuf.Pixbuf.new_from_file_at_scale(iconFile, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
+                    }
                 }
             }
         } else if (typeof gicon.load === 'function') {
