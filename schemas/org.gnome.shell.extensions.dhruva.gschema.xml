@@ -176,6 +176,11 @@
       <summary>Indicator Spacing</summary>
     </key>
 
+    <key name="indicator-overlay" type="b">
+      <default>true</default>
+      <summary>Overlay Indicator</summary>
+    </key>
+
     <key name="indicator-glow" type="b">
       <default>true</default>
       <summary>Indicator Glow</summary>

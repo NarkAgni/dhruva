@@ -711,7 +711,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             icon_name: 'media-record-symbolic',
             expanded: true
         });
-        const masterIndReset = createGroupReset(['show-running-indicators', 'indicator-style', 'indicator-color', 'indicator-size', 'indicator-spacing', 'indicator-glow']);
+        const masterIndReset = createGroupReset(['show-running-indicators', 'indicator-style', 'indicator-color', 'indicator-size', 'indicator-spacing', 'indicator-overlay', 'indicator-glow']);
         masterIndReset.valign = Gtk.Align.CENTER;
         indExpander.add_suffix(masterIndReset);
         indGroup.add(indExpander);
@@ -748,6 +748,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
             upper: 20,
             step_increment: 1
         }, createResetBtn);
+        this._addSwitchRow(indExpander, settings, 'indicator-overlay', 'Overlay Indicator', 'Overlay indicator without shifting icon alignment', 'align-vertical-center-symbolic', null);
         this._addSwitchRow(indExpander, settings, 'indicator-glow', 'Indicator Glow', 'Add a shining shadow effect', 'display-brightness-symbolic', null);
 
         const syncThemeVisibility = () => {

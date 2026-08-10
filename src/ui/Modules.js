@@ -115,11 +115,24 @@ export function buildModules(dockUI, iconSize) {
         });
         iconBin.set_pivot_point(0.5, 0.5);
 
-        const appBox = new St.BoxLayout({
-            vertical: !isVertical,
-            x_align: Clutter.ActorAlign.CENTER,
-            y_align: Clutter.ActorAlign.CENTER
-        });
+        const overlayIndicators = settings.get_boolean('indicator-overlay');
+
+        let appBox;
+        if (overlayIndicators) {
+            appBox = new St.Widget({
+                layout_manager: new Clutter.BinLayout(),
+                width: iconSize,
+                height: iconSize,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+        } else {
+            appBox = new St.BoxLayout({
+                vertical: !isVertical,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+        }
         appBox._isModule = true;
         appBox.set_pivot_point(0.5, 0.5);
 
@@ -156,6 +169,7 @@ export function buildModules(dockUI, iconSize) {
         if (isRunning && settings.get_boolean('show-running-indicators')) {
             const indProps = dockUI._getIndicatorProps();
             const indStyle = settings.get_string('indicator-style') || 'dot';
+            const indGap = settings.get_int('indicator-spacing') || 4;
             const numDots = (activeWins.length > 1 && (indStyle === 'dot' || indStyle === 'square')) ? 2 : 1;
 
             const dotBox = new St.BoxLayout({
@@ -164,7 +178,11 @@ export function buildModules(dockUI, iconSize) {
                 y_align: Clutter.ActorAlign.CENTER
             });
             dotBox._isIndicator = true;
-            dotBox.set_style(`${indProps.marginStr} spacing: 4px;`);
+            if (overlayIndicators) {
+                dotBox.set_style('background-color: transparent; spacing: 4px;');
+            } else {
+                dotBox.set_style(`${indProps.marginStr} spacing: 4px;`);
+            }
 
             for (let i = 0; i < numDots; i++) {
                 const dot = new St.Widget({
@@ -176,12 +194,26 @@ export function buildModules(dockUI, iconSize) {
                 dotBox.add_child(dot);
             }
 
-            if (dockUI.dockPosition === 'BOTTOM' || dockUI.dockPosition === 'RIGHT') {
+            if (overlayIndicators) {
+                if (dockUI.dockPosition === 'BOTTOM') {
+                    dotBox.translation_y = Math.round(iconSize / 2 + indGap + indProps.dh / 2);
+                } else if (dockUI.dockPosition === 'TOP') {
+                    dotBox.translation_y = -Math.round(iconSize / 2 + indGap + indProps.dh / 2);
+                } else if (dockUI.dockPosition === 'LEFT') {
+                    dotBox.translation_x = -Math.round(iconSize / 2 + indGap + indProps.dw / 2);
+                } else if (dockUI.dockPosition === 'RIGHT') {
+                    dotBox.translation_x = Math.round(iconSize / 2 + indGap + indProps.dw / 2);
+                }
                 appBox.add_child(iconBin);
                 appBox.add_child(dotBox);
             } else {
-                appBox.add_child(dotBox);
-                appBox.add_child(iconBin);
+                if (dockUI.dockPosition === 'BOTTOM' || dockUI.dockPosition === 'RIGHT') {
+                    appBox.add_child(iconBin);
+                    appBox.add_child(dotBox);
+                } else {
+                    appBox.add_child(dotBox);
+                    appBox.add_child(iconBin);
+                }
             }
         } else {
             appBox.add_child(iconBin);

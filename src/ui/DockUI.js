@@ -365,7 +365,7 @@ export default class DockUI {
             'clock-position', 'clock-font-size', 'show-desktop-button', 'show-home', 'show-downloads',
             'show-documents', 'show-pictures', 'show-videos', 'show-music', 'context-menu-size',
             'big-preview-size', 'minimize-effect', 'stroke-width', 'indicator-style', 'indicator-color',
-            'indicator-size', 'indicator-spacing', 'indicator-glow', 'custom-folders', 'isolate-workspaces',
+            'indicator-size', 'indicator-spacing', 'indicator-glow', 'indicator-overlay', 'custom-folders', 'isolate-workspaces',
             'isolate-monitors', 'show-notification-badges', 'show-mounts', 'custom-folders', 'isolate-workspaces',
             'isolate-monitors', 'show-notification-badges', 'show-mounts', 'separator-width', 'separator-height',
             'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
@@ -1294,13 +1294,28 @@ export default class DockUI {
                 const runningState = getAppRunningState(app);
                 const isRunning = runningState.isRunning;
                 const finalActiveWindows = runningState.finalActiveWindows;
+                const overlayIndicators = this.settings.get_boolean('indicator-overlay');
 
-                const appBox = new St.BoxLayout({
-                    x_align: Clutter.ActorAlign.CENTER,
-                    y_align: Clutter.ActorAlign.CENTER,
-                    clip_to_allocation: false
-                });
-                appBox.set_vertical(!isVerticalDock);
+                let appBox;
+                if (overlayIndicators) {
+                    appBox = new St.Widget({
+                        layout_manager: new Clutter.BinLayout(),
+                        width: iconSize,
+                        height: iconSize,
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                        clip_to_allocation: false,
+                        x_expand: true,
+                        y_expand: true
+                    });
+                } else {
+                    appBox = new St.BoxLayout({
+                        vertical: !isVerticalDock,
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                        clip_to_allocation: false
+                    });
+                }
                 appBox.set_pivot_point(0.5, 0.5);
 
                 const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
@@ -1345,6 +1360,7 @@ export default class DockUI {
                 if (isRunning && showIndicators) {
                     const indProps = this._getIndicatorProps();
                     const indStyle = this.settings.get_string('indicator-style') || 'dot';
+                    const indGap = this.settings.get_int('indicator-spacing') || 4;
                     const numDots = (finalActiveWindows.length > 1 && indStyle !== 'line') ? 2 : 1;
 
                     const dotBox = new St.BoxLayout({
@@ -1353,7 +1369,11 @@ export default class DockUI {
                     });
                     dotBox.set_vertical(isVerticalDock);
                     dotBox._isIndicator = true;
-                    dotBox.set_style(`${indProps.marginStr} spacing: 4px;`);
+                    if (overlayIndicators) {
+                        dotBox.set_style('background-color: transparent; spacing: 4px;');
+                    } else {
+                        dotBox.set_style(`${indProps.marginStr} spacing: 4px;`);
+                    }
 
                     for (let i = 0; i < numDots; i++) {
                         const dot = new St.Widget({
@@ -1365,12 +1385,26 @@ export default class DockUI {
                         dotBox.add_child(dot);
                     }
 
-                    if (this.dockPosition === 'BOTTOM' || this.dockPosition === 'RIGHT') {
+                    if (overlayIndicators) {
+                        if (this.dockPosition === 'BOTTOM') {
+                            dotBox.translation_y = Math.round(iconSize / 2 + indGap + indProps.dh / 2);
+                        } else if (this.dockPosition === 'TOP') {
+                            dotBox.translation_y = -Math.round(iconSize / 2 + indGap + indProps.dh / 2);
+                        } else if (this.dockPosition === 'LEFT') {
+                            dotBox.translation_x = -Math.round(iconSize / 2 + indGap + indProps.dw / 2);
+                        } else if (this.dockPosition === 'RIGHT') {
+                            dotBox.translation_x = Math.round(iconSize / 2 + indGap + indProps.dw / 2);
+                        }
                         appBox.add_child(iconWrapper);
                         appBox.add_child(dotBox);
                     } else {
-                        appBox.add_child(dotBox);
-                        appBox.add_child(iconWrapper);
+                        if (this.dockPosition === 'BOTTOM' || this.dockPosition === 'RIGHT') {
+                            appBox.add_child(iconWrapper);
+                            appBox.add_child(dotBox);
+                        } else {
+                            appBox.add_child(dotBox);
+                            appBox.add_child(iconWrapper);
+                        }
                     }
                 } else {
                     appBox.add_child(iconWrapper);
@@ -1547,12 +1581,28 @@ export default class DockUI {
 
 
             folders.forEach(folder => {
-                const appBox = new St.BoxLayout({
-                    x_align: Clutter.ActorAlign.CENTER,
-                    y_align: Clutter.ActorAlign.CENTER,
-                    clip_to_allocation: false
-                });
-                appBox.set_vertical(!isVerticalDock);
+                const overlayIndicators = this.settings.get_boolean('indicator-overlay');
+
+                let appBox;
+                if (overlayIndicators) {
+                    appBox = new St.Widget({
+                        layout_manager: new Clutter.BinLayout(),
+                        width: iconSize,
+                        height: iconSize,
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                        clip_to_allocation: false,
+                        x_expand: true,
+                        y_expand: true
+                    });
+                } else {
+                    appBox = new St.BoxLayout({
+                        vertical: !isVerticalDock,
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER,
+                        clip_to_allocation: false
+                    });
+                }
                 appBox.set_pivot_point(0.5, 0.5);
 
                 let iconName = folder.icon || 'folder-symbolic';
@@ -1666,6 +1716,7 @@ export default class DockUI {
                 if (runningAppsCount > 0 && showIndicators) {
                     const indProps = this._getIndicatorProps();
                     const indStyle = this.settings.get_string('indicator-style') || 'dot';
+                    const indGap = this.settings.get_int('indicator-spacing') || 4;
                     const numDots = (runningAppsCount >= 2 && indStyle !== 'line') ? 2 : 1;
 
                     const dotBox = new St.BoxLayout({
@@ -1675,7 +1726,11 @@ export default class DockUI {
                     });
                     dotBox.set_vertical(isVerticalDock);
                     dotBox._isIndicator = true;
-                    dotBox.set_style(`${indProps.marginStr} spacing: 4px;`);
+                    if (overlayIndicators) {
+                        dotBox.set_style('background-color: transparent; spacing: 4px;');
+                    } else {
+                        dotBox.set_style(`${indProps.marginStr} spacing: 4px;`);
+                    }
 
                     for (let i = 0; i < numDots; i++) {
                         const dot = new St.Widget({
@@ -1688,12 +1743,26 @@ export default class DockUI {
                         dotBox.add_child(dot);
                     }
 
-                    if (this.dockPosition === 'BOTTOM' || this.dockPosition === 'RIGHT') {
+                    if (overlayIndicators) {
+                        if (this.dockPosition === 'BOTTOM') {
+                            dotBox.translation_y = Math.round(iconSize / 2 + indGap + indProps.dh / 2);
+                        } else if (this.dockPosition === 'TOP') {
+                            dotBox.translation_y = -Math.round(iconSize / 2 + indGap + indProps.dh / 2);
+                        } else if (this.dockPosition === 'LEFT') {
+                            dotBox.translation_x = -Math.round(iconSize / 2 + indGap + indProps.dw / 2);
+                        } else if (this.dockPosition === 'RIGHT') {
+                            dotBox.translation_x = Math.round(iconSize / 2 + indGap + indProps.dw / 2);
+                        }
                         appBox.add_child(iconWrapper);
                         appBox.add_child(dotBox);
                     } else {
-                        appBox.add_child(dotBox);
-                        appBox.add_child(iconWrapper);
+                        if (this.dockPosition === 'BOTTOM' || this.dockPosition === 'RIGHT') {
+                            appBox.add_child(iconWrapper);
+                            appBox.add_child(dotBox);
+                        } else {
+                            appBox.add_child(dotBox);
+                            appBox.add_child(iconWrapper);
+                        }
                     }
                 } else {
                     appBox.add_child(iconWrapper);
