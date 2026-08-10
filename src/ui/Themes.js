@@ -15,9 +15,9 @@
 
 
 import Gio from 'gi://Gio';
+import St from 'gi://St';
 import GdkPixbuf from 'gi://GdkPixbuf';
-import Gtk from 'gi://Gtk';
-import Gdk from 'gi://Gdk';
+
 
 
 export const DockThemes = {
@@ -406,6 +406,12 @@ function _getIconPixBuf(app) {
 
     if (!gicon) return null;
 
+    if (gicon instanceof Gio.EmblemedIcon && typeof gicon.get_icon === 'function') {
+        gicon = gicon.get_icon();
+    }
+
+    if (!gicon) return null;
+
     try {
         if (gicon instanceof Gio.FileIcon) {
             const file = gicon.get_file();
@@ -413,49 +419,27 @@ function _getIconPixBuf(app) {
             if (path && !path.includes('image-missing'))
                 return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
         } else if (gicon instanceof Gio.ThemedIcon) {
-            const display = Gdk.Display.get_default();
-            const themeLoader = display ? Gtk.IconTheme.get_for_display(display) : (Gtk.IconTheme.get_default ? Gtk.IconTheme.get_default() : new Gtk.IconTheme());
+            const themeLoader = (typeof St !== 'undefined' && St.IconTheme) ?
+                ((St.IconTheme.get_for_display && typeof global !== 'undefined' && global.display) ? St.IconTheme.get_for_display(global.display) : St.IconTheme.new()) :
+                null;
+
             if (themeLoader) {
-                let iconFile = null;
+                let iconInfo = null;
 
                 if (typeof themeLoader.lookup_by_gicon === 'function') {
                     try {
-                        const paintable = themeLoader.lookup_by_gicon(gicon, DOMINANT_COLOR_ICON_SIZE, 1, Gtk.TextDirection.NONE, 0);
-                        if (paintable && paintable.get_file) {
-                            const f = paintable.get_file();
-                            if (f && f.get_path() && !f.get_path().includes('image-missing'))
-                                iconFile = f.get_path();
-                        }
+                        iconInfo = themeLoader.lookup_by_gicon(gicon, DOMINANT_COLOR_ICON_SIZE, 0);
                     } catch (e) {}
                 }
 
-                if (!iconFile && typeof themeLoader.choose_icon === 'function') {
-                    try {
-                        const iconNames = gicon.get_names ? gicon.get_names() : [];
-                        const iconInfo = themeLoader.choose_icon(iconNames, DOMINANT_COLOR_ICON_SIZE, 0);
-                        if (iconInfo) {
-                            const f = iconInfo.get_file ? iconInfo.get_file() : null;
-                            if (f && f.get_path() && !f.get_path().includes('image-missing'))
-                                iconFile = f.get_path();
-                            else if (typeof iconInfo.load_icon === 'function')
-                                return iconInfo.load_icon();
-                        }
-                    } catch (e) {}
-                }
-
-                if (!iconFile) {
+                if (!iconInfo) {
                     const iconNames = gicon.get_names ? gicon.get_names() : [];
                     for (const name of iconNames) {
                         try {
-                            let info = null;
                             if (typeof themeLoader.lookup_icon === 'function') {
-                                info = themeLoader.lookup_icon(name, null, DOMINANT_COLOR_ICON_SIZE, 1, Gtk.TextDirection.NONE, 0);
-                            }
-                            if (info) {
-                                const f = info.get_file ? info.get_file() : null;
-                                const p = f ? f.get_path() : null;
-                                if (p && !p.includes('image-missing') && !p.includes('missing')) {
-                                    iconFile = p;
+                                const info = themeLoader.lookup_icon(name, DOMINANT_COLOR_ICON_SIZE, 0);
+                                if (info) {
+                                    iconInfo = info;
                                     break;
                                 }
                             }
@@ -463,8 +447,25 @@ function _getIconPixBuf(app) {
                     }
                 }
 
-                if (iconFile) {
-                    return GdkPixbuf.Pixbuf.new_from_file_at_scale(iconFile, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
+                if (iconInfo) {
+                    if (typeof iconInfo.load_icon === 'function') {
+                        try {
+                            const pix = iconInfo.load_icon();
+                            if (pix) return pix;
+                        } catch (e) {}
+                    }
+
+                    let iconFile = null;
+                    if (typeof iconInfo.get_filename === 'function') {
+                        iconFile = iconInfo.get_filename();
+                    } else if (typeof iconInfo.get_file === 'function') {
+                        const f = iconInfo.get_file();
+                        iconFile = f ? f.get_path() : null;
+                    }
+
+                    if (iconFile && !iconFile.includes('image-missing') && !iconFile.includes('missing')) {
+                        return GdkPixbuf.Pixbuf.new_from_file_at_scale(iconFile, DOMINANT_COLOR_ICON_SIZE, DOMINANT_COLOR_ICON_SIZE, true);
+                    }
                 }
             }
         } else if (typeof gicon.load === 'function') {
@@ -499,51 +500,51 @@ export function getIconDominantColor(app) {
 
         const width = pixBuf.get_width();
         const height = pixBuf.get_height();
+        const rowstride = pixBuf.get_rowstride();
+        const nChannels = pixBuf.get_n_channels();
+        const pixels = pixBuf.get_pixels();
 
-        let resampleX = 1;
-        let resampleY = 1;
-
-        if (height >= 2 * DOMINANT_COLOR_ICON_SIZE)
-            resampleY = Math.floor(height / DOMINANT_COLOR_ICON_SIZE);
-
-        if (width >= 2 * DOMINANT_COLOR_ICON_SIZE)
-            resampleX = Math.floor(width / DOMINANT_COLOR_ICON_SIZE);
-
-        let pixels = pixBuf.get_pixels();
-        if (resampleX !== 1 || resampleY !== 1)
-            pixels = _resamplePixels(pixels, resampleX, resampleY);
+        if (!pixels || pixels.length === 0) return null;
 
         let total = 0,
             rTotal = 0,
             gTotal = 0,
             bTotal = 0;
 
-        const limit = pixels.length;
-        for (let offset = 0; offset < limit; offset += 4) {
-            const r = pixels[offset];
-            const g = pixels[offset + 1];
-            const b = pixels[offset + 2];
-            const a = pixels[offset + 3];
+        const step = 2;
+        for (let y = 0; y < height; y += step) {
+            for (let x = 0; x < width; x += step) {
+                const offset = y * rowstride + x * nChannels;
+                if (offset + 2 >= pixels.length) continue;
 
-            const saturation = Math.max(r, g, b) - Math.min(r, g, b);
-            const relevance = 0.1 * 255 * 255 + 0.9 * a * saturation;
+                const r = pixels[offset];
+                const g = pixels[offset + 1];
+                const b = pixels[offset + 2];
+                const a = nChannels >= 4 ? pixels[offset + 3] : 255;
 
-            rTotal += r * relevance;
-            gTotal += g * relevance;
-            bTotal += b * relevance;
+                if (a < 30) continue;
 
-            total += relevance;
+                const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+                const relevance = 0.1 * 255 * 255 + 0.9 * a * saturation;
+
+                rTotal += r * relevance;
+                gTotal += g * relevance;
+                bTotal += b * relevance;
+                total += relevance;
+            }
         }
 
-        if (total === 0) return null;
+        if (total === 0 || Number.isNaN(total)) return null;
 
         total *= 255;
-
         const r = rTotal / total;
         const g = gTotal / total;
         const b = bTotal / total;
 
+        if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+
         const hsv = _RGBtoHSV(r * 255, g * 255, b * 255);
+        if (Number.isNaN(hsv.h) || Number.isNaN(hsv.s) || Number.isNaN(hsv.v)) return null;
 
         if (hsv.s > 0.15)
             hsv.s = 0.65;
@@ -551,6 +552,8 @@ export function getIconDominantColor(app) {
 
         const rgb = _HSVtoRGB(hsv.h, hsv.s, hsv.v);
         const hexColor = _ColorLuminance(rgb.r, rgb.g, rgb.b, 0);
+
+        if (!/^#[0-9a-fA-F]{6}$/.test(hexColor)) return null;
 
         if (cacheKey) {
             _iconColorCache.set(cacheKey, hexColor);
