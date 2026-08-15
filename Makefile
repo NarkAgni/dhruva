@@ -10,20 +10,27 @@ build-schemas:
 install: build-schemas
 	rm -rf $(INSTALL_PATH)
 	mkdir -p $(INSTALL_PATH)
-	mkdir -p $(INSTALL_PATH)/src/core
-	mkdir -p $(INSTALL_PATH)/src/ui
-	mkdir -p $(INSTALL_PATH)/src/ui/effects
-	cp extension.js    $(INSTALL_PATH)/
-	cp prefs.js        $(INSTALL_PATH)/
-	cp stylesheet.css  $(INSTALL_PATH)/
-	cp metadata.json   $(INSTALL_PATH)/
-	cp -r icons/       $(INSTALL_PATH)/icons/
-	cp -r schemas/     $(INSTALL_PATH)/schemas/
-	cp src/core/*.js   $(INSTALL_PATH)/src/core/
-	cp src/ui/*.js     $(INSTALL_PATH)/src/ui/
-	cp src/ui/*.json     $(INSTALL_PATH)/src/ui/
-	cp src/ui/effects/*.js  $(INSTALL_PATH)/src/ui/effects/
-	@echo "Dhruva installed. Restart GNOME Shell to apply."
+
+	# Root files
+	cp extension.js $(INSTALL_PATH)/
+	cp prefs.js $(INSTALL_PATH)/
+	cp stylesheet.css $(INSTALL_PATH)/
+	cp metadata.json $(INSTALL_PATH)/
+
+	# Icons
+	cp -r icons $(INSTALL_PATH)/
+
+	# Schemas
+	cp -r schemas $(INSTALL_PATH)/
+
+	# Source files
+	mkdir -p $(INSTALL_PATH)/src
+	cp -r src/core $(INSTALL_PATH)/src/
+	cp -r src/prefs $(INSTALL_PATH)/src/
+	cp -r src/ui $(INSTALL_PATH)/src/
+
+	@echo "Dhruva installed successfully."
+	@echo "Restart GNOME Shell to apply changes."
 
 pack: build-schemas
 	zip -r $(UUID).zip . \

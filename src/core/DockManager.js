@@ -1,21 +1,26 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
 import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 
 export default class DockManager {
     constructor(dockUI, settings) {
@@ -23,6 +28,7 @@ export default class DockManager {
         this.settings = settings;
         this._originalDash = Main.overview.dash;
         this._externalActors = new Set();
+        this._asyncSources = new Set();
 
         this._applyDashState();
 
@@ -44,14 +50,11 @@ export default class DockManager {
         if (this._hijackedOrigBox) return;
 
         this._originalDash.opacity = 0;
-        this._originalDash.scale_x = 0;
-        this._originalDash.scale_y = 0;
         this._originalDash.reactive = false;
 
-        if (typeof this._originalDash.set_height === 'function') {
-            this._originalDash.set_height(0);
+        if (typeof this._originalDash.show === 'function') {
+            this._originalDash.show();
         }
-        this._originalDash.hide();
 
         const stealExternalWidget = (child) => {
             if (!child) return false;
@@ -68,27 +71,50 @@ export default class DockManager {
                 child._isModule;
 
             if (!isGnomeOrDhruva) {
-                if (child.get_parent()) {
+                const parent = child.get_parent();
+                if (parent) {
                     try {
-                        child.get_parent().remove_child(child);
-                    } catch (e) {}
+                        parent.remove_child(child);
+                    } catch (e) { }
                 }
+
                 child._isExternal = true;
                 child._dhruvaExternalOwner = this;
+                child._is3rdParty = true;
                 this._externalActors.add(child);
 
-                if (this.dockUI && this.dockUI._safeHouse) {
-                    try {
-                        this.dockUI._safeHouse.add_child(child);
-                    } catch (e) {}
+                child._isStatic = true;
+                if (typeof child.ease === 'function') {
+                    child.ease = function (props) {
+                        const newProps = Object.assign({}, props);
+                        delete newProps.scale_x;
+                        delete newProps.scale_y;
+                        Clutter.Actor.prototype.ease.call(this, newProps);
+                    };
+                }
+                if (typeof child.set_scale === 'function') {
+                    const origScale = child.set_scale.bind(child);
+                    child.set_scale = (sx, sy) => {
+                        if (sx === 1 && sy === 1) origScale(sx, sy);
+                    };
                 }
 
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
-                    if (child && !(typeof child.is_destroyed === 'function' && child.is_destroyed())) {
+                if (this.dockUI && this.dockUI.boxActor) {
+                    try {
+                        this.dockUI.boxActor.add_child(child);
+                    } catch (e) { }
+                }
+
+                const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
+                    this._asyncSources.delete(timerId);
+
+                    if (child && this.dockUI && this.dockUI.isActorAlive(child)) {
                         try {
                             if (typeof child.remove_all_transitions === 'function') child.remove_all_transitions();
-                            child.opacity = 255;
-                        } catch (e) {}
+                            if (child.visible) child.opacity = 255;
+                            child.scale_x = 1;
+                            child.scale_y = 1;
+                        } catch (e) { }
                     }
 
                     if (this.dockUI && !this.dockUI._isDestroyed && typeof this.dockUI.queueRender === 'function') {
@@ -96,6 +122,55 @@ export default class DockManager {
                     }
                     return GLib.SOURCE_REMOVE;
                 });
+                this._asyncSources.add(timerId);
+
+                if (!this._3rdPartyCheckerRunning) {
+                    this._3rdPartyCheckerRunning = true;
+
+                    const globalChecker = () => {
+                        if (!this._externalActors || this._isDestroyed) {
+                            this._3rdPartyCheckerRunning = false;
+                            return GLib.SOURCE_REMOVE;
+                        }
+
+                        this._externalActors.forEach(ext => {
+                            if (ext && ext._is3rdParty && !(typeof ext.is_destroyed === 'function' && ext.is_destroyed())) {
+                                let fullText = '';
+
+                                const collectText = (actor) => {
+                                    if (!actor || typeof actor.get_children !== 'function') return;
+                                    actor.get_children().forEach(sub => {
+                                        try {
+                                            const t = (typeof sub.get_text === 'function' ? sub.get_text() : sub.text) || '';
+                                            if (typeof t === 'string' && t.trim().length > 0) {
+                                                fullText += ' ' + t.toLowerCase();
+                                            }
+                                            collectText(sub);
+                                        } catch (e) { }
+                                    });
+                                };
+                                collectText(ext);
+
+                                const isMediaDead = fullText.includes('no media') ||
+                                    fullText.includes('waiting for playback') ||
+                                    fullText.trim() === '';
+
+                                const isVert = this.dockUI && (this.dockUI.dockPosition === 'LEFT' || this.dockUI.dockPosition === 'RIGHT');
+
+                                if (isVert || isMediaDead) {
+                                    if (ext.visible) ext.hide();
+                                } else {
+                                    if (!ext.visible) ext.show();
+                                }
+                            }
+                        });
+
+                        return GLib.SOURCE_CONTINUE;
+                    };
+
+                    const globalTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, globalChecker);
+                    this._asyncSources.add(globalTimer);
+                }
 
                 return true;
             }
@@ -107,12 +182,15 @@ export default class DockManager {
                 this._externalActors.delete(child);
                 child._isExternal = false;
                 child._dhruvaExternalOwner = null;
+                child._is3rdParty = false;
 
                 if (this.dockUI && typeof this.dockUI.queueRender === 'function') {
-                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    const idleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        this._asyncSources.delete(idleId);
                         if (this.dockUI && !this.dockUI._isDestroyed) this.dockUI.queueRender();
                         return GLib.SOURCE_REMOVE;
                     });
+                    this._asyncSources.add(idleId);
                 }
             }
         };
@@ -169,7 +247,7 @@ export default class DockManager {
                     this._hijackedOrigBox.add_actor = this._nativeOrigAddActor;
                 }
                 this._hijackedOrigBox._isHijacked = false;
-            } catch (_e) {}
+            } catch (_e) { }
         }
 
         if (originalBox && this._externalActors && this._externalActors.size > 0) {
@@ -177,9 +255,12 @@ export default class DockManager {
                 if (!child || child._dhruvaExternalOwner !== this) return;
                 if (typeof child.is_destroyed === 'function' && child.is_destroyed()) return;
 
-                try {
-                    if (child.get_parent()) child.get_parent().remove_child(child);
-                } catch (_e) {}
+                const parent = child.get_parent();
+                if (parent) {
+                    try {
+                        parent.remove_child(child);
+                    } catch (_e) { }
+                }
 
                 child._isExternal = false;
                 child._dhruvaExternalOwner = null;
@@ -190,20 +271,17 @@ export default class DockManager {
                     } else {
                         originalBox.add_child(child);
                     }
-                } catch (_e) {}
+                } catch (_e) { }
             });
             this._externalActors.clear();
         }
 
         if (this._originalDash) {
             this._originalDash.opacity = 255;
-            this._originalDash.scale_x = 1;
-            this._originalDash.scale_y = 1;
             this._originalDash.reactive = true;
-            if (typeof this._originalDash.set_height === 'function') {
-                this._originalDash.set_height(-1);
+            if (typeof this._originalDash.show === 'function') {
+                this._originalDash.show();
             }
-            this._originalDash.show();
         }
 
         this._hijackedOrigBox = null;
@@ -265,17 +343,29 @@ export default class DockManager {
                 this.dockUI.autoHideManager.isVisible = true;
                 this.dockUI.autoHideManager.isAnimating = false;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     destroy() {
+        if (this._folderSpyId) {
+            if (Main.layoutManager && Main.layoutManager.overviewGroup) {
+                Main.layoutManager.overviewGroup.disconnect(this._folderSpyId);
+            }
+            this._folderSpyId = null;
+        }
+
+        if (this._asyncSources) {
+            this._asyncSources.forEach(id => GLib.source_remove(id));
+            this._asyncSources.clear();
+        }
+
         if (this._settingSignalId) {
             this.settings.disconnect(this._settingSignalId);
             this._settingSignalId = null;
         }
 
         this._restoreGnomeDash();
-        
+
         this.dockUI = null;
         this.settings = null;
     }

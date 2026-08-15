@@ -1,16 +1,19 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -46,21 +49,17 @@ export default class NotificationManager {
     }
 
     _setupListeners() {
-        try {
-            this._dbusSignalId = Gio.DBus.session.signal_subscribe(
-                null,
-                'com.canonical.Unity.LauncherEntry',
-                'Update',
-                null,
-                null,
-                Gio.DBusSignalFlags.NONE,
-                (connection, senderName, objectPath, interfaceName, signalName, parameters) => {
-                    this._onDBusBadgeUpdate(parameters);
-                }
-            );
-        } catch (e) {
-            console.error('[Dhruva Badge] D-Bus listener failed:', e);
-        }
+        this._dbusSignalId = Gio.DBus.session.signal_subscribe(
+            null,
+            'com.canonical.Unity.LauncherEntry',
+            'Update',
+            null,
+            null,
+            Gio.DBusSignalFlags.NONE,
+            (connection, senderName, objectPath, interfaceName, signalName, parameters) => {
+                this._onDBusBadgeUpdate(parameters);
+            }
+        );
 
         this._traySignals.push(Main.messageTray.connect('source-added', () => this._requestRender()));
         this._traySignals.push(Main.messageTray.connect('source-removed', () => this._requestRender()));
@@ -68,34 +67,30 @@ export default class NotificationManager {
     }
 
     _onDBusBadgeUpdate(parameters) {
-        try {
-            const appUriVariant = parameters.get_child_value(0);
-            const propsVariant = parameters.get_child_value(1);
+        const appUriVariant = parameters.get_child_value(0);
+        const propsVariant = parameters.get_child_value(1);
 
-            if (!appUriVariant || !propsVariant) return;
+        if (!appUriVariant || !propsVariant) return;
 
-            const appUri = appUriVariant.get_string()[0];
-            const cleanId = appUri.replace('application://', '').toLowerCase();
+        const appUri = appUriVariant.get_string()[0];
+        const cleanId = appUri.replace('application://', '').toLowerCase();
 
-            let count = 0;
-            let isVisible = false;
+        let count = 0;
+        let isVisible = false;
 
-            const countV = propsVariant.lookup_value('count', null);
-            if (countV) count = countV.get_int64();
+        const countV = propsVariant.lookup_value('count', null);
+        if (countV) count = countV.get_int64();
 
-            const visibleV = propsVariant.lookup_value('count-visible', null);
-            if (visibleV) isVisible = visibleV.get_boolean();
+        const visibleV = propsVariant.lookup_value('count-visible', null);
+        if (visibleV) isVisible = visibleV.get_boolean();
 
-            if (isVisible && count > 0) {
-                this._appBadgeCounts.set(cleanId, count);
-            } else {
-                this._appBadgeCounts.delete(cleanId);
-            }
-
-            this._requestRender();
-        } catch (e) {
-            console.error('[Dhruva Badge] D-Bus decode error:', e);
+        if (isVisible && count > 0) {
+            this._appBadgeCounts.set(cleanId, count);
+        } else {
+            this._appBadgeCounts.delete(cleanId);
         }
+
+        this._requestRender();
     }
 
     getUnreadCount(app) {

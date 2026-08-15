@@ -1,16 +1,19 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -73,7 +76,6 @@ export default class FolderManager {
                 const data = this.settings.get_string('app-folders');
                 this.folders = JSON.parse(data || '[]');
             } catch (e) {
-                console.error('[Dhruva] Failed to parse app folders:', e);
                 this.folders = [];
             }
             if (typeof this._onStateChangedCallback === 'function') {
@@ -84,23 +86,15 @@ export default class FolderManager {
 
     _saveFolders() {
         if (this.isIndependent()) {
-            try {
-                GLib.mkdir_with_parents(this.extConfigDir, 0o755);
-                const dataStr = JSON.stringify(this.folders, null, 2);
-                
-                const file = Gio.File.new_for_path(this.dbPath);
-                const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
-                
-                file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
-                    try {
-                        obj.replace_contents_finish(res);
-                    } catch (e) {
-                        console.error("[Dhruva] Error saving independent folders:", e);
-                    }
-                });
-            } catch (e) {
-                console.error("[Dhruva] Error setting up save independent folders:", e);
-            }
+            GLib.mkdir_with_parents(this.extConfigDir, 0o755);
+            const dataStr = JSON.stringify(this.folders, null, 2);
+            
+            const file = Gio.File.new_for_path(this.dbPath);
+            const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
+            
+            file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
+                obj.replace_contents_finish(res);
+            });
         } else {
             this.settings.set_string('app-folders', JSON.stringify(this.folders));
         }

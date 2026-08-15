@@ -1,16 +1,19 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -19,17 +22,10 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
-import {
-    playTrashEffect
-} from './effects/TrashEffect.js';
-import {
-    resetMagnification,
-    getDockButtons,
-    getFixedSlots,
-    startDragLoop,
-    stopDragLoop,
-    applyRealtimeFrame
-} from './Magnifier.js';
+import { playTrashEffect } from './effects/TrashEffect.js';
+import { getDockButtons, getFixedSlots } from './magnifier/MagnifierMath.js';
+import { stopDragLoop, startDragLoop } from './magnifier/MagnifierDragLoop.js';
+import { resetMagnification, applyRealtimeFrame } from './magnifier/Magnifier.js';
 
 
 let lastSwapTime = 0;
@@ -81,7 +77,9 @@ function _setMergeHint(btn, dockUI) {
     if (!btn._mergeHintApplied) {
         btn._mergeHintApplied = true;
         btn._mergeHintStyle = typeof btn.get_style === 'function' ? btn.get_style() : null;
-        try { btn.set_style('background-color: rgba(255, 255, 255, 0.16); border-radius: 10px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.34); transition-duration: 200ms;'); } catch(e){}
+        try {
+            btn.set_style('background-color: rgba(255, 255, 255, 0.16); border-radius: 10px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.34); transition-duration: 200ms;');
+        } catch (_e) {}
     }
 }
 
@@ -89,7 +87,9 @@ function _clearMergeHint(btn, dockUI) {
     if (!isActorAlive(btn)) return;
     if (btn._mergeHintApplied) {
         btn._mergeHintApplied = false;
-        try { btn.set_style(`${btn._mergeHintStyle || ''} transition-duration: 200ms;`); } catch(e){}
+        try {
+            btn.set_style(`${btn._mergeHintStyle || ''} transition-duration: 200ms;`);
+        } catch (_e) {}
         btn._mergeHintStyle = null;
         btn._wantsToMerge = false;
         btn._reorderWaitTime = null;
@@ -114,40 +114,24 @@ export function setupDragAndDrop(btn, app, dockUI) {
     if (dockUI.settings.get_boolean('lock-icons')) return;
     if (app && app.is_module) return;
 
-
     const clearHintsOnLeave = () => {
-        if (dockUI.actor._mergeTargetButton) {
+        if (dockUI.actor._mergeTargetButton)
             _clearMergeHint(dockUI.actor._mergeTargetButton, dockUI);
-        }
         return DND.DragMotionResult.MOVE_DROP;
     };
 
-    if (isActorAlive(dockUI.boxActor)) {
-        try {
-            if (!dockUI.boxActor._delegate) dockUI.boxActor._delegate = {};
-            dockUI.boxActor._delegate.acceptDrop = () => true;
-            dockUI.boxActor._delegate.handleDragDrop = () => true;
-            dockUI.boxActor._delegate.handleDragOver = clearHintsOnLeave;
-        } catch (_e) {}
-    }
+    const registerContainerDelegate = (actor) => {
+        if (isActorAlive(actor)) {
+            if (!actor._delegate) actor._delegate = {};
+            actor._delegate.acceptDrop = () => true;
+            actor._delegate.handleDragDrop = () => true;
+            actor._delegate.handleDragOver = clearHintsOnLeave;
+        }
+    };
 
-    if (isActorAlive(dockUI.actor)) {
-        try {
-            if (!dockUI.actor._delegate) dockUI.actor._delegate = {};
-            dockUI.actor._delegate.acceptDrop = () => true;
-            dockUI.actor._delegate.handleDragDrop = () => true;
-            dockUI.actor._delegate.handleDragOver = clearHintsOnLeave;
-        } catch (_e) {}
-    }
-
-    if (isActorAlive(dockUI.bgActor)) {
-        try {
-            if (!dockUI.bgActor._delegate) dockUI.bgActor._delegate = {};
-            dockUI.bgActor._delegate.acceptDrop = () => true;
-            dockUI.bgActor._delegate.handleDragDrop = () => true;
-            dockUI.bgActor._delegate.handleDragOver = clearHintsOnLeave;
-        } catch (_e) {}
-    }
+    registerContainerDelegate(dockUI.boxActor);
+    registerContainerDelegate(dockUI.actor);
+    registerContainerDelegate(dockUI.bgActor);
 
     btn.connect('button-press-event', () => {
         btn._wasDragged = false;
@@ -161,13 +145,8 @@ export function setupDragAndDrop(btn, app, dockUI) {
         button: btn,
 
         getDragActor: () => {
-
             const icon = btn.get_child();
-
-            const clone = new Clutter.Clone({
-                source: icon
-            });
-
+            const clone = new Clutter.Clone({ source: icon });
             clone.reactive = false;
             return clone;
         },
@@ -180,18 +159,15 @@ export function setupDragAndDrop(btn, app, dockUI) {
                 const isDraggedFolder = sourceBtn._isFolder || sourceDelegate.isFolder;
                 const draggedId = isDraggedFolder ? sourceBtn._folderData?.id : _sourceId(source);
 
-
                 if (!isDraggedFolder && draggedId && dockUI.folderManager) {
                     if (btn._isFolder) {
                         dockUI.folderManager.addAppToFolder(btn._folderData.id, draggedId);
-
                     } else {
                         const targetAppId = (app && typeof app.get_id === 'function') ? app.get_id() : null;
                         if (targetAppId && targetAppId !== draggedId) {
                             const folderId = dockUI.folderManager.createFolder("New Folder");
                             dockUI.folderManager.addAppToFolder(folderId, targetAppId);
                             dockUI.folderManager.addAppToFolder(folderId, draggedId);
-
                         }
                     }
                 }
@@ -223,7 +199,6 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
             const draggedId = isDraggedFolder ? draggedBtn._folderData?.id : _sourceId(source);
             const targetId = isTargetFolder ? btn._folderData.id : (app && typeof app.get_id === 'function' ? app.get_id() : null);
-
 
             const [, , mods] = global.get_pointer();
             const isCtrlPressed = (mods & Clutter.ModifierType.CONTROL_MASK) !== 0;
@@ -271,12 +246,12 @@ export function setupDragAndDrop(btn, app, dockUI) {
                 } else {
                     favIds = dockUI.appManager.favManager.getFavorites().map(a => typeof a.get_id === 'function' ? a.get_id() : '');
                 }
-            } catch (e) {}
+            } catch (_e) {}
 
             const isDraggedPinned = isDraggedFolder || favIds.includes(draggedId);
 
-            let closestIndex = draggedIndex,
-                minDiff = Infinity;
+            let closestIndex = draggedIndex;
+            let minDiff = Infinity;
             for (let i = 0; i < allBtns.length; i++) {
                 const targetBtnDelegate = allBtns[i]._delegate;
                 if (!targetBtnDelegate) continue;
@@ -314,21 +289,14 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
             const displaced = [];
             if (closestIndex > draggedIndex) {
-                for (let k = draggedIndex + 1; k <= closestIndex; k++) displaced.push({
-                    b: allBtns[k],
-                    offset: avgSlotWidth
-                });
+                for (let k = draggedIndex + 1; k <= closestIndex; k++)
+                    displaced.push({ b: allBtns[k], offset: avgSlotWidth });
             } else {
-                for (let k = closestIndex; k < draggedIndex; k++) displaced.push({
-                    b: allBtns[k],
-                    offset: -avgSlotWidth
-                });
+                for (let k = closestIndex; k < draggedIndex; k++)
+                    displaced.push({ b: allBtns[k], offset: -avgSlotWidth });
             }
 
-            displaced.forEach(({
-                b: dispBtn,
-                offset
-            }) => {
+            displaced.forEach(({ b: dispBtn, offset }) => {
                 dispBtn.remove_all_transitions();
                 dispBtn._flipOffset = (dispBtn._flipOffset || 0) + offset;
                 dispBtn._flipStartTime = now;
@@ -338,13 +306,15 @@ export function setupDragAndDrop(btn, app, dockUI) {
         }
     };
 
-    const draggable = DND.makeDraggable(btn, {
-        restoreOnSuccess: false
-    });
+    const draggable = DND.makeDraggable(btn, { restoreOnSuccess: false });
 
     draggable.connect('drag-cancelled', () => {
-        if (dockUI.actor._mergeTargetButton) _clearMergeHint(dockUI.actor._mergeTargetButton, dockUI);
-        if (draggable._dragActor) draggable._dragActor.opacity = 0;
+        if (dockUI.actor._mergeTargetButton)
+            _clearMergeHint(dockUI.actor._mergeTargetButton, dockUI);
+
+        if (draggable._dragActor)
+            draggable._dragActor.opacity = 0;
+
         const [px, py] = global.get_pointer();
         const [bx, by] = dockUI.boxActor.get_transformed_position();
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
@@ -381,7 +351,8 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const mainActor = dockUI.actor;
         mainActor._isDragging = false;
         mainActor._lastIconClickTime = Date.now();
-        if (mainActor._mergeTargetButton) _clearMergeHint(mainActor._mergeTargetButton, dockUI);
+        if (mainActor._mergeTargetButton)
+            _clearMergeHint(mainActor._mergeTargetButton, dockUI);
 
         stopDragLoop(mainActor);
 
@@ -402,7 +373,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
 
-        let entityId = btn._isFolder ? btn._folderData.id : (app && typeof app.get_id === 'function' ? app.get_id() : null);
+        const entityId = btn._isFolder ? btn._folderData.id : (app && typeof app.get_id === 'function' ? app.get_id() : null);
 
         const [dx, dy] = mainActor.get_transformed_position();
         const [dw, dh] = mainActor.get_transformed_size();
@@ -410,8 +381,10 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
         if (isOutside && !isInsideMain && entityId) {
             try {
-                if (btn._isFolder) dockUI.folderManager.deleteFolder(entityId);
-                else dockUI.appManager.removeApp(app);
+                if (btn._isFolder)
+                    dockUI.folderManager.deleteFolder(entityId);
+                else
+                    dockUI.appManager.removeApp(app);
             } catch (_e) {}
 
             btn.opacity = 0;
@@ -437,8 +410,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const newOrderIds = [];
         currentBtns.forEach(b => {
             if (b._delegate) {
-                if (b._delegate.isFolder) {
-                } else if (b._delegate.app && !b._delegate.app.is_module && typeof b._delegate.app.get_id === 'function') {
+                if (!b._delegate.isFolder && b._delegate.app && !b._delegate.app.is_module && typeof b._delegate.app.get_id === 'function') {
                     newOrderIds.push(b._delegate.app.get_id());
                 }
             }
@@ -449,7 +421,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         if (isIndependent) {
             const currentPinnedIds = dockUI.appManager.pinnedApps || [];
             const finalPinnedOrder = newOrderIds.filter(id => currentPinnedIds.includes(id) || id === entityId);
-            
+
             currentPinnedIds.forEach(id => {
                 if (!finalPinnedOrder.includes(id)) {
                     finalPinnedOrder.push(id);
@@ -469,14 +441,8 @@ export function setupDragAndDrop(btn, app, dockUI) {
                 }
             });
 
-            try {
-                const shellSettings = new Gio.Settings({
-                    schema_id: 'org.gnome.shell'
-                });
-                shellSettings.set_strv('favorite-apps', finalFavOrder);
-            } catch (e) {
-                console.error('[Dhruva] Failed to reorder favorites:', e);
-            }
+            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+            shellSettings.set_strv('favorite-apps', finalFavOrder);
         }
 
         if (!isInsideMain) {

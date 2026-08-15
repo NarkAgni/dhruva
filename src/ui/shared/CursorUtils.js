@@ -17,20 +17,15 @@
  */
 
 
-export default class WorkspaceFilter {
+import Meta from 'gi://Meta';
 
-    static filterWindows(windows, settings) {
-        try {
-            if (!settings.get_boolean('isolate-workspaces')) return windows;
-        } catch (e) {
-            return windows;
+
+export function resetCursorToDefault() {
+    try {
+        if (typeof Meta.CursorShape !== 'undefined') {
+            global.display.set_cursor(Meta.CursorShape.DEFAULT);
+        } else if (typeof Meta.Cursor !== 'undefined' && Meta.Cursor.DEFAULT !== undefined) {
+            global.display.set_cursor(Meta.Cursor.DEFAULT);
         }
-
-        const workspaceManager = global.workspace_manager;
-        const activeWs = workspaceManager.get_active_workspace();
-
-        return windows.filter(w => {
-            return w.is_on_all_workspaces() || w.get_workspace() === activeWs;
-        });
-    }
+    } catch (_e) {}
 }
