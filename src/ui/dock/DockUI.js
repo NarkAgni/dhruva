@@ -129,9 +129,7 @@ export default class DockUI {
         const handlePrefsTrigger = (_actor, event) => {
             if (event.get_button() === 3 && !this._activeContextMenu) {
                 if ((event.get_state() & Clutter.ModifierType.CONTROL_MASK) && this.openPrefsCallback) {
-                    this.openPrefsCallback().catch(e => {
-                        console.warn('[Dhruva] Failed to open preferences:', e.message);
-                    });
+                    this.openPrefsCallback().catch(e => {});
                     return Clutter.EVENT_STOP;
                 }
             }
@@ -440,6 +438,11 @@ export default class DockUI {
                     if (this.isActorAlive(this.actor)) {
                         this.actor.show();
                         this.actor.opacity = 255;
+                        if (this.autoHideManager) {
+                            this.autoHideManager.isHidden = false;
+                            this.autoHideManager._applyDockInputState(true);
+                            this.autoHideManager._setAutoHideMagnifierPaused(false);
+                        }
                     }
 
                     if (this.actor._affectsStruts) {
@@ -539,9 +542,7 @@ export default class DockUI {
                         }
                         
                         file.delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
-                    } catch (e) {
-                        console.error("[Dhruva] Async Read Error:", e);
-                    }
+                    } catch (e) {}
                 }
 
                 this._updateStruts();
