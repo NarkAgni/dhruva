@@ -453,7 +453,7 @@ export default class AppGridUI {
         let strokeRgba = sWidth > 0 ? _hexToRgba(sColor, sOpacity) : 'transparent';
 
         if (themeId === 'chameleon') {
-            const c = this.dockUI._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
+            const c = (this.dockUI._chameleonColor && this.dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
             bgRgba = `rgba(${c.r}, ${c.g}, ${c.b}, 0.88)`;
             strokeRgba = 'rgba(255, 255, 255, 0.2)';
         } else if (this.dockUI.actor._tooltipBg) {
@@ -492,9 +492,11 @@ export default class AppGridUI {
 
     show(dockPosition) {
         Main.layoutManager.addChrome(this.actor, { affectsStruts: false });
-        const { monitor } = this.dockUI.monitorManager.getCurrentMonitor();
-        this.actor.set_position(monitor.x, monitor.y);
-        this.actor.set_size(monitor.width, monitor.height);
+        const monitorInfo = this.dockUI.monitorManager.getCurrentMonitor();
+        if (monitorInfo && monitorInfo.monitor) {
+            this.actor.set_position(monitorInfo.monitor.x, monitorInfo.monitor.y);
+            this.actor.set_size(monitorInfo.monitor.width, monitorInfo.monitor.height);
+        }
 
         this.searchEntry.set_text('');
         global.stage.set_key_focus(this.searchEntry);
@@ -508,7 +510,10 @@ export default class AppGridUI {
     }
 
     _updatePosition(overrideDockPos) {
-        const { monitor } = this.dockUI.monitorManager.getCurrentMonitor();
+        const monitorInfo = this.dockUI.monitorManager.getCurrentMonitor();
+        if (!monitorInfo || !monitorInfo.monitor) return;
+        const monitor = monitorInfo.monitor;
+
         const workArea = Main.layoutManager.getWorkAreaForMonitor(Main.layoutManager.primaryIndex);
         const dockActor = this.dockUI.actor;
         const [dockX, dockY] = dockActor.get_transformed_position();

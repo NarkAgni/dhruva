@@ -20,16 +20,19 @@
 import Gio from 'gi://Gio';
 
 
-export function buildTrashModule(dockUI, _iconSize, createBtn, toggleAppWindow) {
+export function buildTrashModule(_iconSize, createBtn, toggleAppWindow) {
     let trashIconName = 'user-trash';
-    try {
-        const trashFile = Gio.File.new_for_uri('trash:///');
+    const trashFile = Gio.File.new_for_uri('trash:///');
+    
+    if (trashFile.query_exists(null)) {
         const enumerator = trashFile.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-        if (enumerator.next_file(null)) {
+        if (enumerator && enumerator.next_file(null)) {
             trashIconName = 'user-trash-full';
         }
-        enumerator.close(null);
-    } catch (_e) { }
+        if (enumerator) {
+            enumerator.close(null);
+        }
+    }
 
     return createBtn(trashIconName, 'Recycle Bin', (btn) => toggleAppWindow('trash:///', ['Trash'], btn), ['Trash']);
 }

@@ -25,31 +25,31 @@ import { traceMenuPath } from '../shared/MenuShape.js';
 export function dropDelegate(source) {
     if (!source) return {};
     if (source._delegate) return source._delegate;
-    if (source.button?._delegate) return source.button._delegate;
-    if (source.sourceActor?._delegate) return source.sourceActor._delegate;
-    if (source.actor?._delegate) return source.actor._delegate;
+    if (source.button && source.button._delegate) return source.button._delegate;
+    if (source.sourceActor && source.sourceActor._delegate) return source.sourceActor._delegate;
+    if (source.actor && source.actor._delegate) return source.actor._delegate;
     return source;
 }
 
 export function dropButton(source) {
     const delegate = dropDelegate(source);
     return delegate.button ||
-        source?.button ||
-        source?.sourceActor ||
-        source?.actor ||
-        (source?.get_parent ? source : null);
+        (source && source.button) ||
+        (source && source.sourceActor) ||
+        (source && source.actor) ||
+        (source && source.get_parent ? source : null);
 }
 
 export function dropAppId(source) {
     const delegate = dropDelegate(source);
     if (delegate.appId) return delegate.appId;
-    if (delegate.app && typeof delegate.app.get_id === 'function') return delegate.app.get_id();
-    if (source?.app && typeof source.app.get_id === 'function') return source.app.get_id();
+    if (delegate.app && delegate.app.get_id) return delegate.app.get_id();
+    if (source && source.app && source.app.get_id) return source.app.get_id();
     return null;
 }
 
 export function applyThemeStyle(folderMenu, panel) {
-    if (!folderMenu.dockUI?.settings) return;
+    if (!folderMenu.dockUI || !folderMenu.dockUI.settings) return;
     const settings = folderMenu.dockUI.settings;
     const themeId = settings.get_string('dock-theme') || 'default';
     const opacity = settings.get_int('background-opacity') / 100.0;
@@ -67,9 +67,9 @@ export function applyThemeStyle(folderMenu, panel) {
     let bgRgba = _hexToRgba(settings.get_string('background-color') || '#000000', opacity);
 
     if (themeId === 'chameleon') {
-        const { r, g, b } = folderMenu.dockUI._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
+        const { r, g, b } = (folderMenu.dockUI._chameleonColor && folderMenu.dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
         bgRgba = `rgba(${r}, ${g}, ${b}, 0.88)`;
-    } else if (folderMenu.dockUI.actor._tooltipBg) {
+    } else if (folderMenu.dockUI.actor && folderMenu.dockUI.actor._tooltipBg) {
         const css = folderMenu.dockUI.actor._tooltipBg;
 
         let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);

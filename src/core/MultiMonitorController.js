@@ -60,10 +60,8 @@ export default class MultiMonitorController {
     }
 
     getFocusedMonitorIndex() {
-        try {
-            const focused = global.display.get_focus_window();
-            if (focused) return focused.get_monitor();
-        } catch (_e) {}
+        const focused = global.display.get_focus_window();
+        if (focused) return focused.get_monitor();
         return Main.layoutManager.primaryIndex ?? 0;
     }
 
@@ -73,28 +71,19 @@ export default class MultiMonitorController {
         const focusedMonitor = this.getFocusedMonitorIndex();
         if (focusedMonitor !== null && focusedMonitor >= 0) {
             const focusedDock = this.docks.find(dock => {
-                try {
-                    return dock.monitorManager.getCurrentMonitor().index === focusedMonitor;
-                } catch (_e) {
-                    return false;
-                }
+                return dock.monitorManager && dock.monitorManager.getCurrentMonitor().index === focusedMonitor;
             });
             if (focusedDock) return focusedDock;
         }
 
         let pointerMonitor = null;
-        try {
-            if (typeof global.display.get_current_monitor === 'function')
-                pointerMonitor = global.display.get_current_monitor();
-        } catch (_e) {}
+        if (global.display.get_current_monitor) {
+            pointerMonitor = global.display.get_current_monitor();
+        }
 
         if (pointerMonitor !== null && pointerMonitor >= 0) {
             const pointerDock = this.docks.find(dock => {
-                try {
-                    return dock.monitorManager.getCurrentMonitor().index === pointerMonitor;
-                } catch (_e) {
-                    return false;
-                }
+                return dock.monitorManager && dock.monitorManager.getCurrentMonitor().index === pointerMonitor;
             });
             if (pointerDock) return pointerDock;
         }
@@ -105,7 +94,7 @@ export default class MultiMonitorController {
     destroyDocks() {
         if (this.docks && this.docks.length > 0) {
             this.docks.forEach(dock => {
-                if (dock && typeof dock.destroy === 'function') {
+                if (dock && dock.destroy) {
                     dock.destroy();
                 }
             });

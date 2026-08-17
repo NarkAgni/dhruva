@@ -26,11 +26,7 @@ export default class ScrollManager {
         dockActor.connect('scroll-event', (actor, event) => {
             actor._lastIconClickTime = Date.now();
 
-            try {
-                if (!settings.get_boolean('scroll-action-dock')) return Clutter.EVENT_PROPAGATE;
-            } catch (e) {
-                return Clutter.EVENT_PROPAGATE;
-            }
+            if (!settings.get_boolean('scroll-action-dock')) return Clutter.EVENT_PROPAGATE;
 
             const dir = event.get_scroll_direction();
             const wm = global.workspace_manager;
@@ -53,14 +49,11 @@ export default class ScrollManager {
 
     static setupAppScroll(appButton, getWindowsFn, settings) {
         appButton.connect('scroll-event', (actor, event) => {
-            let mainDockActor = actor.get_parent()?.get_parent();
+            const parent = actor.get_parent();
+            const mainDockActor = parent ? parent.get_parent() : null;
             if (mainDockActor) mainDockActor._lastIconClickTime = Date.now();
 
-            try {
-                if (!settings.get_boolean('scroll-action-app')) return Clutter.EVENT_STOP;
-            } catch (e) {
-                return Clutter.EVENT_PROPAGATE;
-            }
+            if (!settings.get_boolean('scroll-action-app')) return Clutter.EVENT_STOP;
 
             const dir = event.get_scroll_direction();
             const windows = getWindowsFn();

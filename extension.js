@@ -68,20 +68,14 @@ export default class DhruvaExtension extends Extension {
     }
 
     _clearGnomeSwitchToApplicationShortcuts() {
-        let shellKeys;
+        const shellKeys = new Gio.Settings({
+            schema_id: 'org.gnome.shell.keybindings'
+        });
 
-        try {
-            shellKeys = new Gio.Settings({
-                schema_id: 'org.gnome.shell.keybindings'
-            });
-        } catch (_e) {}
-
-        if (shellKeys) {
-            for (let i = 1; i <= 9; i++) {
-                const key = `switch-to-application-${i}`;
-                try {
-                    if (shellKeys.is_writable(key)) shellKeys.set_strv(key, []);
-                } catch (_e) {}
+        for (let i = 1; i <= 9; i++) {
+            const key = `switch-to-application-${i}`;
+            if (shellKeys.is_writable(key)) {
+                shellKeys.set_strv(key, []);
             }
         }
     }

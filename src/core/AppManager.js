@@ -42,7 +42,7 @@ export default class AppManager {
         this._settingSignal = this.settings.connect('changed::independent-dock', () => {
             if (this.isIndependent()) {
                 this.loadPinnedAppsAsync();
-            } else if (typeof this._onStateChangedCallback === 'function') {
+            } else if (this._onStateChangedCallback) {
                 this._onStateChangedCallback();
             }
         });
@@ -61,17 +61,26 @@ export default class AppManager {
         file.load_contents_async(null, (obj, res) => {
             let success = false;
             let contents = null;
-            [success, contents] = obj.load_contents_finish(res);
+            
+            try {
+                [success, contents] = obj.load_contents_finish(res);
+            } catch (e) {
+               console.error(`[Dhruva] Failed to load contents finish: ${e.message}`);
+            }
 
             if (success && contents) {
-                const decoder = new TextDecoder('utf-8');
-                const parsed = JSON.parse(decoder.decode(contents));
-                if (Array.isArray(parsed)) {
-                    this.pinnedApps = parsed;
-                    if (typeof this._onStateChangedCallback === 'function') {
-                        this._onStateChangedCallback();
+                try {
+                    const decoder = new TextDecoder('utf-8');
+                    const parsed = JSON.parse(decoder.decode(contents));
+                    if (Array.isArray(parsed)) {
+                        this.pinnedApps = parsed;
+                        if (this._onStateChangedCallback) {
+                            this._onStateChangedCallback();
+                        }
+                        return;
                     }
-                    return;
+                } catch (e) { 
+                    console.error(`[Dhruva] Failed to parse pinned apps JSON: ${e.message}`);
                 }
             }
 
@@ -83,7 +92,7 @@ export default class AppManager {
                 'org.gnome.TextEditor.desktop'
             ];
             this.savePinnedApps();
-            if (typeof this._onStateChangedCallback === 'function') {
+            if (this._onStateChangedCallback) {
                 this._onStateChangedCallback();
             }
         });
@@ -99,7 +108,9 @@ export default class AppManager {
         const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
         
         file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
-            obj.replace_contents_finish(res);
+            try {
+                obj.replace_contents_finish(res);
+            } catch (e) { }
         });
     }
 
@@ -152,10 +163,7 @@ export default class AppManager {
     }
 
     getDisplayApps() {
-        let showUnpinned = true;
-        try {
-            showUnpinned = this.settings.get_boolean('show-unpinned-apps');
-        } catch (e) {}
+        const showUnpinned = this.settings.get_boolean('show-unpinned-apps');
 
         if (!this.isIndependent()) {
             const favorites = this.favManager.getFavorites();

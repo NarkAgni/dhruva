@@ -28,7 +28,7 @@ export function resolveTooltipColors(dockUI, themeId) {
     const sColor = settings.get_string('stroke-color') || '#ffffff';
 
     if (themeId === 'chameleon') {
-        const { r, g, b } = dockUI._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
+        const { r, g, b } = (dockUI._chameleonColor && dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
         return {
             css: `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); background-gradient-direction: none;`,
             fg: dockUI._chameleonAccent || sColor
@@ -51,7 +51,7 @@ export function resolveTooltipColors(dockUI, themeId) {
 }
 
 export function applyDynamicStyles(dockUI) {
-    if (dockUI._isDestroyed || !isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
+    if (!isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
 
     const isFullWidth = dockUI.settings.get_boolean('full-width');
     const radius = isFullWidth ? 0 : dockUI.settings.get_int('border-radius');
@@ -107,8 +107,8 @@ export function applyDynamicStyles(dockUI) {
     if (isActorAlive(dockUI.boxActor)) {
         dockUI.boxActor.get_children().forEach(c => {
             if (!isActorAlive(c)) return;
-            if (typeof c.has_style_class_name === 'function' && c.has_style_class_name('clock-module')) {
-                const label = c.get_child?.();
+            if (c.has_style_class_name && c.has_style_class_name('clock-module')) {
+                const label = c.get_child ? c.get_child() : null;
                 if (isActorAlive(label)) {
                     const fontSize = dockUI.settings.get_int('clock-font-size') || 15;
                     label.set_style(`color: ${dockUI.actor._clockFg}; font-size: ${fontSize}px; font-weight: 700; text-shadow: 0px 1px 3px rgba(0,0,0,0.7); padding: 0 2px;`);

@@ -28,9 +28,7 @@ export function debounce(func, wait) {
 
         timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, wait, () => {
             timeoutId = null;
-            try {
-                func.apply(this, args);
-            } catch (e) {}
+            func.apply(this, args);
             return GLib.SOURCE_REMOVE;
         });
     };

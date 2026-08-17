@@ -22,38 +22,30 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export function isActorAlive(actor) {
     if (!actor || actor.__destroyed) return false;
-    try {
-        if (typeof actor.is_destroyed === 'function' && actor.is_destroyed()) return false;
-        return actor.visible !== undefined;
-    } catch (_e) {
-        return false;
-    }
+    if (actor.is_destroyed && actor.is_destroyed()) return false;
+    return actor.visible !== undefined;
 }
 
 export function captureActorRect(dockUI, actor, fallbackWin = null) {
     if (isActorAlive(actor)) {
-        try {
-            const [x, y] = actor.get_transformed_position();
-            const [w, h] = actor.get_transformed_size();
-            if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)
-                return { x, y, w, h };
-        } catch (_e) {}
+        const [x, y] = actor.get_transformed_position();
+        const [w, h] = actor.get_transformed_size();
+        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)
+            return { x, y, w, h };
     }
 
     if (fallbackWin) {
-        try {
-            const frameRect = fallbackWin.get_frame_rect();
-            if (frameRect) {
-                return { x: frameRect.x + frameRect.width / 2 - 0.5, y: frameRect.y + frameRect.height / 2 - 0.5, w: 1, h: 1 };
-            }
-        } catch (_e) {}
+        const frameRect = fallbackWin.get_frame_rect();
+        if (frameRect) {
+            return { x: frameRect.x + frameRect.width / 2 - 0.5, y: frameRect.y + frameRect.height / 2 - 0.5, w: 1, h: 1 };
+        }
     }
 
     return { x: 0, y: 0, w: 1, h: 1 };
 }
 
 export function updateLayout(dockUI) {
-    if (dockUI._isDestroyed || !isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) return;
+    if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) return;
 
     if (dockUI._wasDragging && !dockUI.actor._isDragging) {
         dockUI._wasDragging = false;
@@ -65,15 +57,16 @@ export function updateLayout(dockUI) {
     if (dockUI.actor._isDragging) dockUI._wasDragging = true;
 
     const isFullWidth = dockUI.settings.get_boolean('full-width');
-    const pos = dockUI.settings.get_string('dock-position');
+    const pos = dockUI.dockPosition;
     const isVertical = pos === 'LEFT' || pos === 'RIGHT';
     const gridPos = dockUI.settings.get_string('grid-button-position') || 'END';
     const alignment = dockUI.settings.get_string('icon-alignment') || 'CENTER';
     const monitorResult = dockUI.monitorManager.getCurrentMonitor();
-    if (!monitorResult?.monitor) return;
+    
+    if (!monitorResult || !monitorResult.monitor) return;
 
     const actualMonitor = monitorResult.monitor;
-    const topOffset = (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel?.visible) 
+    const topOffset = (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) 
         ? (Main.panel.height || 27) 
         : 0;
 
@@ -180,7 +173,6 @@ export function updateLayout(dockUI) {
 
     const padScale = 10 / scale;
     let gx = 0, gy = 0;
-    let actualGridPos = gridPos;
 
     if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
         gx = isVertical ? bgX + (bgW - gridW) / 2 : bgX + padScale;
@@ -192,8 +184,7 @@ export function updateLayout(dockUI) {
     let rightOffset = padScale;
     
     if (isFullWidth && dockUI.extractedDesktop && dockUI.extractedDesktop.visible) {
-        let deskBtnWidth = 14;
-        try { deskBtnWidth = dockUI.settings.get_int('desktop-btn-width'); } catch(e) {}
+        const deskBtnWidth = dockUI.settings.get_int('desktop-btn-width');
         
         const dWidth = isVertical ? bgW : deskBtnWidth;
         const dHeight = isVertical ? deskBtnWidth : bgH;
@@ -204,7 +195,7 @@ export function updateLayout(dockUI) {
         const dy = isVertical ? bgY + bgH - dHeight : bgY;
         
         dockUI.extractedDesktop.set_position(dx, dy);
-        rightOffset += isVertical ? 0 : dWidth;
+        rightOffset = isVertical ? padScale : dWidth;
     }
 
     if (isFullWidth && dockUI.extractedClock && dockUI.extractedClock.visible) {
@@ -280,7 +271,11 @@ export function updateLayout(dockUI) {
     dockUI.actor._cachedH = actorH;
 
     if (dockUI.autoHideManager) {
-        dockUI.autoHideManager._updateEdgeTrigger();
-        dockUI.autoHideManager._scheduleUpdate(10);
+        if (dockUI.autoHideManager._updateEdgeTrigger) {
+            dockUI.autoHideManager._updateEdgeTrigger();
+        }
+        if (dockUI.autoHideManager._scheduleUpdate) {
+            dockUI.autoHideManager._scheduleUpdate(10);
+        }
     }
 }

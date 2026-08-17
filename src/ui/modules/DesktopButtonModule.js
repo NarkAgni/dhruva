@@ -19,10 +19,45 @@
 
 import St from 'gi://St';
 import GLib from 'gi://GLib';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { hexToRgba } from '../../core/Utils.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { fadeMinimize, fadeRestore } from '../effects/WindowEffects.js';
 
+
+export function toggleDesktop(dockUI) {
+    const workspace = global.workspace_manager.get_active_workspace();
+    const windows = workspace.list_windows().filter(w =>
+        w.get_window_type() === 0 && !w.is_skip_taskbar() && !w.is_always_on_all_workspaces()
+    );
+    const visibleWindows = windows.filter(w => !w.minimized);
+
+    if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
+        dockUI._hiddenWindowsByDesktopBtn.forEach((w, index) => {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
+                if (w && w.minimized && w.unminimize) fadeRestore(w);
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+
+        const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
+        if (topWin) {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, dockUI._hiddenWindowsByDesktopBtn.length * 40, () => {
+                Main.activateWindow(topWin);
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+        dockUI._hiddenWindowsByDesktopBtn = [];
+    } else {
+        dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
+        visibleWindows.forEach((w, index) => {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
+                if (!w.minimized && w.minimize) fadeMinimize(w);
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+    }
+}
 
 export function buildDesktopButtonModule(dockUI) {
     if (!dockUI._hiddenWindowsByDesktopBtn) dockUI._hiddenWindowsByDesktopBtn = [];
@@ -34,13 +69,8 @@ export function buildDesktopButtonModule(dockUI) {
     });
 
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    
-    let colorHex = '#ffffff';
-    let opacity = 15;
-    try {
-        colorHex = dockUI.settings.get_string('desktop-btn-color');
-        opacity = dockUI.settings.get_int('desktop-btn-opacity');
-    } catch (e) { }
+    const colorHex = dockUI.settings.get_string('desktop-btn-color') || '#ffffff';
+    const opacity = dockUI.settings.get_int('desktop-btn-opacity');
 
     const baseRgba = hexToRgba(colorHex, opacity / 100.0);
     const hoverRgba = hexToRgba(colorHex, Math.min(1.0, (opacity + 15) / 100.0));
@@ -68,45 +98,13 @@ export function buildDesktopButtonModule(dockUI) {
     btn.connect('clicked', () => {
         btn.set_style(activeStyle);
         GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-            if (btn && typeof btn.set_style === 'function') {
+            if (btn && btn.set_style) {
                 btn.set_style(btn.hover ? hoverStyle : defaultStyle);
             }
             return GLib.SOURCE_REMOVE;
         });
-
-        const workspace = global.workspace_manager.get_active_workspace();
-        const windows = workspace.list_windows().filter(w =>
-            w.get_window_type() === 0 && !w.is_skip_taskbar() && !w.is_always_on_all_workspaces()
-        );
-        const visibleWindows = windows.filter(w => !w.minimized);
-
-        if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
-            dockUI._hiddenWindowsByDesktopBtn.forEach((w, index) => {
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
-                    try { if (w && w.minimized) w.unminimize(); } catch (_e) { }
-                    return GLib.SOURCE_REMOVE;
-                });
-            });
-
-            try {
-                const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
-                if (topWin) {
-                    GLib.timeout_add(GLib.PRIORITY_DEFAULT, dockUI._hiddenWindowsByDesktopBtn.length * 40, () => {
-                        Main.activateWindow(topWin);
-                        return GLib.SOURCE_REMOVE;
-                    });
-                }
-            } catch (_e) { }
-            dockUI._hiddenWindowsByDesktopBtn = [];
-        } else {
-            dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
-            visibleWindows.forEach((w, index) => {
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
-                    try { if (!w.minimized) w.minimize(); } catch (_e) { }
-                    return GLib.SOURCE_REMOVE;
-                });
-            });
-        }
+        
+        toggleDesktop(dockUI);
     });
 
     return btn;

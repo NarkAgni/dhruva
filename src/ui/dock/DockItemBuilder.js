@@ -193,8 +193,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
     btn._hasRunningIndicator = isRunning && showIndicators;
     btn._delegate = { app };
 
-    let boxOp = 25; 
-    try { boxOp = dockUI.settings.get_int('tooltip-opacity'); } catch (e) {}
+    const boxOp = dockUI.settings.get_int('tooltip-opacity');
     const baseAlpha = Math.max(0.02, boxOp / 100.0); 
     const hoverAlpha = Math.min(1.0, baseAlpha + 0.15);
 
@@ -299,7 +298,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
         const shouldPauseMagnifier = (buttonNum === 1) || (buttonNum === 2 && (newWindowAction === 'middle-click' || newWindowAction === 'both'));
 
         if (shouldPauseMagnifier) {
-            if (typeof setMagnifierPauseState === 'function') {
+            if (setMagnifierPauseState) {
                 setMagnifierPauseState(dockUI.actor, 'app-launch', true);
 
                 if (dockUI.actor._launchMotionId) {
@@ -308,7 +307,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
                 }
 
                 GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-                    if (dockUI._isDestroyed || !dockUI.actor) return GLib.SOURCE_REMOVE;
+                    if (!dockUI.actor) return GLib.SOURCE_REMOVE;
                     dockUI.actor._launchMotionId = global.stage.connect('captured-event', (stage, event) => {
                         if (event.type() === Clutter.EventType.MOTION) {
                             setMagnifierPauseState(dockUI.actor, 'app-launch', false);
@@ -325,9 +324,8 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
         if (triggerNewWindow) {
             Main.overview.hide();
             const appState = app.get_state();
-            const canOpen = typeof app.can_open_new_window === 'function' && app.can_open_new_window();
-
-            if (appState === Shell.AppState.RUNNING && canOpen) {
+            
+            if (appState === Shell.AppState.RUNNING && app.can_open_new_window && app.can_open_new_window()) {
                 app.open_new_window(-1);
             } else {
                 app.activate();
@@ -341,7 +339,8 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
         if (buttonNum === 1) {
             Main.overview.hide();
             let windows = app.get_windows();
-            try { windows = WorkspaceFilter.filterWindows(windows, dockUI.settings); } catch (_e) { }
+            windows = WorkspaceFilter.filterWindows(windows, dockUI.settings);
+            
             if (dockUI.settings.get_boolean('isolate-monitors')) {
                 const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
                 windows = windows.filter(w => w.get_monitor() === currentMonitorIndex);
@@ -360,7 +359,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
             } else if (windows[0]) {
                 animateRestore(windows[0], btn, dockUI.dockPosition);
             } else {
-                if (app.get_state() === Shell.AppState.RUNNING && typeof app.can_open_new_window === 'function' && app.can_open_new_window()) {
+                if (app.get_state() === Shell.AppState.RUNNING && app.can_open_new_window && app.can_open_new_window()) {
                     app.open_new_window(-1);
                 } else {
                     app.activate();
@@ -438,11 +437,10 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
         const folderIconParams = { icon_size: baseRes };
 
         if (isCustomFile) {
-            try {
-                const iconFile = Gio.File.new_for_path(iconName.replace('file://', ''));
-                if (iconFile.query_exists(null)) folderIconParams.gicon = new Gio.FileIcon({ file: iconFile });
-                else folderIconParams.icon_name = 'folder-symbolic';
-            } catch (_e) {
+            const iconFile = Gio.File.new_for_path(iconName.replace('file://', ''));
+            if (iconFile.query_exists(null)) {
+                folderIconParams.gicon = new Gio.FileIcon({ file: iconFile });
+            } else {
                 folderIconParams.icon_name = 'folder-symbolic';
             }
         } else {
@@ -455,7 +453,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
         const applySmoothFilter = () => {
             if (folderIcon.set_content_scaling_filters) folderIcon.set_content_scaling_filters(2, 2);
             const content = folderIcon.get_content();
-            if (content && typeof content.set_min_filter === 'function') {
+            if (content && content.set_min_filter) {
                 content.set_min_filter(2);
                 content.set_mag_filter(2);
             }
@@ -498,7 +496,23 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
     folder.apps.forEach(appId => {
         const app = dockUI.appManager.appSystem.lookup_app(appId);
         if (app && (app.get_state() === Shell.AppState.RUNNING || app.get_windows().length > 0)) {
-            runningAppsCount++;
+            let isValid = true;
+            let windows = app.get_windows();
+            
+            if (windows.length > 0) {
+                let filtered = WorkspaceFilter.filterWindows(windows, dockUI.settings);
+                if (dockUI.settings.get_boolean('isolate-monitors')) {
+                    const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
+                    filtered = filtered.filter(w => w.get_monitor() === currentMonitorIndex);
+                }
+                if ((dockUI.settings.get_boolean('isolate-workspaces') || dockUI.settings.get_boolean('isolate-monitors')) && filtered.length === 0) {
+                    isValid = false;
+                }
+            }
+            
+            if (isValid) {
+                runningAppsCount++;
+            }
         }
     });
 
@@ -569,8 +583,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
     btn._isFolder = true;
     btn._folderData = folder;
 
-    let boxOp = 25; 
-    try { boxOp = dockUI.settings.get_int('tooltip-opacity'); } catch (e) {}
+    const boxOp = dockUI.settings.get_int('tooltip-opacity');
     const baseAlpha = Math.max(0.02, boxOp / 100.0); 
     const hoverAlpha = Math.min(1.0, baseAlpha + 0.15);
 

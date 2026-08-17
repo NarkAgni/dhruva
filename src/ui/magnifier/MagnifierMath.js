@@ -18,28 +18,24 @@
 
 
 export function getDockButtons(dockActor) {
-    try {
-        if (!dockActor || dockActor.__destroyed || (typeof dockActor.is_destroyed === 'function' && dockActor.is_destroyed())) return [];
+    if (!dockActor || dockActor.__destroyed || (dockActor.is_destroyed && dockActor.is_destroyed())) return [];
 
-        const box = dockActor.boxActor || dockActor;
-        if (!box || box.__destroyed || (typeof box.is_destroyed === 'function' && box.is_destroyed())) return [];
+    const box = dockActor.boxActor || dockActor;
+    if (!box || box.__destroyed || (box.is_destroyed && box.is_destroyed())) return [];
 
-        return box.get_children().filter(c => {
-            if (!c || c.__destroyed) return false;
-            if (typeof c.is_destroyed === 'function' && c.is_destroyed()) return false;
-            if (typeof c.get_parent === 'function' && c.get_parent() === null) return false;
+    return box.get_children().filter(c => {
+        if (!c || c.__destroyed) return false;
+        if (c.is_destroyed && c.is_destroyed()) return false;
+        if (c.get_parent && c.get_parent() === null) return false;
 
-            if (c._isExternal || c._isModule) return true;
-            const sClass = typeof c.get_style_class_name === 'function' ? c.get_style_class_name() : (c.style_class || '');
-            return sClass.includes('dock-app-button') || 
-                   sClass.includes('dock-module') || 
-                   sClass.includes('trash-module') || 
-                   sClass.includes('clock-module') || 
-                   sClass.includes('dock-separator');
-        });
-    } catch (_e) {
-        return [];
-    }
+        if (c._isExternal || c._isModule) return true;
+        const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
+        return sClass.includes('dock-app-button') || 
+               sClass.includes('dock-module') || 
+               sClass.includes('trash-module') || 
+               sClass.includes('clock-module') || 
+               sClass.includes('dock-separator');
+    });
 }
 
 export function getFixedSlots(dockActor, isVertical, btns) {
@@ -92,7 +88,9 @@ export function getFixedSlots(dockActor, isVertical, btns) {
         btnToOrder,
     };
 
-    dockActor._fixedSlots = model;
+    if (dockActor) {
+        dockActor._fixedSlots = model;
+    }
     return model;
 }
 
@@ -106,7 +104,7 @@ export class MagnifierMath {
 
         const btns = children.filter(c => {
             if (!c || c.__destroyed) return false;
-            const sClass = typeof c.get_style_class_name === 'function' ? c.get_style_class_name() : (c.style_class || '');
+            const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
             return !sClass.includes('dock-separator');
         });
 

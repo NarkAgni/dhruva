@@ -23,7 +23,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export function isValidWindow(_ahm, win) {
     if (!win || win.minimized || win.unmanaging) return false;
-    if (typeof win.is_skip_taskbar === 'function' && win.is_skip_taskbar()) return false;
+    
+    if (win.is_skip_taskbar()) return false;
 
     const type = win.get_window_type();
     if (type === Meta.WindowType.DESKTOP || type === Meta.WindowType.DOCK ||
@@ -51,17 +52,15 @@ export function shouldStayVisibleForTransientUI(ahm) {
         return true;
     }
 
-    try {
-        if (typeof ahm.dockUI.shouldIgnoreAutoHide === 'function' && ahm.dockUI.shouldIgnoreAutoHide()) {
-            return true;
-        }
-    } catch (_e) {}
+    if (ahm.dockUI.shouldIgnoreAutoHide && ahm.dockUI.shouldIgnoreAutoHide()) {
+        return true;
+    }
 
     return false;
 }
 
 export function recalculateOverlap(ahm) {
-    if (ahm._destroyed || !ahm.dockUI || !ahm.dockUI.actor) return;
+    if (!ahm.dockUI || !ahm.dockUI.actor) return;
 
     if (ahm._shouldStayVisibleForTransientUI()) {
         ahm._pointerUpdate = false;
@@ -76,6 +75,7 @@ export function recalculateOverlap(ahm) {
         ahm._updateHidden(false, false, false);
         return;
     }
+    
     if (mode === 'auto' || mode === 'always' || mode === 'always-hide') {
         ahm._pointerUpdate = false;
         ahm._updateHidden(true, true, true);
@@ -100,7 +100,7 @@ export function recalculateOverlap(ahm) {
         for (const win of wsWindows) {
             if (!win || win.minimized || win.get_monitor() !== dockMonitorIndex) continue;
 
-            const isFS = typeof win.is_fullscreen === 'function' ? win.is_fullscreen() : false;
+            const isFS = win.is_fullscreen();
             if (isFS) {
                 isFullscreenActive = true;
                 break;
@@ -109,7 +109,7 @@ export function recalculateOverlap(ahm) {
     }
 
     if (!isFullscreenActive && focusWin && focusWin.get_monitor() === dockMonitorIndex) {
-        if (typeof focusWin.is_fullscreen === 'function' && focusWin.is_fullscreen()) {
+        if (focusWin.is_fullscreen()) {
             isFullscreenActive = true;
         }
     }
@@ -143,16 +143,12 @@ export function recalculateOverlap(ahm) {
 }
 
 export function trackFocusedWindow(ahm) {
-    if (ahm._destroyed) return;
-
     const focusWin = global.display.get_focus_window();
     if (ahm._trackedWin === focusWin) return;
 
     if (ahm._trackedWin && ahm._trackedWinSignals) {
         ahm._trackedWinSignals.forEach(id => {
-            try {
-                ahm._trackedWin.disconnect(id);
-            } catch (_e) {}
+            ahm._trackedWin.disconnect(id);
         });
     }
 
@@ -160,11 +156,9 @@ export function trackFocusedWindow(ahm) {
     ahm._trackedWin = focusWin;
 
     if (ahm._trackedWin) {
-        try {
-            ahm._trackedWinSignals.push(ahm._trackedWin.connect('size-changed', () => ahm._scheduleUpdate()));
-            ahm._trackedWinSignals.push(ahm._trackedWin.connect('position-changed', () => ahm._scheduleUpdate()));
-            ahm._trackedWinSignals.push(ahm._trackedWin.connect('notify::maximized-vertically', () => ahm._scheduleUpdate()));
-            ahm._trackedWinSignals.push(ahm._trackedWin.connect('notify::fullscreen', () => ahm._scheduleUpdate()));
-        } catch (_e) {}
+        ahm._trackedWinSignals.push(ahm._trackedWin.connect('size-changed', () => ahm._scheduleUpdate()));
+        ahm._trackedWinSignals.push(ahm._trackedWin.connect('position-changed', () => ahm._scheduleUpdate()));
+        ahm._trackedWinSignals.push(ahm._trackedWin.connect('notify::maximized-vertically', () => ahm._scheduleUpdate()));
+        ahm._trackedWinSignals.push(ahm._trackedWin.connect('notify::fullscreen', () => ahm._scheduleUpdate()));
     }
 }

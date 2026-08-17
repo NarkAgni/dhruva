@@ -35,21 +35,26 @@ export function hideTooltip(dockActor) {
     if (!dockActor) return;
     dockActor._tooltipHoveredIndex = -1;
     dockActor._tooltipBridgeActive = false;
-    if (dockActor._magPeekManager) dockActor._magPeekManager.stopPeek();
+    
+    if (dockActor._magPeekManager && dockActor._magPeekManager.stopPeek) {
+        dockActor._magPeekManager.stopPeek();
+    }
+
     if (dockActor._magTooltip && dockActor._magTooltip.visible) {
-        try {
+        if (dockActor._magTooltip.remove_all_transitions) {
             dockActor._magTooltip.remove_all_transitions();
-            dockActor._magTooltip.ease({
-                opacity: 0,
-                duration: 180,
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onComplete: () => {
-                    try {
-                        if (dockActor._magTooltip) dockActor._magTooltip.hide();
-                    } catch (_e) {}
+        }
+        
+        dockActor._magTooltip.ease({
+            opacity: 0,
+            duration: 180,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onComplete: () => {
+                if (dockActor._magTooltip && dockActor._magTooltip.hide) {
+                    dockActor._magTooltip.hide();
                 }
-            });
-        } catch (_e) {}
+            }
+        });
     }
 }
 
@@ -66,11 +71,10 @@ export function isPointerInDockTooltipBridge(dockActor, px, py, settings) {
 
     let lateralPad = 18;
     let bridgePad = 12;
-    try {
-        const iconSize = settings.get_int('icon-size');
-        lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
-        bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
-    } catch (_e) {}
+
+    const iconSize = settings.get_int('icon-size') || 48;
+    lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
+    bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
 
     const dockPos = settings.get_string('dock-position') || 'BOTTOM';
     const [dax, day] = dockActor.get_transformed_position();

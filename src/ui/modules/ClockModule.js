@@ -32,15 +32,9 @@ export function buildClockModule(dockUI, _iconSize) {
         return null;
     }
 
-    let fontSize = 15;
-    try {
-        fontSize = settings.get_int('clock-font-size');
-    } catch (_e) { }
-
-    let is24h = false;
-    try {
-        is24h = settings.get_boolean('use-24h-clock');
-    } catch (_e) { }
+    const fontSize = settings.get_int('clock-font-size') || 15;
+    const is24h = settings.get_boolean('use-24h-clock');
+    
     const timeFormat = is24h ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
     let currentTimeString = GLib.DateTime.new_now_local().format(timeFormat);
 
@@ -107,10 +101,7 @@ export function buildClockModule(dockUI, _iconSize) {
     };
 
     const updateClock = () => {
-        let is24hClock = false;
-        try {
-            is24hClock = settings.get_boolean('use-24h-clock');
-        } catch (_e) { }
+        const is24hClock = settings.get_boolean('use-24h-clock');
         const fmt = is24hClock ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
 
         currentTimeString = GLib.DateTime.new_now_local().format(fmt);

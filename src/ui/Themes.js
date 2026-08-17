@@ -189,19 +189,11 @@ export function getChameleonAccentColor(rawR, rawG, rawB) {
 
 export function extractWallpaperDominantColor() {
     try {
-        const bgSettings = new Gio.Settings({
-            schema: 'org.gnome.desktop.background'
-        });
+        const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
 
-        let wallpaperUri = '';
-        try {
-            wallpaperUri = bgSettings.get_string('picture-uri-dark');
-        } catch (_e) {}
-
+        let wallpaperUri = bgSettings.get_string('picture-uri-dark');
         if (!wallpaperUri) {
-            try {
-                wallpaperUri = bgSettings.get_string('picture-uri');
-            } catch (_e) {}
+            wallpaperUri = bgSettings.get_string('picture-uri');
         }
 
         if (!wallpaperUri) return null;
@@ -276,8 +268,12 @@ export function applyDockTheme(bgActor, themeId, baseLayoutCss, customConfig) {
 
     const theme = DockThemes[themeId] || DockThemes['default'];
 
-    bgActor.clear_effects();
+    if (bgActor.clear_effects) {
+        bgActor.clear_effects();
+    }
 
     const themeCss = theme.css(customConfig);
-    bgActor.set_style(`${baseLayoutCss} ${themeCss}`);
+    if (bgActor.set_style) {
+        bgActor.set_style(`${baseLayoutCss} ${themeCss}`);
+    }
 }

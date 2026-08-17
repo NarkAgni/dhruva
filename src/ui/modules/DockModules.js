@@ -33,9 +33,9 @@ import ScrollManager from '../../core/ScrollManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
-import { buildDesktopButtonModule } from './DesktopButtonModule.js';
 import { buildSystemFoldersModule } from './SystemFoldersModule.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
+import { buildDesktopButtonModule, toggleDesktop } from './DesktopButtonModule.js';
 
 
 const _forcedFolderState = {};
@@ -57,7 +57,8 @@ export function buildModules(dockUI, iconSize) {
         const focusWin = global.display.get_focus_window();
 
         const targetWin = windows.find(w => {
-            if (!w.get_wm_class()?.toLowerCase().includes('nautilus')) return false;
+            const wmClass = w.get_wm_class();
+            if (!wmClass || !wmClass.toLowerCase().includes('nautilus')) return false;
             return possibleTitles.includes(w.get_title());
         });
 
@@ -68,9 +69,7 @@ export function buildModules(dockUI, iconSize) {
                 Main.activateWindow(targetWin);
             }
         } else {
-            try {
-                Gio.AppInfo.launch_default_for_uri(uri, null);
-            } catch (_e) { }
+            Gio.AppInfo.launch_default_for_uri(uri, null);
 
             if (possibleTitles && possibleTitles.length > 0) {
                 const mainTitle = possibleTitles[0];
@@ -202,10 +201,10 @@ export function buildModules(dockUI, iconSize) {
 
         const dockHeightPad = settings.get_int('dock-height') || 6;
         const pad = Math.max(dockHeightPad, 4);
-        
+
         const expandedDim = iconSize + pad * 2;
         const collapsedDim = iconSize + 2;
-        
+
         const isExpanded = isRunning && settings.get_boolean('show-running-indicators') && !hoverZoom;
 
         const targetW = isVertical ? iconSize : (isExpanded ? expandedDim : collapsedDim);
@@ -224,7 +223,7 @@ export function buildModules(dockUI, iconSize) {
         hoverBg.set_pivot_point(0.5, 0.5);
         hoverBg.scale_x = isVertical ? (iconSize + pad * 2) / iconSize : 1.0;
         hoverBg.scale_y = isVertical ? 1.0 : (iconSize + pad * 2) / iconSize;
-        
+
         if (isVertical) {
             hoverBg.set_x_expand(true);
             hoverBg.set_x_align(Clutter.ActorAlign.FILL);
@@ -236,7 +235,7 @@ export function buildModules(dockUI, iconSize) {
             hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
             hoverBg.width = targetW;
         }
-        
+
         appBox.insert_child_at_index(hoverBg, 0);
 
         const btnStyleClass = `dock-app-button ${isVertical ? 'dock-module-btn-vertical' : 'dock-module-btn-horizontal'}`;
@@ -293,7 +292,9 @@ export function buildModules(dockUI, iconSize) {
                 get_app_info: () => null,
                 can_open_new_window: () => false,
                 request_quit: () => {
-                    getMatchingWindows().forEach(w => w.delete(global.get_current_time()));
+                    getMatchingWindows().forEach(w => {
+                        if (w.delete) w.delete(global.get_current_time());
+                    });
                 },
                 open: () => clickAction(btn)
             }
@@ -317,9 +318,9 @@ export function buildModules(dockUI, iconSize) {
             } else if (buttonNum === 3) {
                 const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
                 if (dockUI._activeContextMenu) {
-                    try {
+                    if (dockUI._activeContextMenu._forceDestroy) {
                         dockUI._activeContextMenu._forceDestroy();
-                    } catch (_e) { }
+                    }
                     dockUI._activeContextMenu = null;
                 }
                 new AppContextMenu(dockUI, btn._delegate.app, btn, isCtrl, dockUI.openPrefsCallback).show(dockUI.dockPosition);
@@ -362,15 +363,21 @@ export function buildModules(dockUI, iconSize) {
         gridModule = buildAppGridModule(dockUI, iconSize, actualMaxZoom);
     }
 
-    if (settings.get_boolean('show-desktop-button') && settings.get_boolean('full-width')) {
-        desktopModule = buildDesktopButtonModule(dockUI);
+    if (settings.get_boolean('show-desktop-button')) {
+        if (settings.get_boolean('full-width')) {
+            desktopModule = buildDesktopButtonModule(dockUI);
+        } else {
+            desktopModule = createBtn('user-desktop', 'Show Desktop', () => {
+                toggleDesktop(dockUI);
+            });
+        }
     }
 
     const folders = buildSystemFoldersModule(dockUI, iconSize, createBtn, toggleAppWindow);
     systemModules.push(...folders);
 
     if (settings.get_boolean('show-trash')) {
-        systemModules.push(buildTrashModule(dockUI, iconSize, createBtn, toggleAppWindow));
+        systemModules.push(buildTrashModule(iconSize, createBtn, toggleAppWindow));
     }
 
     clockModule = buildClockModule(dockUI, iconSize);

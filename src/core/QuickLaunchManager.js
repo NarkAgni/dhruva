@@ -51,7 +51,6 @@ const DIGIT_SYMBOLS = new Map([
 
 export default class QuickLaunchManager {
     constructor(settings, getTargetDock) {
-        this._destroyed = false;
         this.settings = settings;
         this.getTargetDock = getTargetDock;
         this._accelHandlerIds = [];
@@ -63,8 +62,7 @@ export default class QuickLaunchManager {
 
         for (const name of QUICK_LAUNCH_KEY_NAMES) {
             const id = this.settings.connect(`changed::${name}`, () => {
-                if (!this._destroyed)
-                    this._rebindWmShortcuts();
+                this._rebindWmShortcuts();
             });
             this._accelHandlerIds.push(id);
         }
@@ -75,8 +73,7 @@ export default class QuickLaunchManager {
 
         this._bindIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._bindIdleId = 0;
-            if (!this._destroyed)
-                this._rebindWmShortcuts();
+            this._rebindWmShortcuts();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -89,24 +86,19 @@ export default class QuickLaunchManager {
         this._lastQlDigit = digit;
 
         GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-            if (this._destroyed) return GLib.SOURCE_REMOVE;
             this._activateDigitSlot(digit);
             return GLib.SOURCE_REMOVE;
         });
     }
 
     _onStageCapturedEvent(event) {
-        if (this._destroyed) return Clutter.EVENT_PROPAGATE;
         if (!event || event.type() !== Clutter.EventType.KEY_PRESS) return Clutter.EVENT_PROPAGATE;
         if (this._isLikelyTextInputFocused()) return Clutter.EVENT_PROPAGATE;
 
-        try {
-            const repeatFlag = Clutter.EventFlags?.DEVICE_REPEATING;
-            if (repeatFlag && typeof event.get_flags === 'function' &&
-                (event.get_flags() & repeatFlag) !== 0) {
-                return Clutter.EVENT_PROPAGATE;
-            }
-        } catch (_e) {}
+        const repeatFlag = Clutter.EventFlags.DEVICE_REPEATING;
+        if (repeatFlag && (event.get_flags() & repeatFlag) !== 0) {
+            return Clutter.EVENT_PROPAGATE;
+        }
 
         const state = event.get_state ? event.get_state() : 0;
         if (!this._isSuperDigitModifier(state)) return Clutter.EVENT_PROPAGATE;
@@ -124,17 +116,10 @@ export default class QuickLaunchManager {
             const name = QUICK_LAUNCH_KEY_NAMES[i];
             const wantMain = `<Super>${n}`;
 
-            let cur;
-            try {
-                cur = this.settings.get_strv(name);
-            } catch (_e) {
-                cur = [];
-            }
+            const cur = this.settings.get_strv(name);
 
             if (!cur || cur.length === 0) {
-                try {
-                    this.settings.set_strv(name, [wantMain]);
-                } catch (_e) {}
+                this.settings.set_strv(name, [wantMain]);
                 continue;
             }
 
@@ -142,15 +127,11 @@ export default class QuickLaunchManager {
             const hasLegacy = cur.some(c => legacy.includes(c));
 
             if (hasLegacy) {
-                try {
-                    this.settings.set_strv(name, [wantMain]);
-                } catch (_e) {}
+                this.settings.set_strv(name, [wantMain]);
             } else if (cur.some(c => c.includes('KP_'))) {
                 const cleaned = cur.filter(c => !c.includes('KP_'));
                 if (cleaned.length === 0) cleaned.push(wantMain);
-                try {
-                    this.settings.set_strv(name, cleaned);
-                } catch (_e) {}
+                this.settings.set_strv(name, cleaned);
             }
         }
     }
@@ -159,60 +140,35 @@ export default class QuickLaunchManager {
         this._migrateLegacyAccelsToSuper();
 
         for (const name of this._activeBindings) {
-            try {
-                Main.wm.removeKeybinding(name);
-            } catch (_e) {}
+            Main.wm.removeKeybinding(name);
         }
         this._activeBindings.clear();
 
         let flags = 0;
-        try {
-            const K = Meta.KeyBindingFlags;
-            if (K.IGNORE_AUTOREPEAT)
-                flags |= K.IGNORE_AUTOREPEAT;
-            if (K.NON_MASKABLE)
-                flags |= K.NON_MASKABLE;
-            if (K.PER_WINDOW)
-                flags |= K.PER_WINDOW;
-        } catch (_e) {}
+        const K = Meta.KeyBindingFlags;
+        if (K.IGNORE_AUTOREPEAT) flags |= K.IGNORE_AUTOREPEAT;
+        if (K.NON_MASKABLE) flags |= K.NON_MASKABLE;
+        if (K.PER_WINDOW) flags |= K.PER_WINDOW;
 
         let modes = Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW;
-        try {
-            if (Shell.ActionMode.POPUP)
-                modes |= Shell.ActionMode.POPUP;
-        } catch (_e) {}
+        if (Shell.ActionMode.POPUP) modes |= Shell.ActionMode.POPUP;
 
         for (let i = 0; i < 9; i++) {
             const name = QUICK_LAUNCH_KEY_NAMES[i];
             const digit = i + 1;
 
-            let accelOk = false;
-            try {
-                const a = this.settings.get_strv(name);
-                accelOk = a && a.length > 0 && !!a[0];
-            } catch (_e) {}
+            const a = this.settings.get_strv(name);
+            const accelOk = a && a.length > 0 && !!a[0];
 
             if (!accelOk)
                 continue;
 
             const handler = () => {
-                if (this._destroyed) return;
                 this._dispatchDigit(digit);
             };
 
-            try {
-                Main.wm.addKeybinding(name, this.settings, flags, modes, handler);
-                this._activeBindings.add(name);
-            } catch (_e) {
-                try {
-                    let fb = 0;
-                    const K = Meta.KeyBindingFlags;
-                    if (K.IGNORE_AUTOREPEAT)
-                        fb |= K.IGNORE_AUTOREPEAT;
-                    Main.wm.addKeybinding(name, this.settings, fb, modes, handler);
-                    this._activeBindings.add(name);
-                } catch (_e2) {}
-            }
+            Main.wm.addKeybinding(name, this.settings, flags, modes, handler);
+            this._activeBindings.add(name);
         }
     }
 
@@ -221,31 +177,25 @@ export default class QuickLaunchManager {
         if (!dock || dock._isDestroyed || !dock.boxActor) return;
 
         let target = this._resolveTargetByDigit(dock, digit);
-        if (!target && typeof dock._renderDock === 'function') {
-            try {
-                dock._renderDock(true);
-            } catch (_e) {}
+        if (!target && dock._renderDock) {
+            dock._renderDock(true);
             target = this._resolveTargetByDigit(dock, digit);
         }
-        if (!target || typeof target._activateCallback !== 'function') return;
+        if (!target || !target._activateCallback) return;
 
         if (dock.autoHideManager && dock.autoHideManager.isHidden) {
             dock.autoHideManager._show(true);
             GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-                if (this._destroyed || dock._isDestroyed) return GLib.SOURCE_REMOVE;
-                try {
-                    if (dock.actor) dock.actor._lastIconClickTime = Date.now();
-                    target._activateCallback(1, 0);
-                } catch (_e) {}
+                if (dock._isDestroyed) return GLib.SOURCE_REMOVE;
+                if (dock.actor) dock.actor._lastIconClickTime = Date.now();
+                target._activateCallback(1, 0);
                 return GLib.SOURCE_REMOVE;
             });
             return;
         }
 
-        try {
-            if (dock.actor) dock.actor._lastIconClickTime = Date.now();
-            target._activateCallback(1, 0);
-        } catch (_e) {}
+        if (dock.actor) dock.actor._lastIconClickTime = Date.now();
+        target._activateCallback(1, 0);
     }
 
     _isSuperDigitModifier(state) {
@@ -269,7 +219,7 @@ export default class QuickLaunchManager {
         for (let i = 0; i < 5 && parent; i++) {
             if (parent instanceof St.Entry)
                 return true;
-            if (typeof parent.get_parent !== 'function')
+            if (!parent.get_parent)
                 break;
             parent = parent.get_parent();
         }
@@ -277,21 +227,16 @@ export default class QuickLaunchManager {
     }
 
     _resolveTargetByDigit(dock, digit) {
-        const children = dock.boxActor && typeof dock.boxActor.get_children === 'function' ?
+        const children = dock.boxActor && dock.boxActor.get_children ?
             dock.boxActor.get_children() :
             [];
 
         const targets = [];
 
         children.forEach(child => {
-            if (!child) return;
-            if (child._isExternal) return;
-            if (child.visible === false) return;
-            if (typeof child._activateCallback !== 'function') return;
+            if (!child || child._isExternal || child.visible === false || !child._activateCallback) return;
 
-            const sClass = typeof child.get_style_class_name === 'function' ?
-                child.get_style_class_name() :
-                (child.style_class || '');
+            const sClass = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
             if (!sClass.includes('dock-app-button')) return;
 
             targets.push(child);
@@ -303,31 +248,23 @@ export default class QuickLaunchManager {
     }
 
     destroy() {
-        this._destroyed = true;
-
         if (this._bindIdleId) {
             GLib.source_remove(this._bindIdleId);
             this._bindIdleId = 0;
         }
 
         for (const id of this._accelHandlerIds) {
-            try {
-                this.settings.disconnect(id);
-            } catch (_e) {}
+            this.settings.disconnect(id);
         }
         this._accelHandlerIds = [];
 
         if (this._stageCaptureId) {
-            try {
-                global.stage.disconnect(this._stageCaptureId);
-            } catch (_e) {}
+            global.stage.disconnect(this._stageCaptureId);
             this._stageCaptureId = null;
         }
 
         for (const name of this._activeBindings) {
-            try {
-                Main.wm.removeKeybinding(name);
-            } catch (_e) {}
+            Main.wm.removeKeybinding(name);
         }
         this._activeBindings.clear();
 

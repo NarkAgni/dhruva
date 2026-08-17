@@ -23,7 +23,7 @@ import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 
 
-export function addCustomSpinRow(prefs, parent, settings, key, title, subtitle, icon, adjParams, createResetBtn, digits = 0) {
+export function addCustomSpinRow(parent, settings, key, title, subtitle, icon, adjParams, createResetBtn, digits = 0) {
     const row = new Adw.ActionRow({
         title,
         subtitle,
@@ -42,11 +42,16 @@ export function addCustomSpinRow(prefs, parent, settings, key, title, subtitle, 
         row.add_suffix(createResetBtn(key));
     }
 
-    typeof parent.add_row === 'function' ? parent.add_row(row) : parent.add(row);
+    if (parent.add_row) {
+        parent.add_row(row);
+    } else {
+        parent.add(row);
+    }
+    
     return row;
 }
 
-export function addSwitchRow(prefs, parent, settings, key, title, subtitle, icon, createResetBtn) {
+export function addSwitchRow(parent, settings, key, title, subtitle, icon, createResetBtn) {
     const row = new Adw.ActionRow({
         title,
         subtitle,
@@ -62,7 +67,12 @@ export function addSwitchRow(prefs, parent, settings, key, title, subtitle, icon
         row.add_suffix(createResetBtn(key));
     }
 
-    typeof parent.add_row === 'function' ? parent.add_row(row) : parent.add(row);
+    if (parent.add_row) {
+        parent.add_row(row);
+    } else {
+        parent.add(row);
+    }
+    
     return row;
 }
 
@@ -91,7 +101,12 @@ export function addComboRow(prefs, parent, settings, key, title, subtitle, icon,
         row.add_suffix(createResetBtn(key));
     }
 
-    typeof parent.add_row === 'function' ? parent.add_row(row) : parent.add(row);
+    if (parent.add_row) {
+        parent.add_row(row);
+    } else {
+        parent.add(row);
+    }
+    
     return row;
 }
 
@@ -135,7 +150,12 @@ export function addSegmentedRow(prefs, parent, settings, key, title, subtitle, i
     prefs._settingsSignals.push(settings.connect(`changed::${key}`, syncUI));
     row.add_suffix(box);
 
-    typeof parent.add_row === 'function' ? parent.add_row(row) : parent.add(row);
+    if (parent.add_row) {
+        parent.add_row(row);
+    } else {
+        parent.add(row);
+    }
+    
     return row;
 }
 
@@ -171,6 +191,12 @@ export function addColorRow(prefs, parent, settings, key, title, icon) {
     }));
 
     row.add_suffix(colorButton);
-    typeof parent.add_row === 'function' ? parent.add_row(row) : parent.add(row);
+    
+    if (parent.add_row) {
+        parent.add_row(row);
+    } else {
+        parent.add(row);
+    }
+    
     return row;
 }

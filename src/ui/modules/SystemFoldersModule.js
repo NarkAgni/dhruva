@@ -66,10 +66,11 @@ export function buildSystemFoldersModule(dockUI, _iconSize, createBtn, toggleApp
         });
     }
 
-    try {
-        const customFoldersRaw = settings.get_string('custom-folders');
-        if (customFoldersRaw) {
-            JSON.parse(customFoldersRaw).forEach(f => {
+    const customFoldersRaw = settings.get_string('custom-folders');
+    if (customFoldersRaw) {
+        const parsedData = JSON.parse(customFoldersRaw);
+        if (Array.isArray(parsedData)) {
+            parsedData.forEach(f => {
                 const fPath = f.path || '/';
                 const fName = f.name || 'Custom Folder';
                 const fIcon = f.icon || 'folder-symbolic';
@@ -77,7 +78,7 @@ export function buildSystemFoldersModule(dockUI, _iconSize, createBtn, toggleApp
                 systemModules.push(createBtn(fIcon, fName, (btn) => toggleAppWindow(uri, [fName], btn), [fName]));
             });
         }
-    } catch (_e) { }
+    }
 
     return systemModules;
 }

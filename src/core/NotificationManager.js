@@ -41,14 +41,14 @@ export default class NotificationManager {
         if (!this.dockUI || this._renderDebounceId) return;
         this._renderDebounceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => {
             this._renderDebounceId = 0;
-            if (this.dockUI && typeof this.dockUI.queueRender === 'function') {
+            if (this.dockUI && this.dockUI.queueRender) {
                 this.dockUI.queueRender();
             }
             return GLib.SOURCE_REMOVE;
         });
     }
 
-    _setupListeners() {
+   _setupListeners() {
         this._dbusSignalId = Gio.DBus.session.signal_subscribe(
             null,
             'com.canonical.Unity.LauncherEntry',
@@ -56,7 +56,8 @@ export default class NotificationManager {
             null,
             null,
             Gio.DBusSignalFlags.NONE,
-            (connection, senderName, objectPath, interfaceName, signalName, parameters) => {
+            (...args) => {
+                const parameters = args[5];
                 this._onDBusBadgeUpdate(parameters);
             }
         );
@@ -105,35 +106,33 @@ export default class NotificationManager {
             count = this._appBadgeCounts.get(fullId);
         }
 
-        try {
-            const baseId = fullId.replace('.desktop', '');
-            const sources = Main.messageTray.getSources();
+        const baseId = fullId.replace('.desktop', '');
+        const sources = Main.messageTray.getSources();
 
-            for (const source of sources) {
-                if (source.isChat) continue;
+        for (const source of sources) {
+            if (source.isChat) continue;
 
-                let sourceId = '';
-                if (source.app && typeof source.app.get_id === 'function') sourceId = source.app.get_id();
-                else if (source.appInfo && typeof source.appInfo.get_id === 'function') sourceId = source.appInfo.get_id();
-                else if (typeof source.title === 'string') sourceId = source.title;
-                else if (source.id) sourceId = source.id;
+            let sourceId = '';
+            if (source.app && source.app.get_id) sourceId = source.app.get_id();
+            else if (source.appInfo && source.appInfo.get_id) sourceId = source.appInfo.get_id();
+            else if (typeof source.title === 'string') sourceId = source.title;
+            else if (source.id) sourceId = source.id;
 
-                if (!sourceId) continue;
-                sourceId = sourceId.toLowerCase();
+            if (!sourceId) continue;
+            sourceId = sourceId.toLowerCase();
 
-                if (sourceId === baseId || sourceId.includes(baseId) || baseId.includes(sourceId.replace('.desktop', ''))) {
-                    let sourceCount = 1;
+            if (sourceId === baseId || sourceId.includes(baseId) || baseId.includes(sourceId.replace('.desktop', ''))) {
+                let sourceCount = 1;
 
-                    if (source.notifications) {
-                        sourceCount = source.notifications.length;
-                    } else if (source.count || source.unreadCount) {
-                        sourceCount = source.count || source.unreadCount;
-                    }
-
-                    if (sourceCount > 0) count += sourceCount;
+                if (source.notifications) {
+                    sourceCount = source.notifications.length;
+                } else if (source.count || source.unreadCount) {
+                    sourceCount = source.count || source.unreadCount;
                 }
+
+                if (sourceCount > 0) count += sourceCount;
             }
-        } catch (e) {}
+        }
 
         return count;
     }
@@ -215,22 +214,16 @@ export default class NotificationManager {
 
     destroy() {
         if (this._renderDebounceId) {
-            try {
-                GLib.source_remove(this._renderDebounceId);
-            } catch (_e) {}
+            GLib.source_remove(this._renderDebounceId);
             this._renderDebounceId = 0;
         }
         if (this._dbusSignalId) {
-            try {
-                Gio.DBus.session.signal_unsubscribe(this._dbusSignalId);
-            } catch (e) {}
+            Gio.DBus.session.signal_unsubscribe(this._dbusSignalId);
             this._dbusSignalId = 0;
         }
 
         this._traySignals.forEach(id => {
-            try {
-                Main.messageTray.disconnect(id);
-            } catch (e) {}
+            Main.messageTray.disconnect(id);
         });
         this._traySignals = [];
         this._appBadgeCounts.clear();

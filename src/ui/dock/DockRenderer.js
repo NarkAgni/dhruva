@@ -28,8 +28,8 @@ import { isActorAlive, updateLayout, captureActorRect } from './DockLayoutEngine
 import { createSeparator, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
 import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMagnification } from '../magnifier/Magnifier.js';
 
-
 export { isActorAlive, captureActorRect, updateLayout, applyDynamicStyles, resolveTooltipColors };
+
 
 export function getIndicatorProps(dockUI) {
     const indStyle = dockUI.settings.get_string('indicator-style') || 'dot';
@@ -88,7 +88,7 @@ export function getIndicatorProps(dockUI) {
 }
 
 export function renderDock(dockUI, forceRender = false) {
-    if (dockUI._isDestroyed || !isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor)) return;
+    if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor)) return;
 
     if (!dockUI.actor.is_mapped() && forceRender !== true && dockUI._initialRenderDone) {
         dockUI._pendingRender = true;
@@ -101,14 +101,14 @@ export function renderDock(dockUI, forceRender = false) {
         return;
     }
 
-    if (dockUI.actor._lastIconClickTime) {
+    if (!forceRender && dockUI.actor._lastIconClickTime) {
         const elapsed = Date.now() - dockUI.actor._lastIconClickTime;
         if (elapsed < 850) {
             dockUI._pendingRender = false;
             if (!dockUI._delayedRenderId) {
                 dockUI._delayedRenderId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 850 - elapsed + 10, () => {
                     dockUI._delayedRenderId = null;
-                    dockUI.queueRender();
+                    if (dockUI.queueRender) dockUI.queueRender();
                     return GLib.SOURCE_REMOVE;
                 });
             }
@@ -120,13 +120,13 @@ export function renderDock(dockUI, forceRender = false) {
 
     const oldVisuals = new Map();
     const cacheActor = (c) => {
-        if (!c || (typeof c.is_destroyed === 'function' && c.is_destroyed())) return;
+        if (!c || (c.is_destroyed && c.is_destroyed())) return;
         let id = null;
-        if (c._delegate?.app?.get_id) id = c._delegate.app.get_id();
-        else if (c._delegate?.isFolder) id = c._delegate.folderData.id;
-        else if (c.has_style_class_name?.('clock-module')) id = 'dhruva-clock';
-        else if (c.get_child?.()?.has_style_class_name?.('dock-grid-icon')) id = 'dhruva-grid-button';
-        else if (c.has_style_class_name?.('dock-separator')) id = c._sepId;
+        if (c._delegate && c._delegate.app && c._delegate.app.get_id) id = c._delegate.app.get_id();
+        else if (c._delegate && c._delegate.isFolder) id = c._delegate.folderData.id;
+        else if (c.has_style_class_name && c.has_style_class_name('clock-module')) id = 'dhruva-clock';
+        else if (c.get_child && c.get_child() && c.get_child().has_style_class_name && c.get_child().has_style_class_name('dock-grid-icon')) id = 'dhruva-grid-button';
+        else if (c.has_style_class_name && c.has_style_class_name('dock-separator')) id = c._sepId;
 
         if (id) {
             oldVisuals.set(id, {
@@ -142,7 +142,7 @@ export function renderDock(dockUI, forceRender = false) {
     if (dockUI.gridBtn) cacheActor(dockUI.gridBtn);
     if (dockUI.extractedClock) cacheActor(dockUI.extractedClock);
 
-    const gridBtnOnActor = dockUI.gridBtn?.get_parent() === dockUI.actor;
+    const gridBtnOnActor = dockUI.gridBtn && dockUI.gridBtn.get_parent() === dockUI.actor;
     if (isActorAlive(dockUI.boxActor)) {
         const children = dockUI.boxActor.get_children();
         children.forEach(c => {
@@ -161,14 +161,14 @@ export function renderDock(dockUI, forceRender = false) {
         if (gridBtnOnActor) btn.destroy();
     }
 
-    const clockBtnOnActor = dockUI.extractedClock?.get_parent() === dockUI.actor;
+    const clockBtnOnActor = dockUI.extractedClock && dockUI.extractedClock.get_parent() === dockUI.actor;
     if (dockUI.extractedClock) {
         const btn = dockUI.extractedClock;
         dockUI.extractedClock = null;
         if (clockBtnOnActor) btn.destroy();
     }
 
-    const desktopBtnOnActor = dockUI.extractedDesktop?.get_parent() === dockUI.actor;
+    const desktopBtnOnActor = dockUI.extractedDesktop && dockUI.extractedDesktop.get_parent() === dockUI.actor;
     if (dockUI.extractedDesktop) {
         const btn = dockUI.extractedDesktop;
         dockUI.extractedDesktop = null;
@@ -178,19 +178,19 @@ export function renderDock(dockUI, forceRender = false) {
     const displayAppsRaw = dockUI.appManager.getDisplayApps();
     let displayApps = displayAppsRaw;
 
-    const folders = dockUI.folderManager?.getFolders() || [];
+    const folders = (dockUI.folderManager && dockUI.folderManager.getFolders()) || [];
     const appsInFolders = new Set();
     folders.forEach(f => f.apps.forEach(appId => appsInFolders.add(appId)));
 
-    if (dockUI._ignoringApps?.size > 0) {
+    if (dockUI._ignoringApps && dockUI._ignoringApps.size > 0) {
         displayApps = displayAppsRaw.filter(app => {
-            if (typeof app.get_id !== 'function') return true;
+            if (!app.get_id) return true;
             if (dockUI.appManager.hasApp(app)) return true;
             return !dockUI._ignoringApps.has(app.get_id());
         });
     }
 
-    displayApps = displayApps.filter(app => !appsInFolders.has(typeof app.get_id === 'function' ? app.get_id() : ''));
+    displayApps = displayApps.filter(app => !appsInFolders.has(app.get_id ? app.get_id() : ''));
 
     const iconSize = dockUI.settings.get_int('icon-size');
     const hoverZoom = dockUI.settings.get_boolean('hover-zoom');
@@ -215,7 +215,7 @@ export function renderDock(dockUI, forceRender = false) {
             isRunning = false;
         }
 
-        if (dockUI._ignoringApps && typeof app.get_id === 'function' && dockUI._ignoringApps.has(app.get_id())) {
+        if (dockUI._ignoringApps && app.get_id && dockUI._ignoringApps.has(app.get_id())) {
             isRunning = false;
         }
 
@@ -245,12 +245,14 @@ export function renderDock(dockUI, forceRender = false) {
     const rawClockPos = dockUI.settings.get_string('clock-position') || 'END';
     const clockPos = (rawClockPos === 'RIGHT_END' && !isFullWidth) ? 'END' : rawClockPos;
 
+    const showClock = !dockUI._isOverviewActive;
+
     const extractClock = isFullWidth && clockPos === 'RIGHT_END';
-    dockUI.extractedClock = extractClock ? clockModule : null;
+    dockUI.extractedClock = (extractClock && showClock) ? clockModule : null;
 
     dockUI.extractedDesktop = isFullWidth ? desktopModule : null;
 
-    if (!extractClock && clockPos === 'START' && clockModule) {
+    if (!extractClock && clockPos === 'START' && clockModule && showClock) {
         startComponents.push(clockModule);
     }
 
@@ -262,8 +264,17 @@ export function renderDock(dockUI, forceRender = false) {
         startComponents.push(gridBtn);
     }
 
-    const actualEndItems = [...systemModules];
-    if (gridPos !== 'START' && gridBtn && !isFullWidth) actualEndItems.push(gridBtn);
+    const actualEndItems = [];
+    
+    if (!isFullWidth && desktopModule) {
+        actualEndItems.push(desktopModule);
+    }
+    
+    actualEndItems.push(...systemModules);
+    
+    if (gridPos !== 'START' && gridBtn && !isFullWidth) {
+        actualEndItems.push(gridBtn);
+    }
 
     if (actualEndItems.length > 0) {
         if (dockUI.settings.get_boolean('show-module-separator')) {
@@ -272,7 +283,7 @@ export function renderDock(dockUI, forceRender = false) {
         actualEndItems.forEach(i => endComponents.push(i));
     }
 
-    if (!extractClock && clockPos !== 'START' && clockModule) {
+    if (!extractClock && clockPos !== 'START' && clockModule && showClock) {
         if (dockUI.settings.get_boolean('show-module-separator')) {
             endComponents.push(createSeparator(dockUI, iconSize, isVerticalDock, 'module', 'dhruva-sep-clock'));
         }
@@ -281,21 +292,21 @@ export function renderDock(dockUI, forceRender = false) {
 
     const applyOldVisuals = (c) => {
         let cid = null;
-        if (c._delegate?.app?.get_id) cid = c._delegate.app.get_id();
+        if (c._delegate && c._delegate.app && c._delegate.app.get_id) cid = c._delegate.app.get_id();
         else if (c._isFolder) cid = c._folderData.id;
-        else if (c.has_style_class_name?.('clock-module')) cid = 'dhruva-clock';
-        else if (c.get_child?.()?.has_style_class_name?.('dock-grid-icon')) cid = 'dhruva-grid-button';
-        else if (c.has_style_class_name?.('dock-separator')) cid = c._sepId;
+        else if (c.has_style_class_name && c.has_style_class_name('clock-module')) cid = 'dhruva-clock';
+        else if (c.get_child && c.get_child() && c.get_child().has_style_class_name && c.get_child().has_style_class_name('dock-grid-icon')) cid = 'dhruva-grid-button';
+        else if (c.has_style_class_name && c.has_style_class_name('dock-separator')) cid = c._sepId;
 
         if (cid && oldVisuals.has(cid)) {
             const v = oldVisuals.get(cid);
-            c.scale_x = v.sx ?? 1.0;
-            c.scale_y = v.sy ?? 1.0;
-            c.translation_x = v.tx ?? 0;
-            c.translation_y = v.ty ?? 0;
+            c.scale_x = v.sx !== undefined ? v.sx : 1.0;
+            c.scale_y = v.sy !== undefined ? v.sy : 1.0;
+            c.translation_x = v.tx !== undefined ? v.tx : 0;
+            c.translation_y = v.ty !== undefined ? v.ty : 0;
 
-            const appBox = c.get_child?.();
-            if (appBox && typeof appBox.get_children === 'function') {
+            const appBox = c.get_child ? c.get_child() : null;
+            if (appBox && appBox.get_children) {
                 appBox.get_children().forEach(child => {
                     const antiScale = 1.0 / Math.max(0.01, c.scale_x);
                     if (child._isIndicator) {
@@ -351,7 +362,7 @@ export function renderDock(dockUI, forceRender = false) {
         dockUI.actor.add_child(dockUI.extractedDesktop);
     }
 
-    const hasAnyModuleIndicator = systemModules.some(m => m?._hasRunningIndicator);
+    const hasAnyModuleIndicator = systemModules.some(m => m && m._hasRunningIndicator);
     dockUI._applyIndicatorBaselineAlignment(hasAnyModuleIndicator);
 
     dockUI.actor._fixedSlots = null;
@@ -367,7 +378,7 @@ export function renderDock(dockUI, forceRender = false) {
         };
 
         dockUI.boxActor.get_children().forEach(c => {
-            const sClass = typeof c.get_style_class_name === 'function' ? c.get_style_class_name() : (c.style_class || '');
+            const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
             if (!sClass.includes('dock-separator')) setPivot(c);
         });
 
@@ -380,14 +391,14 @@ export function renderDock(dockUI, forceRender = false) {
             }
             dockUI._magnifierSetupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 dockUI._magnifierSetupIdleId = null;
-                if (dockUI._isDestroyed || !dockUI.actor || !dockUI.boxActor) return GLib.SOURCE_REMOVE;
+                if (!dockUI.actor || !dockUI.boxActor) return GLib.SOURCE_REMOVE;
 
-                if (typeof setupMagnification === 'function') {
+                if (setupMagnification) {
                     setupMagnification(dockUI.actor, dockUI.settings, () => dockUI.dockPosition);
                 }
 
                 global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
-                    if (dockUI._isDestroyed || !dockUI.actor || !dockUI.boxActor || !dockUI.actor.is_mapped()) return false;
+                    if (!dockUI.actor || !dockUI.boxActor || !dockUI.actor.is_mapped()) return false;
 
                     const focusWin = global.display.get_focus_window();
                     if (focusWin && focusWin.is_fullscreen && focusWin.is_fullscreen()) {

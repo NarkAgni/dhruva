@@ -20,7 +20,6 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
-
 export function createIconMenuItem(text, onClick, isDestructive = false) {
     const btn = new St.Button({
         reactive: true,

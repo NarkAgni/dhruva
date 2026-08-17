@@ -39,7 +39,6 @@ export default class AutoHideManager {
         this.isHidden = false;
         this._isAnimating = false;
 
-        this._destroyed = false;
         this.signals = [];
 
         this._hideTimerId = null;
@@ -99,7 +98,7 @@ export default class AutoHideManager {
     }
 
     _isFullscreenActive() {
-        if (!this.dockUI || this.dockUI._isDestroyed) return false;
+        if (!this.dockUI) return false;
         const monitorData = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorData || !monitorData.monitor) return false;
 
@@ -110,7 +109,7 @@ export default class AutoHideManager {
         if (activeWs) {
             for (const win of activeWs.list_windows()) {
                 if (!win || win.minimized || win.get_monitor() !== dockMonitorIndex) continue;
-                if (typeof win.is_fullscreen === 'function' && win.is_fullscreen()) return true;
+                if (win.is_fullscreen()) return true;
 
                 const r = win.get_frame_rect();
                 if (r.width >= actualMonitor.width - 2 && r.height >= actualMonitor.height - 30) return true;
@@ -119,15 +118,13 @@ export default class AutoHideManager {
 
         const focusWin = global.display.get_focus_window();
         if (focusWin && focusWin.get_monitor() === dockMonitorIndex) {
-            if (typeof focusWin.is_fullscreen === 'function' && focusWin.is_fullscreen()) return true;
+            if (focusWin.is_fullscreen()) return true;
         }
 
         return false;
     }
 
     _setupListeners() {
-        if (this._destroyed) return;
-
         this._addSignal(global.display, 'notify::focus-window', () => {
             this._trackFocusedWindow();
             this._scheduleUpdate();
@@ -159,10 +156,8 @@ export default class AutoHideManager {
             if (!this.isHidden || this._isFullscreenActive()) return Clutter.EVENT_PROPAGATE;
 
             let pressureDelay = 0;
-            try {
-                const delaySetting = this.settings.get_int('edge-dwell-delay');
-                if (delaySetting >= 0) pressureDelay = delaySetting;
-            } catch (_e) {}
+            const delaySetting = this.settings.get_int('edge-dwell-delay');
+            if (delaySetting >= 0) pressureDelay = delaySetting;
 
             if (this._edgeRevealTimerId) {
                 GLib.source_remove(this._edgeRevealTimerId);
@@ -174,21 +169,15 @@ export default class AutoHideManager {
                 this._show(true, false);
             } else {
                 this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
-                    try {
-                        if (this._destroyed || !this.edgeTrigger || this.edgeTrigger.__destroyed || (typeof this.edgeTrigger.is_destroyed === 'function' && this.edgeTrigger.is_destroyed())) {
-                            this._edgeRevealTimerId = null;
-                            return GLib.SOURCE_REMOVE;
-                        }
-
-                        if (this._pointerInEdgeTriggerZone(2) && !this._isFullscreenActive()) {
-                            this._pointerUpdate = true;
-                            this._show(true, false);
-                        }
-                    } catch (e) {
-                        this._edgeRevealTimerId = null;
+                    this._edgeRevealTimerId = null;
+                    if (!this.edgeTrigger) {
                         return GLib.SOURCE_REMOVE;
                     }
-                    this._edgeRevealTimerId = null;
+
+                    if (this._pointerInEdgeTriggerZone(2) && !this._isFullscreenActive()) {
+                        this._pointerUpdate = true;
+                        this._show(true, false);
+                    }
                     return GLib.SOURCE_REMOVE;
                 });
             }
@@ -233,48 +222,45 @@ export default class AutoHideManager {
     }
 
     _addSignal(obj, event, cb) {
-        if (this._destroyed || !obj) return;
-        try {
-            const id = obj.connect(event, cb);
-            this.signals.push({ obj, id });
-        } catch (_e) {}
+        if (!obj) return;
+        const id = obj.connect(event, cb);
+        this.signals.push({ obj, id });
     }
 
     _setAutoHideMagnifierPaused(isPaused) {
-        if (!this.dockUI || !this.dockUI.actor || this.dockUI.actor.__destroyed || (typeof this.dockUI.actor.is_destroyed === 'function' && this.dockUI.actor.is_destroyed())) return;
-        try {
-            setMagnifierPauseState(this.dockUI.actor, AUTO_HIDE_MAGNIFIER_REASON, isPaused);
-        } catch (_e) {}
+        if (!this.dockUI || !this.dockUI.actor) return;
+        setMagnifierPauseState(this.dockUI.actor, AUTO_HIDE_MAGNIFIER_REASON, isPaused);
     }
 
     _applyDockInputState(interactive) {
-        if (this._destroyed || !this.dockUI || !this.dockUI.actor || this.dockUI.actor.__destroyed || (typeof this.dockUI.actor.is_destroyed === 'function' && this.dockUI.actor.is_destroyed()))
-            return;
+        if (!this.dockUI || !this.dockUI.actor) return;
 
         const visit = (a) => {
-            if (!a || a.__destroyed || (typeof a.is_destroyed === 'function' && a.is_destroyed())) return;
-            try {
-                a.reactive = interactive;
-                const kids = a.get_children();
-                for (let i = 0; i < kids.length; i++)
-                    visit(kids[i]);
-            } catch (_e) {}
+            if (!a) return;
+            a.reactive = interactive;
+            const kids = a.get_children();
+            for (let i = 0; i < kids.length; i++)
+                visit(kids[i]);
         };
 
         visit(this.dockUI.actor);
     }
 
     _updateHidden(anyOverlap, activeWinOverlap, maximizedOverlap) {
-        if (this._destroyed) return;
         this._updateEdgeTrigger();
-
-        if (this._isFullscreenActive()) {
-            this._hide();
-            return;
-        }
 
         if (this._shouldStayVisibleForTransientUI()) {
             this._show(true, false);
+            return;
+        }
+
+        if (Main.overview && Main.overview.visible) {
+            this._show(true, false);
+            return;
+        }
+
+        if (this._isFullscreenActive()) {
+            this._hide();
             return;
         }
 
@@ -307,7 +293,6 @@ export default class AutoHideManager {
     }
 
     _scheduleUpdate(delay = 50) {
-        if (this._destroyed) return;
         const now = Date.now();
         const targetAt = now + Math.max(0, delay);
 
@@ -321,21 +306,12 @@ export default class AutoHideManager {
         this._nextUpdateAt = targetAt;
 
         this._updateTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
-            try {
-                if (this._destroyed || !this.dockUI || !this.dockUI.actor || this.dockUI.actor.__destroyed || (typeof this.dockUI.actor.is_destroyed === 'function' && this.dockUI.actor.is_destroyed())) {
-                    this._updateTimerId = null;
-                    this._nextUpdateAt = 0;
-                    return GLib.SOURCE_REMOVE;
-                }
-                
-                this._recalculateOverlap();
-            } catch (e) {
-                this._updateTimerId = null;
-                this._nextUpdateAt = 0;
-                return GLib.SOURCE_REMOVE;
-            }
             this._updateTimerId = null;
             this._nextUpdateAt = 0;
+            if (!this.dockUI || !this.dockUI.actor) {
+                return GLib.SOURCE_REMOVE;
+            }
+            this._recalculateOverlap();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -358,38 +334,33 @@ export default class AutoHideManager {
 
     destroy() {
         this._setAutoHideMagnifierPaused(false);
-        this._destroyed = true;
         this._cancelTimers();
+
         if (this._updateTimerId) {
             GLib.source_remove(this._updateTimerId);
             this._updateTimerId = null;
         }
         this._nextUpdateAt = 0;
+
         if (this._hoverPollId) {
             GLib.source_remove(this._hoverPollId);
             this._hoverPollId = null;
         }
 
         for (const s of this.signals) {
-            try {
-                if (s.id && s.obj) s.obj.disconnect(s.id);
-            } catch (_e) {}
+            if (s.id && s.obj) s.obj.disconnect(s.id);
         }
         this.signals = [];
 
         if (this.edgeTrigger) {
-            try {
-                Main.layoutManager.removeChrome(this.edgeTrigger);
-                this.edgeTrigger.destroy();
-            } catch (_e) {}
+            Main.layoutManager.removeChrome(this.edgeTrigger);
+            this.edgeTrigger.destroy();
             this.edgeTrigger = null;
         }
 
         if (this._trackedWin && this._trackedWinSignals) {
             this._trackedWinSignals.forEach(id => {
-                try {
-                    this._trackedWin.disconnect(id);
-                } catch (_e) {}
+                this._trackedWin.disconnect(id);
             });
             this._trackedWinSignals = [];
             this._trackedWin = null;

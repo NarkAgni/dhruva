@@ -67,18 +67,19 @@ export default class FolderManager {
                 } catch (e) {
                     this.folders = [];
                 }
-                if (typeof this._onStateChangedCallback === 'function') {
+                
+                if (this._onStateChangedCallback) {
                     this._onStateChangedCallback();
                 }
             });
         } else {
+            const data = this.settings.get_string('app-folders');
             try {
-                const data = this.settings.get_string('app-folders');
                 this.folders = JSON.parse(data || '[]');
             } catch (e) {
                 this.folders = [];
             }
-            if (typeof this._onStateChangedCallback === 'function') {
+            if (this._onStateChangedCallback) {
                 this._onStateChangedCallback();
             }
         }
@@ -93,7 +94,9 @@ export default class FolderManager {
             const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
             
             file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
-                obj.replace_contents_finish(res);
+                try {
+                    obj.replace_contents_finish(res);
+                } catch (e) { }
             });
         } else {
             this.settings.set_string('app-folders', JSON.stringify(this.folders));

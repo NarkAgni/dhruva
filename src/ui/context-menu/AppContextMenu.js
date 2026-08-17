@@ -78,7 +78,7 @@ export default class AppContextMenu {
 
     _clearSignals() {
         for (const [target, signalIds] of this._signals.entries()) {
-            signalIds.forEach(id => { try { target.disconnect(id); } catch (_e) {} });
+            signalIds.forEach(id => { target.disconnect(id); });
         }
         this._signals.clear();
     }
@@ -130,13 +130,14 @@ export default class AppContextMenu {
                 if (!f.apps.includes(this.app.get_id())) {
                     const btn = createIconMenuItem(`Add to ${f.name}`, () => {
                         this.dockUI.folderManager.addAppToFolder(f.id, this.app.get_id());
-                        if (typeof this.dockUI.folderManager.saveFolders === 'function') this.dockUI.folderManager.saveFolders();
-                        else if (typeof this.dockUI.folderManager._saveFolders === 'function') this.dockUI.folderManager._saveFolders();
+                        
+                        if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
+                        else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
                         else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
                         
                         if (this.dockUI._activeFolderMenu && this.dockUI._activeFolderMenu.folderData.id === f.id) {
                             if (!this.dockUI._activeFolderMenu.folderData.apps.includes(this.app.get_id())) this.dockUI._activeFolderMenu.folderData.apps.push(this.app.get_id());
-                            if (typeof this.dockUI._activeFolderMenu.forceRefresh === 'function') this.dockUI._activeFolderMenu.forceRefresh();
+                            if (this.dockUI._activeFolderMenu.forceRefresh) this.dockUI._activeFolderMenu.forceRefresh();
                         }
                         this.dockUI.queueRender(); this.hide();
                     });
@@ -150,18 +151,18 @@ export default class AppContextMenu {
             if (addedFolder) addSeparator(this.panel);
         }
 
-        if (this.app.is_module && typeof this.app.open === 'function') {
+        if (this.app.is_module && this.app.open) {
             this.panel.add_child(createMenuItem(`Open ${this.app.get_name()}`, () => { this.app.open(); this.hide(); })); addSeparator(this.panel);
         }
 
-        if ((typeof this.app.get_id === 'function' ? this.app.get_id() : '') === 'dhruva-module-recycle-bin') this._addTrashActions();
+        if ((this.app.get_id ? this.app.get_id() : '') === 'dhruva-module-recycle-bin') this._addTrashActions();
 
-        const appInfo = typeof this.app.get_app_info === 'function' ? this.app.get_app_info() : null;
+        const appInfo = this.app.get_app_info ? this.app.get_app_info() : null;
         const actions = appInfo ? appInfo.list_actions() : [];
         let hasNewWindow = false;
         const quietContext = new Gio.AppLaunchContext();
 
-        if (typeof this.app.can_open_new_window === 'function' && this.app.can_open_new_window()) {
+        if (this.app.can_open_new_window && this.app.can_open_new_window()) {
             this.panel.add_child(createMenuItem('New Window', () => { if (appInfo) appInfo.launch([], quietContext); else this.app.open_new_window(-1); this.hide(); }));
             hasNewWindow = true;
         }
@@ -175,7 +176,7 @@ export default class AppContextMenu {
 
         if (hasNewWindow || actions.length > 0) addSeparator(this.panel);
 
-        if (!this.app.is_module && typeof this.app.get_id === 'function' && (!this.buttonActor || !this.buttonActor._inFolder)) {
+        if (!this.app.is_module && this.app.get_id && (!this.buttonActor || !this.buttonActor._inFolder)) {
             const isPinned = this.appManager.hasApp(this.app);
             this.panel.add_child(createMenuItem(isPinned ? 'Unpin from Dhruva' : 'Pin to Dhruva', () => {
                 if (isPinned) this.appManager.removeApp(this.app); else this.appManager.addApp(this.app);
@@ -186,9 +187,11 @@ export default class AppContextMenu {
         if (this.buttonActor && this.buttonActor._inFolder) {
             this.panel.add_child(createIconMenuItem(`Remove from ${this.buttonActor._folderName || 'Stack'}`, () => {
                 this.dockUI.folderManager.removeAppFromFolder(this.buttonActor._folderId, this.app.get_id());
-                if (typeof this.dockUI.folderManager.saveFolders === 'function') this.dockUI.folderManager.saveFolders();
-                else if (typeof this.dockUI.folderManager._saveFolders === 'function') this.dockUI.folderManager._saveFolders();
+                
+                if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
+                else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
                 else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
+                
                 if (this.buttonActor.get_parent()) this.buttonActor.destroy();
                 this.dockUI.queueRender(); this.hide();
             }, true));
@@ -198,7 +201,7 @@ export default class AppContextMenu {
             addSeparator(this.panel);
             this.panel.add_child(createMenuItem(windows.length > 1 ? 'Close All Windows' : (this.app.is_module ? 'Close Folder' : 'Quit'), () => {
                 this._addAppToIgnoreList(this.app);
-                if (typeof this.app.request_quit === 'function') this.app.request_quit();
+                if (this.app.request_quit) this.app.request_quit();
                 if (this.dockUI.actor) this.dockUI.actor._lastIconClickTime = 0;
                 this.dockUI._renderDock(); this.hide();
             }, true));
@@ -211,14 +214,15 @@ export default class AppContextMenu {
     }
 
     _addAppToIgnoreList(app) {
-        if (!this.dockUI || typeof app.get_id !== 'function') return;
+        if (!this.dockUI || !app.get_id) return;
         const appId = app.get_id();
         if (!this.dockUI._ignoringApps) this.dockUI._ignoringApps = new Set();
         this.dockUI._ignoringApps.add(appId);
         if (!this.dockUI._ignoreAppTimers) this.dockUI._ignoreAppTimers = [];
+        
         const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
-            if (this.dockUI?._ignoringApps) this.dockUI._ignoringApps.delete(appId);
-            if (this.dockUI?._ignoreAppTimers) this.dockUI._ignoreAppTimers = this.dockUI._ignoreAppTimers.filter(id => id !== timerId);
+            if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
+            if (this.dockUI && this.dockUI._ignoreAppTimers) this.dockUI._ignoreAppTimers = this.dockUI._ignoreAppTimers.filter(id => id !== timerId);
             return GLib.SOURCE_REMOVE;
         });
         this.dockUI._ignoreAppTimers.push(timerId);
@@ -232,16 +236,15 @@ export default class AppContextMenu {
         descLabel.clutter_text.line_wrap = true; descLabel.clutter_text.justify = true;
         content.add_child(descLabel); dialog.contentLayout.add_child(content);
         dialog.addButton({ label: 'Cancel', action: () => dialog.close(), key: Clutter.KEY_Escape });
-        dialog.addButton({ label: 'Empty Trash', action: () => { dialog.close(); try { GLib.spawn_command_line_async('gio trash --empty'); } catch (_e) {} }, isDefault: true });
+        dialog.addButton({ label: 'Empty Trash', action: () => { dialog.close(); GLib.spawn_command_line_async('gio trash --empty'); }, isDefault: true });
         dialog.open();
     }
 
     _addTrashActions() {
         let trashHasItems = false;
-        try {
-            const iter = Gio.File.new_for_uri('trash:///').enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-            trashHasItems = iter.next_file(null) !== null; iter.close(null);
-        } catch (_e) {}
+        const iter = Gio.File.new_for_uri('trash:///').enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+        trashHasItems = iter.next_file(null) !== null; iter.close(null);
+        
         const emptyBtn = new St.Button({ reactive: trashHasItems, x_expand: true, style_class: trashHasItems ? 'context-menu-action-btn-destructive' : 'context-menu-action-btn' });
         const label = new St.Label({ text: trashHasItems ? 'Empty Trash' : 'Trash is Empty', style_class: trashHasItems ? 'context-menu-action-label-destructive' : 'context-menu-action-label' });
         if (!trashHasItems) { emptyBtn.set_opacity(100); label.set_style('color: rgba(255,255,255,0.25);'); }
@@ -251,9 +254,9 @@ export default class AppContextMenu {
     }
 
     _updatePosition() {
-        if (this._isHiding || !this.actor || this.actor.__destroyed || !this.menuContainer || this.menuContainer.__destroyed) return;
+        if (this._isHiding || !this.actor || !this.menuContainer) return;
         
-        const isDestroyed = !this.buttonActor || this.buttonActor.__destroyed || (typeof this.buttonActor.is_destroyed === 'function' && this.buttonActor.is_destroyed()) || !this.buttonActor.get_parent();
+        const isDestroyed = !this.buttonActor || this.buttonActor.is_destroyed && this.buttonActor.is_destroyed() || !this.buttonActor.get_parent();
         if (isDestroyed) { 
             if (this.dockUI && this.dockUI.boxActor && this.app) {
                 const newBtn = this.dockUI.boxActor.get_children().find(c => c._delegate && c._delegate.app && c._delegate.app.get_id() === this.app.get_id());
@@ -318,25 +321,29 @@ export default class AppContextMenu {
     show(dockPosition) {
         this._dockPos = dockPosition;
         this._isFirstPosition = true;
-        if (this.dockUI?.actor && typeof setMagnifierPauseState === 'function') setMagnifierPauseState(this.dockUI.actor, 'context-menu', true);
+        
+        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', true);
 
         if (this._showDelayId) GLib.source_remove(this._showDelayId);
         this._showDelayId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
             this._showDelayId = null;
             if (this._isHiding || !this.actor) return GLib.SOURCE_REMOVE;
 
-            if (this.dockUI?._activeContextMenu && this.dockUI._activeContextMenu !== this) this.dockUI._activeContextMenu._forceDestroy();
+            if (this.dockUI && this.dockUI._activeContextMenu && this.dockUI._activeContextMenu !== this) this.dockUI._activeContextMenu._forceDestroy();
             this.dockUI._activeContextMenu = this;
 
             Main.layoutManager.addChrome(this.actor, { affectsStruts: false });
             global.stage.set_key_focus(this.actor); this.actor.grab_key_focus();
 
-            if (this.dockUI?.actor) {
-                try {
-                    const parent = this.actor.get_parent();
-                    if (!this.peekManager) { if (parent) parent.set_child_above_sibling(this.actor, null); } 
-                    else { const sibling = this.dockUI.actor; const siblingParent = sibling?.get_parent?.(); if (parent && sibling && parent === siblingParent) parent.set_child_below_sibling(this.actor, sibling); }
-                } catch (_e) {}
+            if (this.dockUI && this.dockUI.actor) {
+                const parent = this.actor.get_parent();
+                if (!this.peekManager) { 
+                    if (parent) parent.set_child_above_sibling(this.actor, null); 
+                } else { 
+                    const sibling = this.dockUI.actor; 
+                    const siblingParent = sibling && sibling.get_parent ? sibling.get_parent() : null; 
+                    if (parent && sibling && parent === siblingParent) parent.set_child_below_sibling(this.actor, sibling); 
+                }
             }
 
             this.actor.set_position(0, 0); this.actor.set_size(global.stage.width, global.stage.height);
@@ -353,14 +360,12 @@ export default class AppContextMenu {
 
             if (this._posTrackerId) GLib.source_remove(this._posTrackerId);
             this._posTrackerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-                try {
-                    if (this._isHiding || !this.actor || this.actor.__destroyed) {
-                        this._posTrackerId = null;
-                        return GLib.SOURCE_REMOVE;
-                    }
-                    this._updatePosition();
-                    return GLib.SOURCE_CONTINUE;
-                } catch (e) { return GLib.SOURCE_CONTINUE; }
+                if (this._isHiding || !this.actor) {
+                    this._posTrackerId = null;
+                    return GLib.SOURCE_REMOVE;
+                }
+                this._updatePosition();
+                return GLib.SOURCE_CONTINUE;
             });
 
             return GLib.SOURCE_REMOVE;
@@ -374,11 +379,11 @@ export default class AppContextMenu {
         if (this._showDelayId) { GLib.source_remove(this._showDelayId); this._showDelayId = null; }
         if (this._posTrackerId) { GLib.source_remove(this._posTrackerId); this._posTrackerId = null; }
 
-        if (this.dockUI?.actor && typeof setMagnifierPauseState === 'function') setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
-        if (this.dockUI?._activeContextMenu === this) this.dockUI._activeContextMenu = null;
+        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
+        if (this.dockUI && this.dockUI._activeContextMenu === this) this.dockUI._activeContextMenu = null;
         if (this.peekManager) this.peekManager.stopPeek();
 
-        if (this.dockUI?.actor) {
+        if (this.dockUI && this.dockUI.actor) {
             const [px, py] = global.get_pointer(); const [dx, dy] = this.dockUI.actor.get_transformed_position(); const [dw, dh] = this.dockUI.actor.get_transformed_size();
             const pad = 15; const isInside = px >= dx - pad && px <= dx + dw + pad && py >= dy - pad && py <= dy + dh + pad;
             if (!isInside) resetMagnification(this.dockUI.actor);
@@ -388,7 +393,12 @@ export default class AppContextMenu {
         if (this.menuContainer) {
             this.menuContainer.ease({
                 opacity: 0, scale_x: 0.95, scale_y: 0.95, duration: 120, mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onComplete: () => { this._clearSignals(); if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor); if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null); if (this.actor) this.actor.destroy(); }
+                onComplete: () => { 
+                    this._clearSignals(); 
+                    if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor); 
+                    if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null); 
+                    if (this.actor) this.actor.destroy(); 
+                }
             });
         }
     }
@@ -396,12 +406,12 @@ export default class AppContextMenu {
     _forceDestroy() {
         if (this._showDelayId) { GLib.source_remove(this._showDelayId); this._showDelayId = null; }
         if (this._posTrackerId) { GLib.source_remove(this._posTrackerId); this._posTrackerId = null; }
-        if (this.dockUI?.actor && typeof setMagnifierPauseState === 'function') setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
-        if (this.dockUI?._activeContextMenu === this) this.dockUI._activeContextMenu = null;
+        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
+        if (this.dockUI && this.dockUI._activeContextMenu === this) this.dockUI._activeContextMenu = null;
         if (this.peekManager) { this.peekManager.destroy(); this.peekManager = null; }
         this._clearSignals();
-        if (this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
+        if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
         if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null);
-        this.actor.destroy();
+        if (this.actor) this.actor.destroy();
     }
 }

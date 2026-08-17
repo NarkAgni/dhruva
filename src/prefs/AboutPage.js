@@ -33,7 +33,7 @@ export function buildAboutPage(prefs, window) {
     buildAboutHero(prefs, page);
     buildAboutLinks(prefs, page, window);
     buildAboutAuthor(prefs, page);
-    buildAboutDonations(prefs, page, window);
+    buildAboutDonations(page, window);
 }
 
 export function buildAboutHero(prefs, page) {
@@ -132,7 +132,7 @@ export function buildAboutAuthor(prefs, page) {
     }));
 }
 
-export function buildAboutDonations(prefs, page, window) {
+export function buildAboutDonations(page, window) {
     const group = new Adw.PreferencesGroup({
         title: 'Support Development',
         description: 'If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!'
@@ -175,12 +175,10 @@ export function buildAboutDonations(prefs, page, window) {
 
         copyBtn.connect('clicked', () => {
             window.get_display().get_clipboard().set_content(Gdk.ContentProvider.new_for_value(address));
-            try {
-                window.add_toast(new Adw.Toast({
-                    title: `${coin} address copied!`,
-                    timeout: 2
-                }));
-            } catch (error) { }
+            window.add_toast(new Adw.Toast({
+                title: `${coin} address copied!`,
+                timeout: 2
+            }));
         });
 
         row.add_suffix(copyBtn);

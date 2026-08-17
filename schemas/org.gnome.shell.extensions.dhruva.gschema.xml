@@ -113,7 +113,7 @@
     </key>
 
     <key name="tooltip-opacity" type="i">
-      <default>100</default>
+      <default>20</default>
       <summary>Hover Box Opacity</summary>
     </key>
     

@@ -42,10 +42,12 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
     thumbScroll.connect('scroll-event', (_actor, event) => {
         let [dx, dy] = event.get_scroll_direction() === Clutter.ScrollDirection.SMOOTH ? event.get_scroll_delta() : [0, 0];
         const direction = event.get_scroll_direction();
+        
         if (direction === Clutter.ScrollDirection.UP) dy = -1; else if (direction === Clutter.ScrollDirection.DOWN) dy = 1; else if (direction === Clutter.ScrollDirection.LEFT) dx = -1; else if (direction === Clutter.ScrollDirection.RIGHT) dx = 1;
         if (Math.abs(dy) > Math.abs(dx) && dy !== 0) { dx = dy; dy = 0; }
+        
         if (dx !== 0) {
-            const adjustment = typeof thumbScroll.get_hadjustment === 'function' ? thumbScroll.get_hadjustment() : thumbScroll.get_hscroll_bar().get_adjustment();
+            const adjustment = thumbScroll.get_hadjustment ? thumbScroll.get_hadjustment() : thumbScroll.get_hscroll_bar().get_adjustment();
             if (adjustment) {
                 const step = direction === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50;
                 const newVal = Math.min(Math.max(adjustment.get_value() + step, adjustment.get_lower()), adjustment.get_upper() - adjustment.get_page_size());
@@ -60,7 +62,7 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
 
     let currentWindowsList = [...windows];
     currentWindowsList.forEach(win => {
-        const card = createThumbnailCard(menu, app, win, customSize, thumbScroll, () => {
+        const card = createThumbnailCard(menu, win, customSize, thumbScroll, () => {
             currentWindowsList = currentWindowsList.filter(w => w !== win);
             if (currentWindowsList.length === 0) {
                 menu._addAppToIgnoreList(app);
@@ -75,7 +77,8 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
     return thumbScroll;
 }
 
-function createThumbnailCard(menu, app, win, customSize, thumbScroll, onWindowClosed) {
+
+function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed) {
     const card = new St.Widget({ layout_manager: new Clutter.BinLayout(), reactive: true });
     const thumbBtn = new St.Button({ reactive: true, x_expand: true, y_expand: true, style_class: 'context-menu-thumb-btn' });
 
@@ -103,8 +106,9 @@ function createThumbnailCard(menu, app, win, customSize, thumbScroll, onWindowCl
         }));
     }
 
-    const isMaximized = typeof win.is_maximized === 'function' ? win.is_maximized() : false;
+    const isMaximized = win.is_maximized ? win.is_maximized() : false;
     const maxIcon = win.minimized ? 'view-fullscreen-symbolic' : (isMaximized ? 'window-restore-symbolic' : 'window-maximize-symbolic');
+    
     controlsBox.add_child(createWindowControl(maxIcon, '40, 201, 64', () => {
         menu._previousFocus = null; menu.hide(); win.activate(global.get_current_time());
         if (win.minimized) animateRestore(win, menu.buttonActor, menu.dockUI.dockPosition);

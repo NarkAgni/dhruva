@@ -186,20 +186,13 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
                 return;
             }
 
-            try {
-                const isAppsPageVisible = Main.overview.visible && Main.overview._overview?._controls?._appDisplay?.visible;
+            const overviewControls = Main.overview._overview && Main.overview._overview._controls;
+            const isAppsPageVisible = Main.overview.visible && overviewControls && overviewControls._appDisplay && overviewControls._appDisplay.visible;
 
-                if (isAppsPageVisible) {
-                    Main.overview.hide();
-                } else {
-                    Main.overview.showApps();
-                }
-            } catch (_e) {
-                if (Main.overview.visible) {
-                    Main.overview.hide();
-                } else {
-                    Main.overview.showApps();
-                }
+            if (isAppsPageVisible) {
+                Main.overview.hide();
+            } else {
+                Main.overview.showApps();
             }
             if (dockUI.actor) dockUI.actor._suppressZoom = true;
         }

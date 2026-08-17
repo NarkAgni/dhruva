@@ -96,8 +96,9 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
 
     const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
     const tFg = dockActor._tooltipFg || '#ffffff';
-    let sWidth = 1, sOpacity = 0.2;
-    try { sWidth = settings.get_int('stroke-width'); sOpacity = settings.get_int('stroke-opacity') / 100.0; } catch (_e) { }
+    
+    let sWidth = settings.get_int('stroke-width') || 1;
+    let sOpacity = (settings.get_int('stroke-opacity') || 20) / 100.0;
 
     let borderRgba = 'rgba(255,255,255,0.2)';
     if (tFg.startsWith('#')) {
@@ -131,7 +132,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     dockActor._magTooltipBox.add_child(titleLbl);
 
     let windows = [];
-    if (btn._delegate?.app && typeof btn._delegate.app.get_windows === 'function') {
+    if (btn._delegate && btn._delegate.app && btn._delegate.app.get_windows) {
         windows = btn._delegate.app.get_windows();
         if (settings.get_boolean('isolate-monitors') && dockActor._dockUI) {
             const currentMonitorIndex = dockActor._dockUI.monitorManager.getCurrentMonitor().index;
@@ -173,17 +174,17 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 }));
             }
 
-            const isMaximized = typeof win.is_maximized === 'function' ? win.is_maximized() : false;
+            const isMaximized = win.is_maximized ? win.is_maximized() : false;
             const maxIcon = win.minimized ? 'view-fullscreen-symbolic' : (isMaximized ? 'window-restore-symbolic' : 'window-maximize-symbolic');
             controlsBox.add_child(createWindowControl(maxIcon, '40, 201, 64', () => {
                 Main.activateWindow(win); hideTooltip(dockActor);
                 if (win.minimized) animateRestore(win, btn, settings.get_string('dock-position') || 'BOTTOM');
-                else if (isMaximized) win.unmaximize();
-                else win.maximize();
+                else if (isMaximized && win.unmaximize) win.unmaximize();
+                else if (win.maximize) win.maximize();
             }));
 
             const handleClose = () => {
-                win.delete(global.get_current_time());
+                if (win.delete) win.delete(global.get_current_time());
                 const parentBox = thumbContainer.get_parent();
 
                 thumbContainer.ease({
@@ -241,7 +242,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 else if (dir === Clutter.ScrollDirection.UP) dy = -1; else if (dir === Clutter.ScrollDirection.DOWN) dy = 1; else if (dir === Clutter.ScrollDirection.LEFT) dx = -1; else if (dir === Clutter.ScrollDirection.RIGHT) dx = 1;
                 if (Math.abs(dy) > Math.abs(dx) && dy !== 0) { dx = dy; dy = 0; }
                 if (dx !== 0) {
-                    const adj = typeof scroll.get_hadjustment === 'function' ? scroll.get_hadjustment() : scroll.get_hscroll_bar().get_adjustment();
+                    const adj = scroll.get_hadjustment ? scroll.get_hadjustment() : scroll.get_hscroll_bar().get_adjustment();
                     if (adj) {
                         let newVal = adj.get_value() + (dir === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50);
                         const min = adj.get_lower(), max = adj.get_upper() - adj.get_page_size();
@@ -257,7 +258,9 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         }
     }
 
-    if (dockActor._tooltipPosTrackerId) GLib.source_remove(dockActor._tooltipPosTrackerId);
+    if (dockActor._tooltipPosTrackerId) {
+        GLib.source_remove(dockActor._tooltipPosTrackerId);
+    }
     
     dockActor._tooltipPosTrackerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
         if (dockActor._isDestroyed || !dockActor._magTooltip) {
@@ -266,7 +269,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         }
         if (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0) return GLib.SOURCE_CONTINUE;
 
-        if (!btn || btn.__destroyed || (typeof btn.is_destroyed === 'function' && btn.is_destroyed()) || !btn.get_parent()) {
+        if (!btn || btn.__destroyed || (btn.is_destroyed && btn.is_destroyed()) || !btn.get_parent()) {
             if (dockActor.boxActor) {
                 const newBtn = dockActor.boxActor.get_children().find(c => c._delegate && c._delegate.app && c._delegate.app.get_name() === appName);
                 if (newBtn) {
@@ -294,7 +297,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         dockActor._lastTooltipStateStr = stateStr;
 
         const dockPosStr = settings.get_string('dock-position') || 'BOTTOM';
-        const btnClassStr = typeof btn.get_style_class_name === 'function' ? btn.get_style_class_name() : (btn.style_class || '');
+        const btnClassStr = btn.get_style_class_name ? btn.get_style_class_name() : (btn.style_class || '');
         const gapAmt = (btnClassStr.includes('clock-module') || appName === 'Date & Time') ? 24 : 22;
 
         let tx = 0, ty = 0;

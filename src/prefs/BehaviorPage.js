@@ -62,17 +62,17 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     }
     ], null);
 
-    const hideDelayRow = addCustomSpinRow(prefs, visGroup, settings, 'hide-delay', 'Hide Delay', 'Milliseconds before hiding', 'preferences-system-time-symbolic', {
+    const hideDelayRow = addCustomSpinRow(visGroup, settings, 'hide-delay', 'Hide Delay', 'Milliseconds before hiding', 'preferences-system-time-symbolic', {
         lower: 0,
         upper: 2000,
         step_increment: 50
     }, createResetBtn);
-    const unhideDelayRow = addCustomSpinRow(prefs, visGroup, settings, 'unhide-delay', 'Unhide Delay', 'Milliseconds before showing', 'preferences-system-time-symbolic', {
+    const unhideDelayRow = addCustomSpinRow(visGroup, settings, 'unhide-delay', 'Unhide Delay', 'Milliseconds before showing', 'preferences-system-time-symbolic', {
         lower: 0,
         upper: 2000,
         step_increment: 50
     }, createResetBtn);
-    const dwellDelayRow = addCustomSpinRow(prefs, visGroup, settings, 'edge-dwell-delay', 'Edge Reveal Delay (Pressure)', 'Hold mouse at the edge for this long to reveal (ms)', 'timer-symbolic', {
+    const dwellDelayRow = addCustomSpinRow(visGroup, settings, 'edge-dwell-delay', 'Edge Reveal Delay (Pressure)', 'Hold mouse at the edge for this long to reveal (ms)', 'timer-symbolic', {
         lower: 0,
         upper: 1500,
         step_increment: 50
@@ -221,8 +221,8 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     });
     page.add(hoverGroup);
 
-    addSwitchRow(prefs, hoverGroup, settings, 'hover-zoom', 'Hover Zoom', 'Magnification effect on hover', 'zoom-in-symbolic', null);
-    const zoomFactorRow = addCustomSpinRow(prefs, hoverGroup, settings, 'hover-zoom-factor', 'Zoom Factor', 'Maximum multiplier', 'zoom-fit-best-symbolic', {
+    addSwitchRow(hoverGroup, settings, 'hover-zoom', 'Hover Zoom', 'Magnification effect on hover', 'zoom-in-symbolic', null);
+    const zoomFactorRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-factor', 'Zoom Factor', 'Maximum multiplier', 'zoom-fit-best-symbolic', {
         lower: 1.1,
         upper: 3.0,
         step_increment: 0.1
@@ -232,21 +232,20 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     prefs._settingsSignals.push(settings.connect('changed::hover-zoom', syncZoomFactor));
     syncZoomFactor();
 
-    addSwitchRow(prefs, hoverGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
+    addSwitchRow(hoverGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
 
-    addCustomSpinRow(prefs, hoverGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', {
+    addCustomSpinRow(hoverGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', {
         lower: 100,
         upper: 500,
         step_increment: 10
     }, createResetBtn);
-    addCustomSpinRow(prefs, hoverGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', {
+    addCustomSpinRow(hoverGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', {
         lower: 40,
         upper: 95,
         step_increment: 5
     }, createResetBtn);
 
     const peekRow = addSwitchRow(
-        prefs,
         hoverGroup,
         settings,
         'peek-effect',
@@ -257,7 +256,6 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     );
 
     const peekSpeedRow = addCustomSpinRow(
-        prefs,
         hoverGroup,
         settings,
         'peek-animation-speed',
@@ -273,9 +271,9 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
 
     const updateSpeedSubtitle = () => {
         const val = settings.get_int('peek-animation-speed');
-        if (peekSpeedRow?.subtitle)
-            peekSpeedRow.subtitle = `${val} ms`;
+        peekSpeedRow.subtitle = `${val} ms`;
     };
+
     updateSpeedSubtitle();
     prefs._settingsSignals.push(
         settings.connect('changed::peek-animation-speed', updateSpeedSubtitle)
@@ -302,8 +300,8 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
         { name: 'Both', value: 'both' }
     ], null);
 
-    addSwitchRow(prefs, utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
-    addSwitchRow(prefs, utilGroup, settings, 'show-unpinned-apps', 'Show Unpinned Apps', 'Display running apps that are not pinned to the dock', 'view-paged-symbolic', null);
+    addSwitchRow(utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
+    addSwitchRow(utilGroup, settings, 'show-unpinned-apps', 'Show Unpinned Apps', 'Display running apps that are not pinned to the dock', 'view-paged-symbolic', null);
     const qlRow = new Adw.ActionRow({
         title: 'Quick launch',
         subtitle: 'Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard. If Super + number still runs “Switch to application”, disable that binding in system shortcuts so Dhruva can own it.',
@@ -313,8 +311,8 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     }));
     utilGroup.add(qlRow);
 
-    addSwitchRow(prefs, utilGroup, settings, 'isolate-workspaces', 'Isolate Workspaces', 'Only show apps running on the current workspace', 'focus-windows-symbolic', null);
+    addSwitchRow(utilGroup, settings, 'isolate-workspaces', 'Isolate Workspaces', 'Only show apps running on the current workspace', 'focus-windows-symbolic', null);
 
-    addSwitchRow(prefs, utilGroup, settings, 'scroll-action-dock', 'Dock Scroll Action', 'Scroll on empty dock area to switch workspaces', 'input-mouse-symbolic', null);
-    addSwitchRow(prefs, utilGroup, settings, 'scroll-action-app', 'App Scroll Action', 'Scroll on app icons to cycle through its windows', 'view-restore-symbolic', null);
+    addSwitchRow(utilGroup, settings, 'scroll-action-dock', 'Dock Scroll Action', 'Scroll on empty dock area to switch workspaces', 'input-mouse-symbolic', null);
+    addSwitchRow(utilGroup, settings, 'scroll-action-app', 'App Scroll Action', 'Scroll on app icons to cycle through its windows', 'view-restore-symbolic', null);
 }

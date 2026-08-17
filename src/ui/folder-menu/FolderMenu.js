@@ -27,6 +27,7 @@ import { buildMenu, refreshGrid } from './FolderMenuBuilder.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { dropDelegate, dropButton, dropAppId, applyThemeStyle } from './FolderMenuStyle.js';
 
+
 export default class FolderMenu {
     constructor(dockUI, folderData, buttonActor) {
         this.dockUI = dockUI;
@@ -72,7 +73,7 @@ export default class FolderMenu {
 
             const draggedId = dropAppId(source);
             const srcBtn = dropButton(source);
-            const draggedApp = delegate.app || source?.app || srcBtn?._delegate?.app;
+            const draggedApp = delegate.app || (source && source.app) || (srcBtn && srcBtn._delegate && srcBtn._delegate.app);
             
             if (draggedApp && draggedId && !this.folderData.apps.includes(draggedId)) {
                 this.folderData.apps.push(draggedId); 
@@ -111,16 +112,15 @@ export default class FolderMenu {
     }
 
     _updatePosition() {
-        if (this._isHiding || !this.actor || this.actor.__destroyed || (typeof this.actor.is_destroyed === 'function' && this.actor.is_destroyed())) return;
-        if (!this.menuContainer || this.menuContainer.__destroyed || (typeof this.menuContainer.is_destroyed === 'function' && this.menuContainer.is_destroyed())) return;
+        if (!this.actor || (this.actor.is_destroyed && this.actor.is_destroyed())) return;
+        if (!this.menuContainer || (this.menuContainer.is_destroyed && this.menuContainer.is_destroyed())) return;
 
         const isDestroyed = !this.buttonActor || 
-                            this.buttonActor.__destroyed || 
-                            (typeof this.buttonActor.is_destroyed === 'function' && this.buttonActor.is_destroyed()) ||
+                            (this.buttonActor.is_destroyed && this.buttonActor.is_destroyed()) ||
                             !this.buttonActor.get_parent();
 
         if (isDestroyed) {
-            if (this.dockUI && this.dockUI.boxActor && typeof this.dockUI.boxActor.get_children === 'function') {
+            if (this.dockUI && this.dockUI.boxActor && this.dockUI.boxActor.get_children) {
                 const newBtn = this.dockUI.boxActor.get_children().find(c => c._isFolder && c._folderData && c._folderData.id === this.folderData.id);
                 if (newBtn) {
                     this.buttonActor = newBtn;
@@ -199,9 +199,9 @@ export default class FolderMenu {
     }
 
     _saveFolderState() {
-        if (typeof this.dockUI.folderManager.saveFolders === 'function') {
+        if (this.dockUI.folderManager.saveFolders) {
             this.dockUI.folderManager.saveFolders();
-        } else if (typeof this.dockUI.folderManager._saveFolders === 'function') {
+        } else if (this.dockUI.folderManager._saveFolders) {
             this.dockUI.folderManager._saveFolders();
         } else {
             this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
@@ -213,27 +213,25 @@ export default class FolderMenu {
         this._dockPos = dockPosition;
         this._isFirstPosition = true;
 
-        if (this.dockUI && this.dockUI.actor && typeof setMagnifierPauseState === 'function') {
+        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) {
             setMagnifierPauseState(this.dockUI.actor, 'folder-menu', true);
         }
 
         if (this._showDelayId) GLib.source_remove(this._showDelayId);
         this._showDelayId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
             this._showDelayId = null;
-            if (this._isHiding || !this.actor) return GLib.SOURCE_REMOVE;
+            if (!this.actor) return GLib.SOURCE_REMOVE;
 
             Main.layoutManager.addChrome(this.actor, {
                 affectsStruts: false
             });
             if (this.dockUI && this.dockUI.actor) {
-                try {
-                    const parent = this.actor.get_parent();
-                    const sibling = this.dockUI.actor;
-                    const siblingParent = sibling?.get_parent?.();
-                    if (parent && sibling && parent === siblingParent) {
-                        parent.set_child_below_sibling(this.actor, sibling);
-                    }
-                } catch (_e) {}
+                const parent = this.actor.get_parent();
+                const sibling = this.dockUI.actor;
+                const siblingParent = sibling && sibling.get_parent ? sibling.get_parent() : null;
+                if (parent && sibling && parent === siblingParent) {
+                    parent.set_child_below_sibling(this.actor, sibling);
+                }
             }
             this.actor.set_position(0, 0);
             this.actor.set_size(global.stage.width, global.stage.height);
@@ -258,25 +256,21 @@ export default class FolderMenu {
 
             if (this._posTrackerId) GLib.source_remove(this._posTrackerId);
             this._posTrackerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-                try {
-                    if (this._isHiding || !this.actor || this.actor.__destroyed || 
-                       (typeof this.actor.is_destroyed === 'function' && this.actor.is_destroyed())) {
-                        this._posTrackerId = null;
-                        return GLib.SOURCE_REMOVE;
-                    }
-                    
-                    this._updatePosition();
-                    return GLib.SOURCE_CONTINUE; 
-                } catch (e) {
-                    return GLib.SOURCE_CONTINUE; 
+                if (!this.actor || (this.actor.is_destroyed && this.actor.is_destroyed())) {
+                    this._posTrackerId = null;
+                    return GLib.SOURCE_REMOVE;
                 }
+                
+                this._updatePosition();
+                return GLib.SOURCE_CONTINUE; 
             });
+            
+            return GLib.SOURCE_REMOVE;
         });
     }
 
     hide() {
-        if (this._isHiding) return;
-        this._isHiding = true;
+        if (!this.actor) return;
 
         if (this._showDelayId) {
             GLib.source_remove(this._showDelayId);
@@ -294,17 +288,15 @@ export default class FolderMenu {
         }
         
         if (this._emojiOverlay) {
-            try {
-                this._emojiOverlay.destroy();
-            } catch (_e) {}
+            this._emojiOverlay.destroy();
             this._emojiOverlay = null;
         }
 
-        if (this.dockUI && this.dockUI.actor && typeof setMagnifierPauseState === 'function') {
+        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) {
             setMagnifierPauseState(this.dockUI.actor, 'folder-menu', false);
         }
 
-        if (this.dockUI._activeFolderMenu === this) this.dockUI._activeFolderMenu = null;
+        if (this.dockUI && this.dockUI._activeFolderMenu === this) this.dockUI._activeFolderMenu = null;
 
         if (this.menuContainer) {
             this.menuContainer.ease({
@@ -314,6 +306,8 @@ export default class FolderMenu {
                 onComplete: () => {
                     if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
                     if (this.actor) this.actor.destroy();
+                    this.actor = null;
+                    this.menuContainer = null;
                 }
             });
         }

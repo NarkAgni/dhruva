@@ -31,37 +31,28 @@ import { resetMagnification, applyRealtimeFrame } from './magnifier/Magnifier.js
 let lastSwapTime = 0;
 
 function _sourceDelegate(source) {
-    return source?._delegate || source || {};
+    return (source && source._delegate) || source || {};
 }
 
 function _sourceButton(source) {
     const delegate = _sourceDelegate(source);
-    return delegate.button || source?.button || (source?.get_parent ? source : null);
+    return delegate.button || (source && source.button) || (source && source.get_parent ? source : null);
 }
 
 function _sourceId(source) {
     const delegate = _sourceDelegate(source);
-    const srcApp = delegate.app || source?.app || null;
+    const srcApp = delegate.app || (source && source.app) || null;
     if (delegate.appId) return delegate.appId;
-    if (srcApp && typeof srcApp.get_id === 'function') return srcApp.get_id();
+    if (srcApp && srcApp.get_id) return srcApp.get_id();
     const srcBtn = _sourceButton(source);
-    if (srcBtn?._isFolder && srcBtn._folderData) return srcBtn._folderData.id;
+    if (srcBtn && srcBtn._isFolder && srcBtn._folderData) return srcBtn._folderData.id;
     return null;
 }
 
 function isActorAlive(actor) {
     if (!actor) return false;
-    try {
-        if (typeof actor.is_destroyed === 'function' && actor.is_destroyed()) return false;
-    } catch (_e) {
-        return false;
-    }
-    try {
-        let _dummy = actor.visible;
-    } catch (_e) {
-        return false;
-    }
-    return true;
+    if (actor.is_destroyed && actor.is_destroyed()) return false;
+    return actor.visible !== undefined;
 }
 
 function _setMergeHint(btn, dockUI) {
@@ -76,10 +67,10 @@ function _setMergeHint(btn, dockUI) {
 
     if (!btn._mergeHintApplied) {
         btn._mergeHintApplied = true;
-        btn._mergeHintStyle = typeof btn.get_style === 'function' ? btn.get_style() : null;
-        try {
+        btn._mergeHintStyle = btn.get_style ? btn.get_style() : null;
+        if (btn.set_style) {
             btn.set_style('background-color: rgba(255, 255, 255, 0.16); border-radius: 10px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.34); transition-duration: 200ms;');
-        } catch (_e) {}
+        }
     }
 }
 
@@ -87,15 +78,15 @@ function _clearMergeHint(btn, dockUI) {
     if (!isActorAlive(btn)) return;
     if (btn._mergeHintApplied) {
         btn._mergeHintApplied = false;
-        try {
+        if (btn.set_style) {
             btn.set_style(`${btn._mergeHintStyle || ''} transition-duration: 200ms;`);
-        } catch (_e) {}
+        }
         btn._mergeHintStyle = null;
         btn._wantsToMerge = false;
         btn._reorderWaitTime = null;
     }
 
-    const mainActor = dockUI?.actor;
+    const mainActor = dockUI && dockUI.actor;
     if (mainActor && (!btn || mainActor._mergeTargetButton === btn)) {
         mainActor._mergeDropActive = false;
         mainActor._mergeTargetButton = null;
@@ -157,13 +148,13 @@ export function setupDragAndDrop(btn, app, dockUI) {
             if (btn._wantsToMerge && sourceBtn) {
                 const sourceDelegate = _sourceDelegate(source);
                 const isDraggedFolder = sourceBtn._isFolder || sourceDelegate.isFolder;
-                const draggedId = isDraggedFolder ? sourceBtn._folderData?.id : _sourceId(source);
+                const draggedId = (isDraggedFolder && sourceBtn._folderData) ? sourceBtn._folderData.id : _sourceId(source);
 
                 if (!isDraggedFolder && draggedId && dockUI.folderManager) {
                     if (btn._isFolder) {
                         dockUI.folderManager.addAppToFolder(btn._folderData.id, draggedId);
                     } else {
-                        const targetAppId = (app && typeof app.get_id === 'function') ? app.get_id() : null;
+                        const targetAppId = (app && app.get_id) ? app.get_id() : null;
                         if (targetAppId && targetAppId !== draggedId) {
                             const folderId = dockUI.folderManager.createFolder("New Folder");
                             dockUI.folderManager.addAppToFolder(folderId, targetAppId);
@@ -188,7 +179,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             return this._handleMergeOrDrop(source);
         },
 
-        handleDragOver: (source, actor, x, y, time) => {
+        handleDragOver: (source) => {
             const mainActor = dockUI.actor;
             const sourceBtn = _sourceButton(source);
             if (!sourceBtn) return DND.DragMotionResult.MOVE_DROP;
@@ -197,8 +188,8 @@ export function setupDragAndDrop(btn, app, dockUI) {
             const isDraggedFolder = draggedBtn._isFolder;
             const isTargetFolder = btn._isFolder;
 
-            const draggedId = isDraggedFolder ? draggedBtn._folderData?.id : _sourceId(source);
-            const targetId = isTargetFolder ? btn._folderData.id : (app && typeof app.get_id === 'function' ? app.get_id() : null);
+            const draggedId = (isDraggedFolder && draggedBtn._folderData) ? draggedBtn._folderData.id : _sourceId(source);
+            const targetId = isTargetFolder ? btn._folderData.id : (app && app.get_id ? app.get_id() : null);
 
             const [, , mods] = global.get_pointer();
             const isCtrlPressed = (mods & Clutter.ModifierType.CONTROL_MASK) !== 0;
@@ -240,13 +231,11 @@ export function setupDragAndDrop(btn, app, dockUI) {
             const orderedSlots = slotModel.orderedSlots;
 
             let favIds = [];
-            try {
-                if (dockUI.settings.get_boolean('independent-dock')) {
-                    favIds = dockUI.appManager.pinnedApps || [];
-                } else {
-                    favIds = dockUI.appManager.favManager.getFavorites().map(a => typeof a.get_id === 'function' ? a.get_id() : '');
-                }
-            } catch (_e) {}
+            if (dockUI.settings.get_boolean('independent-dock')) {
+                favIds = dockUI.appManager.pinnedApps || [];
+            } else {
+                favIds = dockUI.appManager.favManager.getFavorites().map(a => a.get_id ? a.get_id() : '');
+            }
 
             const isDraggedPinned = isDraggedFolder || favIds.includes(draggedId);
 
@@ -258,7 +247,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
                 if (!targetBtnDelegate.isFolder && (!targetBtnDelegate.app || targetBtnDelegate.app.is_module)) continue;
 
-                const curTargetId = targetBtnDelegate.isFolder ? targetBtnDelegate.folderData.id : (typeof targetBtnDelegate.app.get_id === 'function' ? targetBtnDelegate.app.get_id() : '');
+                const curTargetId = targetBtnDelegate.isFolder ? targetBtnDelegate.folderData.id : (targetBtnDelegate.app.get_id ? targetBtnDelegate.app.get_id() : '');
                 const isTargetPinned = targetBtnDelegate.isFolder || favIds.includes(curTargetId);
 
                 if (isDraggedPinned && !isTargetPinned) continue;
@@ -297,7 +286,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             }
 
             displaced.forEach(({ b: dispBtn, offset }) => {
-                dispBtn.remove_all_transitions();
+                if (dispBtn.remove_all_transitions) dispBtn.remove_all_transitions();
                 dispBtn._flipOffset = (dispBtn._flipOffset || 0) + offset;
                 dispBtn._flipStartTime = now;
             });
@@ -320,7 +309,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
 
-        if (!isOutside && btn && typeof btn.is_destroyed === 'function' && !btn.is_destroyed()) {
+        if (!isOutside && btn && btn.is_destroyed && !btn.is_destroyed()) {
             btn.opacity = 255;
         }
     });
@@ -340,7 +329,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         getFixedSlots(mainActor, isVertical, allBtns);
 
         allBtns.forEach(b => {
-            b.remove_all_transitions();
+            if (b.remove_all_transitions) b.remove_all_transitions();
             b._flipOffset = 0;
             b._flipStartTime = null;
         });
@@ -356,7 +345,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
         stopDragLoop(mainActor);
 
-        if (draggable._dragActor && !draggable._dragActor.is_destroyed()) {
+        if (draggable._dragActor && draggable._dragActor.is_destroyed && !draggable._dragActor.is_destroyed()) {
             draggable._dragActor.opacity = 0;
             draggable._dragActor.destroy();
         }
@@ -373,19 +362,18 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
 
-        const entityId = btn._isFolder ? btn._folderData.id : (app && typeof app.get_id === 'function' ? app.get_id() : null);
+        const entityId = btn._isFolder ? btn._folderData.id : (app && app.get_id ? app.get_id() : null);
 
         const [dx, dy] = mainActor.get_transformed_position();
         const [dw, dh] = mainActor.get_transformed_size();
         const isInsideMain = px >= dx - 20 && px <= dx + dw + 20 && py >= dy - 20 && py <= dy + dh + 20;
 
         if (isOutside && !isInsideMain && entityId) {
-            try {
-                if (btn._isFolder)
-                    dockUI.folderManager.deleteFolder(entityId);
-                else
-                    dockUI.appManager.removeApp(app);
-            } catch (_e) {}
+            if (btn._isFolder) {
+                dockUI.folderManager.deleteFolder(entityId);
+            } else {
+                dockUI.appManager.removeApp(app);
+            }
 
             btn.opacity = 0;
             if (btn._isFolder || (app && app.get_state() !== Shell.AppState.RUNNING)) {
@@ -410,7 +398,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const newOrderIds = [];
         currentBtns.forEach(b => {
             if (b._delegate) {
-                if (!b._delegate.isFolder && b._delegate.app && !b._delegate.app.is_module && typeof b._delegate.app.get_id === 'function') {
+                if (!b._delegate.isFolder && b._delegate.app && !b._delegate.app.is_module && b._delegate.app.get_id) {
                     newOrderIds.push(b._delegate.app.get_id());
                 }
             }

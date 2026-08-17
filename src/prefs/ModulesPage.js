@@ -39,10 +39,9 @@ export function buildModulesPage(prefs, window, settings) {
     });
     page.add(modGroup);
 
-    addSwitchRow(prefs, modGroup, settings, 'show-trash', 'Recycle Bin (Trash)', 'Show a shortcut to the trash folder', 'user-trash-symbolic', null);
-    addSwitchRow(prefs, modGroup, settings, 'show-desktop-button', 'Show Desktop Button', 'Quickly minimize all windows', 'computer-symbolic', null);
-
-    addSwitchRow(prefs, modGroup, settings, 'show-grid-button', 'Show Applications Button', 'App drawer launcher', 'view-app-grid-symbolic', null);
+    addSwitchRow(modGroup, settings, 'show-trash', 'Recycle Bin (Trash)', 'Show a shortcut to the trash folder', 'user-trash-symbolic', null);
+    addSwitchRow(modGroup, settings, 'show-desktop-button', 'Show Desktop Button', 'Quickly minimize all windows', 'computer-symbolic', null);
+    addSwitchRow(modGroup, settings, 'show-grid-button', 'Show Applications Button', 'App drawer launcher', 'view-app-grid-symbolic', null);
     const gridPosRow = addSegmentedRow(prefs, modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [{
         name: 'Start',
         value: 'START'
@@ -55,7 +54,7 @@ export function buildModulesPage(prefs, window, settings) {
 
     const gridColorRow = addColorRow(prefs, modGroup, settings, 'grid-icon-color', 'App Grid Button Color', 'preferences-desktop-appearance-symbolic');
 
-    const oldGridIconRow = addSwitchRow(prefs, modGroup, settings, 'use-old-grid-icon', 'Use Old App Grid Icon', 'Show default dotted grid icon instead of Dhruva logo', 'view-app-grid-symbolic', null);
+    const oldGridIconRow = addSwitchRow(modGroup, settings, 'use-old-grid-icon', 'Use Old App Grid Icon', 'Show default dotted grid icon instead of Dhruva logo', 'view-app-grid-symbolic', null);
 
     const customIconRow = new Adw.ActionRow({
         title: 'Custom App Grid Icon',
@@ -131,7 +130,6 @@ export function buildModulesPage(prefs, window, settings) {
     modGroup.add(customIconRow);
 
     const customIconScaleRow = addCustomSpinRow(
-        prefs,
         modGroup,
         settings,
         'custom-grid-icon-scale',
@@ -183,12 +181,12 @@ export function buildModulesPage(prefs, window, settings) {
     });
     page.add(defaultFolderGroup);
 
-    addSwitchRow(prefs, defaultFolderGroup, settings, 'show-home', 'Home', 'Shortcut to Home directory', 'user-home-symbolic', null);
-    addSwitchRow(prefs, defaultFolderGroup, settings, 'show-downloads', 'Downloads', 'Shortcut to Downloads', 'folder-download-symbolic', null);
-    addSwitchRow(prefs, defaultFolderGroup, settings, 'show-documents', 'Documents', 'Shortcut to Documents', 'folder-documents-symbolic', null);
-    addSwitchRow(prefs, defaultFolderGroup, settings, 'show-pictures', 'Pictures', 'Shortcut to Pictures', 'folder-pictures-symbolic', null);
-    addSwitchRow(prefs, defaultFolderGroup, settings, 'show-videos', 'Videos', 'Shortcut to Videos', 'folder-videos-symbolic', null);
-    addSwitchRow(prefs, defaultFolderGroup, settings, 'show-music', 'Music', 'Shortcut to Music', 'folder-music-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-home', 'Home', 'Shortcut to Home directory', 'user-home-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-downloads', 'Downloads', 'Shortcut to Downloads', 'folder-download-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-documents', 'Documents', 'Shortcut to Documents', 'folder-documents-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-pictures', 'Pictures', 'Shortcut to Pictures', 'folder-pictures-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-videos', 'Videos', 'Shortcut to Videos', 'folder-videos-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-music', 'Music', 'Shortcut to Music', 'folder-music-symbolic', null);
 
     const mountRow = new Adw.ActionRow({
         title: 'Show USB &amp; Mounted Drives',
@@ -399,11 +397,11 @@ export function buildModulesPage(prefs, window, settings) {
     });
     page.add(clockGroup);
 
-    addSwitchRow(prefs, clockGroup, settings, 'show-clock', 'Show Clock', 'Hidden automatically on left/right docks', 'document-open-recent-symbolic', null);
+    addSwitchRow(clockGroup, settings, 'show-clock', 'Show Clock', 'Hidden automatically on left/right docks', 'document-open-recent-symbolic', null);
 
-    const use24hRow = addSwitchRow(prefs, clockGroup, settings, 'use-24h-clock', 'Use 24-Hour Clock', 'Display time in 24-hour format', 'preferences-system-time-symbolic', null);
+    const use24hRow = addSwitchRow(clockGroup, settings, 'use-24h-clock', 'Use 24-Hour Clock', 'Display time in 24-hour format', 'preferences-system-time-symbolic', null);
 
-    const clockSizeRow = addCustomSpinRow(prefs, clockGroup, settings, 'clock-font-size', 'Clock Text Size', 'Adjust font size', 'format-text-direction-symbolic', {
+    const clockSizeRow = addCustomSpinRow(clockGroup, settings, 'clock-font-size', 'Clock Text Size', 'Adjust font size', 'format-text-direction-symbolic', {
         lower: 10,
         upper: 36,
         step_increment: 1

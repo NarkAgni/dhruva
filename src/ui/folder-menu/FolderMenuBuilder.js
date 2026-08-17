@@ -125,27 +125,27 @@ export function buildMenu(folderMenu) {
 
     iconBtn.connect('clicked', () => {
         folderMenu.hide();
-        try {
-            if (folderMenu.dockUI) folderMenu.dockUI._pauseAutoHide = true;
-            const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico'], Gio.SubprocessFlags.STDOUT_PIPE);
-            proc.communicate_utf8_async(null, null, (p, res) => {
-                if (folderMenu.dockUI) folderMenu.dockUI._pauseAutoHide = false;
-                try {
-                    const [, stdout] = p.communicate_utf8_finish(res);
-                    if (stdout && stdout.trim()) {
-                        const pickedPath = stdout.trim();
-                        const ext = pickedPath.split('.').pop().toLowerCase();
-                        const configDir = `${GLib.get_user_config_dir()}/dhruva@narkagni/icon`;
-                        GLib.mkdir_with_parents(configDir, 0o755);
-                        const destPath = `${configDir}/folder_icon_${Date.now()}.${ext}`;
-                        Gio.File.new_for_path(pickedPath).copy(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, null, null);
-                        selectedIcon = destPath;
-                        folderMenu.dockUI.folderManager.updateFolder(folderMenu.folderData.id, folderMenu.folderData.name, selectedIcon);
-                        folderMenu.dockUI.queueRender();
-                    }
-                } catch (_e) {}
-            });
-        } catch (_e) {}
+        if (folderMenu.dockUI) folderMenu.dockUI._pauseAutoHide = true;
+        const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico'], Gio.SubprocessFlags.STDOUT_PIPE);
+        proc.communicate_utf8_async(null, null, (p, res) => {
+            if (folderMenu.dockUI) folderMenu.dockUI._pauseAutoHide = false;
+            try {
+                const [, stdout] = p.communicate_utf8_finish(res);
+                if (stdout && stdout.trim()) {
+                    const pickedPath = stdout.trim();
+                    const ext = pickedPath.split('.').pop().toLowerCase();
+                    const configDir = `${GLib.get_user_config_dir()}/dhruva@narkagni/icon`;
+                    GLib.mkdir_with_parents(configDir, 0o755);
+                    const destPath = `${configDir}/folder_icon_${Date.now()}.${ext}`;
+                    Gio.File.new_for_path(pickedPath).copy(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, null, null);
+                    selectedIcon = destPath;
+                    folderMenu.dockUI.folderManager.updateFolder(folderMenu.folderData.id, folderMenu.folderData.name, selectedIcon);
+                    folderMenu.dockUI.queueRender();
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
     });
 
     editBtn.connect('clicked', () => {
@@ -477,9 +477,11 @@ export async function showEmojiPicker(folderMenu, onSelect) {
             emojiCatLabel.set_text(newBtn._emojiData.category);
 
             let adj = null;
-            try {
-                adj = typeof scrollView.get_vadjustment === 'function' ? scrollView.get_vadjustment() : scrollView.get_vscroll_bar().get_adjustment();
-            } catch (_e) {}
+            if (scrollView.get_vadjustment) {
+                adj = scrollView.get_vadjustment();
+            } else if (scrollView.get_vscroll_bar) {
+                adj = scrollView.get_vscroll_bar().get_adjustment();
+            }
 
             if (adj) {
                 const rowIndex = Math.floor(newIndex / 8);
@@ -659,7 +661,7 @@ export function refreshGrid(folderMenu) {
 
     folderMenu.folderData.apps = [...new Set(folderMenu.folderData.apps)];
 
-    folderMenu.folderData.apps.forEach((appId, index) => {
+    folderMenu.folderData.apps.forEach((appId) => {
         const app = folderMenu.dockUI.appManager.appSystem.lookup_app(appId);
         if (!app) return;
 
@@ -766,7 +768,7 @@ export function refreshGrid(folderMenu) {
                 return btn; 
             },
 
-            handleDragOver: function(source, actor, x, y, time) {
+            handleDragOver: function(source) {
                 const srcAppId = source.appId;
                 const srcFolderId = source.folderId;
                 const srcInFolder = source.inFolder;
@@ -827,7 +829,7 @@ export function refreshGrid(folderMenu) {
                 }
             },
             
-            acceptDrop: function(source, actor, x, y, time) {
+            acceptDrop: function(source) {
                 const srcAppId = source.appId;
                 if (!source.inFolder || source.folderId !== folderMenu.folderData.id || srcAppId === btn._appId) {
                     return false;
@@ -894,12 +896,12 @@ export function refreshGrid(folderMenu) {
 
     if (oldPositions.size > 0) {
         GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-            if (!folderMenu.gridMasterBox || (typeof folderMenu.gridMasterBox.is_destroyed === 'function' && folderMenu.gridMasterBox.is_destroyed())) {
+            if (!folderMenu.gridMasterBox || (folderMenu.gridMasterBox.is_destroyed && folderMenu.gridMasterBox.is_destroyed())) {
                 return GLib.SOURCE_REMOVE;
             }
             
             allFolderBtns.forEach(btn => {
-                if (!btn || (typeof btn.is_destroyed === 'function' && btn.is_destroyed())) return;
+                if (!btn || (btn.is_destroyed && btn.is_destroyed())) return;
                 
                 const oldPos = oldPositions.get(btn._appId);
                 if (oldPos) {

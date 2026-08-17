@@ -24,12 +24,12 @@ import { updateLayout } from './DockRenderer.js';
 
 
 export function scheduleOverviewMarginRetry(dockUI) {
-    if (dockUI._overviewMarginRetryId || dockUI._isDestroyed)
+    if (dockUI._overviewMarginRetryId)
         return;
 
     dockUI._overviewMarginRetryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
         dockUI._overviewMarginRetryId = null;
-        if (dockUI._isDestroyed || !Main.overview.visible)
+        if (!Main.overview.visible)
             return GLib.SOURCE_REMOVE;
 
         updateLayout(dockUI);
@@ -39,13 +39,10 @@ export function scheduleOverviewMarginRetry(dockUI) {
 }
 
 export function applyOverviewDockMargin(dockUI) {
-    if (dockUI._isDestroyed)
-        return;
-
     if (!dockUI.isActorAlive(dockUI.actor) || !dockUI.isActorAlive(dockUI.boxActor))
         return;
 
-    const controls = Main.overview._overview?._controls;
+    const controls = Main.overview._overview && Main.overview._overview._controls;
     if (!controls)
         return;
 
@@ -77,10 +74,10 @@ export function applyOverviewDockMargin(dockUI) {
 
     if (dockUI._savedOverviewMargins === undefined) {
         dockUI._savedOverviewMargins = {
-            bottom: controls.margin_bottom ?? 0,
-            top: controls.margin_top ?? 0,
-            left: controls.margin_left ?? 0,
-            right: controls.margin_right ?? 0,
+            bottom: controls.margin_bottom !== undefined ? controls.margin_bottom : 0,
+            top: controls.margin_top !== undefined ? controls.margin_top : 0,
+            left: controls.margin_left !== undefined ? controls.margin_left : 0,
+            right: controls.margin_right !== undefined ? controls.margin_right : 0,
         };
     }
 
@@ -110,7 +107,7 @@ export function clearOverviewDockMargin(dockUI) {
         dockUI._overviewMarginRetryId = null;
     }
 
-    const controls = Main.overview._overview?._controls;
+    const controls = Main.overview._overview && Main.overview._overview._controls;
     if (!controls || dockUI._savedOverviewMargins === undefined)
         return;
 

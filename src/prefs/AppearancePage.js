@@ -97,7 +97,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     colorsGroup.add(chameleonBanner);
 
     const bgColorRow = addColorRow(prefs, colorsGroup, settings, 'background-color', 'Primary Color', 'preferences-desktop-appearance-symbolic');
-    const useGradRow = addSwitchRow(prefs, colorsGroup, settings, 'use-gradient', 'Use Gradient', 'Blend with a second color', 'view-continuous-symbolic', null);
+    const useGradRow = addSwitchRow(colorsGroup, settings, 'use-gradient', 'Use Gradient', 'Blend with a second color', 'view-continuous-symbolic', null);
     const bgGradColorRow = addColorRow(prefs, colorsGroup, settings, 'background-gradient-color', 'Secondary Color', 'preferences-desktop-appearance-symbolic');
     const gradDirRow = addSegmentedRow(prefs, colorsGroup, settings, 'gradient-direction', 'Gradient Direction', 'Flow of the gradient', 'view-refresh-symbolic', [{
         name: 'Vertical',
@@ -109,13 +109,13 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     }
     ]);
 
-    addCustomSpinRow(prefs, colorsGroup, settings, 'background-opacity', 'Background Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+    addCustomSpinRow(colorsGroup, settings, 'background-opacity', 'Background Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
         step_increment: 5
     }, createResetBtn);
 
-    const tooltipOpacityRow = addCustomSpinRow(prefs, colorsGroup, settings, 'tooltip-opacity', 'Hover Box Opacity', 'App preview box background opacity (0-100)', 'dialog-information-symbolic', {
+    const tooltipOpacityRow = addCustomSpinRow(colorsGroup, settings, 'tooltip-opacity', 'Hover Box Opacity', 'App preview box background opacity (0-100)', 'dialog-information-symbolic', {
         lower: 0,
         upper: 100,
         step_increment: 5
@@ -127,7 +127,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     prefs._settingsSignals.push(settings.connect('changed::hover-zoom', syncTooltipVisibility));
     syncTooltipVisibility();
 
-    const radiusRow = addCustomSpinRow(prefs, colorsGroup, settings, 'border-radius', 'Border Radius', 'Corner roundness', 'media-record-symbolic', {
+    const radiusRow = addCustomSpinRow(colorsGroup, settings, 'border-radius', 'Border Radius', 'Corner roundness', 'media-record-symbolic', {
         lower: 0,
         upper: 50,
         step_increment: 1
@@ -153,13 +153,13 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     desktopBtnExp.add_suffix(masterDeskReset);
     colorsGroup.add(desktopBtnExp);
 
-    addCustomSpinRow(prefs, desktopBtnExp, settings, 'desktop-btn-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
+    addCustomSpinRow(desktopBtnExp, settings, 'desktop-btn-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
         lower: 2,
         upper: 100,
         step_increment: 1
     }, createResetBtn);
 
-    addCustomSpinRow(prefs, desktopBtnExp, settings, 'desktop-btn-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+    addCustomSpinRow(desktopBtnExp, settings, 'desktop-btn-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
         step_increment: 5
@@ -174,7 +174,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     prefs._settingsSignals.push(settings.connect('changed::full-width', syncDesktopBtnVisibility));
     syncDesktopBtnVisibility();
 
-    addCustomSpinRow(prefs, strokeExpander, settings, 'stroke-width', 'Stroke Width', 'Thickness in pixels (0 to disable)', 'format-text-strikethrough-symbolic', {
+    addCustomSpinRow(strokeExpander, settings, 'stroke-width', 'Stroke Width', 'Thickness in pixels (0 to disable)', 'format-text-strikethrough-symbolic', {
         lower: 0,
         upper: 10,
         step_increment: 1
@@ -182,7 +182,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
 
     addColorRow(prefs, strokeExpander, settings, 'stroke-color', 'Stroke Color', 'preferences-desktop-appearance-symbolic');
 
-    addCustomSpinRow(prefs, strokeExpander, settings, 'stroke-opacity', 'Stroke Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+    addCustomSpinRow(strokeExpander, settings, 'stroke-opacity', 'Stroke Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
         step_increment: 5
@@ -213,20 +213,20 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     modSepExp.add_suffix(masterModSepReset);
     sepGroup.add(modSepExp);
 
-    addSwitchRow(prefs, modSepExp, settings, 'show-module-separator', 'Enable Module Separator', 'Show a divider for system modules', 'view-more-horizontal-symbolic', createResetBtn);
+    addSwitchRow(modSepExp, settings, 'show-module-separator', 'Enable Module Separator', 'Show a divider for system modules', 'view-more-horizontal-symbolic', createResetBtn);
 
-    addCustomSpinRow(prefs, modSepExp, settings, 'separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
+    addCustomSpinRow(modSepExp, settings, 'separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
         lower: 0,
         upper: 10,
         step_increment: 1
     }, createResetBtn);
-    addCustomSpinRow(prefs, modSepExp, settings, 'separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', {
+    addCustomSpinRow(modSepExp, settings, 'separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', {
         lower: 10,
         upper: 100,
         step_increment: 5
     }, createResetBtn);
     addColorRow(prefs, modSepExp, settings, 'separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
-    addCustomSpinRow(prefs, modSepExp, settings, 'separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+    addCustomSpinRow(modSepExp, settings, 'separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
         step_increment: 5
@@ -243,20 +243,20 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     appSepExp.add_suffix(masterAppSepReset);
     sepGroup.add(appSepExp);
 
-    addSwitchRow(prefs, appSepExp, settings, 'show-app-separator', 'Enable App Separator', 'Show a divider between pinned and unpinned apps', 'view-more-horizontal-symbolic', createResetBtn);
+    addSwitchRow(appSepExp, settings, 'show-app-separator', 'Enable App Separator', 'Show a divider between pinned and unpinned apps', 'view-more-horizontal-symbolic', createResetBtn);
 
-    addCustomSpinRow(prefs, appSepExp, settings, 'running-separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
+    addCustomSpinRow(appSepExp, settings, 'running-separator-width', 'Thickness', 'Width in pixels', 'format-text-strikethrough-symbolic', {
         lower: 0,
         upper: 10,
         step_increment: 1
     }, createResetBtn);
-    addCustomSpinRow(prefs, appSepExp, settings, 'running-separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', {
+    addCustomSpinRow(appSepExp, settings, 'running-separator-height', 'Height / Length', 'Percentage of dock size (10-100)', 'format-justify-fill-symbolic', {
         lower: 10,
         upper: 100,
         step_increment: 5
     }, createResetBtn);
     addColorRow(prefs, appSepExp, settings, 'running-separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
-    addCustomSpinRow(prefs, appSepExp, settings, 'running-separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
+    addCustomSpinRow(appSepExp, settings, 'running-separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
         step_increment: 5
@@ -267,7 +267,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         description: 'Unread message counters'
     });
     page.add(badgesGroup);
-    addSwitchRow(prefs, badgesGroup, settings, 'show-notification-badges', 'Show Notification Badges', 'Display unread message counts on app icons', 'user-available-symbolic');
+    addSwitchRow(badgesGroup, settings, 'show-notification-badges', 'Show Notification Badges', 'Display unread message counts on app icons', 'user-available-symbolic');
 
     const indGroup = new Adw.PreferencesGroup({
         title: 'Indicators',
@@ -286,7 +286,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     indExpander.add_suffix(masterIndReset);
     indGroup.add(indExpander);
 
-    addSwitchRow(prefs, indExpander, settings, 'show-running-indicators', 'Show Indicators', 'Display active marks under icons', 'media-record-symbolic', createResetBtn);
+    addSwitchRow(indExpander, settings, 'show-running-indicators', 'Show Indicators', 'Display active marks under icons', 'media-record-symbolic', createResetBtn);
     addComboRow(prefs, indExpander, settings, 'indicator-style', 'Indicator Style', 'Shape of the indicator', 'view-list-symbolic', [{
         name: 'Dot',
         value: 'dot'
@@ -308,17 +308,17 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     let indColorRow = null;
     indColorRow = addColorRow(prefs, indExpander, settings, 'indicator-color', 'Indicator Color', 'preferences-desktop-appearance-symbolic');
 
-    addCustomSpinRow(prefs, indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', {
+    addCustomSpinRow(indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', {
         lower: 2,
         upper: 12,
         step_increment: 1
     }, createResetBtn);
-    addCustomSpinRow(prefs, indExpander, settings, 'indicator-spacing', 'Indicator Spacing', 'Gap between icon and indicator', 'format-indent-more-symbolic', {
+    addCustomSpinRow(indExpander, settings, 'indicator-spacing', 'Indicator Spacing', 'Gap between icon and indicator', 'format-indent-more-symbolic', {
         lower: 0,
         upper: 20,
         step_increment: 1
     }, createResetBtn);
-    addSwitchRow(prefs, indExpander, settings, 'indicator-glow', 'Indicator Glow', 'Add a shining shadow effect', 'display-brightness-symbolic', null);
+    addSwitchRow(indExpander, settings, 'indicator-glow', 'Indicator Glow', 'Add a shining shadow effect', 'display-brightness-symbolic', null);
 
     const syncThemeVisibility = () => {
         const theme = settings.get_string('dock-theme');

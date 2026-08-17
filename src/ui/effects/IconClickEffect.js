@@ -1,16 +1,19 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -21,7 +24,7 @@ export function animateIconClick(actor, effectName) {
     if (!actor || effectName === 'none') return;
 
     actor.set_pivot_point(0.5, 0.5);
-    actor.remove_all_transitions();
+    if (actor.remove_all_transitions) actor.remove_all_transitions();
 
     const restore = () => {
         actor.ease({
@@ -35,7 +38,7 @@ export function animateIconClick(actor, effectName) {
             duration: 200,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
-                if (actor && typeof actor.set_style === 'function') {
+                if (actor && actor.set_style) {
                     actor.set_style('');
                 }
             }
@@ -293,7 +296,7 @@ export function animateIconClick(actor, effectName) {
             break;
 
         case 'glow':
-            if (typeof actor.set_style === 'function') {
+            if (actor.set_style) {
                 actor.set_style('box-shadow: 0px 0px 20px 5px rgba(255, 255, 255, 0.6); border-radius: 50%; background-color: rgba(255,255,255,0.1);');
             }
             actor.ease({

@@ -41,18 +41,12 @@ export default class PeekManager {
         overlayActor.add_child(this.bigPreviewContainer);
 
         if (this.dockUI && this.dockUI.actor) {
-            try {
-                const sibling = this.dockUI.actor;
-                const dockParent = sibling.get_parent();
-                if (dockParent && dockParent === overlayActor) {
-                    overlayActor.set_child_below_sibling(this.bigPreviewContainer, sibling);
-                } else {
-                    overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
-                }
-            } catch (_e) {
-                try {
-                    overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
-                } catch (__e) {}
+            const sibling = this.dockUI.actor;
+            const dockParent = sibling.get_parent();
+            if (dockParent && dockParent === overlayActor) {
+                overlayActor.set_child_below_sibling(this.bigPreviewContainer, sibling);
+            } else {
+                overlayActor.set_child_at_index(this.bigPreviewContainer, 0);
             }
         }
     }
@@ -80,10 +74,7 @@ export default class PeekManager {
         this._currentTarget = targetWin;
         this._swapPreview(targetWin);
 
-        let peekEnabled = true;
-        try {
-            peekEnabled = this.settings.get_boolean('peek-effect');
-        } catch (e) {}
+        const peekEnabled = this.settings.get_boolean('peek-effect');
         if (!peekEnabled) return;
 
         if (this._peekTimer) {
@@ -124,11 +115,8 @@ export default class PeekManager {
     }
 
     _getPeekSpeed() {
-        try {
-            return this.settings.get_int('peek-animation-speed') || 1000;
-        } catch {
-            return 1000;
-        }
+        const val = this.settings.get_int('peek-animation-speed');
+        return val > 0 ? val : 1000;
     }
 
     _ghostWindows(targetOpacity, duration, mode) {
@@ -146,23 +134,17 @@ export default class PeekManager {
         const compPrivate = win.get_compositor_private();
         if (!compPrivate) return;
 
-        const {
-            monitor
-        } = this.dockUI.monitorManager.getCurrentMonitor();
+        const { monitor } = this.dockUI.monitorManager.getCurrentMonitor();
         const rect = win.get_frame_rect();
         const w = Math.max(1, rect.width || 1);
         const h = Math.max(1, rect.height || 1);
 
-        let scalePercent = 70;
-        try {
-            scalePercent = this.settings.get_int('big-preview-size');
-        } catch (e) {}
+        const scalePercent = this.settings.get_int('big-preview-size');
 
         const maxW = monitor.width * (scalePercent / 100);
         const maxH = monitor.height * (scalePercent / 100);
 
-        let previewW = w,
-            previewH = h;
+        let previewW = w, previewH = h;
         if (previewW > maxW) {
             previewW = maxW;
             previewH = (h / w) * previewW;

@@ -61,24 +61,20 @@ export class TimerRegistry {
     }
 
     connectSignal(target, signalName, callback) {
-        if (!target || typeof target.connect !== 'function') return null;
-        try {
-            const signalId = target.connect(signalName, callback);
-            if (!this._signals.has(target)) {
-                this._signals.set(target, []);
-            }
-            this._signals.get(target).push(signalId);
-            return signalId;
-        } catch (_e) {
-            return null;
+        if (!target || !target.connect) return null;
+        const signalId = target.connect(signalName, callback);
+        if (!this._signals.has(target)) {
+            this._signals.set(target, []);
         }
+        this._signals.get(target).push(signalId);
+        return signalId;
     }
 
     disconnectTarget(target) {
         if (!target || !this._signals || !this._signals.has(target)) return;
         const list = this._signals.get(target);
         list.forEach(id => {
-            try { target.disconnect(id); } catch (_e) {}
+            target.disconnect(id);
         });
         this._signals.delete(target);
     }
@@ -86,7 +82,7 @@ export class TimerRegistry {
     destroy() {
         if (this._timers) {
             for (const timerId of this._timers) {
-                try { GLib.source_remove(timerId); } catch (_e) {}
+                GLib.source_remove(timerId);
             }
             this._timers.clear();
         }
@@ -94,7 +90,7 @@ export class TimerRegistry {
         if (this._signals) {
             for (const [target, signalIds] of this._signals.entries()) {
                 signalIds.forEach(id => {
-                    try { target.disconnect(id); } catch (_e) {}
+                    target.disconnect(id);
                 });
             }
             this._signals.clear();

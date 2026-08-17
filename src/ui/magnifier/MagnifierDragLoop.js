@@ -36,78 +36,76 @@ export function startDragLoop(dockActor, isVertical, settings) {
     let dragWasOutside = false;
 
     dockActor._dragLoopId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-        try {
-            if (!dockActor || dockActor._isDestroyed || !dockActor._isDragging) {
-                dockActor._dragLoopId = null;
-                return GLib.SOURCE_REMOVE;
-            }
+        if (!dockActor || dockActor._isDestroyed || !dockActor._isDragging) {
+            dockActor._dragLoopId = null;
+            return GLib.SOURCE_REMOVE;
+        }
 
-            const [cx, cy] = global.get_pointer();
-            const [dx, dy] = dockActor.get_transformed_position();
-            const [dw, dh] = dockActor.get_transformed_size();
+        const [cx, cy] = global.get_pointer();
+        const [dx, dy] = dockActor.get_transformed_position();
+        const [dw, dh] = dockActor.get_transformed_size();
 
-            let boundsLeft = dx;
-            let boundsRight = dx + dw;
-            let boundsTop = dy;
-            let boundsBottom = dy + dh;
-            if (dockActor.bgActor) {
-                const [bx, by] = dockActor.bgActor.get_transformed_position();
-                const [bw, bh] = dockActor.bgActor.get_transformed_size();
-                boundsLeft = Math.min(boundsLeft, bx);
-                boundsRight = Math.max(boundsRight, bx + bw);
-                boundsTop = Math.min(boundsTop, by);
-                boundsBottom = Math.max(boundsBottom, by + bh);
-            }
+        let boundsLeft = dx;
+        let boundsRight = dx + dw;
+        let boundsTop = dy;
+        let boundsBottom = dy + dh;
+        if (dockActor.bgActor) {
+            const [bx, by] = dockActor.bgActor.get_transformed_position();
+            const [bw, bh] = dockActor.bgActor.get_transformed_size();
+            boundsLeft = Math.min(boundsLeft, bx);
+            boundsRight = Math.max(boundsRight, bx + bw);
+            boundsTop = Math.min(boundsTop, by);
+            boundsBottom = Math.max(boundsBottom, by + bh);
+        }
 
-            const basePadX = isVertical ? 15 : 20;
-            const basePadY = isVertical ? 20 : 15;
-            const inBaseBounds = cx >= boundsLeft - basePadX && cx <= boundsRight + basePadX && cy >= boundsTop - basePadY && cy <= boundsBottom + basePadY;
+        const basePadX = isVertical ? 15 : 20;
+        const basePadY = isVertical ? 20 : 15;
+        const inBaseBounds = cx >= boundsLeft - basePadX && cx <= boundsRight + basePadX && cy >= boundsTop - basePadY && cy <= boundsBottom + basePadY;
 
-            let inZoomedBounds = false;
-            if (!inBaseBounds) {
-                const btns = getDockButtons(dockActor);
-                for (let i = 0; i < btns.length; i++) {
-                    const btn = btns[i];
-                    if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
-                        const [bx, by] = btn.get_transformed_position();
-                        const [bw, bh] = btn.get_transformed_size();
-                        if (cx >= bx - 5 && cx <= bx + bw + 5 && cy >= by - 5 && cy <= by + bh + 5) {
-                            inZoomedBounds = true;
-                            break;
-                        }
+        let inZoomedBounds = false;
+        if (!inBaseBounds) {
+            const btns = getDockButtons(dockActor);
+            for (let i = 0; i < btns.length; i++) {
+                const btn = btns[i];
+                if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
+                    const [bx, by] = btn.get_transformed_position();
+                    const [bw, bh] = btn.get_transformed_size();
+                    if (cx >= bx - 5 && cx <= bx + bw + 5 && cy >= by - 5 && cy <= by + bh + 5) {
+                        inZoomedBounds = true;
+                        break;
                     }
                 }
             }
-
-            const isInsideDock = inBaseBounds || inZoomedBounds;
-
-            if (!isInsideDock) {
-                if (!dragWasOutside) {
-                    getDockButtons(dockActor).forEach(btn => {
-                        btn.ease({
-                            scale_x: 1.0,
-                            scale_y: 1.0,
-                            translation_x: 0,
-                            translation_y: 0,
-                            duration: 200,
-                            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                        });
-                    });
-                    if (dockActor.bgActor) dockActor.bgActor.set_pivot_point(0.5, 0.5);
-                    dragWasOutside = true;
-                }
-                return GLib.SOURCE_CONTINUE;
-            }
-
-            if (dragWasOutside) {
-                dockActor._fixedSlots = null;
-                dragWasOutside = false;
-            }
-
-            applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, Date.now());
-            return GLib.SOURCE_CONTINUE;
-        } catch (_e) {
-            return GLib.SOURCE_REMOVE;
         }
+
+        const isInsideDock = inBaseBounds || inZoomedBounds;
+
+        if (!isInsideDock) {
+            if (!dragWasOutside) {
+                getDockButtons(dockActor).forEach(btn => {
+                    btn.ease({
+                        scale_x: 1.0,
+                        scale_y: 1.0,
+                        translation_x: 0,
+                        translation_y: 0,
+                        duration: 200,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
+                });
+                if (dockActor.bgActor && dockActor.bgActor.set_pivot_point) {
+                    dockActor.bgActor.set_pivot_point(0.5, 0.5);
+                }
+                dragWasOutside = true;
+            }
+            return GLib.SOURCE_CONTINUE;
+        }
+
+        if (dragWasOutside) {
+            dockActor._fixedSlots = null;
+            dragWasOutside = false;
+        }
+
+        applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, Date.now());
+        return GLib.SOURCE_CONTINUE;
     });
 }

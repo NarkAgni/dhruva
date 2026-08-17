@@ -20,11 +20,7 @@
 export default class WorkspaceFilter {
 
     static filterWindows(windows, settings) {
-        try {
-            if (!settings.get_boolean('isolate-workspaces')) return windows;
-        } catch (e) {
-            return windows;
-        }
+        if (!settings.get_boolean('isolate-workspaces')) return windows;
 
         const workspaceManager = global.workspace_manager;
         const activeWs = workspaceManager.get_active_workspace();

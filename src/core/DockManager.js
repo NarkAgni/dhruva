@@ -52,13 +52,13 @@ export default class DockManager {
         this._originalDash.opacity = 0;
         this._originalDash.reactive = false;
 
-        if (typeof this._originalDash.show === 'function') {
+        if (this._originalDash.show) {
             this._originalDash.show();
         }
 
         const stealExternalWidget = (child) => {
             if (!child) return false;
-            const sc = typeof child.get_style_class_name === 'function' ? child.get_style_class_name() : (child.style_class || '');
+            const sc = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
 
             const isGnomeOrDhruva = sc.includes('app-well-app') ||
                 sc.includes('show-apps') ||
@@ -73,9 +73,7 @@ export default class DockManager {
             if (!isGnomeOrDhruva) {
                 const parent = child.get_parent();
                 if (parent) {
-                    try {
-                        parent.remove_child(child);
-                    } catch (e) { }
+                    parent.remove_child(child);
                 }
 
                 child._isExternal = true;
@@ -84,7 +82,7 @@ export default class DockManager {
                 this._externalActors.add(child);
 
                 child._isStatic = true;
-                if (typeof child.ease === 'function') {
+                if (child.ease) {
                     child.ease = function (props) {
                         const newProps = Object.assign({}, props);
                         delete newProps.scale_x;
@@ -92,7 +90,7 @@ export default class DockManager {
                         Clutter.Actor.prototype.ease.call(this, newProps);
                     };
                 }
-                if (typeof child.set_scale === 'function') {
+                if (child.set_scale) {
                     const origScale = child.set_scale.bind(child);
                     child.set_scale = (sx, sy) => {
                         if (sx === 1 && sy === 1) origScale(sx, sy);
@@ -100,24 +98,20 @@ export default class DockManager {
                 }
 
                 if (this.dockUI && this.dockUI.boxActor) {
-                    try {
-                        this.dockUI.boxActor.add_child(child);
-                    } catch (e) { }
+                    this.dockUI.boxActor.add_child(child);
                 }
 
                 const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
                     this._asyncSources.delete(timerId);
 
                     if (child && this.dockUI && this.dockUI.isActorAlive(child)) {
-                        try {
-                            if (typeof child.remove_all_transitions === 'function') child.remove_all_transitions();
-                            if (child.visible) child.opacity = 255;
-                            child.scale_x = 1;
-                            child.scale_y = 1;
-                        } catch (e) { }
+                        if (child.remove_all_transitions) child.remove_all_transitions();
+                        if (child.visible) child.opacity = 255;
+                        child.scale_x = 1;
+                        child.scale_y = 1;
                     }
 
-                    if (this.dockUI && !this.dockUI._isDestroyed && typeof this.dockUI.queueRender === 'function') {
+                    if (this.dockUI && !this.dockUI._isDestroyed && this.dockUI.queueRender) {
                         this.dockUI.queueRender();
                     }
                     return GLib.SOURCE_REMOVE;
@@ -134,19 +128,17 @@ export default class DockManager {
                         }
 
                         this._externalActors.forEach(ext => {
-                            if (ext && ext._is3rdParty && !(typeof ext.is_destroyed === 'function' && ext.is_destroyed())) {
+                            if (ext && ext._is3rdParty && !(ext.is_destroyed && ext.is_destroyed())) {
                                 let fullText = '';
 
                                 const collectText = (actor) => {
-                                    if (!actor || typeof actor.get_children !== 'function') return;
+                                    if (!actor || !actor.get_children) return;
                                     actor.get_children().forEach(sub => {
-                                        try {
-                                            const t = (typeof sub.get_text === 'function' ? sub.get_text() : sub.text) || '';
-                                            if (typeof t === 'string' && t.trim().length > 0) {
-                                                fullText += ' ' + t.toLowerCase();
-                                            }
-                                            collectText(sub);
-                                        } catch (e) { }
+                                        const t = (sub.get_text ? sub.get_text() : sub.text) || '';
+                                        if (typeof t === 'string' && t.trim().length > 0) {
+                                            fullText += ' ' + t.toLowerCase();
+                                        }
+                                        collectText(sub);
                                     });
                                 };
                                 collectText(ext);
@@ -184,7 +176,7 @@ export default class DockManager {
                 child._dhruvaExternalOwner = null;
                 child._is3rdParty = false;
 
-                if (this.dockUI && typeof this.dockUI.queueRender === 'function') {
+                if (this.dockUI && this.dockUI.queueRender) {
                     const idleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                         this._asyncSources.delete(idleId);
                         if (this.dockUI && !this.dockUI._isDestroyed) this.dockUI.queueRender();
@@ -206,7 +198,7 @@ export default class DockManager {
                 const _nativeOrigAdd = origBox.add_child.bind(origBox);
                 const _nativeOrigInsert = origBox.insert_child_at_index.bind(origBox);
                 const _nativeOrigRemove = origBox.remove_child.bind(origBox);
-                const _nativeOrigAddActor = typeof origBox.add_actor === 'function' ? origBox.add_actor.bind(origBox) : null;
+                const _nativeOrigAddActor = origBox.add_actor ? origBox.add_actor.bind(origBox) : null;
 
                 origBox.add_child = (child) => {
                     if (!stealExternalWidget(child)) _nativeOrigAdd(child);
@@ -239,39 +231,33 @@ export default class DockManager {
         const originalBox = this._originalDash?._box;
 
         if (this._hijackedOrigBox && this._nativeOrigAdd && this._nativeOrigInsert && this._nativeOrigRemove) {
-            try {
-                this._hijackedOrigBox.add_child = this._nativeOrigAdd;
-                this._hijackedOrigBox.insert_child_at_index = this._nativeOrigInsert;
-                this._hijackedOrigBox.remove_child = this._nativeOrigRemove;
-                if (this._nativeOrigAddActor) {
-                    this._hijackedOrigBox.add_actor = this._nativeOrigAddActor;
-                }
-                this._hijackedOrigBox._isHijacked = false;
-            } catch (_e) { }
+            this._hijackedOrigBox.add_child = this._nativeOrigAdd;
+            this._hijackedOrigBox.insert_child_at_index = this._nativeOrigInsert;
+            this._hijackedOrigBox.remove_child = this._nativeOrigRemove;
+            if (this._nativeOrigAddActor) {
+                this._hijackedOrigBox.add_actor = this._nativeOrigAddActor;
+            }
+            this._hijackedOrigBox._isHijacked = false;
         }
 
         if (originalBox && this._externalActors && this._externalActors.size > 0) {
             this._externalActors.forEach(child => {
                 if (!child || child._dhruvaExternalOwner !== this) return;
-                if (typeof child.is_destroyed === 'function' && child.is_destroyed()) return;
+                if (child.is_destroyed && child.is_destroyed()) return;
 
                 const parent = child.get_parent();
                 if (parent) {
-                    try {
-                        parent.remove_child(child);
-                    } catch (_e) { }
+                    parent.remove_child(child);
                 }
 
                 child._isExternal = false;
                 child._dhruvaExternalOwner = null;
 
-                try {
-                    if (this._nativeOrigAdd && originalBox === this._hijackedOrigBox) {
-                        this._nativeOrigAdd(child);
-                    } else {
-                        originalBox.add_child(child);
-                    }
-                } catch (_e) { }
+                if (this._nativeOrigAdd && originalBox === this._hijackedOrigBox) {
+                    this._nativeOrigAdd(child);
+                } else {
+                    originalBox.add_child(child);
+                }
             });
             this._externalActors.clear();
         }
@@ -279,7 +265,9 @@ export default class DockManager {
         if (this._originalDash) {
             this._originalDash.opacity = 255;
             this._originalDash.reactive = true;
-            if (typeof this._originalDash.show === 'function') {
+            this._originalDash.set_height(-1);
+            this._originalDash.set_width(-1);
+            if (this._originalDash.show) {
                 this._originalDash.show();
             }
         }
@@ -294,56 +282,54 @@ export default class DockManager {
         if (!this.dockUI || this.dockUI._isDestroyed || !this.dockUI.actor || !this.dockUI.boxActor) return;
         if (!this.dockUI.actor.is_mapped()) return;
 
-        try {
-            this.dockUI.actor.remove_all_transitions();
-            this.dockUI.actor.translation_x = 0;
-            this.dockUI.actor.translation_y = 0;
+        this.dockUI.actor.remove_all_transitions();
+        this.dockUI.actor.translation_x = 0;
+        this.dockUI.actor.translation_y = 0;
 
-            const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
-            if (!monitorResult || !monitorResult.monitor) return;
+        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
+        if (!monitorResult || !monitorResult.monitor) return;
 
-            const actualMonitor = monitorResult.monitor;
-            let topOffset = 0;
-            if (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) {
-                topOffset = Main.panel.height || 27;
-            }
+        const actualMonitor = monitorResult.monitor;
+        let topOffset = 0;
+        if (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) {
+            topOffset = Main.panel.height || 27;
+        }
 
-            const workArea = {
-                x: actualMonitor.x,
-                y: actualMonitor.y + topOffset,
-                width: actualMonitor.width,
-                height: actualMonitor.height - topOffset
-            };
-            const margin = this.settings.get_int('dock-margin');
-            const pos = this.settings.get_string('dock-position');
-            const isFullWidth = this.settings.get_boolean('full-width');
+        const workArea = {
+            x: actualMonitor.x,
+            y: actualMonitor.y + topOffset,
+            width: actualMonitor.width,
+            height: actualMonitor.height - topOffset
+        };
+        
+        const margin = this.settings.get_int('dock-margin');
+        const pos = this.settings.get_string('dock-position');
+        const isFullWidth = this.settings.get_boolean('full-width');
 
-            let xPos = 0,
-                yPos = 0;
-            const aw = this.dockUI.actor.width;
-            const ah = this.dockUI.actor.height;
+        let xPos = 0, yPos = 0;
+        const aw = this.dockUI.actor.width;
+        const ah = this.dockUI.actor.height;
 
-            if (pos === 'TOP') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
-                yPos = workArea.y + margin + 2;
-            } else if (pos === 'BOTTOM') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
-                yPos = workArea.y + workArea.height - ah - margin;
-            } else if (pos === 'LEFT') {
-                xPos = workArea.x + margin;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
-            } else if (pos === 'RIGHT') {
-                xPos = workArea.x + workArea.width - aw - margin;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
-            }
+        if (pos === 'TOP') {
+            xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+            yPos = workArea.y + margin + 2;
+        } else if (pos === 'BOTTOM') {
+            xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+            yPos = workArea.y + workArea.height - ah - margin;
+        } else if (pos === 'LEFT') {
+            xPos = workArea.x + margin;
+            yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+        } else if (pos === 'RIGHT') {
+            xPos = workArea.x + workArea.width - aw - margin;
+            yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+        }
 
-            this.dockUI.actor.set_position(xPos, yPos);
+        this.dockUI.actor.set_position(xPos, yPos);
 
-            if (this.dockUI.autoHideManager) {
-                this.dockUI.autoHideManager.isVisible = true;
-                this.dockUI.autoHideManager.isAnimating = false;
-            }
-        } catch (e) { }
+        if (this.dockUI.autoHideManager) {
+            this.dockUI.autoHideManager.isVisible = true;
+            this.dockUI.autoHideManager.isAnimating = false;
+        }
     }
 
     destroy() {

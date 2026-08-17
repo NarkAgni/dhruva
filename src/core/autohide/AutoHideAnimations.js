@@ -23,7 +23,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
 export function forceShow(ahm, force = false) {
-    if (ahm._destroyed || !ahm.dockUI || !ahm.dockUI.actor) return;
+    if (!ahm.dockUI || !ahm.dockUI.actor) return;
 
     if (!force && Main.overview.visible && ahm.settings.get_boolean('independent-dock')) return;
 
@@ -75,7 +75,7 @@ export function show(ahm, force = false, _suppressAnimations = false) {
     if (ahm._pointerUpdate) {
         try {
             unhideDelay = ahm.settings.get_int('unhide-delay');
-        } catch (_e) {}
+        } catch (_e) { }
     }
 
     if (unhideDelay > 0 && !force) {
@@ -104,7 +104,7 @@ export function hide(ahm) {
     let hideDelay = 200;
     try {
         hideDelay = ahm.settings.get_int('hide-delay');
-    } catch (_e) {}
+    } catch (_e) { }
 
     ahm._hideTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, hideDelay, () => {
         ahm._hideTimerId = null;
@@ -135,7 +135,7 @@ export function hide(ahm) {
 }
 
 export function animateShow(ahm) {
-    if (ahm._destroyed || !ahm.dockUI || !ahm.dockUI.actor) return;
+    if (!ahm.dockUI || !ahm.dockUI.actor) return;
 
     if (ahm.edgeTrigger) ahm.edgeTrigger.reactive = false;
 
@@ -146,11 +146,11 @@ export function animateShow(ahm) {
     ahm.dockUI.actor.show();
     ahm.dockUI.actor.visible = true;
 
-    if (ahm.dockUI._pendingRender && typeof ahm.dockUI._renderDock === 'function') {
+    if (ahm.dockUI._pendingRender && ahm.dockUI._renderDock) {
         ahm.dockUI._renderDock(true);
     }
-
-    if (typeof ahm.dockUI._updateLayout === 'function') {
+    
+    if (ahm.dockUI._updateLayout) {
         ahm.dockUI._updateLayout();
     }
 
@@ -223,7 +223,7 @@ export function animateShow(ahm) {
 }
 
 export function animateHide(ahm) {
-    if (ahm._destroyed || !ahm.dockUI || !ahm.dockUI.actor) return;
+    if (!ahm.dockUI || !ahm.dockUI.actor) return;
 
     const mode = ahm._getHideMode();
     if (mode === 'none' || mode === 'never') {

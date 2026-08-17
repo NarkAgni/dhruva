@@ -35,7 +35,7 @@ function parseRgba(str) {
 }
 
 export function applyThemeStyle(contextMenu, panel) {
-    if (!contextMenu?.dockUI?.settings) return;
+    if (!contextMenu || !contextMenu.dockUI || !contextMenu.dockUI.settings) return;
 
     const settings = contextMenu.dockUI.settings;
     const themeId = settings.get_string('dock-theme') || 'default';
@@ -49,7 +49,7 @@ export function applyThemeStyle(contextMenu, panel) {
     if (themeId === 'chameleon') {
         const { r, g, b } = contextMenu.dockUI._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
         bgRgba = `rgba(${r}, ${g}, ${b}, 0.88)`;
-    } else if (contextMenu.dockUI.actor?._tooltipBg) {
+    } else if (contextMenu.dockUI.actor && contextMenu.dockUI.actor._tooltipBg) {
         const css = contextMenu.dockUI.actor._tooltipBg;
         let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
         if (!match) match = css.match(/background-color:\s*(rgba?\([^)]+\))/);
