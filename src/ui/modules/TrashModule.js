@@ -17,20 +17,19 @@
  */
 
 
-export default class WorkspaceFilter {
+import Gio from 'gi://Gio';
 
-    static filterWindows(windows, settings) {
-        try {
-            if (!settings.get_boolean('isolate-workspaces')) return windows;
-        } catch (e) {
-            return windows;
+
+export function buildTrashModule(dockUI, _iconSize, createBtn, toggleAppWindow) {
+    let trashIconName = 'user-trash';
+    try {
+        const trashFile = Gio.File.new_for_uri('trash:///');
+        const enumerator = trashFile.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+        if (enumerator.next_file(null)) {
+            trashIconName = 'user-trash-full';
         }
+        enumerator.close(null);
+    } catch (_e) { }
 
-        const workspaceManager = global.workspace_manager;
-        const activeWs = workspaceManager.get_active_workspace();
-
-        return windows.filter(w => {
-            return w.is_on_all_workspaces() || w.get_workspace() === activeWs;
-        });
-    }
+    return createBtn(trashIconName, 'Recycle Bin', (btn) => toggleAppWindow('trash:///', ['Trash'], btn), ['Trash']);
 }

@@ -1,16 +1,19 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -54,7 +57,7 @@ export default class ScrollManager {
             if (mainDockActor) mainDockActor._lastIconClickTime = Date.now();
 
             try {
-                if (!settings.get_boolean('scroll-action-app')) return Clutter.EVENT_PROPAGATE;
+                if (!settings.get_boolean('scroll-action-app')) return Clutter.EVENT_STOP;
             } catch (e) {
                 return Clutter.EVENT_PROPAGATE;
             }
@@ -62,7 +65,7 @@ export default class ScrollManager {
             const dir = event.get_scroll_direction();
             const windows = getWindowsFn();
 
-            if (!windows || windows.length === 0) return Clutter.EVENT_PROPAGATE;
+            if (!windows || windows.length === 0) return Clutter.EVENT_STOP;
 
             if (windows.length < 2) {
                 const target = windows[0];

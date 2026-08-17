@@ -22,8 +22,18 @@
       <summary>Isolate Monitors</summary>
     </key>
 
-    <key name="full-width" type="b">
+    <key name="independent-dock" type="b">
       <default>false</default>
+      <summary>Independent Dock Mode</summary>
+      <description>Use Dhruva's own pinned apps and custom app grid instead of GNOME's native dash.</description>
+    </key>
+
+    <key name="show-independent-in-overview" type="b">
+        <default>false</default>
+    </key>
+
+    <key name="full-width" type="b">
+      <default>true</default>
       <summary>Full Width Dock</summary>
     </key>
 
@@ -38,7 +48,7 @@
     </key>
 
     <key name="icon-size" type="i">
-      <default>48</default>
+      <default>38</default>
       <summary>Icon Size</summary>
     </key>
 
@@ -57,53 +67,8 @@
       <summary>Dock Height / Thickness padding</summary>
     </key>
 
-    <key name="enable-floating-dock" type="b">
-      <default>false</default>
-      <summary>Enable Floating Dock</summary>
-    </key>
-
-    <key name="floating-side-line-opacity" type="i">
-      <default>10</default>
-      <summary>Side Line Opacity</summary>
-    </key>
-
-    <key name="floating-d-length" type="i">
-      <default>50</default>
-      <summary>D-Shape Length</summary>
-    </key>
-
-    <key name="floating-d-thickness" type="i">
-      <default>45</default>
-      <summary>D-Shape Thickness</summary>
-    </key>
-
-    <key name="floating-d-curve" type="i">
-      <default>24</default>
-      <summary>D-Shape Curve Radius</summary>
-    </key>
-
-    <key name="floating-d-offset" type="i">
-      <default>15</default>
-      <summary>D-Shape Position Offset</summary>
-    </key>
-
-    <key name="floating-d-gap" type="i">
-      <default>16</default>
-      <summary>Gap between D-Shape and Icons</summary>
-    </key>
-
-    <key name="floating-dock-opacity" type="i">
-      <default>100</default>
-      <summary>Floating Dock Overall Opacity (0-100)</summary>
-    </key>
-
-    <key name="floating-dock-hover-full-opacity" type="b">
-      <default>true</default>
-      <summary>Show full opacity on hover when floating</summary>
-    </key>
-
     <key name="dock-theme" type="s">
-      <default>'carbon'</default>
+      <default>'chameleon'</default>
       <summary>Dock Theme Preset</summary>
     </key>
 
@@ -128,9 +93,30 @@
     </key>
 
     <key name="background-opacity" type="i">
-      <default>90</default>
+      <default>80</default>
       <summary>Background Opacity</summary>
     </key>
+
+    <key name="desktop-btn-width" type="i">
+      <default>15</default>
+      <summary>Desktop button width</summary>
+    </key>
+    
+    <key name="desktop-btn-opacity" type="i">
+      <default>15</default>
+      <summary>Desktop button opacity</summary>
+    </key>
+
+    <key name="desktop-btn-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Desktop button color</summary>
+    </key>
+
+    <key name="tooltip-opacity" type="i">
+      <default>100</default>
+      <summary>Hover Box Opacity</summary>
+    </key>
+    
     <key name="border-radius" type="i">
       <default>50</default>
       <summary>Border Radius</summary>
@@ -157,7 +143,7 @@
     </key>
 
     <key name="indicator-style" type="s">
-      <default>'dot'</default>
+      <default>'line'</default>
       <summary>Running Indicator Style</summary>
     </key>
 
@@ -261,7 +247,7 @@
     </key>
 
     <key name="click-effect" type="s">
-      <default>'heartbeat'</default>
+      <default>'squish'</default>
       <summary>Icon Click Effect</summary>
     </key>
 
@@ -285,7 +271,7 @@
     </key>
 
     <key name="hover-zoom-factor" type="d">
-      <default>1.5</default>
+      <default>2.0</default>
       <summary>Icon zoom multiplier on hover</summary>
     </key>
 
@@ -295,7 +281,7 @@
     </key>
 
     <key name="context-menu-size" type="i">
-      <default>200</default>
+      <default>240</default>
       <summary>Context Menu Thumbnail Size</summary>
     </key>
 
@@ -346,7 +332,7 @@
     </key>
 
     <key name="show-desktop-button" type="b">
-      <default>false</default>
+      <default>true</default>
       <summary>Show Desktop Button</summary>
     </key>
 
@@ -406,18 +392,24 @@
     </key>
 
     <key name="clock-font-size" type="i">
-      <default>20</default>
+      <default>16</default>
       <summary>Clock Font Size</summary>
     </key>
     
     <key name="clock-position" type="s">
-      <default>'START'</default>
+      <default>'RIGHT_END'</default>
       <summary>Clock Position</summary>
     </key>
 
     <key name="show-notification-badges" type="b">
       <default>true</default>
       <summary>Show Notification Badges</summary>
+    </key>
+
+    <key name="show-module-separator" type="b">
+        <default>true</default>
+        <summary>Show Module Separator</summary>
+        <description>Show a divider for clock, grid, and system icons.</description>
     </key>
 
     <key name="separator-width" type="i">
@@ -438,6 +430,12 @@
     <key name="separator-opacity" type="i">
       <default>40</default>
       <summary>Module Separator Opacity</summary>
+    </key>
+
+    <key name="show-app-separator" type="b">
+        <default>true</default>
+        <summary>Show App Separator</summary>
+        <description>Show a divider between pinned and unpinned running apps.</description>
     </key>
 
     <key name="running-separator-width" type="i">
@@ -486,16 +484,16 @@
       <description>Stores custom folders containing multiple app IDs.</description>
     </key>
 
-    <key name="independent-dock" type="b">
-      <default>false</default>
-      <summary>Independent Dock Mode</summary>
-      <description>Use Dhruva's own pinned apps and custom app grid instead of GNOME's native dash.</description>
-    </key>
-
     <key name="show-unpinned-apps" type="b">
       <default>true</default>
       <summary>Show Unpinned Apps</summary>
       <description>Show running apps that are not pinned to the dock.</description>
+  </key>
+
+  <key name="new-window-action" type="s">
+      <default>'both'</default>
+      <summary>New Window Action</summary>
+      <description>Choose how to open a new window for a running app.</description>
   </key>
 
   </schema>

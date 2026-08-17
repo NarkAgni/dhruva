@@ -1,16 +1,19 @@
 /*
  * Dhruva GNOME Extension
  * Copyright (C) 2026 NarkAgni
- * * This program is free software: you can redistribute it and/or modify
+ *
+ * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * any later version.
- * * This program is distributed in the hope that it will be useful,
+ *
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * * You should have received a copy of the GNU General Public License
- * along with this program. If not, see https://www.gnu.org/licenses/. 
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 
@@ -19,7 +22,7 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 
 
 export const DockThemes = {
-    'default': {
+    default: {
         name: 'Custom (From Settings)',
         css: (cfg) => {
             if (cfg.useGradient) {
@@ -30,62 +33,60 @@ export const DockThemes = {
             }
             return `background-color: ${cfg.color1}; 
                     background-gradient-direction: none;`;
-        },
+        }
     },
 
-
-    'carbon': {
+    carbon: {
         name: 'Carbon',
-        css: (cfg) => `background-color: rgba(18, 18, 20, ${cfg.opacity}); background-gradient-direction: none;`,
+        css: (cfg) => `background-color: rgba(18, 18, 20, ${cfg.opacity}); background-gradient-direction: none;`
     },
 
-    'nord': {
+    nord: {
         name: 'Nord',
-        css: (cfg) => `background-color: rgba(36, 41, 51, ${cfg.opacity}); background-gradient-direction: none;`,
+        css: (cfg) => `background-color: rgba(36, 41, 51, ${cfg.opacity}); background-gradient-direction: none;`
     },
 
-    'catppuccin': {
+    catppuccin: {
         name: 'Catppuccin Mocha',
-        css: (cfg) => `background-color: rgba(30, 30, 46, ${cfg.opacity}); background-gradient-direction: none;`,
+        css: (cfg) => `background-color: rgba(30, 30, 46, ${cfg.opacity}); background-gradient-direction: none;`
     },
 
-    'gruvbox': {
+    gruvbox: {
         name: 'Gruvbox Dark',
-        css: (cfg) => `background-color: rgba(29, 32, 33, ${cfg.opacity}); background-gradient-direction: none;`,
+        css: (cfg) => `background-color: rgba(29, 32, 33, ${cfg.opacity}); background-gradient-direction: none;`
     },
 
-    'ash': {
+    ash: {
         name: 'Ash Glass',
-        css: (cfg) => `background-color: rgba(220, 220, 230, ${cfg.opacity * 0.65}); background-gradient-direction: none;`,
+        css: (cfg) => `background-color: rgba(220, 220, 230, ${cfg.opacity * 0.65}); background-gradient-direction: none;`
     },
 
-
-    'dracula': {
+    dracula: {
         name: 'Dracula',
-        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(40, 42, 54, ${cfg.opacity}); background-gradient-end: rgba(68, 71, 90, ${cfg.opacity});`,
+        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(40, 42, 54, ${cfg.opacity}); background-gradient-end: rgba(68, 71, 90, ${cfg.opacity});`
     },
 
     'tokyo-night': {
         name: 'Tokyo Night',
-        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(26, 27, 38, ${cfg.opacity}); background-gradient-end: rgba(36, 40, 59, ${cfg.opacity});`,
+        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(26, 27, 38, ${cfg.opacity}); background-gradient-end: rgba(36, 40, 59, ${cfg.opacity});`
     },
 
-    'aurora': {
+    aurora: {
         name: 'Aurora',
-        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(11, 52, 58, ${cfg.opacity}); background-gradient-end: rgba(14, 90, 75, ${cfg.opacity});`,
+        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(11, 52, 58, ${cfg.opacity}); background-gradient-end: rgba(14, 90, 75, ${cfg.opacity});`
     },
 
-    'sunset': {
+    sunset: {
         name: 'Sunset',
-        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(30, 15, 40, ${cfg.opacity}); background-gradient-end: rgba(150, 50, 30, ${cfg.opacity});`,
+        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: horizontal; background-gradient-start: rgba(30, 15, 40, ${cfg.opacity}); background-gradient-end: rgba(150, 50, 30, ${cfg.opacity});`
     },
 
     'slate-ocean': {
         name: 'Slate Ocean',
-        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: vertical; background-gradient-start: rgba(15, 32, 56, ${cfg.opacity}); background-gradient-end: rgba(28, 58, 90, ${cfg.opacity});`,
+        css: (cfg) => `background-color: rgba(0, 0, 0, 0); background-gradient-direction: vertical; background-gradient-start: rgba(15, 32, 56, ${cfg.opacity}); background-gradient-end: rgba(28, 58, 90, ${cfg.opacity});`
     },
 
-    'chameleon': {
+    chameleon: {
         name: 'Chameleon (Wallpaper Color)',
         css: (cfg) => {
             const c = (cfg.chameleonColor && cfg.chameleonColor.bg) || {
@@ -93,9 +94,9 @@ export const DockThemes = {
                 g: 30,
                 b: 40
             };
-            const r1 = c.r,
-                g1 = c.g,
-                b1 = c.b;
+            const r1 = c.r;
+            const g1 = c.g;
+            const b1 = c.b;
             const r2 = Math.max(0, Math.floor(r1 * 0.7));
             const g2 = Math.max(0, Math.floor(g1 * 0.7));
             const b2 = Math.max(0, Math.floor(b1 * 0.7));
@@ -104,8 +105,8 @@ export const DockThemes = {
                     background-gradient-direction: vertical; 
                     background-gradient-start: rgba(${r1}, ${g1}, ${b1}, ${cfg.opacity}); 
                     background-gradient-end: rgba(${r2}, ${g2}, ${b2}, ${cfg.opacity});`;
-        },
-    },
+        }
+    }
 };
 
 function _rgbToHsl(r, g, b) {
@@ -115,8 +116,8 @@ function _rgbToHsl(r, g, b) {
 
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
-    let h = 0,
-        s = 0;
+    let h = 0;
+    let s = 0;
     const l = (max + min) / 2;
 
     if (max !== min) {
@@ -169,7 +170,7 @@ function _hslToRgb(h, s, l) {
     return {
         r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
         g: Math.round(hue2rgb(p, q, h) * 255),
-        b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+        b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255)
     };
 }
 
@@ -178,10 +179,7 @@ function _rgbToHex(r, g, b) {
 }
 
 export function getChameleonAccentColor(rawR, rawG, rawB) {
-    const {
-        h,
-        s
-    } = _rgbToHsl(rawR, rawG, rawB);
+    const { h, s } = _rgbToHsl(rawR, rawG, rawB);
 
     if (s < 0.05) return '#ffffff';
 
@@ -198,12 +196,12 @@ export function extractWallpaperDominantColor() {
         let wallpaperUri = '';
         try {
             wallpaperUri = bgSettings.get_string('picture-uri-dark');
-        } catch (e) {}
+        } catch (_e) {}
 
         if (!wallpaperUri) {
             try {
                 wallpaperUri = bgSettings.get_string('picture-uri');
-            } catch (e) {}
+            } catch (_e) {}
         }
 
         if (!wallpaperUri) return null;
@@ -221,10 +219,10 @@ export function extractWallpaperDominantColor() {
         const rowstride = pixbuf.get_rowstride();
         const pixels = pixbuf.get_pixels();
 
-        let totalR = 0,
-            totalG = 0,
-            totalB = 0,
-            count = 0;
+        let totalR = 0;
+        let totalG = 0;
+        let totalB = 0;
+        let count = 0;
         const step = 4;
 
         for (let y = 0; y < h; y += step) {
@@ -246,21 +244,15 @@ export function extractWallpaperDominantColor() {
             }
         }
 
-        const fallbackBg = {
-            r: 30,
-            g: 30,
-            b: 40
-        };
-        const fallbackRaw = {
-            r: 90,
-            g: 100,
-            b: 130
-        };
+        const fallbackBg = { r: 30, g: 30, b: 40 };
+        const fallbackRaw = { r: 90, g: 100, b: 130 };
 
-        if (count === 0) return {
-            bg: fallbackBg,
-            raw: fallbackRaw
-        };
+        if (count === 0) {
+            return {
+                bg: fallbackBg,
+                raw: fallbackRaw
+            };
+        }
 
         const rawR = Math.floor(totalR / count);
         const rawG = Math.floor(totalG / count);
@@ -271,19 +263,10 @@ export function extractWallpaperDominantColor() {
         const bgB = Math.floor(rawB * 0.55);
 
         return {
-            bg: {
-                r: bgR,
-                g: bgG,
-                b: bgB
-            },
-            raw: {
-                r: rawR,
-                g: rawG,
-                b: rawB
-            },
+            bg: { r: bgR, g: bgG, b: bgB },
+            raw: { r: rawR, g: rawG, b: rawB }
         };
     } catch (e) {
-        console.error('[Dhruva Chameleon] Wallpaper color extract error:', e.message);
         return null;
     }
 }
