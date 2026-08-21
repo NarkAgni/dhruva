@@ -76,17 +76,18 @@ export function buildModules(dockUI, iconSize) {
                 _forcedFolderState[mainTitle] = Date.now();
                 dockUI.queueRender();
 
-                if (!dockUI._folderTimeouts) dockUI._folderTimeouts = [];
-                let tId = 0;
-                tId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 3000, () => {
+                if (!dockUI._folderTimeoutsMap) dockUI._folderTimeoutsMap = new Map();
+                if (dockUI._folderTimeoutsMap.has(mainTitle)) {
+                    dockUI.registry.remove(dockUI._folderTimeoutsMap.get(mainTitle));
+                }
+
+                const newTimeout = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 3000, () => {
                     delete _forcedFolderState[mainTitle];
-                    if (dockUI && dockUI._folderTimeouts) {
-                        dockUI._folderTimeouts = dockUI._folderTimeouts.filter(id => id !== tId);
-                    }
+                    dockUI._folderTimeoutsMap.delete(mainTitle);
                     if (dockUI && dockUI.queueRender) dockUI.queueRender();
                     return GLib.SOURCE_REMOVE;
                 });
-                dockUI._folderTimeouts.push(tId);
+                dockUI._folderTimeoutsMap.set(mainTitle, newTimeout);
             }
         }
     };
@@ -257,7 +258,7 @@ export function buildModules(dockUI, iconSize) {
         btn.set_style('background-color: transparent;');
         btn._baseBg = baseBg;
 
-        btn.connect('notify::hover', () => {
+        btn.connectObject('notify::hover', () => {
             if (settings.get_boolean('hover-zoom')) return;
 
             const expanded = isExpanded || btn.hover;
@@ -278,7 +279,7 @@ export function buildModules(dockUI, iconSize) {
             } else {
                 hoverBg.set_style(`background-color: ${btn._baseBg}; border-radius: 0px; transition-duration: 150ms;`);
             }
-        });
+        }, btn);
 
         const safeId = `dhruva-module-${tooltipName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
@@ -302,13 +303,13 @@ export function buildModules(dockUI, iconSize) {
 
         if (settings.get_boolean('hover-zoom')) applyIconFilter(btn);
 
-        btn.connect('button-press-event', (_actor, event) => {
+        btn.connectObject('button-press-event', (_actor, event) => {
             if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
             const [px, py] = event.get_coords();
             btn._pressX = px;
             btn._pressY = py;
             return Clutter.EVENT_PROPAGATE;
-        });
+        }, btn);
 
         btn._activateCallback = (buttonNum, state = 0) => {
             if (buttonNum === 1) {
@@ -327,7 +328,7 @@ export function buildModules(dockUI, iconSize) {
             }
         };
 
-        btn.connect('button-release-event', (_actor, event) => {
+        btn.connectObject('button-release-event', (_actor, event) => {
             if (dockUI._activeContextMenu) {
                 dockUI._activeContextMenu.hide();
                 return Clutter.EVENT_STOP;
@@ -352,7 +353,17 @@ export function buildModules(dockUI, iconSize) {
                 return Clutter.EVENT_STOP;
             }
             return Clutter.EVENT_PROPAGATE;
-        });
+        }, btn);
+
+        btn.connectObject('destroy', () => {
+            if (possibleTitles && possibleTitles.length > 0) {
+                const mainTitle = possibleTitles[0];
+                if (dockUI._folderTimeoutsMap && dockUI._folderTimeoutsMap.has(mainTitle)) {
+                    dockUI.registry.remove(dockUI._folderTimeoutsMap.get(mainTitle));
+                    dockUI._folderTimeoutsMap.delete(mainTitle);
+                }
+            }
+        }, btn);
 
         ScrollManager.setupAppScroll(btn, getMatchingWindows, settings);
 

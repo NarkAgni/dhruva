@@ -32,7 +32,7 @@ export function forceShow(ahm, force = false) {
     ahm.isHidden = false;
 
     if (ahm._hoverPollId) {
-        GLib.source_remove(ahm._hoverPollId);
+        ahm.timers.remove(ahm._hoverPollId);
         ahm._hoverPollId = null;
     }
 
@@ -73,13 +73,16 @@ export function show(ahm, force = false, _suppressAnimations = false) {
 
     let unhideDelay = 0;
     if (ahm._pointerUpdate) {
-        try {
-            unhideDelay = ahm.settings.get_int('unhide-delay');
-        } catch (_e) { }
+        unhideDelay = ahm.settings.get_int('unhide-delay');
     }
 
     if (unhideDelay > 0 && !force) {
-        ahm._showTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, unhideDelay, () => {
+        if (ahm._showTimerId) {
+            ahm.timers.remove(ahm._showTimerId);
+            ahm._showTimerId = null;
+        }
+        
+        ahm._showTimerId = ahm.timers.addTimeout(GLib.PRIORITY_DEFAULT, unhideDelay, () => {
             ahm._showTimerId = null;
             ahm._animateShow();
             return GLib.SOURCE_REMOVE;
@@ -101,12 +104,14 @@ export function hide(ahm) {
 
     ahm._cancelTimers();
 
-    let hideDelay = 200;
-    try {
-        hideDelay = ahm.settings.get_int('hide-delay');
-    } catch (_e) { }
+    let hideDelay = ahm.settings.get_int('hide-delay');
 
-    ahm._hideTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, hideDelay, () => {
+    if (ahm._hideTimerId) {
+        ahm.timers.remove(ahm._hideTimerId);
+        ahm._hideTimerId = null;
+    }
+    
+    ahm._hideTimerId = ahm.timers.addTimeout(GLib.PRIORITY_DEFAULT, hideDelay, () => {
         ahm._hideTimerId = null;
 
         const currentMode = ahm._getHideMode();
@@ -119,7 +124,7 @@ export function hide(ahm) {
 
             ahm.isHidden = true;
             if (ahm._hoverPollId) {
-                GLib.source_remove(ahm._hoverPollId);
+                ahm.timers.remove(ahm._hoverPollId);
                 ahm._hoverPollId = null;
             }
 

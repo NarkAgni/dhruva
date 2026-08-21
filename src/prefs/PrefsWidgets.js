@@ -76,7 +76,7 @@ export function addSwitchRow(parent, settings, key, title, subtitle, icon, creat
     return row;
 }
 
-export function addComboRow(prefs, parent, settings, key, title, subtitle, icon, optionsArr, createResetBtn) {
+export function addComboRow(parent, settings, key, title, subtitle, icon, optionsArr, createResetBtn) {
     const model = Gtk.StringList.new(optionsArr.map(opt => opt.name));
     const row = new Adw.ComboRow({
         title,
@@ -95,7 +95,8 @@ export function addComboRow(prefs, parent, settings, key, title, subtitle, icon,
     row.connect('notify::selected', () => {
         settings.set_string(key, optionsArr[row.get_selected()].value);
     });
-    prefs._settingsSignals.push(settings.connect(`changed::${key}`, syncUI));
+    
+    settings.connect(`changed::${key}`, syncUI);
 
     if (createResetBtn) {
         row.add_suffix(createResetBtn(key));
@@ -110,7 +111,7 @@ export function addComboRow(prefs, parent, settings, key, title, subtitle, icon,
     return row;
 }
 
-export function addSegmentedRow(prefs, parent, settings, key, title, subtitle, icon, optionsArr) {
+export function addSegmentedRow(parent, settings, key, title, subtitle, icon, optionsArr) {
     const row = new Adw.ActionRow({
         title,
         subtitle,
@@ -147,7 +148,7 @@ export function addSegmentedRow(prefs, parent, settings, key, title, subtitle, i
     };
     syncUI();
 
-    prefs._settingsSignals.push(settings.connect(`changed::${key}`, syncUI));
+    settings.connect(`changed::${key}`, syncUI);
     row.add_suffix(box);
 
     if (parent.add_row) {
@@ -159,7 +160,7 @@ export function addSegmentedRow(prefs, parent, settings, key, title, subtitle, i
     return row;
 }
 
-export function addColorRow(prefs, parent, settings, key, title, icon) {
+export function addColorRow(parent, settings, key, title, icon) {
     const row = new Adw.ActionRow({
         title,
         icon_name: icon
@@ -183,12 +184,12 @@ export function addColorRow(prefs, parent, settings, key, title, icon) {
         settings.set_string(key, `#${toHex(c.red)}${toHex(c.green)}${toHex(c.blue)}`);
     });
 
-    prefs._settingsSignals.push(settings.connect(`changed::${key}`, () => {
+    settings.connect(`changed::${key}`, () => {
         const newRgba = new Gdk.RGBA();
         if (newRgba.parse(settings.get_string(key))) {
             colorButton.set_rgba(newRgba);
         }
-    }));
+    });
 
     row.add_suffix(colorButton);
     

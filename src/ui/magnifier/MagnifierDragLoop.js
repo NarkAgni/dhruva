@@ -22,11 +22,17 @@ import Clutter from 'gi://Clutter';
 
 import { getDockButtons } from './MagnifierMath.js';
 import { applyRealtimeFrame } from './Magnifier.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 
+
+function isActorAlive(actor) {
+    if (!actor) return false;
+    return actor.visible !== undefined;
+}
 
 export function stopDragLoop(dockActor) {
-    if (dockActor && dockActor._dragLoopId) {
-        GLib.source_remove(dockActor._dragLoopId);
+    if (dockActor && dockActor._dragLoopId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._dragLoopId);
         dockActor._dragLoopId = null;
     }
 }
@@ -35,8 +41,14 @@ export function startDragLoop(dockActor, isVertical, settings) {
     stopDragLoop(dockActor);
     let dragWasOutside = false;
 
-    dockActor._dragLoopId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-        if (!dockActor || dockActor._isDestroyed || !dockActor._isDragging) {
+    if (!dockActor._dragLoopDestroyId) {
+        dockActor._dragLoopDestroyId = dockActor.connectObject('destroy', () => {
+            stopDragLoop(dockActor);
+        }, dockActor);
+    }
+
+    const loopTick = () => {
+        if (!isActorAlive(dockActor) || !dockActor._isDragging) {
             dockActor._dragLoopId = null;
             return GLib.SOURCE_REMOVE;
         }
@@ -107,5 +119,8 @@ export function startDragLoop(dockActor, isVertical, settings) {
 
         applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, Date.now());
         return GLib.SOURCE_CONTINUE;
-    });
+    };
+
+    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+    dockActor._dragLoopId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, loopTick);
 }

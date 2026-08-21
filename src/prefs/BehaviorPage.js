@@ -23,7 +23,7 @@ import Gtk from 'gi://Gtk';
 import { addComboRow, addCustomSpinRow, addSwitchRow } from './PrefsWidgets.js';
 
 
-export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
+export function buildBehaviorPage(window, settings, createResetBtn) {
     const page = new Adw.PreferencesPage({
         title: 'Behavior',
         icon_name: 'applications-engineering-symbolic'
@@ -36,30 +36,13 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     });
     page.add(visGroup);
 
-    const hideModeRow = addComboRow(prefs, visGroup, settings, 'hide-mode', 'Hide Mode', 'Intelligent dodge is recommended', 'go-bottom-symbolic', [{
-        name: 'Intelligent (Dodge Active)',
-        value: 'intelligent'
-    },
-    {
-        name: 'Dodge All Windows',
-        value: 'dodge-all'
-    },
-    {
-        name: 'Dodge Active Window',
-        value: 'active'
-    },
-    {
-        name: 'Dodge Maximized',
-        value: 'maximized'
-    },
-    {
-        name: 'Always Hide',
-        value: 'always'
-    },
-    {
-        name: 'Never Hide',
-        value: 'none'
-    }
+    addComboRow(visGroup, settings, 'hide-mode', 'Hide Mode', 'Intelligent dodge is recommended', 'go-bottom-symbolic', [
+        { name: 'Intelligent (Dodge Active)', value: 'intelligent' },
+        { name: 'Dodge All Windows', value: 'dodge-all' },
+        { name: 'Dodge Active Window', value: 'active' },
+        { name: 'Dodge Maximized', value: 'maximized' },
+        { name: 'Always Hide', value: 'always' },
+        { name: 'Never Hide', value: 'none' }
     ], null);
 
     const hideDelayRow = addCustomSpinRow(visGroup, settings, 'hide-delay', 'Hide Delay', 'Milliseconds before hiding', 'preferences-system-time-symbolic', {
@@ -80,15 +63,13 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
 
     const syncDelayVisibility = () => {
         const isNone = settings.get_string('hide-mode') === 'none';
-
         const showDelays = !isNone;
-
         hideDelayRow.set_visible(showDelays);
         unhideDelayRow.set_visible(showDelays);
         dwellDelayRow.set_visible(showDelays);
     };
 
-    prefs._settingsSignals.push(settings.connect('changed::hide-mode', syncDelayVisibility));
+    settings.connect('changed::hide-mode', syncDelayVisibility);
     syncDelayVisibility();
 
     const animGroup = new Adw.PreferencesGroup({
@@ -96,124 +77,39 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     });
     page.add(animGroup);
 
-    addComboRow(prefs, animGroup, settings, 'click-effect', 'Icon Click Effect', 'Animation when an app is clicked', 'input-mouse-symbolic', [{
-        name: 'None',
-        value: 'none'
-    },
-    {
-        name: 'Bounce',
-        value: 'bounce'
-    },
-    {
-        name: 'Jump',
-        value: 'jump'
-    },
-    {
-        name: 'Heartbeat',
-        value: 'heartbeat'
-    },
-    {
-        name: 'Spin',
-        value: 'spin'
-    },
-    {
-        name: 'Flip',
-        value: 'flip'
-    },
-    {
-        name: 'Squeeze',
-        value: 'squeeze'
-    },
-    {
-        name: 'Glow',
-        value: 'glow'
-    },
-    {
-        name: 'Shake',
-        value: 'shake'
-    },
-    {
-        name: 'Jelly',
-        value: 'jelly'
-    },
-    {
-        name: 'Tada',
-        value: 'tada'
-    },
-    {
-        name: 'Swing',
-        value: 'swing'
-    },
-    {
-        name: 'Dim',
-        value: 'dim'
-    },
-    {
-        name: 'Move Up',
-        value: 'move_up'
-    },
-    {
-        name: 'Move Down',
-        value: 'move_down'
-    },
-    {
-        name: 'Move Left',
-        value: 'move_left'
-    },
-    {
-        name: 'Move Right',
-        value: 'move_right'
-    },
-    {
-        name: 'Enlarge',
-        value: 'enlarge'
-    },
-    {
-        name: 'Shrink',
-        value: 'shrink'
-    },
-    {
-        name: 'Roll (Wheel)',
-        value: 'roll'
-    },
-    {
-        name: 'Squish (Drop)',
-        value: 'squish'
-    },
-    {
-        name: 'Zoom Fade (Ghost)',
-        value: 'zoom_fade'
-    },
-    {
-        name: '3D Spin (Coin)',
-        value: 'spin_3d'
-    }
+    addComboRow(animGroup, settings, 'click-effect', 'Icon Click Effect', 'Animation when an app is clicked', 'input-mouse-symbolic', [
+        { name: 'None', value: 'none' },
+        { name: 'Bounce', value: 'bounce' },
+        { name: 'Jump', value: 'jump' },
+        { name: 'Heartbeat', value: 'heartbeat' },
+        { name: 'Spin', value: 'spin' },
+        { name: 'Flip', value: 'flip' },
+        { name: 'Squeeze', value: 'squeeze' },
+        { name: 'Glow', value: 'glow' },
+        { name: 'Shake', value: 'shake' },
+        { name: 'Jelly', value: 'jelly' },
+        { name: 'Tada', value: 'tada' },
+        { name: 'Swing', value: 'swing' },
+        { name: 'Dim', value: 'dim' },
+        { name: 'Move Up', value: 'move_up' },
+        { name: 'Move Down', value: 'move_down' },
+        { name: 'Move Left', value: 'move_left' },
+        { name: 'Move Right', value: 'move_right' },
+        { name: 'Enlarge', value: 'enlarge' },
+        { name: 'Shrink', value: 'shrink' },
+        { name: 'Roll (Wheel)', value: 'roll' },
+        { name: 'Squish (Drop)', value: 'squish' },
+        { name: 'Zoom Fade (Ghost)', value: 'zoom_fade' },
+        { name: '3D Spin (Coin)', value: 'spin_3d' }
     ], null);
 
-    addComboRow(prefs, animGroup, settings, 'minimize-effect', 'Window Minimize Effect', 'Animation when minimizing or restoring', 'window-minimize-symbolic', [{
-        name: 'Magic Lamp',
-        value: 'magic-lamp'
-    },
-    {
-        name: 'Snake',
-        value: 'snake'
-    },
-    {
-        name: 'Vortex (Black Hole)',
-        value: 'crt'
-    },
-    {
-        name: 'Origami (3D Fold)',
-        value: 'origami'
-    },
-    {
-        name: 'Jelly (Squash & Stretch)',
-        value: 'jelly'
-    },
-    {
-        name: 'None',
-        value: 'none'
-    }
+    addComboRow(animGroup, settings, 'minimize-effect', 'Window Minimize Effect', 'Animation when minimizing or restoring', 'window-minimize-symbolic', [
+        { name: 'Magic Lamp', value: 'magic-lamp' },
+        { name: 'Snake', value: 'snake' },
+        { name: 'Vortex (Black Hole)', value: 'crt' },
+        { name: 'Origami (3D Fold)', value: 'origami' },
+        { name: 'Jelly (Squash & Stretch)', value: 'jelly' },
+        { name: 'None', value: 'none' }
     ], null);
 
     const hoverGroup = new Adw.PreferencesGroup({
@@ -229,7 +125,7 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     }, createResetBtn, 2);
 
     const syncZoomFactor = () => zoomFactorRow.set_visible(settings.get_boolean('hover-zoom'));
-    prefs._settingsSignals.push(settings.connect('changed::hover-zoom', syncZoomFactor));
+    settings.connect('changed::hover-zoom', syncZoomFactor);
     syncZoomFactor();
 
     addSwitchRow(hoverGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
@@ -275,18 +171,14 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     };
 
     updateSpeedSubtitle();
-    prefs._settingsSignals.push(
-        settings.connect('changed::peek-animation-speed', updateSpeedSubtitle)
-    );
+    settings.connect('changed::peek-animation-speed', updateSpeedSubtitle);
 
     const syncPeekSpeedVisibility = () => {
         const enabled = settings.get_boolean('peek-effect');
         peekSpeedRow.set_visible(enabled);
     };
 
-    prefs._settingsSignals.push(
-        settings.connect('changed::peek-effect', syncPeekSpeedVisibility)
-    );
+    settings.connect('changed::peek-effect', syncPeekSpeedVisibility);
     syncPeekSpeedVisibility();
 
     const utilGroup = new Adw.PreferencesGroup({
@@ -294,7 +186,7 @@ export function buildBehaviorPage(prefs, window, settings, createResetBtn) {
     });
     page.add(utilGroup);
 
-    addComboRow(prefs, utilGroup, settings, 'new-window-action', 'New Window Action', 'Shortcut to open a new instance of an app', 'window-new-symbolic', [
+    addComboRow(utilGroup, settings, 'new-window-action', 'New Window Action', 'Shortcut to open a new instance of an app', 'window-new-symbolic', [
         { name: 'Ctrl + Left Click', value: 'ctrl-click' },
         { name: 'Middle Mouse Click', value: 'middle-click' },
         { name: 'Both', value: 'both' }

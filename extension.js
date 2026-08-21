@@ -17,7 +17,6 @@
  */
 
 
-import Gio from 'gi://Gio';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -28,20 +27,19 @@ import MultiMonitorController from './src/core/MultiMonitorController.js';
 export default class DhruvaExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
-        
+
         this._monitorController = new MultiMonitorController(
             this._settings,
-            () => this.openPreferences(),
+            () => {
+                const res = this.openPreferences();
+                if (res instanceof Promise) res.catch(err => console.warn('[Dhruva]', err.message));
+            },
             this.uuid
         );
 
-        this._monitorsChangedId = Main.layoutManager.connect('monitors-changed', () => {
+        Main.layoutManager.connectObject('monitors-changed', () => {
             this._monitorController.reloadDocks();
-        });
-
-        this._settingsChangedId = this._settings.connect('changed::show-on-all-monitors', () => {
-            this._monitorController.reloadDocks();
-        });
+        }, this);
 
         const getAxis = () => {
             const pos = this._settings.get_string('dock-position');
@@ -49,17 +47,21 @@ export default class DhruvaExtension extends Extension {
         };
         this._currentAxis = getAxis();
 
-        this._positionChangedId = this._settings.connect('changed::dock-position', () => {
-            const newAxis = getAxis();
-            if (this._currentAxis !== newAxis) {
-                this._currentAxis = newAxis;
+        this._settings.connectObject(
+            'changed::show-on-all-monitors', () => {
                 this._monitorController.reloadDocks();
-            }
-        });
+            },
+            'changed::dock-position', () => {
+                const newAxis = getAxis();
+                if (this._currentAxis !== newAxis) {
+                    this._currentAxis = newAxis;
+                    this._monitorController.reloadDocks();
+                }
+            },
+            this
+        );
 
         this._monitorController.reloadDocks();
-
-        this._clearGnomeSwitchToApplicationShortcuts();
 
         this._quickLaunchManager = new QuickLaunchManager(
             this._settings,
@@ -67,34 +69,9 @@ export default class DhruvaExtension extends Extension {
         );
     }
 
-    _clearGnomeSwitchToApplicationShortcuts() {
-        const shellKeys = new Gio.Settings({
-            schema_id: 'org.gnome.shell.keybindings'
-        });
-
-        for (let i = 1; i <= 9; i++) {
-            const key = `switch-to-application-${i}`;
-            if (shellKeys.is_writable(key)) {
-                shellKeys.set_strv(key, []);
-            }
-        }
-    }
-
     disable() {
-        if (this._monitorsChangedId) {
-            Main.layoutManager.disconnect(this._monitorsChangedId);
-            this._monitorsChangedId = null;
-        }
-
-        if (this._settingsChangedId) {
-            this._settings.disconnect(this._settingsChangedId);
-            this._settingsChangedId = null;
-        }
-
-        if (this._positionChangedId) {
-            this._settings.disconnect(this._positionChangedId);
-            this._positionChangedId = null;
-        }
+        Main.layoutManager.disconnectObject(this);
+        this._settings.disconnectObject(this);
 
         if (this._quickLaunchManager) {
             this._quickLaunchManager.destroy();
@@ -105,7 +82,7 @@ export default class DhruvaExtension extends Extension {
             this._monitorController.destroyDocks();
             this._monitorController = null;
         }
-        
+
         this._currentAxis = null;
         this._settings = null;
     }

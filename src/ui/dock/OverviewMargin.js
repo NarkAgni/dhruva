@@ -27,11 +27,11 @@ export function scheduleOverviewMarginRetry(dockUI) {
     if (dockUI._overviewMarginRetryId)
         return;
 
-    dockUI._overviewMarginRetryId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+    dockUI._overviewMarginRetryId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
         dockUI._overviewMarginRetryId = null;
         if (!Main.overview.visible)
             return GLib.SOURCE_REMOVE;
-
+s
         updateLayout(dockUI);
         applyOverviewDockMargin(dockUI);
         return GLib.SOURCE_REMOVE;
@@ -103,7 +103,7 @@ export function applyOverviewDockMargin(dockUI) {
 
 export function clearOverviewDockMargin(dockUI) {
     if (dockUI._overviewMarginRetryId) {
-        GLib.source_remove(dockUI._overviewMarginRetryId);
+        dockUI.registry.remove(dockUI._overviewMarginRetryId);
         dockUI._overviewMarginRetryId = null;
     }
 

@@ -28,24 +28,15 @@ import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/
 
 export default class DhruvaPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
-        this._settingsSignals = [];
         const settings = this.getSettings();
 
-        const createResetBtn = makeResetBtn(this, settings);
-        const createGroupReset = makeGroupResetBtn(this, settings);
+        const createResetBtn = makeResetBtn(settings);
+        const createGroupReset = makeGroupResetBtn(settings);
 
-        window.set_default_size(650, 800);
-        window.set_search_enabled(true);
-
-        buildLayoutPage(this, window, settings, createResetBtn, createGroupReset);
+        buildLayoutPage(this, window, settings, createResetBtn);
         buildAppearancePage(this, window, settings, createResetBtn, createGroupReset);
-        buildBehaviorPage(this, window, settings, createResetBtn);
+        buildBehaviorPage(window, settings, createResetBtn);
         buildModulesPage(this, window, settings);
         buildAboutPage(this, window);
-
-        window.connect('destroy', () => {
-            this._settingsSignals.forEach(id => settings.disconnect(id));
-            this._settingsSignals = [];
-        });
     }
 }

@@ -22,7 +22,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
 export function isValidWindow(_ahm, win) {
-    if (!win || win.minimized || win.unmanaging) return false;
+    if (!win || win.minimized) return false;
+    
+    if (win.unmanaging !== undefined && win.unmanaging === true) return false;
     
     if (win.is_skip_taskbar()) return false;
 
@@ -37,12 +39,23 @@ export function isValidWindow(_ahm, win) {
     const wmClass = win.get_wm_class();
     if (wmClass === 'ding' || wmClass === 'DesktopUi' || wmClass === 'conky') return false;
 
-    const ws = global.workspace_manager.get_active_workspace();
-    return win.is_on_all_workspaces() || win.get_workspace() === ws;
+    const activeWs = global.workspace_manager.get_active_workspace();
+    const isOnActiveWs = win.is_on_all_workspaces() || win.get_workspace() === activeWs;
+    
+    if (!isOnActiveWs) return false;
+
+    const ws = win.get_workspace();
+    if (ws && !win.is_on_all_workspaces()) {
+        const validWindows = ws.list_windows();
+        if (!validWindows.includes(win)) return false;
+    }
+
+    return true;
 }
 
 export function shouldStayVisibleForTransientUI(ahm) {
-    if (!ahm.dockUI || ahm.dockUI._isDestroyed) return false;
+    if (!ahm.dockUI || !ahm.dockUI.actor) return false;
+    
     if (Main.overview.visible && !ahm.settings.get_boolean('independent-dock')) {
         return true;
     }
@@ -146,19 +159,20 @@ export function trackFocusedWindow(ahm) {
     const focusWin = global.display.get_focus_window();
     if (ahm._trackedWin === focusWin) return;
 
-    if (ahm._trackedWin && ahm._trackedWinSignals) {
-        ahm._trackedWinSignals.forEach(id => {
-            ahm._trackedWin.disconnect(id);
-        });
+    if (ahm._trackedWin) {
+        ahm._trackedWin.disconnectObject(ahm);
     }
 
-    ahm._trackedWinSignals = [];
     ahm._trackedWin = focusWin;
 
     if (ahm._trackedWin) {
-        ahm._trackedWinSignals.push(ahm._trackedWin.connect('size-changed', () => ahm._scheduleUpdate()));
-        ahm._trackedWinSignals.push(ahm._trackedWin.connect('position-changed', () => ahm._scheduleUpdate()));
-        ahm._trackedWinSignals.push(ahm._trackedWin.connect('notify::maximized-vertically', () => ahm._scheduleUpdate()));
-        ahm._trackedWinSignals.push(ahm._trackedWin.connect('notify::fullscreen', () => ahm._scheduleUpdate()));
+        ahm._trackedWin.connectObject(
+            'size-changed', () => ahm._queueOverlapCheck(),
+            'position-changed', () => ahm._queueOverlapCheck(),
+            'notify::maximized-vertically', () => ahm._queueOverlapCheck(),
+            'notify::fullscreen', () => ahm._queueOverlapCheck(),
+            'unmanaged', () => ahm._queueOverlapCheck(),
+            ahm
+        );
     }
 }

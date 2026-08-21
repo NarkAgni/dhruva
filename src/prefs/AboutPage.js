@@ -31,7 +31,7 @@ export function buildAboutPage(prefs, window) {
     window.add(page);
 
     buildAboutHero(prefs, page);
-    buildAboutLinks(prefs, page, window);
+    buildAboutLinks(page, window);
     buildAboutAuthor(prefs, page);
     buildAboutDonations(page, window);
 }
@@ -72,7 +72,7 @@ export function buildAboutHero(prefs, page) {
     group.add(row);
 }
 
-export function buildAboutLinks(prefs, page, window) {
+export function buildAboutLinks(page, window) {
     const group = new Adw.PreferencesGroup({
         title: 'Links'
     });

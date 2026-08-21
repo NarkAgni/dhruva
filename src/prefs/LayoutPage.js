@@ -24,7 +24,7 @@ import Gdk from 'gi://Gdk';
 import { addSegmentedRow, addSwitchRow, addCustomSpinRow } from './PrefsWidgets.js';
 
 
-export function buildLayoutPage(prefs, window, settings, createResetBtn, createGroupReset) {
+export function buildLayoutPage(prefs, window, settings, createResetBtn) {
     const page = new Adw.PreferencesPage({
         title: 'Layout',
         icon_name: 'view-grid-symbolic'
@@ -37,22 +37,11 @@ export function buildLayoutPage(prefs, window, settings, createResetBtn, createG
     });
     page.add(posGroup);
 
-    addSegmentedRow(prefs, posGroup, settings, 'dock-position', 'Screen Edge', 'Which edge to attach to', 'go-bottom-symbolic', [{
-        name: 'Left',
-        value: 'LEFT'
-    },
-    {
-        name: 'Bottom',
-        value: 'BOTTOM'
-    },
-    {
-        name: 'Top',
-        value: 'TOP'
-    },
-    {
-        name: 'Right',
-        value: 'RIGHT'
-    }
+    addSegmentedRow(posGroup, settings, 'dock-position', 'Screen Edge', 'Which edge to attach to', 'go-bottom-symbolic', [
+        { name: 'Left', value: 'LEFT' },
+        { name: 'Bottom', value: 'BOTTOM' },
+        { name: 'Top', value: 'TOP' },
+        { name: 'Right', value: 'RIGHT' }
     ]);
 
     const display = Gdk.Display.get_default();
@@ -88,7 +77,7 @@ export function buildLayoutPage(prefs, window, settings, createResetBtn, createG
         settings.set_string('preferred-monitor', idx === 0 ? -1 : idx);
     });
 
-    prefs._settingsSignals.push(settings.connect('changed::preferred-monitor', syncMonitor));
+    settings.connect('changed::preferred-monitor', syncMonitor);
     posGroup.add(monitorRow);
 
     addSwitchRow(posGroup, settings, 'show-on-all-monitors', 'Show on All Monitors', 'Display the dock on every connected screen', 'video-display-symbolic', null);
@@ -96,20 +85,12 @@ export function buildLayoutPage(prefs, window, settings, createResetBtn, createG
 
     addSwitchRow(posGroup, settings, 'independent-dock', 'Independent Dock Mode', 'Use completely separate pinned apps and custom app launcher', 'system-run-symbolic', null);
     const showIndepOverviewRow = addSwitchRow(posGroup, settings, 'show-independent-in-overview', 'Show Independent Dock in Overview', 'Shows dock on the left side during overview', 'view-grid-symbolic', null);
-    const fullWidthRow = addSwitchRow(posGroup, settings, 'full-width', 'Full Screen Width', 'Extend dock edge to edge', 'view-fullscreen-symbolic', null);
+    addSwitchRow(posGroup, settings, 'full-width', 'Full Screen Width', 'Extend dock edge to edge', 'view-fullscreen-symbolic', null);
 
-    const alignmentRow = addSegmentedRow(prefs, posGroup, settings, 'icon-alignment', 'Icon Alignment', 'Justification when Full Width is active', 'format-justify-center-symbolic', [{
-        name: 'Start',
-        value: 'START'
-    }, 
-    {
-        name: 'Center',
-        value: 'CENTER'
-    },
-    {
-        name: 'End',
-        value: 'END'
-    }
+    const alignmentRow = addSegmentedRow(posGroup, settings, 'icon-alignment', 'Icon Alignment', 'Justification when Full Width is active', 'format-justify-center-symbolic', [
+        { name: 'Start', value: 'START' }, 
+        { name: 'Center', value: 'CENTER' },
+        { name: 'End', value: 'END' }
     ]);
 
     addCustomSpinRow(posGroup, settings, 'dock-margin', 'Edge Margin', 'Distance from screen edge', 'format-indent-less-symbolic', {
@@ -157,8 +138,8 @@ export function buildLayoutPage(prefs, window, settings, createResetBtn, createG
         showIndepOverviewRow.set_visible(isIndep);
     };
 
-    prefs._settingsSignals.push(settings.connect('changed::full-width', syncLayoutVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::show-on-all-monitors', syncLayoutVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::independent-dock', syncLayoutVisibility));
+    settings.connect('changed::full-width', syncLayoutVisibility);
+    settings.connect('changed::show-on-all-monitors', syncLayoutVisibility);
+    settings.connect('changed::independent-dock', syncLayoutVisibility);
     syncLayoutVisibility();
 }

@@ -23,7 +23,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export function stopEdgePointerPoll(ahm) {
     if (ahm._edgePointerPollId) {
-        GLib.source_remove(ahm._edgePointerPollId);
+        ahm.timers.remove(ahm._edgePointerPollId);
         ahm._edgePointerPollId = null;
     }
 }
@@ -48,7 +48,12 @@ export function startEdgePointerPoll(ahm) {
     const mode = ahm._getHideMode();
     if (mode === 'none' || mode === 'never') return;
 
-    ahm._edgePointerPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 120, () => {
+    if (ahm._edgePointerPollId) {
+        ahm.timers.remove(ahm._edgePointerPollId);
+        ahm._edgePointerPollId = null;
+    }
+    
+    ahm._edgePointerPollId = ahm.timers.addTimeout(GLib.PRIORITY_DEFAULT, 120, () => {
         if (!ahm.edgeTrigger || !ahm.isHidden || ahm._isFullscreenActive()) {
             ahm._edgePointerPollId = null;
             return GLib.SOURCE_REMOVE;
@@ -67,7 +72,12 @@ export function startEdgePointerPoll(ahm) {
 
             if (pressureDelay > 0) {
                 ahm._stopEdgePointerPoll();
-                ahm._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
+                if (ahm._edgeRevealTimerId) {
+                    ahm.timers.remove(ahm._edgeRevealTimerId);
+                    ahm._edgeRevealTimerId = null;
+                }
+                
+                ahm._edgeRevealTimerId = ahm.timers.addTimeout(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
                     ahm._edgeRevealTimerId = null;
                     if (!ahm.edgeTrigger) {
                         return GLib.SOURCE_REMOVE;
@@ -231,7 +241,7 @@ export function isHovering(ahm) {
 export function startHoverPolling(ahm) {
     if (ahm._hoverPollId) return;
     
-    ahm._hoverPollId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 260, () => {
+    ahm._hoverPollId = ahm.timers.addTimeout(GLib.PRIORITY_DEFAULT, 260, () => {
         if (ahm.isHidden || !ahm.dockUI || !ahm.dockUI.actor) {
             ahm._hoverPollId = null;
             return GLib.SOURCE_REMOVE;
@@ -245,7 +255,7 @@ export function startHoverPolling(ahm) {
         if (mode === 'auto' || mode === 'always' || mode === 'always-hide') {
             ahm._hide();
         } else {
-            ahm._scheduleUpdate(0);
+            ahm._queueOverlapCheck();
         }
 
         return GLib.SOURCE_CONTINUE;

@@ -21,11 +21,14 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
+import { TimeoutTracker } from './TimeoutTracker.js';
+
 
 export default class PeekManager {
     constructor(dockUI, overlayActor) {
         this.dockUI = dockUI;
         this.settings = dockUI.settings;
+        this.timers = new TimeoutTracker();
         this._peekTimer = null;
         this._isPeeking = false;
         this._currentTarget = null;
@@ -55,7 +58,7 @@ export default class PeekManager {
         if (!targetWin) return;
 
         if (this._hideTimer) {
-            GLib.source_remove(this._hideTimer);
+            this.timers.remove(this._hideTimer);
             this._hideTimer = null;
         }
 
@@ -78,13 +81,13 @@ export default class PeekManager {
         if (!peekEnabled) return;
 
         if (this._peekTimer) {
-            GLib.source_remove(this._peekTimer);
+            this.timers.remove(this._peekTimer);
             this._peekTimer = null;
         }
 
         if (this._isPeeking) return;
 
-        this._peekTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 0, () => {
+        this._peekTimer = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 0, () => {
             this._peekTimer = null;
             this._isPeeking = true;
             this._ghostWindows(28, this._getPeekSpeed() * 0.52, Clutter.AnimationMode.EASE_IN_OUT_SINE);
@@ -93,15 +96,15 @@ export default class PeekManager {
     }
 
     stopPeek() {
-        if (this._hideTimer) GLib.source_remove(this._hideTimer);
+        if (this._hideTimer) this.timers.remove(this._hideTimer);
 
-        this._hideTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 80, () => {
+        this._hideTimer = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
             this._hideTimer = null;
             this._currentTarget = null;
             this._hideBigPreview();
 
             if (this._peekTimer) {
-                GLib.source_remove(this._peekTimer);
+                this.timers.remove(this._peekTimer);
                 this._peekTimer = null;
             }
 
@@ -242,14 +245,7 @@ export default class PeekManager {
     }
 
     destroy() {
-        if (this._hideTimer) {
-            GLib.source_remove(this._hideTimer);
-            this._hideTimer = null;
-        }
-        if (this._peekTimer) {
-            GLib.source_remove(this._peekTimer);
-            this._peekTimer = null;
-        }
+        this.timers.destroy();
 
         if (this._isPeeking) {
             this._ghostWindows(255, 200, Clutter.AnimationMode.EASE_OUT_QUAD);

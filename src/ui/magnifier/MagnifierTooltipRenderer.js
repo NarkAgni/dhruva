@@ -27,26 +27,33 @@ import { hideTooltip } from './MagnifierTooltip.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 
 
-export function createWindowControl(iconName, rgbColor, onClick) {
+function isActorAlive(actor) {
+    if (!actor) return false;
+    return actor.visible !== undefined;
+}
+
+export function createWindowControl(iconName, rgbColor, onClick, bindObj) {
     const btn = new St.Button({
         child: new St.Icon({ icon_name: iconName, icon_size: 13, style: 'color: rgba(255,255,255,1.0);' }),
         style_class: 'context-menu-win-control-btn',
         style: `background-color: rgba(${rgbColor}, 0.40);`,
         reactive: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER
     });
-    if (onClick) btn.connect('clicked', onClick);
-    btn.connect('enter-event', () => {
+    const target = bindObj || btn;
+    if (onClick) btn.connectObject('clicked', onClick, target);
+    btn.connectObject('enter-event', () => {
         btn.set_style(`background-color: rgba(${rgbColor}, 0.75); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.45); transition-duration: 150ms;`);
         btn.ease({ scale_x: 1.1, scale_y: 1.1, duration: 120 });
         return Clutter.EVENT_PROPAGATE;
-    });
-    btn.connect('leave-event', () => {
+    }, target);
+    btn.connectObject('leave-event', () => {
         btn.set_style(`background-color: rgba(${rgbColor}, 0.40); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 5px rgba(0,0,0,0.25); transition-duration: 150ms;`);
         btn.ease({ scale_x: 1.0, scale_y: 1.0, duration: 120 });
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, target);
     return btn;
 }
 
@@ -62,7 +69,7 @@ export function applyTooltipCairoDrawing(tooltipBg, settings) {
     if (tooltipBg._repaintConnected) return;
     tooltipBg._repaintConnected = true;
 
-    tooltipBg.connect('repaint', (area) => {
+    tooltipBg.connectObject('repaint', (area) => {
         const dockPos = settings.get_string('dock-position') || 'BOTTOM';
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
@@ -88,7 +95,7 @@ export function applyTooltipCairoDrawing(tooltipBg, settings) {
             cr.setLineWidth(sw); cr.setLineJoin(cairo.LineJoin.ROUND); cr.stroke();
         } else { cr.newPath(); }
         cr.$dispose();
-    });
+    }, tooltipBg);
 }
 
 export function populateTooltipContent(dockActor, btn, appName, settings) {
@@ -171,7 +178,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
             if (!win.minimized) {
                 controlsBox.add_child(createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
                     hideTooltip(dockActor); animateMinimize(win, btn, settings.get_string('dock-position') || 'BOTTOM');
-                }));
+                }, thumbContainer));
             }
 
             const isMaximized = win.is_maximized ? win.is_maximized() : false;
@@ -181,7 +188,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 if (win.minimized) animateRestore(win, btn, settings.get_string('dock-position') || 'BOTTOM');
                 else if (isMaximized && win.unmaximize) win.unmaximize();
                 else if (win.maximize) win.maximize();
-            }));
+            }, thumbContainer));
 
             const handleClose = () => {
                 if (win.delete) win.delete(global.get_current_time());
@@ -198,45 +205,46 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 if (dockActor._magPeekManager) dockActor._magPeekManager.stopPeek();
             };
 
-            const closeBtn = createWindowControl('window-close-symbolic', '255, 59, 48', handleClose);
+            const closeBtn = createWindowControl('window-close-symbolic', '255, 59, 48', handleClose, thumbContainer);
             controlsBox.add_child(closeBtn);
 
             const controlsBin = new St.Bin({ child: controlsBox, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true });
 
             thumbContainer.add_child(thumbBtn); thumbContainer.add_child(labelBin); thumbContainer.add_child(controlsBin);
 
-            thumbContainer.connect('enter-event', () => {
+            thumbContainer.connectObject('enter-event', () => {
                 thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.6); transition-duration: 150ms; box-shadow: 0 4px 12px rgba(0,0,0,0.4);');
                 controlsBox.ease({ opacity: 255, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_BACK });
                 winTitleLbl.ease({ opacity: 0, duration: 150 });
                 if (dockActor._magPeekManager) dockActor._magPeekManager.startPeek(win);
                 return Clutter.EVENT_PROPAGATE;
-            });
+            }, thumbContainer);
 
-            thumbContainer.connect('leave-event', () => {
+            thumbContainer.connectObject('leave-event', () => {
                 thumbBtn.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
                 controlsBox.ease({ opacity: 0, duration: 150, mode: Clutter.AnimationMode.EASE_IN_QUAD });
                 winTitleLbl.ease({ opacity: 255, duration: 150 });
                 if (dockActor._magPeekManager) dockActor._magPeekManager.stopPeek();
                 return Clutter.EVENT_PROPAGATE;
-            });
+            }, thumbContainer);
 
-            thumbBtn.connect('clicked', () => {
+            thumbBtn.connectObject('clicked', () => {
                 if (win.minimized) animateRestore(win, btn, settings.get_string('dock-position') || 'BOTTOM');
                 Main.activateWindow(win); hideTooltip(dockActor);
-            });
-            thumbBtn.connect('button-press-event', (_a, event) => event.get_button() === 2 ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE);
-            thumbBtn.connect('button-release-event', (_a, event) => {
+            }, thumbBtn);
+
+            thumbBtn.connectObject('button-press-event', (_a, event) => event.get_button() === 2 ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE, thumbBtn);
+            thumbBtn.connectObject('button-release-event', (_a, event) => {
                 if (event.get_button() === 2) { handleClose(); return Clutter.EVENT_STOP; }
                 return Clutter.EVENT_PROPAGATE;
-            });
+            }, thumbBtn);
 
             thumbBox.add_child(thumbContainer);
         });
 
         if (windows.length > 2) {
             const scroll = new St.ScrollView({ vscrollbar_policy: St.PolicyType.NEVER, hscrollbar_policy: St.PolicyType.AUTOMATIC, enable_mouse_scrolling: true, style: `max-width: ${(customSize * 2.5) + 20}px;` });
-            scroll.connect('scroll-event', (_actor, event) => {
+            scroll.connectObject('scroll-event', (_actor, event) => {
                 let dx = 0, dy = 0; const dir = event.get_scroll_direction();
                 if (dir === Clutter.ScrollDirection.SMOOTH) [dx, dy] = event.get_scroll_delta();
                 else if (dir === Clutter.ScrollDirection.UP) dy = -1; else if (dir === Clutter.ScrollDirection.DOWN) dy = 1; else if (dir === Clutter.ScrollDirection.LEFT) dx = -1; else if (dir === Clutter.ScrollDirection.RIGHT) dx = 1;
@@ -251,25 +259,36 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                     }
                 }
                 return Clutter.EVENT_PROPAGATE;
-            });
+            }, scroll);
             scroll.add_child(thumbBox); dockActor._magTooltipBox.add_child(scroll);
         } else {
             dockActor._magTooltipBox.add_child(thumbBox);
         }
     }
 
-    if (dockActor._tooltipPosTrackerId) {
-        GLib.source_remove(dockActor._tooltipPosTrackerId);
+    if (dockActor._tooltipPosTrackerId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
+        dockActor._tooltipPosTrackerId = null;
+    }
+
+    if (!dockActor._tooltipPosTrackerDestroyId) {
+        dockActor._tooltipPosTrackerDestroyId = true;
+        dockActor.connectObject('destroy', () => {
+            if (dockActor._tooltipPosTrackerId && dockActor._magTimers) {
+                dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
+                dockActor._tooltipPosTrackerId = null;
+            }
+        }, dockActor);
     }
     
-    dockActor._tooltipPosTrackerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-        if (dockActor._isDestroyed || !dockActor._magTooltip) {
+    const trackPos = () => {
+        if (!isActorAlive(dockActor) || !dockActor._magTooltip) {
             dockActor._tooltipPosTrackerId = null;
             return GLib.SOURCE_REMOVE;
         }
         if (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0) return GLib.SOURCE_CONTINUE;
 
-        if (!btn || btn.__destroyed || (btn.is_destroyed && btn.is_destroyed()) || !btn.get_parent()) {
+        if (!isActorAlive(btn) || !btn.get_parent()) {
             if (dockActor.boxActor) {
                 const newBtn = dockActor.boxActor.get_children().find(c => c._delegate && c._delegate.app && c._delegate.app.get_name() === appName);
                 if (newBtn) {
@@ -322,5 +341,8 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         dockActor._magTooltipBg.queue_repaint();
         
         return GLib.SOURCE_CONTINUE;
-    });
+    };
+
+    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+    dockActor._tooltipPosTrackerId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, trackPos);
 }

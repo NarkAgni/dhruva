@@ -226,7 +226,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
     btn.set_style('background-color: transparent;');
     btn._baseBg = baseBg;
 
-    btn.connect('notify::hover', () => {
+    btn.connectObject('notify::hover', () => {
         if (dockUI.settings.get_boolean('hover-zoom')) return;
 
         const expanded = (isRunning && showIndicators) || btn.hover;
@@ -247,12 +247,12 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
         } else {
             hoverBg.set_style(`background-color: ${btn._baseBg}; border-radius: 0px; transition-duration: 150ms;`);
         }
-    });
+    }, btn);
 
     setupDragAndDrop(btn, app, dockUI);
     if (hoverZoom) applyIconFilter(btn);
 
-    btn.connect('button-release-event', (_actor, event) => {
+    btn.connectObject('button-release-event', (_actor, event) => {
         const button = event.get_button();
         const state = event.get_state();
 
@@ -284,7 +284,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
             return Clutter.EVENT_STOP;
         }
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, btn);
 
     btn._activateCallback = (buttonNum, state = 0) => {
         const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
@@ -298,27 +298,27 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
         const shouldPauseMagnifier = (buttonNum === 1) || (buttonNum === 2 && (newWindowAction === 'middle-click' || newWindowAction === 'both'));
 
         if (shouldPauseMagnifier) {
-            if (setMagnifierPauseState) {
-                setMagnifierPauseState(dockUI.actor, 'app-launch', true);
+            setMagnifierPauseState(dockUI.actor, 'app-launch', true);
 
-                if (dockUI.actor._launchMotionId) {
-                    global.stage.disconnect(dockUI.actor._launchMotionId);
-                    dockUI.actor._launchMotionId = null;
-                }
-
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-                    if (!dockUI.actor) return GLib.SOURCE_REMOVE;
-                    dockUI.actor._launchMotionId = global.stage.connect('captured-event', (stage, event) => {
-                        if (event.type() === Clutter.EventType.MOTION) {
-                            setMagnifierPauseState(dockUI.actor, 'app-launch', false);
-                            global.stage.disconnect(dockUI.actor._launchMotionId);
-                            dockUI.actor._launchMotionId = null;
-                        }
-                        return Clutter.EVENT_PROPAGATE;
-                    });
-                    return GLib.SOURCE_REMOVE;
-                });
+            if (dockUI.actor._launchTimeoutId) {
+                dockUI.registry.remove(dockUI.actor._launchTimeoutId);
+                dockUI.actor._launchTimeoutId = null;
             }
+
+            dockUI.actor._launchTimeoutId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
+                dockUI.actor._launchTimeoutId = null;
+                if (!dockUI.isActorAlive(dockUI.actor)) return GLib.SOURCE_REMOVE;
+                
+                global.stage.connectObject('captured-event', (stage, event) => {
+                    if (event.type() === Clutter.EventType.MOTION) {
+                        setMagnifierPauseState(dockUI.actor, 'app-launch', false);
+                        global.stage.disconnectObject(dockUI.actor);
+                    }
+                    return Clutter.EVENT_PROPAGATE;
+                }, dockUI.actor);
+
+                return GLib.SOURCE_REMOVE;
+            });
         }
 
         if (triggerNewWindow) {
@@ -458,7 +458,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
                 content.set_mag_filter(2);
             }
         };
-        folderIcon.connect('notify::content', applySmoothFilter);
+        folderIcon.connectObject('notify::content', applySmoothFilter, folderIcon);
         applySmoothFilter();
     }
 
@@ -617,7 +617,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
     btn.set_style('background-color: transparent;');
     btn._baseBg = baseBg;
 
-    btn.connect('notify::hover', () => {
+    btn.connectObject('notify::hover', () => {
         if (dockUI.settings.get_boolean('hover-zoom')) return;
 
         const expanded = (runningAppsCount > 0 && showIndicators) || btn.hover;
@@ -638,12 +638,12 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
         } else {
             hoverBg.set_style(`background-color: ${btn._baseBg}; border-radius: 0px; transition-duration: 150ms;`);
         }
-    });
+    }, btn);
 
     setupDragAndDrop(btn, null, dockUI);
     if (hoverZoom) applyIconFilter(btn);
 
-    btn.connect('button-press-event', (_actor, event) => {
+    btn.connectObject('button-press-event', (_actor, event) => {
         if (dockUI._activeContextMenu && event.get_button() !== 3) return Clutter.EVENT_STOP;
         
         const button = event.get_button();
@@ -656,7 +656,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
         if (button === 2) return Clutter.EVENT_STOP; 
 
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, btn);
 
     btn._activateCallback = (buttonNum) => {
         if (buttonNum === 3) {
@@ -677,7 +677,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
         }
     };
 
-    btn.connect('button-release-event', (_actor, event) => {
+    btn.connectObject('button-release-event', (_actor, event) => {
         const button = event.get_button();
         const state = event.get_state();
         
@@ -706,7 +706,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
             return Clutter.EVENT_STOP;
         }
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, btn);
 
     return btn;
 }

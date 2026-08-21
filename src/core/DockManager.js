@@ -21,6 +21,8 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { TimeoutTracker } from './TimeoutTracker.js';
+
 
 export default class DockManager {
     constructor(dockUI, settings) {
@@ -28,13 +30,13 @@ export default class DockManager {
         this.settings = settings;
         this._originalDash = Main.overview.dash;
         this._externalActors = new Set();
-        this._asyncSources = new Set();
+        this.timers = new TimeoutTracker();
 
         this._applyDashState();
 
-        this._settingSignalId = this.settings.connect('changed::independent-dock', () => {
+        this.settings.connectObject('changed::independent-dock', () => {
             this._applyDashState();
-        });
+        }, this);
     }
 
     _applyDashState() {
@@ -101,9 +103,7 @@ export default class DockManager {
                     this.dockUI.boxActor.add_child(child);
                 }
 
-                const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
-                    this._asyncSources.delete(timerId);
-
+                this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 300, () => {
                     if (child && this.dockUI && this.dockUI.isActorAlive(child)) {
                         if (child.remove_all_transitions) child.remove_all_transitions();
                         if (child.visible) child.opacity = 255;
@@ -111,24 +111,23 @@ export default class DockManager {
                         child.scale_y = 1;
                     }
 
-                    if (this.dockUI && !this.dockUI._isDestroyed && this.dockUI.queueRender) {
+                    if (this.dockUI && this.dockUI.queueRender) {
                         this.dockUI.queueRender();
                     }
                     return GLib.SOURCE_REMOVE;
                 });
-                this._asyncSources.add(timerId);
 
                 if (!this._3rdPartyCheckerRunning) {
                     this._3rdPartyCheckerRunning = true;
 
                     const globalChecker = () => {
-                        if (!this._externalActors || this._isDestroyed) {
+                        if (!this._externalActors || !this.dockUI) {
                             this._3rdPartyCheckerRunning = false;
                             return GLib.SOURCE_REMOVE;
                         }
 
                         this._externalActors.forEach(ext => {
-                            if (ext && ext._is3rdParty && !(ext.is_destroyed && ext.is_destroyed())) {
+                            if (ext && ext._is3rdParty && ext.visible !== undefined) {
                                 let fullText = '';
 
                                 const collectText = (actor) => {
@@ -160,8 +159,7 @@ export default class DockManager {
                         return GLib.SOURCE_CONTINUE;
                     };
 
-                    const globalTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, globalChecker);
-                    this._asyncSources.add(globalTimer);
+                    this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 300, globalChecker);
                 }
 
                 return true;
@@ -177,12 +175,10 @@ export default class DockManager {
                 child._is3rdParty = false;
 
                 if (this.dockUI && this.dockUI.queueRender) {
-                    const idleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                        this._asyncSources.delete(idleId);
-                        if (this.dockUI && !this.dockUI._isDestroyed) this.dockUI.queueRender();
+                    this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        if (this.dockUI) this.dockUI.queueRender();
                         return GLib.SOURCE_REMOVE;
                     });
-                    this._asyncSources.add(idleId);
                 }
             }
         };
@@ -243,7 +239,7 @@ export default class DockManager {
         if (originalBox && this._externalActors && this._externalActors.size > 0) {
             this._externalActors.forEach(child => {
                 if (!child || child._dhruvaExternalOwner !== this) return;
-                if (child.is_destroyed && child.is_destroyed()) return;
+                if (child.visible === undefined) return;
 
                 const parent = child.get_parent();
                 if (parent) {
@@ -279,7 +275,7 @@ export default class DockManager {
     }
 
     updatePosition() {
-        if (!this.dockUI || this.dockUI._isDestroyed || !this.dockUI.actor || !this.dockUI.boxActor) return;
+        if (!this.dockUI || !this.dockUI.actor || !this.dockUI.boxActor || !this.dockUI.actor.visible) return;
         if (!this.dockUI.actor.is_mapped()) return;
 
         this.dockUI.actor.remove_all_transitions();
@@ -340,14 +336,10 @@ export default class DockManager {
             this._folderSpyId = null;
         }
 
-        if (this._asyncSources) {
-            this._asyncSources.forEach(id => GLib.source_remove(id));
-            this._asyncSources.clear();
-        }
+        this.timers.destroy();
 
-        if (this._settingSignalId) {
-            this.settings.disconnect(this._settingSignalId);
-            this._settingSignalId = null;
+        if (this.settings) {
+            this.settings.disconnectObject(this);
         }
 
         this._restoreGnomeDash();

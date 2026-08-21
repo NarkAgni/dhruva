@@ -58,16 +58,18 @@ export default class AppGridUI {
             y_expand: true,
         });
 
-        this.actor.connect('button-release-event', () => {
-            this.hide();
-            return Clutter.EVENT_STOP;
-        });
-
-        this.actor.connect('touch-event', (_actor, event) => {
-            if (event.type() === Clutter.EventType.TOUCH_END)
+        this.actor.connectObject(
+            'button-release-event', () => {
                 this.hide();
-            return Clutter.EVENT_STOP;
-        });
+                return Clutter.EVENT_STOP;
+            },
+            'touch-event', (_actor, event) => {
+                if (event.type() === Clutter.EventType.TOUCH_END)
+                    this.hide();
+                return Clutter.EVENT_STOP;
+            },
+            this
+        );
 
         this.panel = new St.BoxLayout({
             style_class: 'app-list-panel',
@@ -75,8 +77,11 @@ export default class AppGridUI {
             reactive: true,
         });
 
-        this.panel.connect('button-release-event', () => Clutter.EVENT_STOP);
-        this.panel.connect('touch-event', () => Clutter.EVENT_STOP);
+        this.panel.connectObject(
+            'button-release-event', () => Clutter.EVENT_STOP,
+            'touch-event', () => Clutter.EVENT_STOP,
+            this
+        );
 
         const headerBox = new St.BoxLayout({
             vertical: false,
@@ -195,11 +200,11 @@ export default class AppGridUI {
 
         this._populateData();
 
-        this._installedChangedId = this.appManager.appSystem.connect('installed-changed', () => {
+        this.appManager.appSystem.connectObject('installed-changed', () => {
             this._populateData();
             if (this.isOpen)
                 this._filterApps(this.searchEntry.get_text());
-        });
+        }, this);
 
         this.scrollView.add_child(this.listContainer);
         this.panel.add_child(this.scrollView);
@@ -563,10 +568,10 @@ export default class AppGridUI {
     }
 
     destroy() {
-        if (this._installedChangedId) {
-            this.appManager.appSystem.disconnect(this._installedChangedId);
-            this._installedChangedId = null;
-        }
+        this.appManager.appSystem.disconnectObject(this);
+        this.actor.disconnectObject(this);
+        this.panel.disconnectObject(this);
+
         if (this._scrollIdleId) {
             GLib.source_remove(this._scrollIdleId);
             this._scrollIdleId = 0;

@@ -23,6 +23,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { CRTMinimize, CRTRestore } from './CrtEffect.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { SnakeMinimize, SnakeRestore } from './SnakeEffect.js';
 import { JellyMinimize, JellyRestore } from './JellyEffect.js';
 import { VortexMinimize, VortexRestore } from './VortexEffect.js';
@@ -42,9 +43,7 @@ let _dockUI = null;
 let _setupRefCount = 0;
 
 const _animatingActors = new Set();
-
-let _minimizeSignalId = 0;
-let _unminimizeSignalId = 0;
+let _effectTimers = null;
 
 let _origShouldAnimate = null;
 let _origCompletedMinimize = null;
@@ -53,8 +52,18 @@ let _origCompletedMap = null;
 
 function _isActorUsable(actor) {
     if (!actor) return false;
-    if (actor.is_destroyed && actor.is_destroyed()) return false;
-    return true;
+    return actor.visible !== undefined;
+}
+
+function _addEffectIdle(cb) {
+    _effectTimers.addIdle(GLib.PRIORITY_DEFAULT, () => {
+        cb();
+        return GLib.SOURCE_REMOVE;
+    });
+}
+
+function _clearEffectIdles() {
+    _effectTimers.destroy();
 }
 
 function _resolveIconRect(btn, win) {
@@ -126,6 +135,31 @@ function _patchWm() {
     _origShouldAnimate = Main.wm._shouldAnimateActor;
     Main.wm._shouldAnimateActor = function (actor, types) {
         if (actor === _pendingActor || actor === _pendingLaunchActor || _animatingActors.has(actor)) return false;
+
+        if (actor.meta_window && _dockUI && _dockUI._pendingLaunches && _dockUI._pendingLaunches.length > 0) {
+            const tracker = Shell.WindowTracker.get_default();
+            const winApp = tracker.get_window_app(actor.meta_window);
+            const winClass = actor.meta_window.get_wm_class() ? actor.meta_window.get_wm_class().toLowerCase() : '';
+            
+            const isPending = _dockUI._pendingLaunches.some(p => {
+                if (p.consumed) return false;
+                
+                if (p.appId && winApp && winApp.get_id() === p.appId) {
+                    return true;
+                } else if (p.appId && winClass) {
+                    const appBase = p.appId.toLowerCase().replace('.desktop', '');
+                    if (appBase.includes(winClass) || winClass.includes(appBase)) {
+                        return true;
+                    }
+                } else if (p.isFolder && (winClass.includes('nautilus') || winClass.includes('files'))) {
+                    return true;
+                }
+                
+                return false;
+            });
+
+            if (isPending) return false;
+        }
         
         return _origShouldAnimate.call(this, actor, types);
     };
@@ -194,215 +228,221 @@ export function setupWindowEffects(settings, dockUI) {
     _dockUI = dockUI;
     _setupRefCount++;
     if (_setupRefCount > 1) return;
+
+    if (!_effectTimers) {
+        _effectTimers = new TimeoutTracker();
+    }
+
     _patchWm();
 
-    _minimizeSignalId = global.window_manager.connect('minimize', (_wm, actor) => {
-        const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
+    global.window_manager.connectObject(
+        'minimize', (_wm, actor) => {
+            const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
 
-        if (actor === _pendingActor && global._dhruvaIsFade) {
-            global._dhruvaIsFade = false;
-            
-            const capturedActor = _pendingActor;
-            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                if (_pendingActor === capturedActor) _pendingActor = null;
-                return GLib.SOURCE_REMOVE;
-            });
+            if (actor === _pendingActor && global._dhruvaIsFade) {
+                global._dhruvaIsFade = false;
+                
+                const capturedActor = _pendingActor;
+                _addEffectIdle(() => {
+                    if (_pendingActor === capturedActor) _pendingActor = null;
+                });
 
-            _animatingActors.add(actor);
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            
-            actor.set_pivot_point(0.5, 0.5);
-            actor.ease({
-                opacity: 0,
-                scale_x: 0.93,
-                scale_y: 0.93,
-                duration: 200,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => {
-                    _animatingActors.delete(actor);
-                    actor.set_pivot_point(0, 0);
-                    if (_origCompletedMinimize && Main.wm && Main.wm._shellwm)
-                        _origCompletedMinimize.call(Main.wm._shellwm, actor);
-                }
-            });
-            return;
-        }
+                _animatingActors.add(actor);
+                if (actor.remove_all_transitions) actor.remove_all_transitions();
+                
+                actor.set_pivot_point(0.5, 0.5);
+                actor.ease({
+                    opacity: 0,
+                    scale_x: 0.93,
+                    scale_y: 0.93,
+                    duration: 200,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    onComplete: () => {
+                        _animatingActors.delete(actor);
+                        actor.set_pivot_point(0, 0);
+                        if (_origCompletedMinimize && Main.wm && Main.wm._shellwm)
+                            _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                    }
+                });
+                return;
+            }
 
-        if (type === 'none') {
-            if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
-                _origCompletedMinimize.call(Main.wm._shellwm, actor);
-            return;
-        }
+            if (type === 'none') {
+                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                    _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                return;
+            }
 
-        let iconPos = null;
-        let dockPos = null;
-        let isOurAnimation = false;
+            let iconPos = null;
+            let dockPos = null;
+            let isOurAnimation = false;
 
-        if (actor === _pendingActor && _pendingIcon) {
-            iconPos = _pendingIcon;
-            dockPos = _pendingDockPos;
-            isOurAnimation = true;
-            
-            const capturedActor = _pendingActor;
-            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                if (_pendingActor === capturedActor) {
-                    _pendingActor = _pendingIcon = _pendingDockPos = null;
-                }
-                return GLib.SOURCE_REMOVE;
-            });
-        } 
-        else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
-            const win = actor.meta_window;
-            const tracker = Shell.WindowTracker.get_default();
-            const app = tracker.get_window_app(win);
+            if (actor === _pendingActor && _pendingIcon) {
+                iconPos = _pendingIcon;
+                dockPos = _pendingDockPos;
+                isOurAnimation = true;
+                
+                const capturedActor = _pendingActor;
+                _addEffectIdle(() => {
+                    if (_pendingActor === capturedActor) {
+                        _pendingActor = _pendingIcon = _pendingDockPos = null;
+                    }
+                });
+            } 
+            else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
+                const win = actor.meta_window;
+                const tracker = Shell.WindowTracker.get_default();
+                const app = tracker.get_window_app(win);
 
-            if (app) {
-                const appId = app.get_id();
-                const children = _dockUI.boxActor.get_children();
+                if (app) {
+                    const appId = app.get_id();
+                    const children = _dockUI.boxActor.get_children();
 
-                for (let i = 0; i < children.length; i++) {
-                    const btn = children[i];
-                    if (btn._delegate && btn._delegate.app && btn._delegate.app.get_id() === appId) {
-                        iconPos = _resolveIconRect(btn, win);
-                        dockPos = _dockUI.dockPosition;
-                        isOurAnimation = true;
-                        break;
+                    for (let i = 0; i < children.length; i++) {
+                        const btn = children[i];
+                        if (btn._delegate && btn._delegate.app && btn._delegate.app.get_id() === appId) {
+                            iconPos = _resolveIconRect(btn, win);
+                            dockPos = _dockUI.dockPosition;
+                            isOurAnimation = true;
+                            break;
+                        }
                     }
                 }
             }
-        }
 
-        if (!isOurAnimation) {
-            if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
-                _origCompletedMinimize.call(Main.wm._shellwm, actor);
-            return;
-        }
-
-        _animatingActors.add(actor);
-        
-        if (actor.remove_all_transitions) {
-            actor.remove_all_transitions();
-        }
-
-        const old = actor.get_effect(MIN_EFFECT_NAME);
-        if (old) actor.remove_effect(old);
-
-        actor.add_effect_with_name(MIN_EFFECT_NAME, _makeMinimize(iconPos, dockPos, type));
-    });
-
-    _unminimizeSignalId = global.window_manager.connect('unminimize', (_wm, actor) => {
-        const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
-        
-        if (actor === _pendingActor && global._dhruvaIsFade) {
-            global._dhruvaIsFade = false;
-            
-            const capturedActor = _pendingActor;
-            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                if (_pendingActor === capturedActor) _pendingActor = null;
-                return GLib.SOURCE_REMOVE;
-            });
+            if (!isOurAnimation) {
+                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                    _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                return;
+            }
 
             _animatingActors.add(actor);
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
             
+            if (actor.remove_all_transitions) {
+                actor.remove_all_transitions();
+            }
+
+            const old = actor.get_effect(MIN_EFFECT_NAME);
+            if (old) actor.remove_effect(old);
+
+            actor.add_effect_with_name(MIN_EFFECT_NAME, _makeMinimize(iconPos, dockPos, type));
+        },
+        'unminimize', (_wm, actor) => {
+            const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
+            
+            if (actor === _pendingActor && global._dhruvaIsFade) {
+                global._dhruvaIsFade = false;
+                
+                const capturedActor = _pendingActor;
+                _addEffectIdle(() => {
+                    if (_pendingActor === capturedActor) _pendingActor = null;
+                });
+
+                _animatingActors.add(actor);
+                if (actor.remove_all_transitions) actor.remove_all_transitions();
+                
+                actor.show();
+                actor.opacity = 0;
+                actor.set_pivot_point(0.5, 0.5);
+                actor.set_scale(0.93, 0.93);
+                
+                actor.ease({
+                    opacity: 255,
+                    scale_x: 1.0,
+                    scale_y: 1.0,
+                    duration: 200,
+                    mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    onComplete: () => {
+                        _animatingActors.delete(actor);
+                        actor.set_pivot_point(0, 0);
+                        if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm)
+                            _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                    }
+                });
+                return;
+            }
+
+            if (type === 'none') {
+                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                    _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                return;
+            }
+
+            let iconPos = null;
+            let dockPos = null;
+            let isOurAnimation = false;
+
+            if (actor === _pendingActor && _pendingIcon) {
+                iconPos = _pendingIcon;
+                dockPos = _pendingDockPos;
+                isOurAnimation = true;
+                
+                const capturedActor = _pendingActor;
+                _addEffectIdle(() => {
+                    if (_pendingActor === capturedActor) {
+                        _pendingActor = _pendingIcon = _pendingDockPos = null;
+                    }
+                });
+            } 
+            else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
+                const win = actor.meta_window;
+                const tracker = Shell.WindowTracker.get_default();
+                const app = tracker.get_window_app(win);
+
+                if (app) {
+                    const appId = app.get_id();
+                    const children = _dockUI.boxActor.get_children();
+
+                    for (let i = 0; i < children.length; i++) {
+                        const btn = children[i];
+                        if (btn._delegate && btn._delegate.app && btn._delegate.app.get_id() === appId) {
+                            iconPos = _resolveIconRect(btn, win);
+                            dockPos = _dockUI.dockPosition;
+                            isOurAnimation = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!isOurAnimation) {
+                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                    _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                return;
+            }
+
+            _animatingActors.add(actor);
+            
+            if (actor.remove_all_transitions) {
+                actor.remove_all_transitions();
+            }
+
+            const old = actor.get_effect(UNMIN_EFFECT_NAME);
+            if (old) actor.remove_effect(old);
+
             actor.show();
-            actor.opacity = 0;
-            actor.set_pivot_point(0.5, 0.5);
-            actor.set_scale(0.93, 0.93);
-            
-            actor.ease({
-                opacity: 255,
-                scale_x: 1.0,
-                scale_y: 1.0,
-                duration: 200,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => {
-                    _animatingActors.delete(actor);
-                    actor.set_pivot_point(0, 0);
-                    if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm)
-                        _origCompletedUnminimize.call(Main.wm._shellwm, actor);
-                }
-            });
-            return;
-        }
-
-        if (type === 'none') {
-            if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
-                _origCompletedUnminimize.call(Main.wm._shellwm, actor);
-            return;
-        }
-
-        let iconPos = null;
-        let dockPos = null;
-        let isOurAnimation = false;
-
-        if (actor === _pendingActor && _pendingIcon) {
-            iconPos = _pendingIcon;
-            dockPos = _pendingDockPos;
-            isOurAnimation = true;
-            
-            const capturedActor = _pendingActor;
-            GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-                if (_pendingActor === capturedActor) {
-                    _pendingActor = _pendingIcon = _pendingDockPos = null;
-                }
-                return GLib.SOURCE_REMOVE;
-            });
-        } 
-        else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
-            const win = actor.meta_window;
-            const tracker = Shell.WindowTracker.get_default();
-            const app = tracker.get_window_app(win);
-
-            if (app) {
-                const appId = app.get_id();
-                const children = _dockUI.boxActor.get_children();
-
-                for (let i = 0; i < children.length; i++) {
-                    const btn = children[i];
-                    if (btn._delegate && btn._delegate.app && btn._delegate.app.get_id() === appId) {
-                        iconPos = _resolveIconRect(btn, win);
-                        dockPos = _dockUI.dockPosition;
-                        isOurAnimation = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!isOurAnimation) {
-            if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
-                _origCompletedUnminimize.call(Main.wm._shellwm, actor);
-            return;
-        }
-
-        _animatingActors.add(actor);
-        
-        if (actor.remove_all_transitions) {
-            actor.remove_all_transitions();
-        }
-
-        const old = actor.get_effect(UNMIN_EFFECT_NAME);
-        if (old) actor.remove_effect(old);
-
-        actor.show();
-        actor.set_opacity(255);
-        actor.add_effect_with_name(UNMIN_EFFECT_NAME, _makeRestore(iconPos, dockPos, type));
-    });
+            actor.set_opacity(255);
+            actor.add_effect_with_name(UNMIN_EFFECT_NAME, _makeRestore(iconPos, dockPos, type));
+        },
+        _dockUI
+    );
 }
 
 export function teardownWindowEffects() {
     if (_setupRefCount > 0) _setupRefCount--;
     if (_setupRefCount > 0) return;
 
-    if (_minimizeSignalId) {
-        global.window_manager.disconnect(_minimizeSignalId);
-        _minimizeSignalId = 0;
+    if (_dockUI) {
+        global.window_manager.disconnectObject(_dockUI);
     }
-    if (_unminimizeSignalId) {
-        global.window_manager.disconnect(_unminimizeSignalId);
-        _unminimizeSignalId = 0;
+
+    _clearEffectIdles();
+
+    if (_effectTimers) {
+        _effectTimers = null;
     }
+    
+    _animatingActors.clear();
 
     _pendingActor = null;
     _pendingIcon = null;

@@ -32,7 +32,7 @@ import DockManager from '../../core/DockManager.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import FolderManager from '../../core/FolderManager.js';
 import MonitorManager from '../../core/MonitorManager.js';
-import { TimerRegistry } from '../../core/TimerRegistry.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { cleanupTrashEffects } from '../effects/TrashEffect.js';
 import { teardownMagnification } from '../magnifier/Magnifier.js';
 import NotificationManager from '../../core/NotificationManager.js';
@@ -71,7 +71,7 @@ export default class DockUI {
         this.openPrefsCallback = openPrefsCallback;
         this.dockPosition = this.settings.get_string('dock-position') || 'BOTTOM';
 
-        this.registry = new TimerRegistry();
+        this.registry = new TimeoutTracker();
         this._activeContextMenu = null;
         this._cursorResetTimeouts = [];
 
@@ -95,7 +95,7 @@ export default class DockUI {
         this._getIndicatorProps = () => getIndicatorProps(this);
         this._captureActorRect = (actor, fb) => captureActorRect(this, actor, fb);
         this.isActorAlive = isActorAlive;
-        
+
         this.queueRender = debounce((force) => {
             if (this._renderDock) {
                 this._renderDock(force);
@@ -129,23 +129,24 @@ export default class DockUI {
         const handlePrefsTrigger = (_actor, event) => {
             if (event.get_button() === 3 && !this._activeContextMenu) {
                 if ((event.get_state() & Clutter.ModifierType.CONTROL_MASK) && this.openPrefsCallback) {
-                    this.openPrefsCallback().catch(e => {});
+                    const res = this.openPrefsCallback();
+                    if (res instanceof Promise) res.catch(e => console.warn('[Dhruva]', e.message));
                     return Clutter.EVENT_STOP;
                 }
             }
             return Clutter.EVENT_PROPAGATE;
         };
 
-        this.registry.connectSignal(this.actor, 'button-release-event', handlePrefsTrigger);
-        this.registry.connectSignal(this.bgActor, 'button-press-event', handlePrefsTrigger);
+        this.actor.connectObject('button-release-event', handlePrefsTrigger, this);
+        this.bgActor.connectObject('button-press-event', handlePrefsTrigger, this);
 
-        this.registry.connectSignal(this.boxActor, 'notify::allocation', () => {
+        this.boxActor.connectObject('notify::allocation', () => {
             if (this._allocIdleId) return;
             this._allocIdleId = this.registry.addIdle(GLib.PRIORITY_DEFAULT, () => {
                 this._allocIdleId = null;
                 if (this.actor && this.actor.is_mapped()) {
                     this._updateLayout();
-                    
+
                     const isIndep = this.settings.get_boolean('independent-dock');
                     if (Main.overview.dash && !isIndep) {
                         const pos = this.dockPosition;
@@ -165,17 +166,17 @@ export default class DockUI {
                 }
                 return GLib.SOURCE_REMOVE;
             });
-        });
+        }, this);
 
-        this.registry.connectSignal(this.appManager.appSystem, 'installed-changed', () => this.queueRender());
-        this.registry.connectSignal(this.appManager.appSystem, 'app-state-changed', () => this.queueRender());
+        this.appManager.appSystem.connectObject('installed-changed', () => this.queueRender(), this);
+        this.appManager.appSystem.connectObject('app-state-changed', () => this.queueRender(), this);
 
-        this.registry.connectSignal(global.window_manager, 'destroy', () => {
+        global.window_manager.connectObject('destroy', () => {
             if (this.actor) this.actor._lastIconClickTime = 0;
             this.queueRender();
-        });
+        }, this);
 
-        this.registry.connectSignal(global.window_manager, 'map', (_wm, actor) => {
+        global.window_manager.connectObject('map', (_wm, actor) => {
             if (this.actor) {
                 this.actor._lastIconClickTime = 0;
                 this.actor._fixedSlots = null;
@@ -185,7 +186,9 @@ export default class DockUI {
             this.queueRender();
 
             if (this.settings.get_boolean('isolate-monitors')) {
-                if (this._isolateMonitorRenderDelayId) GLib.source_remove(this._isolateMonitorRenderDelayId);
+                if (this._isolateMonitorRenderDelayId) {
+                    this.registry.remove(this._isolateMonitorRenderDelayId);
+                }
                 this._isolateMonitorRenderDelayId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
                     this._isolateMonitorRenderDelayId = null;
                     this.queueRender();
@@ -208,7 +211,7 @@ export default class DockUI {
             let matchedIndex = -1;
             for (let i = 0; i < this._pendingLaunches.length; i++) {
                 const p = this._pendingLaunches[i];
-                
+
                 let isMatch = false;
                 if (p.appId && winApp && winApp.get_id() === p.appId) {
                     isMatch = true;
@@ -242,59 +245,59 @@ export default class DockUI {
                     if (this.isActorAlive(actor)) actor.opacity = 255;
                 }
             }
-        });
+        }, this);
 
-        this.registry.connectSignal(global.display, 'notify::focus-window', () => {
+        global.display.connectObject('notify::focus-window', () => {
             const recentClick = this.actor._lastIconClickTime && (Date.now() - this.actor._lastIconClickTime < 1000);
             if (!this.actor._launchingApp && !recentClick) this.queueRender();
-        });
+        }, this);
 
-        this.registry.connectSignal(global.display, 'window-entered-monitor', () => {
+        global.display.connectObject('window-entered-monitor', () => {
             if (this.settings.get_boolean('isolate-monitors')) this.queueRender();
-        });
+        }, this);
 
-        this.registry.connectSignal(global.display, 'window-left-monitor', () => {
+        global.display.connectObject('window-left-monitor', () => {
             if (this.settings.get_boolean('isolate-monitors')) this.queueRender();
-        });
+        }, this);
 
-        this.registry.connectSignal(global.workspace_manager, 'active-workspace-changed', () => {
+        global.workspace_manager.connectObject('active-workspace-changed', () => {
             if (this.settings.get_boolean('isolate-workspaces')) {
                 this.actor._lastIconClickTime = 0;
                 this.queueRender();
             }
-        });
+        }, this);
 
         WATCHED_SETTINGS.forEach(key => {
-            this.registry.connectSignal(this.settings, `changed::${key}`, () => {
+            this.settings.connectObject(`changed::${key}`, () => {
                 if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
                 this.queueRender();
                 this._updateLayout();
-            });
+            }, this);
         });
 
         STYLE_SETTINGS.forEach(key => {
-            this.registry.connectSignal(this.settings, `changed::${key}`, () => {
+            this.settings.connectObject(`changed::${key}`, () => {
                 if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
                 this._applyDynamicStyles();
                 this._updateLayout();
-            });
+            }, this);
         });
 
         ['full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
-            this.registry.connectSignal(this.settings, `changed::${key}`, () => {
+            this.settings.connectObject(`changed::${key}`, () => {
                 if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
                 this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
                 this._renderDock();
                 if (key === 'full-width') this._updateStruts();
-            });
+            }, this);
         });
 
-        this.registry.connectSignal(this.settings, 'changed::hide-mode', () => {
+        this.settings.connectObject('changed::hide-mode', () => {
             this._updateStruts();
             this.queueRender();
-        });
+        }, this);
 
-        this.registry.connectSignal(this.settings, 'changed::dock-position', () => {
+        this.settings.connectObject('changed::dock-position', () => {
             if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
             const newPos = this.settings.get_string('dock-position');
             const isNewVertical = newPos === 'LEFT' || newPos === 'RIGHT';
@@ -303,25 +306,25 @@ export default class DockUI {
             this.boxActor.set_vertical(isNewVertical);
             this.queueRender();
 
-            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 this._updateLayout();
                 if (this.dockManager) this.dockManager.updatePosition();
                 return GLib.SOURCE_REMOVE;
             });
-        });
+        }, this);
 
-        this.registry.connectSignal(this.settings, 'changed::dock-margin', () => {
+        this.settings.connectObject('changed::dock-margin', () => {
             if (this.dockManager) this.dockManager.updatePosition();
-        });
+        }, this);
 
-        this.registry.connectSignal(this.settings, 'changed::preferred-monitor', () => {
+        this.settings.connectObject('changed::preferred-monitor', () => {
             this.dockManager.updatePosition();
             this.queueRender();
-        });
+        }, this);
 
         this.volumeMonitor = Gio.VolumeMonitor.get();
-        this.registry.connectSignal(this.volumeMonitor, 'mount-added', () => this.queueRender());
-        this.registry.connectSignal(this.volumeMonitor, 'mount-removed', () => this.queueRender());
+        this.volumeMonitor.connectObject('mount-added', () => this.queueRender(), this);
+        this.volumeMonitor.connectObject('mount-removed', () => this.queueRender(), this);
 
         this._setupChameleonWatcher();
         this._setupTrashMonitor();
@@ -330,14 +333,14 @@ export default class DockUI {
     _setupTrashMonitor() {
         const trashDir = Gio.File.new_for_uri('trash:///');
         this._trashMonitor = trashDir.monitor_directory(Gio.FileMonitorFlags.NONE, null);
-        this.registry.connectSignal(this._trashMonitor, 'changed', () => {
+        this._trashMonitor.connectObject('changed', () => {
             if (this._trashRefreshId) return;
             this._trashRefreshId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
                 this._trashRefreshId = null;
                 this.queueRender();
                 return GLib.SOURCE_REMOVE;
             });
-        });
+        }, this);
     }
 
     _setupChameleonWatcher() {
@@ -350,8 +353,8 @@ export default class DockUI {
                 this.queueRender();
             }
         };
-        this.registry.connectSignal(this._bgSettings, 'changed::picture-uri', onWallpaperChange);
-        this.registry.connectSignal(this._bgSettings, 'changed::picture-uri-dark', onWallpaperChange);
+        this._bgSettings.connectObject('changed::picture-uri', onWallpaperChange, this);
+        this._bgSettings.connectObject('changed::picture-uri-dark', onWallpaperChange, this);
     }
 
     _updateStruts() {
@@ -396,17 +399,16 @@ export default class DockUI {
     show() {
         this._updateStruts();
 
-        const mappedId = this.actor.connect('notify::mapped', () => {
+        this.actor.connectObject('notify::mapped', () => {
             if (!this.actor.is_mapped()) return;
-            this.actor.disconnect(mappedId);
             this._renderDock();
             if (this.dockManager) this.dockManager.updatePosition();
-        });
+        }, this);
 
-        this.registry.connectSignal(global.display, 'workareas-changed', () => {
+        global.display.connectObject('workareas-changed', () => {
             if (this.dockManager) this.dockManager.updatePosition();
             if (this.autoHideManager && this.autoHideManager._updateEdgeTrigger) this.autoHideManager._updateEdgeTrigger();
-        });
+        }, this);
 
         setupWindowEffects(this.settings, this);
         this.autoHideManager = new AutoHideManager(this, this.settings);
@@ -417,7 +419,7 @@ export default class DockUI {
             if (Main.overview.dash) Main.overview.dash.hide();
         }
 
-        this.registry.connectSignal(Main.overview, 'showing', () => {
+        Main.overview.connectObject('showing', () => {
             const isIndependent = this.settings.get_boolean('independent-dock');
             const showInOverview = this.settings.get_boolean('show-independent-in-overview');
 
@@ -427,10 +429,10 @@ export default class DockUI {
                         this._originalPosForOverview = this.dockPosition;
                         this.dockPosition = 'LEFT';
                         this.boxActor.set_vertical(true);
-                        
+
                         this._isOverviewActive = true;
-                        this._renderDock(true); 
-                        
+                        this._renderDock(true);
+
                         this._updateLayout();
                         if (this.dockManager) this.dockManager.updatePosition();
                     }
@@ -438,11 +440,6 @@ export default class DockUI {
                     if (this.isActorAlive(this.actor)) {
                         this.actor.show();
                         this.actor.opacity = 255;
-                        if (this.autoHideManager) {
-                            this.autoHideManager.isHidden = false;
-                            this.autoHideManager._applyDockInputState(true);
-                            this.autoHideManager._setAutoHideMagnifierPaused(false);
-                        }
                     }
 
                     if (this.actor._affectsStruts) {
@@ -457,7 +454,7 @@ export default class DockUI {
                         this.actor.opacity = 0;
                     }
                 }
-                
+
                 if (Main.overview.dash) {
                     Main.overview.dash.show();
                     Main.overview.dash.set_pivot_point(0.5, 0.5);
@@ -479,19 +476,19 @@ export default class DockUI {
             if (!isIndependent || showInOverview) {
                 this._updateLayout();
             }
-        });
+        }, this);
 
-        this.registry.connectSignal(Main.overview, 'hiding', () => {
+        Main.overview.connectObject('hiding', () => {
             const isIndependent = this.settings.get_boolean('independent-dock');
             const showInOverview = this.settings.get_boolean('show-independent-in-overview');
 
             if (isIndependent && showInOverview && this._originalPosForOverview) {
                 this.dockPosition = this._originalPosForOverview;
                 this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
-                
+
                 this._isOverviewActive = false;
-                this._renderDock(true); 
-                
+                this._renderDock(true);
+
                 this._updateLayout();
                 if (this.dockManager) this.dockManager.updatePosition();
                 this._originalPosForOverview = null;
@@ -514,35 +511,37 @@ export default class DockUI {
             } else {
                 if (this.autoHideManager && this.autoHideManager._scheduleUpdate) this.autoHideManager._scheduleUpdate(0);
             }
-        });
+        }, this);
 
-        this.registry.connectSignal(Main.overview, 'hidden', async () => {
-            clearOverviewDockMargin(this); 
-            
+        Main.overview.connectObject('hidden', async () => {
+            clearOverviewDockMargin(this);
+
             const isIndependent = this.settings.get_boolean('independent-dock');
             const showInOverview = this.settings.get_boolean('show-independent-in-overview');
 
             if (isIndependent && showInOverview) {
                 const tmpPath = GLib.get_tmp_dir() + '/dhruva_dock_pos.txt';
                 const file = Gio.File.new_for_path(tmpPath);
-                
+
                 if (file.query_exists(null)) {
                     try {
                         const result = await new Promise((resolve, reject) => {
                             file.load_contents_async(null, (f, res) => {
-                                try { resolve(f.load_contents_finish(res)); } 
+                                try { resolve(f.load_contents_finish(res)); }
                                 catch (e) { reject(e); }
                             });
                         });
-                        
-                        const contents = result[1]; 
+
+                        const contents = result[1];
                         if (contents) {
                             const posStr = new TextDecoder('utf-8').decode(contents).trim();
                             this.settings.set_string('dock-position', posStr);
                         }
-                        
-                        file.delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
-                    } catch (e) {}
+
+                        file.delete_async(GLib.PRIORITY_DEFAULT, null, () => { });
+                    } catch (e) {
+                        console.error("[Dhruva] Async Read Error:", e);
+                    }
                 }
 
                 this._updateStruts();
@@ -557,7 +556,7 @@ export default class DockUI {
                     });
                 }
             }
-        });
+        }, this);
 
         if (Main.overview.visible) {
             this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
@@ -572,7 +571,7 @@ export default class DockUI {
 
     _scheduleCursorResetBurst() {
         if (this._cursorResetTimeouts) {
-            this._cursorResetTimeouts.forEach(id => GLib.source_remove(id));
+            this._cursorResetTimeouts.forEach(id => this.registry.remove(id));
         }
         this._cursorResetTimeouts = [];
 
@@ -599,7 +598,9 @@ export default class DockUI {
     }
 
     triggerPostDragSettle() {
-        if (this._postDragSettleId) GLib.source_remove(this._postDragSettleId);
+        if (this._postDragSettleId) {
+            this.registry.remove(this._postDragSettleId);
+        }
 
         this._postDragSettleId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
             this._postDragSettleId = null;
@@ -610,14 +611,32 @@ export default class DockUI {
     }
 
     destroy() {
+        global.display.disconnectObject(this);
+        global.window_manager.disconnectObject(this);
+        global.workspace_manager.disconnectObject(this);
+        Main.overview.disconnectObject(this);
+
+        if (this.appManager && this.appManager.appSystem) this.appManager.appSystem.disconnectObject(this);
+        if (this.settings) this.settings.disconnectObject(this);
+        if (this.volumeMonitor) this.volumeMonitor.disconnectObject(this);
+        if (this._bgSettings) this._bgSettings.disconnectObject(this);
+        if (this._trashMonitor) {
+            this._trashMonitor.disconnectObject(this);
+            this._trashMonitor.cancel();
+        }
+
+        if (this.actor) {
+            this.actor.disconnectObject(this);
+        }
+
         DockUI._instances.delete(this);
 
         if (this.queueRender && this.queueRender.cancel) this.queueRender.cancel();
 
         if (this._cursorResetTimeouts) {
-            this._cursorResetTimeouts.forEach(id => GLib.source_remove(id));
+            this._cursorResetTimeouts.forEach(id => this.registry.remove(id));
         }
-        
+
         if (this.registry) this.registry.destroy();
         if (this.autoHideManager) this.autoHideManager.destroy();
         if (this.dockManager) this.dockManager.destroy();

@@ -25,7 +25,7 @@ import { createWindowControl } from './ContextMenuItems.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 
 
-export function createThumbnailScroll(menu, app, windows, customSize) {
+function createThumbnailScroll(menu, app, windows, customSize) {
     const thumbSpacing = 12;
     const maxWidth = (customSize * 2) + thumbSpacing;
     const scrollStyle = windows.length > 2 ? `max-width: ${maxWidth}px;` : '';
@@ -39,7 +39,7 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
         style: scrollStyle
     });
 
-    thumbScroll.connect('scroll-event', (_actor, event) => {
+    thumbScroll.connectObject('scroll-event', (_actor, event) => {
         let [dx, dy] = event.get_scroll_direction() === Clutter.ScrollDirection.SMOOTH ? event.get_scroll_delta() : [0, 0];
         const direction = event.get_scroll_direction();
         
@@ -55,7 +55,7 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
             }
         }
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, menu);
 
     const thumbBox = new St.BoxLayout({ vertical: false, reactive: true, style_class: 'context-menu-thumb-box', style: `spacing: ${thumbSpacing}px;` });
     if (windows.length <= 2) thumbBox.x_align = Clutter.ActorAlign.CENTER;
@@ -76,7 +76,6 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
     thumbScroll.add_child(thumbBox); 
     return thumbScroll;
 }
-
 
 function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed) {
     const card = new St.Widget({ layout_manager: new Clutter.BinLayout(), reactive: true });
@@ -103,7 +102,7 @@ function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed)
     if (!win.minimized) {
         controlsBox.add_child(createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
             menu.hide(); animateMinimize(win, menu.buttonActor, menu.dockUI.dockPosition);
-        }));
+        }, menu));
     }
 
     const isMaximized = win.is_maximized ? win.is_maximized() : false;
@@ -114,7 +113,7 @@ function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed)
         if (win.minimized) animateRestore(win, menu.buttonActor, menu.dockUI.dockPosition);
         else if (isMaximized) win.unmaximize(); else win.maximize();
         Main.activateWindow(win);
-    }));
+    }, menu));
 
     const handleClose = () => {
         win.delete(global.get_current_time());
@@ -146,35 +145,37 @@ function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed)
         if (onWindowClosed) onWindowClosed();
     };
 
-    controlsBox.add_child(createWindowControl('window-close-symbolic', '255, 59, 48', handleClose));
+    controlsBox.add_child(createWindowControl('window-close-symbolic', '255, 59, 48', handleClose, menu));
     const controlsBin = new St.Bin({ child: controlsBox, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true });
 
     card.add_child(thumbBtn); card.add_child(labelBin); card.add_child(controlsBin);
 
-    card.connect('enter-event', () => {
+    card.connectObject('enter-event', () => {
         controlsBox.ease({ opacity: 255, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_BACK });
         titleLbl.ease({ opacity: 0, duration: 150 });
         thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.6); transition-duration: 150ms;');
         if (menu.peekManager) menu.peekManager.startPeek(win);
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, menu);
 
-    card.connect('leave-event', () => {
+    card.connectObject('leave-event', () => {
         controlsBox.ease({ opacity: 0, duration: 150, mode: Clutter.AnimationMode.EASE_IN_QUAD });
         titleLbl.ease({ opacity: 255, duration: 150 });
         thumbBtn.set_style('border-radius: 10px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); transition-duration: 150ms;');
         if (menu.peekManager) menu.peekManager.stopPeek();
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, menu);
 
-    thumbBtn.connect('clicked', () => {
+    thumbBtn.connectObject('clicked', () => {
         menu._previousFocus = null;
         if (win.minimized) animateRestore(win, menu.buttonActor, menu.dockUI.dockPosition);
         win.activate(global.get_current_time()); Main.activateWindow(win); menu.hide();
-    });
+    }, menu);
 
-    thumbBtn.connect('button-press-event', (_a, event) => event.get_button() === 2 ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE);
-    thumbBtn.connect('button-release-event', (_a, event) => { if (event.get_button() === 2) { handleClose(); return Clutter.EVENT_STOP; } return Clutter.EVENT_PROPAGATE; });
+    thumbBtn.connectObject('button-press-event', (_a, event) => event.get_button() === 2 ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE, menu);
+    thumbBtn.connectObject('button-release-event', (_a, event) => { if (event.get_button() === 2) { handleClose(); return Clutter.EVENT_STOP; } return Clutter.EVENT_PROPAGATE; }, menu);
 
     return card;
 }
+
+export { createThumbnailScroll };

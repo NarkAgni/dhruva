@@ -20,7 +20,8 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
-export function createIconMenuItem(text, onClick, isDestructive = false) {
+
+export function createIconMenuItem(text, onClick, isDestructive = false, bindObject = null) {
     const btn = new St.Button({
         reactive: true,
         x_expand: true,
@@ -40,11 +41,11 @@ export function createIconMenuItem(text, onClick, isDestructive = false) {
     }));
 
     btn.set_child(box);
-    if (onClick) btn.connect('clicked', onClick);
+    if (onClick) btn.connectObject('clicked', onClick, bindObject || btn);
     return btn;
 }
 
-export function createMenuItem(text, onClick, isDestructive = false) {
+export function createMenuItem(text, onClick, isDestructive = false, bindObject = null) {
     const btn = new St.Button({
         reactive: true,
         x_expand: true,
@@ -56,11 +57,11 @@ export function createMenuItem(text, onClick, isDestructive = false) {
         style_class: isDestructive ? 'context-menu-action-label-destructive' : 'context-menu-action-label'
     }));
 
-    if (onClick) btn.connect('clicked', onClick);
+    if (onClick) btn.connectObject('clicked', onClick, bindObject || btn);
     return btn;
 }
 
-export function createCheckboxItem(text, isChecked, onClick) {
+export function createCheckboxItem(text, isChecked, onClick, bindObject = null) {
     const btn = new St.Button({
         reactive: true,
         x_expand: true,
@@ -92,11 +93,11 @@ export function createCheckboxItem(text, isChecked, onClick) {
     }));
 
     btn.set_child(box);
-    if (onClick) btn.connect('clicked', onClick);
+    if (onClick) btn.connectObject('clicked', onClick, bindObject || btn);
     return btn;
 }
 
-export function createWindowControl(iconName, rgbColor, onClick) {
+export function createWindowControl(iconName, rgbColor, onClick, bindObject = null) {
     const btn = new St.Button({
         child: new St.Icon({
             icon_name: iconName,
@@ -110,9 +111,11 @@ export function createWindowControl(iconName, rgbColor, onClick) {
         y_align: Clutter.ActorAlign.CENTER
     });
 
-    if (onClick) btn.connect('clicked', onClick);
+    const target = bindObject || btn;
 
-    btn.connect('enter-event', () => {
+    if (onClick) btn.connectObject('clicked', onClick, target);
+
+    btn.connectObject('enter-event', () => {
         btn.set_style(`background-color: rgba(${rgbColor}, 0.75); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.45); transition-duration: 150ms;`);
         btn.ease({
             scale_x: 1.1,
@@ -120,9 +123,9 @@ export function createWindowControl(iconName, rgbColor, onClick) {
             duration: 120
         });
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, target);
 
-    btn.connect('leave-event', () => {
+    btn.connectObject('leave-event', () => {
         btn.set_style(`background-color: rgba(${rgbColor}, 0.40); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 5px rgba(0,0,0,0.25); transition-duration: 150ms;`);
         btn.ease({
             scale_x: 1.0,
@@ -130,7 +133,7 @@ export function createWindowControl(iconName, rgbColor, onClick) {
             duration: 120
         });
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, target);
 
     return btn;
 }

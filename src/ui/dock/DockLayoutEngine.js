@@ -21,8 +21,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
 export function isActorAlive(actor) {
-    if (!actor || actor.__destroyed) return false;
-    if (actor.is_destroyed && actor.is_destroyed()) return false;
+    if (!actor) return false;
     return actor.visible !== undefined;
 }
 
@@ -111,13 +110,20 @@ export function updateLayout(dockUI) {
 
     let contentW = boxW;
     let contentH = boxH;
-    if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
-        contentW += gridW + 80;
-        contentH += gridH + 80;
+    
+    if (isFullWidth) {
+        if (dockUI.gridBtn && dockUI.gridBtn.visible) {
+            contentW += gridW + 80;
+            contentH += gridH + 80;
+        }
+        if (dockUI.extractedClock && dockUI.extractedClock.visible) {
+            contentW += clockW + 80;
+            contentH += clockH + 80;
+        }
     }
 
-    const totalW = contentW + maxExpansion + (sWidth * 2);
-    const totalH = contentH + maxExpansion + (sWidth * 2);
+    const totalW = contentW + (maxExpansion * 2) + (sWidth * 2);
+    const totalH = contentH + (maxExpansion * 2) + (sWidth * 2);
 
     let scale = 1.0;
     const paddingBuffer = 20;
@@ -205,13 +211,13 @@ export function updateLayout(dockUI) {
     }
 
     let contentX = sWidth, contentY = sWidth;
-    const halfExp = maxExpansion / 2;
+    const fullExp = maxExpansion;
     const safetyGap = 40 / scale;
 
     if (!isVertical) {
         if (isFullWidth) {
-            if (alignment === 'START') contentX = bgX + padScale + halfExp;
-            else if (alignment === 'END') contentX = bgX + bgW - boxW - padScale - halfExp;
+            if (alignment === 'START') contentX = bgX + padScale + fullExp;
+            else if (alignment === 'END') contentX = bgX + bgW - boxW - padScale - fullExp;
             else contentX = bgX + (bgW - boxW) / 2;
         } else {
             contentX = bgX + (bgW - boxW) / 2;
@@ -219,8 +225,8 @@ export function updateLayout(dockUI) {
         contentY = bgY + (bgH - boxH) / 2;
     } else {
         if (isFullWidth) {
-            if (alignment === 'START') contentY = bgY + padScale + halfExp;
-            else if (alignment === 'END') contentY = bgY + bgH - boxH - padScale - halfExp;
+            if (alignment === 'START') contentY = bgY + padScale + fullExp;
+            else if (alignment === 'END') contentY = bgY + bgH - boxH - padScale - fullExp;
             else contentY = bgY + (bgH - boxH) / 2;
         } else {
             contentY = bgY + (bgH - boxH) / 2;
@@ -231,11 +237,11 @@ export function updateLayout(dockUI) {
     if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
         if (!isVertical) {
             const gridRight = (bgX + padScale) + gridW + safetyGap;
-            const boxLeft = contentX - halfExp;
+            const boxLeft = contentX - fullExp;
             if (boxLeft < gridRight) contentX += (gridRight - boxLeft);
         } else {
             const gridBottom = (bgY + padScale) + gridH + safetyGap;
-            const boxTop = contentY - halfExp;
+            const boxTop = contentY - fullExp;
             if (boxTop < gridBottom) contentY += (gridBottom - boxTop);
         }
     }
@@ -243,11 +249,11 @@ export function updateLayout(dockUI) {
     if (isFullWidth && dockUI.extractedClock && dockUI.extractedClock.visible) {
         if (!isVertical) {
             const clockLeft = cx - safetyGap;
-            const boxRight = contentX + boxW + halfExp;
+            const boxRight = contentX + boxW + fullExp;
             if (boxRight > clockLeft) contentX -= (boxRight - clockLeft);
         } else {
             const clockTop = cy - safetyGap;
-            const boxBottom = contentY + boxH + halfExp;
+            const boxBottom = contentY + boxH + fullExp;
             if (boxBottom > clockTop) contentY -= (boxBottom - clockTop);
         }
     }

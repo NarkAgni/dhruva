@@ -51,7 +51,6 @@ function _sourceId(source) {
 
 function isActorAlive(actor) {
     if (!actor) return false;
-    if (actor.is_destroyed && actor.is_destroyed()) return false;
     return actor.visible !== undefined;
 }
 
@@ -309,7 +308,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
 
-        if (!isOutside && btn && btn.is_destroyed && !btn.is_destroyed()) {
+        if (!isOutside && isActorAlive(btn)) {
             btn.opacity = 255;
         }
     });
@@ -345,7 +344,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
         stopDragLoop(mainActor);
 
-        if (draggable._dragActor && draggable._dragActor.is_destroyed && !draggable._dragActor.is_destroyed()) {
+        if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
             draggable._dragActor.opacity = 0;
             draggable._dragActor.destroy();
         }

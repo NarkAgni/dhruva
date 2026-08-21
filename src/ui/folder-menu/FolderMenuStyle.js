@@ -93,7 +93,7 @@ export function applyThemeStyle(folderMenu, panel) {
     folderMenu.bgDrawingArea._strokeRgba = sWidth > 0 ? _hexToRgba(sColor, sOpacity) : 'transparent';
     folderMenu.bgDrawingArea._sWidth = sWidth;
 
-    folderMenu.bgDrawingArea.connect('repaint', (area) => {
+    folderMenu.bgDrawingArea.connectObject('repaint', (area) => {
         if (!folderMenu._dockPos) return;
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
@@ -134,5 +134,5 @@ export function applyThemeStyle(folderMenu, panel) {
             cr.newPath();
         }
         cr.$dispose();
-    });
+    }, folderMenu);
 }

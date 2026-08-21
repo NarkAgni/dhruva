@@ -64,22 +64,24 @@ class JellyBase extends Clutter.DeformEffect {
             duration: 700
         });
 
-        this._frameId = this._timeline.connect('new-frame', (tl) => {
-            const currentActor = this.get_actor();
-            if (!currentActor) {
-                this._finish();
-                return;
-            }
-            this._setProgress(tl.get_progress());
-            const parent = currentActor.get_parent();
-            if (parent) parent.queue_redraw();
-            this.invalidate();
-        });
+        this._timeline.connectObject(
+            'new-frame', (tl) => {
+                const currentActor = this.get_actor();
+                if (!currentActor) {
+                    this._finish();
+                    return;
+                }
+                this._setProgress(tl.get_progress());
+                const parent = currentActor.get_parent();
+                if (parent) parent.queue_redraw();
+                this.invalidate();
+            },
+            'completed', () => this._finish(),
+            this
+        );
 
-        this._doneId = this._timeline.connect('completed', () => this._finish());
         this._timeline.start();
-
-        this._destroyId = actor.connect('destroy', () => this._finish());
+        actor.connectObject('destroy', () => this._finish(), this);
     }
 
     _finish() {
@@ -88,17 +90,13 @@ class JellyBase extends Clutter.DeformEffect {
 
         if (this._timeline) {
             this._timeline.stop();
-            if (this._frameId) this._timeline.disconnect(this._frameId);
-            if (this._doneId) this._timeline.disconnect(this._doneId);
+            this._timeline.disconnectObject(this);
             this._timeline = null;
         }
 
         const actor = this.get_actor();
         if (actor) {
-            if (this._destroyId) {
-                actor.disconnect(this._destroyId);
-                this._destroyId = null;
-            }
+            actor.disconnectObject(this);
             actor.remove_effect(this);
             this._onDone(actor);
         }

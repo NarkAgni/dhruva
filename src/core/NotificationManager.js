@@ -20,10 +20,13 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+import { TimeoutTracker } from './TimeoutTracker.js';
 
 
 export default class NotificationManager {
@@ -31,16 +34,17 @@ export default class NotificationManager {
         this.dockUI = dockUI;
         this._appBadgeCounts = new Map();
         this._dbusSignalId = 0;
-        this._traySignals = [];
-        this._renderDebounceId = 0;
+        
+        this.timers = new TimeoutTracker();
+        this._renderDebounceId = null;
 
         this._setupListeners();
     }
 
     _requestRender() {
         if (!this.dockUI || this._renderDebounceId) return;
-        this._renderDebounceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 60, () => {
-            this._renderDebounceId = 0;
+        this._renderDebounceId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 60, () => {
+            this._renderDebounceId = null;
             if (this.dockUI && this.dockUI.queueRender) {
                 this.dockUI.queueRender();
             }
@@ -62,9 +66,9 @@ export default class NotificationManager {
             }
         );
 
-        this._traySignals.push(Main.messageTray.connect('source-added', () => this._requestRender()));
-        this._traySignals.push(Main.messageTray.connect('source-removed', () => this._requestRender()));
-        this._traySignals.push(Main.messageTray.connect('queue-changed', () => this._requestRender()));
+        Main.messageTray.connectObject('source-added', () => this._requestRender(), this);
+        Main.messageTray.connectObject('source-removed', () => this._requestRender(), this);
+        Main.messageTray.connectObject('queue-changed', () => this._requestRender(), this);
     }
 
     _onDBusBadgeUpdate(parameters) {
@@ -96,6 +100,14 @@ export default class NotificationManager {
 
     getUnreadCount(app) {
         if (!app) return 0;
+
+        if (app.get_state && app.get_state() === Shell.AppState.STOPPED) {
+            const id = app.get_id() ? app.get_id().toLowerCase() : '';
+            if (id && this._appBadgeCounts.has(id)) {
+                this._appBadgeCounts.delete(id);
+            }
+            return 0;
+        }
 
         const fullId = app.get_id() ? app.get_id().toLowerCase() : '';
         if (!fullId) return 0;
@@ -213,19 +225,14 @@ export default class NotificationManager {
     }
 
     destroy() {
-        if (this._renderDebounceId) {
-            GLib.source_remove(this._renderDebounceId);
-            this._renderDebounceId = 0;
-        }
+        this.timers.destroy();
+
         if (this._dbusSignalId) {
             Gio.DBus.session.signal_unsubscribe(this._dbusSignalId);
             this._dbusSignalId = 0;
         }
 
-        this._traySignals.forEach(id => {
-            Main.messageTray.disconnect(id);
-        });
-        this._traySignals = [];
+        Main.messageTray.disconnectObject(this);
         this._appBadgeCounts.clear();
         this.dockUI = null;
     }

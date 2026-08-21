@@ -23,6 +23,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import PeekManager from '../../core/PeekManager.js';
 import { stopDragLoop } from './MagnifierDragLoop.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
 import { getDockButtons, getFixedSlots, easeOutCirc } from './MagnifierMath.js';
 import { createTooltipActor, populateTooltipContent } from './MagnifierTooltipRenderer.js';
@@ -33,13 +34,12 @@ const FLIP_DURATION = 300;
 const TOOLTIP_DELAY_MS = 600;
 
 function isActorAlive(actor) {
-    if (!actor || actor.__destroyed) return false;
-    if (actor.is_destroyed && actor.is_destroyed()) return false;
+    if (!actor) return false;
     return actor.visible !== undefined;
 }
 
 export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now = null) {
-    if (!dockActor || dockActor._isDestroyed || dockActor._isHidden || !dockActor.visible || dockActor._suppressZoom) {
+    if (!dockActor || dockActor._isHidden || !dockActor.visible || dockActor._suppressZoom) {
         hideTooltip(dockActor);
         return;
     }
@@ -360,13 +360,20 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 dockActor._tooltipHoveredIndex = closestIndex;
                 dockActor._magTooltipAppId = null;
 
-                dockActor._tooltipDelayId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, TOOLTIP_DELAY_MS, () => {
+                if (dockActor._tooltipDelayId && dockActor._magTimers) {
+                    dockActor._magTimers.remove(dockActor._tooltipDelayId);
+                }
+                
+                const showTooltip = () => {
                     dockActor._tooltipDelayId = null;
                     dockActor._tooltipReady = true;
                     const [pcx, pcy] = global.get_pointer();
                     applyRealtimeFrame(dockActor, pcx, pcy, isVertical, settings, Date.now());
                     return GLib.SOURCE_REMOVE;
-                });
+                };
+
+                if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+                dockActor._tooltipDelayId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, TOOLTIP_DELAY_MS, showTooltip);
             }
 
             if (!dockActor._magTooltip) {
@@ -375,22 +382,23 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 dockActor._magTooltipBg = tooltipBg;
                 dockActor._magTooltipBox = tooltipBox;
 
-                dockActor._magTooltip.connect('enter-event', () => {
-                    if (dockActor._leaveCheckId) {
-                        GLib.source_remove(dockActor._leaveCheckId);
+                dockActor._magTooltip.connectObject('enter-event', () => {
+                    if (dockActor._leaveCheckId && dockActor._magTimers) {
+                        dockActor._magTimers.remove(dockActor._leaveCheckId);
                         dockActor._leaveCheckId = null;
                     }
                     return Clutter.EVENT_PROPAGATE;
-                });
+                }, dockActor._magTooltip);
 
-                dockActor._magTooltip.connect('leave-event', () => {
+                dockActor._magTooltip.connectObject('leave-event', () => {
                     _checkPointerLeave(dockActor, settings);
                     return Clutter.EVENT_PROPAGATE;
-                });
+                }, dockActor._magTooltip);
 
                 Main.layoutManager.uiGroup.add_child(dockActor._magTooltip);
+                
                 if (!dockActor._magDestroyHandlerId) {
-                    dockActor._magDestroyHandlerId = dockActor.connect('destroy', () => {
+                    dockActor._magDestroyHandlerId = dockActor.connectObject('destroy', () => {
                         if (dockActor._magTooltip) {
                             dockActor._magTooltip.destroy();
                             dockActor._magTooltip = null;
@@ -400,7 +408,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                             dockActor._magPeekManager = null;
                         }
                         dockActor._magDestroyHandlerId = null;
-                    });
+                    }, dockActor);
                 }
             }
 
@@ -522,16 +530,22 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 }
 
 export function resetMagnification(dockActor, suppressForMs = 0) {
-    if (!dockActor || dockActor.__destroyed || (dockActor.is_destroyed && dockActor.is_destroyed())) return;
+    if (!isActorAlive(dockActor)) return;
 
     if (suppressForMs > 0) {
         dockActor._suppressZoom = true;
-        if (dockActor._suppressTimeoutId) GLib.source_remove(dockActor._suppressTimeoutId);
-        dockActor._suppressTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, suppressForMs, () => {
+        if (dockActor._suppressTimeoutId && dockActor._magTimers) {
+            dockActor._magTimers.remove(dockActor._suppressTimeoutId);
+        }
+        
+        const removeSuppress = () => {
             dockActor._suppressZoom = false;
             dockActor._suppressTimeoutId = null;
             return GLib.SOURCE_REMOVE;
-        });
+        };
+
+        if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+        dockActor._suppressTimeoutId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, suppressForMs, removeSuppress);
     }
 
     stopDragLoop(dockActor);
@@ -539,8 +553,8 @@ export function resetMagnification(dockActor, suppressForMs = 0) {
     dockActor._fixedSlots = null;
     hideTooltip(dockActor);
 
-    if (dockActor._postClickTimerId) {
-        GLib.source_remove(dockActor._postClickTimerId);
+    if (dockActor._postClickTimerId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._postClickTimerId);
         dockActor._postClickTimerId = null;
     }
 
@@ -600,9 +614,12 @@ export function resetMagnification(dockActor, suppressForMs = 0) {
 }
 
 function _checkPointerLeave(dockActor, settings) {
-    if (dockActor._leaveCheckId) return;
-    dockActor._leaveCheckId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 30, () => {
-        if (dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging || dockActor._launchingApp) {
+    if (dockActor._leaveCheckId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._leaveCheckId);
+    }
+
+    const checkLeave = () => {
+        if (isContextMenuOpen() || dockActor._isDragging || dockActor._launchingApp) {
             dockActor._leaveCheckId = null;
             return GLib.SOURCE_REMOVE;
         }
@@ -654,7 +671,10 @@ function _checkPointerLeave(dockActor, settings) {
             return GLib.SOURCE_REMOVE;
         }
         return GLib.SOURCE_CONTINUE;
-    });
+    };
+
+    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+    dockActor._leaveCheckId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 30, checkLeave);
 }
 
 export function setupMagnification(dockActor, settings, dockPositionGetter) {
@@ -680,28 +700,24 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         else if (dockPos === 'RIGHT') dockActor.bgActor.set_pivot_point(1.0, 0.5);
     }
 
-    if (dockActor.connect) {
-        dockActor._magEnterId = dockActor.connect('enter-event', () => {
-            if (!isActorAlive(dockActor)) return;
-            if (dockActor._leaveCheckId) {
-                GLib.source_remove(dockActor._leaveCheckId);
-                dockActor._leaveCheckId = null;
-            }
-            if (!dockActor._isDragging) {
-                dockActor._fixedSlots = null;
-            }
-        });
-    }
+    dockActor._magEnterId = dockActor.connectObject('enter-event', () => {
+        if (!isActorAlive(dockActor)) return;
+        if (dockActor._leaveCheckId && dockActor._magTimers) {
+            dockActor._magTimers.remove(dockActor._leaveCheckId);
+            dockActor._leaveCheckId = null;
+        }
+        if (!dockActor._isDragging) {
+            dockActor._fixedSlots = null;
+        }
+    }, dockActor);
 
-    if (dockActor.connect) {
-        dockActor._magLeaveId = dockActor.connect('leave-event', () => {
-            if (!isActorAlive(dockActor) || dockActor._isDestroyed || isContextMenuOpen() || dockActor._isDragging) return;
-            _checkPointerLeave(dockActor, settings);
-        });
-    }
+    dockActor._magLeaveId = dockActor.connectObject('leave-event', () => {
+        if (!isActorAlive(dockActor) || isContextMenuOpen() || dockActor._isDragging) return;
+        _checkPointerLeave(dockActor, settings);
+    }, dockActor);
 
-    dockActor._stageClickId = global.stage.connect('captured-event', (_stage, event) => {
-        if (!dockActor || dockActor._isDestroyed || dockActor._isHidden) return Clutter.EVENT_PROPAGATE;
+    dockActor._stageClickId = global.stage.connectObject('captured-event', (_stage, event) => {
+        if (!isActorAlive(dockActor) || dockActor._isHidden) return Clutter.EVENT_PROPAGATE;
         const evType = event.type();
 
         if (evType === Clutter.EventType.MOTION) {
@@ -870,12 +886,18 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             targetBtn._activateCallback(buttonNum, event.get_state());
             if (buttonNum === 1) resetMagnification(dockActor, 800);
 
-            if (dockActor._postClickTimerId) GLib.source_remove(dockActor._postClickTimerId);
-            dockActor._postClickTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+            if (dockActor._postClickTimerId && dockActor._magTimers) {
+                dockActor._magTimers.remove(dockActor._postClickTimerId);
+            }
+            
+            const postClick = () => {
                 dockActor._postClickTimerId = null;
                 if (isAppGridOpen()) resetMagnification(dockActor);
                 return GLib.SOURCE_REMOVE;
-            });
+            };
+
+            if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+            dockActor._postClickTimerId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 150, postClick);
             return true;
         };
 
@@ -1017,35 +1039,39 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
         }
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, dockActor);
 }
 
 export function teardownMagnification(dockActor, skipReset = false) {
     if (!dockActor) return;
-    if (!isActorAlive(dockActor)) return;
+
+    if (dockActor._leaveCheckId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._leaveCheckId);
+        dockActor._leaveCheckId = null;
+    }
+
+    if (dockActor._postClickTimerId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._postClickTimerId);
+        dockActor._postClickTimerId = null;
+    }
+    
+    if (dockActor._magTimers) {
+        dockActor._magTimers.destroy();
+        dockActor._magTimers = null;
+    }
 
     stopDragLoop(dockActor);
 
     dockActor._lastMagMotionFrameTs = 0;
 
-    if (dockActor._leaveCheckId) {
-        GLib.source_remove(dockActor._leaveCheckId);
-        dockActor._leaveCheckId = null;
-    }
-
-    if (dockActor._postClickTimerId) {
-        GLib.source_remove(dockActor._postClickTimerId);
-        dockActor._postClickTimerId = null;
-    }
-
     if (isActorAlive(dockActor)) {
-        if (dockActor._magMotionId && dockActor.disconnect) dockActor.disconnect(dockActor._magMotionId);
+        if (dockActor._magMotionId) dockActor.disconnectObject(dockActor._magMotionId);
         dockActor._magMotionId = null;
 
-        if (dockActor._magLeaveId && dockActor.disconnect) dockActor.disconnect(dockActor._magLeaveId);
+        if (dockActor._magLeaveId) dockActor.disconnectObject(dockActor._magLeaveId);
         dockActor._magLeaveId = null;
 
-        if (dockActor._magEnterId && dockActor.disconnect) dockActor.disconnect(dockActor._magEnterId);
+        if (dockActor._magEnterId) dockActor.disconnectObject(dockActor._magEnterId);
         dockActor._magEnterId = null;
     } else {
         dockActor._magMotionId = null;
@@ -1054,7 +1080,7 @@ export function teardownMagnification(dockActor, skipReset = false) {
     }
 
     if (dockActor._stageClickId) {
-        global.stage.disconnect(dockActor._stageClickId);
+        global.stage.disconnectObject(dockActor);
         dockActor._stageClickId = null;
     }
 
@@ -1062,7 +1088,7 @@ export function teardownMagnification(dockActor, skipReset = false) {
     dockActor._tooltipHoveredIndex = -1;
 
     if (isActorAlive(dockActor)) {
-        if (dockActor._magDestroyHandlerId && dockActor.disconnect) dockActor.disconnect(dockActor._magDestroyHandlerId);
+        if (dockActor._magDestroyHandlerId) dockActor.disconnectObject(dockActor);
     }
     dockActor._magDestroyHandlerId = null;
 

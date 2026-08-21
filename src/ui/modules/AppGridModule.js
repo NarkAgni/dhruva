@@ -154,7 +154,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     gridModule._hasRunningIndicator = false;
     gridModule.set_style('background-color: transparent; border-radius: 0px; transition-duration: 150ms;');
 
-    gridModule.connect('notify::hover', () => {
+    gridModule.connectObject('notify::hover', () => {
         if (settings.get_boolean('hover-zoom')) return;
 
         const currentDim = gridModule.hover ? expandedDim : collapsedDim;
@@ -170,7 +170,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         } else {
             hoverBg.set_style('background-color: transparent; border-radius: 0px; transition-duration: 150ms;');
         }
-    });
+    }, gridModule);
 
     if (hoverZoom) applyIconFilter(gridModule);
 
@@ -198,12 +198,12 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         }
     };
 
-    gridModule.connect('button-press-event', (_actor, _event) => {
+    gridModule.connectObject('button-press-event', (_actor, _event) => {
         if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, gridModule);
 
-    gridModule.connect('button-release-event', (_actor, event) => {
+    gridModule.connectObject('button-release-event', (_actor, event) => {
         if (dockUI._activeContextMenu) {
             dockUI._activeContextMenu.hide();
             return Clutter.EVENT_STOP;
@@ -217,7 +217,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
             return Clutter.EVENT_STOP;
         }
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, gridModule);
 
     gridModule._delegate = {
         app: {

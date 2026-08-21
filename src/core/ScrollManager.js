@@ -23,7 +23,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export default class ScrollManager {
     static setupDockScroll(dockActor, settings) {
-        dockActor.connect('scroll-event', (actor, event) => {
+        dockActor.connectObject('scroll-event', (actor, event) => {
             actor._lastIconClickTime = Date.now();
 
             if (!settings.get_boolean('scroll-action-dock')) return Clutter.EVENT_PROPAGATE;
@@ -44,11 +44,11 @@ export default class ScrollManager {
                 return Clutter.EVENT_STOP;
             }
             return Clutter.EVENT_PROPAGATE;
-        });
+        }, dockActor);
     }
 
     static setupAppScroll(appButton, getWindowsFn, settings) {
-        appButton.connect('scroll-event', (actor, event) => {
+        appButton.connectObject('scroll-event', (actor, event) => {
             const parent = actor.get_parent();
             const mainDockActor = parent ? parent.get_parent() : null;
             if (mainDockActor) mainDockActor._lastIconClickTime = Date.now();
@@ -84,6 +84,6 @@ export default class ScrollManager {
                 Main.activateWindow(target);
             }
             return Clutter.EVENT_STOP;
-        });
+        }, appButton);
     }
 }

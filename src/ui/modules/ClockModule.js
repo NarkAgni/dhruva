@@ -23,6 +23,8 @@ import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+
 
 export function buildClockModule(dockUI, _iconSize) {
     const settings = dockUI.settings;
@@ -54,7 +56,7 @@ export function buildClockModule(dockUI, _iconSize) {
     };
     updateDimensions();
 
-    clockLabel.connect('repaint', (area) => {
+    clockLabel.connectObject('repaint', (area) => {
         const cr = area.get_context();
         const [width, height] = area.get_surface_size();
         const [textWidth, textHeight] = layout.get_pixel_size();
@@ -71,7 +73,7 @@ export function buildClockModule(dockUI, _iconSize) {
         PangoCairo.show_layout(cr, layout);
 
         cr.$dispose();
-    });
+    }, clockLabel);
 
     const clockBtn = new St.Bin({
         child: clockLabel,
@@ -100,6 +102,9 @@ export function buildClockModule(dockUI, _iconSize) {
         }
     };
 
+    clockBtn.timers = new TimeoutTracker();
+    clockBtn._timeoutId = null;
+
     const updateClock = () => {
         const is24hClock = settings.get_boolean('use-24h-clock');
         const fmt = is24hClock ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
@@ -110,10 +115,13 @@ export function buildClockModule(dockUI, _iconSize) {
         return GLib.SOURCE_CONTINUE;
     };
     updateClock();
-    const timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, updateClock);
-    clockBtn.connect('destroy', () => {
-        if (timeoutId) GLib.source_remove(timeoutId);
-    });
+    
+    clockBtn.timers.remove(clockBtn._timeoutId);
+    clockBtn._timeoutId = clockBtn.timers.addTimeout(GLib.PRIORITY_DEFAULT, 1000, updateClock);
+    
+    clockBtn.connectObject('destroy', () => {
+        clockBtn.timers.destroy();
+    }, clockBtn);
 
     return clockBtn;
 }

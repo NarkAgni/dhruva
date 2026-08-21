@@ -20,7 +20,7 @@
 import Gtk from 'gi://Gtk';
 
 
-export function makeResetBtn(prefs, settings) {
+export function makeResetBtn(settings) {
     return (key) => {
         const box = new Gtk.Box({
             orientation: Gtk.Orientation.HORIZONTAL,
@@ -49,7 +49,7 @@ export function makeResetBtn(prefs, settings) {
         };
 
         btn.connect('clicked', () => settings.reset(key));
-        prefs._settingsSignals.push(settings.connect(`changed::${key}`, update));
+        settings.connect(`changed::${key}`, update);
         update();
 
         box.append(btn);
@@ -57,7 +57,7 @@ export function makeResetBtn(prefs, settings) {
     };
 }
 
-export function makeGroupResetBtn(prefs, settings) {
+export function makeGroupResetBtn(settings) {
     return (keys) => {
         const box = new Gtk.Box({
             orientation: Gtk.Orientation.HORIZONTAL,
@@ -98,7 +98,7 @@ export function makeGroupResetBtn(prefs, settings) {
 
         keys.forEach(k => {
             if (settings.settings_schema.has_key(k)) {
-                prefs._settingsSignals.push(settings.connect(`changed::${k}`, update));
+                settings.connect(`changed::${k}`, update);
             }
         });
         update();

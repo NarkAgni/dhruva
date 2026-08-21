@@ -75,7 +75,7 @@ export function applyThemeStyle(contextMenu, panel) {
     if (contextMenu.bgDrawingArea._repaintConnected) return;
     contextMenu.bgDrawingArea._repaintConnected = true;
 
-    contextMenu.bgDrawingArea.connect('repaint', (area) => {
+    contextMenu.bgDrawingArea.connectObject('repaint', (area) => {
         if (!contextMenu._dockPos) return;
 
         const cr = area.get_context();
@@ -114,5 +114,5 @@ export function applyThemeStyle(contextMenu, panel) {
         }
 
         cr.$dispose();
-    });
+    }, contextMenu);
 }

@@ -39,13 +39,13 @@ export default class AppManager {
             this.loadPinnedAppsAsync();
         }
 
-        this._settingSignal = this.settings.connect('changed::independent-dock', () => {
+        this.settings.connectObject('changed::independent-dock', () => {
             if (this.isIndependent()) {
                 this.loadPinnedAppsAsync();
             } else if (this._onStateChangedCallback) {
                 this._onStateChangedCallback();
             }
-        });
+        }, this);
     }
 
     isIndependent() {
@@ -108,9 +108,7 @@ export default class AppManager {
         const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
         
         file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
-            try {
-                obj.replace_contents_finish(res);
-            } catch (e) { }
+            obj.replace_contents_finish(res);
         });
     }
 
@@ -219,9 +217,8 @@ export default class AppManager {
     }
 
     destroy() {
-        if (this._settingSignal) {
-            this.settings.disconnect(this._settingSignal);
-            this._settingSignal = null;
+        if (this.settings) {
+            this.settings.disconnectObject(this);
         }
         this.pinnedApps = [];
         this.appSystem = null;

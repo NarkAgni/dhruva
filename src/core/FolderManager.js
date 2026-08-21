@@ -32,15 +32,15 @@ export default class FolderManager {
         this.folders = [];
         this._loadFoldersAsync();
 
-        this._settingsSignal = this.settings.connect('changed::app-folders', () => {
+        this.settings.connectObject('changed::app-folders', () => {
             if (!this.isIndependent()) {
                 this._loadFoldersAsync();
             }
-        });
+        }, this);
 
-        this._indepSignal = this.settings.connect('changed::independent-dock', () => {
+        this.settings.connectObject('changed::independent-dock', () => {
             this._loadFoldersAsync();
-        });
+        }, this);
     }
 
     isIndependent() {
@@ -94,9 +94,7 @@ export default class FolderManager {
             const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
             
             file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
-                try {
-                    obj.replace_contents_finish(res);
-                } catch (e) { }
+                obj.replace_contents_finish(res);
             });
         } else {
             this.settings.set_string('app-folders', JSON.stringify(this.folders));
@@ -161,13 +159,8 @@ export default class FolderManager {
     }
 
     destroy() {
-        if (this._settingsSignal) {
-            this.settings.disconnect(this._settingsSignal);
-            this._settingsSignal = null;
-        }
-        if (this._indepSignal) {
-            this.settings.disconnect(this._indepSignal);
-            this._indepSignal = null;
+        if (this.settings) {
+            this.settings.disconnectObject(this);
         }
     }
 }

@@ -19,13 +19,36 @@
 
 import St from 'gi://St';
 import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { hexToRgba } from '../../core/Utils.js';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { fadeMinimize, fadeRestore } from '../effects/WindowEffects.js';
 
 
 export function toggleDesktop(dockUI) {
+    if (!dockUI._desktopTimers) {
+        dockUI._desktopTimers = new TimeoutTracker();
+        dockUI._desktopTimeoutKeys = new Map();
+    }
+    
+    for (const id of dockUI._desktopTimeoutKeys.values()) {
+        dockUI._desktopTimers.remove(id);
+    }
+    dockUI._desktopTimeoutKeys.clear();
+
+    const addTrackedTimeout = (key, delay, callback) => {
+        if (dockUI._desktopTimeoutKeys.has(key)) {
+            dockUI._desktopTimers.remove(dockUI._desktopTimeoutKeys.get(key));
+        }
+        const id = dockUI._desktopTimers.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
+            dockUI._desktopTimeoutKeys.delete(key);
+            callback();
+            return GLib.SOURCE_REMOVE;
+        });
+        dockUI._desktopTimeoutKeys.set(key, id);
+    };
+
     const workspace = global.workspace_manager.get_active_workspace();
     const windows = workspace.list_windows().filter(w =>
         w.get_window_type() === 0 && !w.is_skip_taskbar() && !w.is_always_on_all_workspaces()
@@ -34,26 +57,23 @@ export function toggleDesktop(dockUI) {
 
     if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
         dockUI._hiddenWindowsByDesktopBtn.forEach((w, index) => {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
-                if (w && w.minimized && w.unminimize) fadeRestore(w);
-                return GLib.SOURCE_REMOVE;
+            addTrackedTimeout(`restore-${index}`, index * 40, () => {
+                if (w.minimized && w.unminimize) fadeRestore(w);
             });
         });
 
         const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
         if (topWin) {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, dockUI._hiddenWindowsByDesktopBtn.length * 40, () => {
+            addTrackedTimeout('activate-top', dockUI._hiddenWindowsByDesktopBtn.length * 40, () => {
                 Main.activateWindow(topWin);
-                return GLib.SOURCE_REMOVE;
             });
         }
         dockUI._hiddenWindowsByDesktopBtn = [];
     } else {
         dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
         visibleWindows.forEach((w, index) => {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, index * 40, () => {
+            addTrackedTimeout(`minimize-${index}`, index * 40, () => {
                 if (!w.minimized && w.minimize) fadeMinimize(w);
-                return GLib.SOURCE_REMOVE;
             });
         });
     }
@@ -91,21 +111,33 @@ export function buildDesktopButtonModule(dockUI) {
 
     btn.set_style(defaultStyle);
 
-    btn.connect('notify::hover', () => {
+    btn.connectObject('notify::hover', () => {
         btn.set_style(btn.hover ? hoverStyle : defaultStyle);
-    });
+    }, btn);
 
-    btn.connect('clicked', () => {
+    btn.timers = new TimeoutTracker();
+
+    btn.connectObject('clicked', () => {
         btn.set_style(activeStyle);
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
-            if (btn && btn.set_style) {
-                btn.set_style(btn.hover ? hoverStyle : defaultStyle);
-            }
+        
+        btn.timers.remove(btn._clickTimeoutId);
+        btn._clickTimeoutId = btn.timers.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
+            btn._clickTimeoutId = null;
+            btn.set_style(btn.hover ? hoverStyle : defaultStyle);
             return GLib.SOURCE_REMOVE;
         });
         
         toggleDesktop(dockUI);
-    });
+    }, btn);
+
+    btn.connectObject('destroy', () => {
+        btn.timers.destroy();
+
+        if (dockUI._desktopTimers) {
+            dockUI._desktopTimers.destroy();
+            dockUI._desktopTimeoutKeys.clear();
+        }
+    }, btn);
 
     return btn;
 }

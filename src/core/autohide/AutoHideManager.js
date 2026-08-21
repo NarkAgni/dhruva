@@ -23,6 +23,7 @@ import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { TimeoutTracker } from '../TimeoutTracker.js';
 import { setMagnifierPauseState } from '../../ui/magnifier/MagnifierState.js';
 import { forceShow, show, hide, animateShow, animateHide } from './AutoHideAnimations.js';
 import { isValidWindow, shouldStayVisibleForTransientUI, recalculateOverlap, trackFocusedWindow } from './WindowOverlapDetection.js';
@@ -35,25 +36,20 @@ export default class AutoHideManager {
     constructor(dockUI, settings) {
         this.dockUI = dockUI;
         this.settings = settings;
-
         this.isHidden = false;
         this._isAnimating = false;
-
-        this.signals = [];
-
+        this.timers = new TimeoutTracker();
         this._hideTimerId = null;
         this._showTimerId = null;
         this._updateTimerId = null;
+        this._secondaryUpdateId = null;
         this._edgeRevealTimerId = null;
         this._hoverPollId = null;
         this._edgePointerPollId = null;
         this._pointerUpdate = true;
         this._nextUpdateAt = 0;
-
         this._pauseReasons = new Set();
-
         this._trackedWin = null;
-        this._trackedWinSignals = [];
 
         this.edgeTrigger = new St.Widget({
             name: 'DhruvaEdgeTrigger',
@@ -125,86 +121,104 @@ export default class AutoHideManager {
     }
 
     _setupListeners() {
-        this._addSignal(global.display, 'notify::focus-window', () => {
-            this._trackFocusedWindow();
-            this._scheduleUpdate();
-        });
+        global.display.connectObject(
+            'notify::focus-window', () => {
+                this._trackFocusedWindow();
+                this._queueOverlapCheck();
+            },
+            'restacked', () => this._queueOverlapCheck(),
+            'grab-op-begin', (_d, _w, op) => {
+                if (op === Meta.GrabOp.MOVING || op === Meta.GrabOp.RESIZING_UNKNOWN) this._queueOverlapCheck();
+            },
+            'grab-op-end', () => this._queueOverlapCheck(),
+            this
+        );
+
+        global.window_manager.connectObject(
+            'destroy', () => this._queueOverlapCheck(),
+            'minimize', () => this._queueOverlapCheck(),
+            'unminimize', () => this._queueOverlapCheck(),
+            'map', () => this._queueOverlapCheck(),
+            this
+        );
 
         this._trackFocusedWindow();
-        this._addSignal(global.display, 'restacked', () => this._scheduleUpdate());
-        this._addSignal(global.workspace_manager, 'active-workspace-changed', () => this._scheduleUpdate());
+        global.workspace_manager.connectObject('active-workspace-changed', () => this._queueOverlapCheck(), this);
 
-        this._addSignal(global.display, 'grab-op-begin', (_d, _w, op) => {
-            if (op === Meta.GrabOp.MOVING || op === Meta.GrabOp.RESIZING_UNKNOWN) this._scheduleUpdate();
-        });
-        this._addSignal(global.display, 'grab-op-end', () => this._scheduleUpdate());
+        if (this.dockUI && this.dockUI.actor) {
+            this.dockUI.actor.connectObject(
+                'enter-event', () => {
+                    if (this._isFullscreenActive()) return Clutter.EVENT_PROPAGATE;
+                    this._pointerUpdate = true;
+                    this._show(false, false);
+                    return Clutter.EVENT_PROPAGATE;
+                },
+                'leave-event', () => {
+                    this._pointerUpdate = true;
+                    this._queueOverlapCheck();
+                    return Clutter.EVENT_PROPAGATE;
+                },
+                this
+            );
+        }
 
-        this._addSignal(this.dockUI.actor, 'enter-event', () => {
-            if (this._isFullscreenActive()) return Clutter.EVENT_PROPAGATE;
-            this._pointerUpdate = true;
-            this._show(false, false);
-            return Clutter.EVENT_PROPAGATE;
-        });
+        this.edgeTrigger.connectObject(
+            'enter-event', () => {
+                if (!this.isHidden || this._isFullscreenActive()) return Clutter.EVENT_PROPAGATE;
 
-        this._addSignal(this.dockUI.actor, 'leave-event', () => {
-            this._pointerUpdate = true;
-            this._scheduleUpdate();
-            return Clutter.EVENT_PROPAGATE;
-        });
+                let pressureDelay = 0;
+                const delaySetting = this.settings.get_int('edge-dwell-delay');
+                if (delaySetting >= 0) pressureDelay = delaySetting;
 
-        this._addSignal(this.edgeTrigger, 'enter-event', () => {
-            if (!this.isHidden || this._isFullscreenActive()) return Clutter.EVENT_PROPAGATE;
-
-            let pressureDelay = 0;
-            const delaySetting = this.settings.get_int('edge-dwell-delay');
-            if (delaySetting >= 0) pressureDelay = delaySetting;
-
-            if (this._edgeRevealTimerId) {
-                GLib.source_remove(this._edgeRevealTimerId);
-                this._edgeRevealTimerId = null;
-            }
-
-            if (pressureDelay === 0) {
-                this._pointerUpdate = true;
-                this._show(true, false);
-            } else {
-                this._edgeRevealTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
+                if (this._edgeRevealTimerId) {
+                    this.timers.remove(this._edgeRevealTimerId);
                     this._edgeRevealTimerId = null;
-                    if (!this.edgeTrigger) {
+                }
+
+                if (pressureDelay === 0) {
+                    this._pointerUpdate = true;
+                    this._show(true, false);
+                } else {
+                    this._edgeRevealTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, pressureDelay, () => {
+                        this._edgeRevealTimerId = null;
+                        if (!this.edgeTrigger) {
+                            return GLib.SOURCE_REMOVE;
+                        }
+
+                        if (this._pointerInEdgeTriggerZone(2) && !this._isFullscreenActive()) {
+                            this._pointerUpdate = true;
+                            this._show(true, false);
+                        }
                         return GLib.SOURCE_REMOVE;
-                    }
+                    });
+                }
 
-                    if (this._pointerInEdgeTriggerZone(2) && !this._isFullscreenActive()) {
-                        this._pointerUpdate = true;
-                        this._show(true, false);
-                    }
-                    return GLib.SOURCE_REMOVE;
-                });
-            }
+                return Clutter.EVENT_PROPAGATE;
+            },
+            'leave-event', () => {
+                if (this._edgeRevealTimerId) {
+                    this.timers.remove(this._edgeRevealTimerId);
+                    this._edgeRevealTimerId = null;
+                }
+                this._pointerUpdate = true;
+                this._queueOverlapCheck();
+                return Clutter.EVENT_PROPAGATE;
+            },
+            this
+        );
 
-            return Clutter.EVENT_PROPAGATE;
-        });
+        this.settings.connectObject(
+            'changed::hide-mode', () => {
+                this._updateEdgeTrigger();
+                this._cancelTimers();
+                this._queueOverlapCheck();
+            },
+            'changed::dock-position', () => this._updateEdgeTrigger(),
+            'changed::dock-margin', () => this._updateEdgeTrigger(),
+            this
+        );
 
-        this._addSignal(this.edgeTrigger, 'leave-event', () => {
-            if (this._edgeRevealTimerId) {
-                GLib.source_remove(this._edgeRevealTimerId);
-                this._edgeRevealTimerId = null;
-            }
-            this._pointerUpdate = true;
-            this._scheduleUpdate();
-            return Clutter.EVENT_PROPAGATE;
-        });
-
-        this._addSignal(this.settings, 'changed::hide-mode', () => {
-            this._updateEdgeTrigger();
-            this._cancelTimers();
-            this._scheduleUpdate(0);
-        });
-
-        this._addSignal(this.settings, 'changed::dock-position', () => this._updateEdgeTrigger());
-        this._addSignal(this.settings, 'changed::dock-margin', () => this._updateEdgeTrigger());
-
-        this._scheduleUpdate(100);
+        this._queueOverlapCheck();
     }
 
     setPauseState(reason, isPaused) {
@@ -214,17 +228,11 @@ export default class AutoHideManager {
         } else {
             this._pauseReasons.delete(reason);
         }
-        this._scheduleUpdate(0);
+        this._queueOverlapCheck();
     }
 
     isPaused() {
         return this._pauseReasons.size > 0;
-    }
-
-    _addSignal(obj, event, cb) {
-        if (!obj) return;
-        const id = obj.connect(event, cb);
-        this.signals.push({ obj, id });
     }
 
     _setAutoHideMagnifierPaused(isPaused) {
@@ -299,13 +307,15 @@ export default class AutoHideManager {
         if (this._updateTimerId && this._nextUpdateAt && this._nextUpdateAt <= targetAt) {
             return;
         }
+        
         if (this._updateTimerId) {
-            GLib.source_remove(this._updateTimerId);
+            this.timers.remove(this._updateTimerId);
             this._updateTimerId = null;
         }
+        
         this._nextUpdateAt = targetAt;
 
-        this._updateTimerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
+        this._updateTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
             this._updateTimerId = null;
             this._nextUpdateAt = 0;
             if (!this.dockUI || !this.dockUI.actor) {
@@ -316,41 +326,59 @@ export default class AutoHideManager {
         });
     }
 
+    _queueOverlapCheck() {
+        this._scheduleUpdate(10);
+        
+        if (this._secondaryUpdateId) {
+            this.timers.remove(this._secondaryUpdateId);
+            this._secondaryUpdateId = null;
+        }
+
+        if (this._fallbackUpdateId) {
+            this.timers.remove(this._fallbackUpdateId);
+            this._fallbackUpdateId = null;
+        }
+
+        this._secondaryUpdateId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 450, () => {
+            this._secondaryUpdateId = null;
+            if (this.dockUI && this.dockUI.actor) {
+                this._recalculateOverlap();
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+
+        this._fallbackUpdateId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 850, () => {
+            this._fallbackUpdateId = null;
+            if (this.dockUI && this.dockUI.actor) {
+                this._recalculateOverlap();
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     _cancelTimers() {
-        if (this._hideTimerId) {
-            GLib.source_remove(this._hideTimerId);
-            this._hideTimerId = null;
-        }
-        if (this._showTimerId) {
-            GLib.source_remove(this._showTimerId);
-            this._showTimerId = null;
-        }
-        if (this._edgeRevealTimerId) {
-            GLib.source_remove(this._edgeRevealTimerId);
-            this._edgeRevealTimerId = null;
-        }
+        if (this._hideTimerId) { this.timers.remove(this._hideTimerId); this._hideTimerId = null; }
+        if (this._showTimerId) { this.timers.remove(this._showTimerId); this._showTimerId = null; }
+        if (this._edgeRevealTimerId) { this.timers.remove(this._edgeRevealTimerId); this._edgeRevealTimerId = null; }
+        if (this._secondaryUpdateId) { this.timers.remove(this._secondaryUpdateId); this._secondaryUpdateId = null; }
+        if (this._fallbackUpdateId) { this.timers.remove(this._fallbackUpdateId); this._fallbackUpdateId = null; }
+
         this._stopEdgePointerPoll();
     }
 
     destroy() {
         this._setAutoHideMagnifierPaused(false);
         this._cancelTimers();
-
-        if (this._updateTimerId) {
-            GLib.source_remove(this._updateTimerId);
-            this._updateTimerId = null;
-        }
+        this.timers.destroy();
         this._nextUpdateAt = 0;
 
-        if (this._hoverPollId) {
-            GLib.source_remove(this._hoverPollId);
-            this._hoverPollId = null;
-        }
-
-        for (const s of this.signals) {
-            if (s.id && s.obj) s.obj.disconnect(s.id);
-        }
-        this.signals = [];
+        global.window_manager.disconnectObject(this);
+        global.display.disconnectObject(this);
+        global.workspace_manager.disconnectObject(this);
+        if (this.settings) this.settings.disconnectObject(this);
+        if (this.dockUI && this.dockUI.actor) this.dockUI.actor.disconnectObject(this);
+        if (this.edgeTrigger) this.edgeTrigger.disconnectObject(this);
+        if (this._trackedWin) this._trackedWin.disconnectObject(this);
 
         if (this.edgeTrigger) {
             Main.layoutManager.removeChrome(this.edgeTrigger);
@@ -358,14 +386,7 @@ export default class AutoHideManager {
             this.edgeTrigger = null;
         }
 
-        if (this._trackedWin && this._trackedWinSignals) {
-            this._trackedWinSignals.forEach(id => {
-                this._trackedWin.disconnect(id);
-            });
-            this._trackedWinSignals = [];
-            this._trackedWin = null;
-        }
-
+        this._trackedWin = null;
         this.dockUI = null;
         this.settings = null;
     }

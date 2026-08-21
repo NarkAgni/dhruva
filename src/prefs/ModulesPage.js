@@ -42,17 +42,12 @@ export function buildModulesPage(prefs, window, settings) {
     addSwitchRow(modGroup, settings, 'show-trash', 'Recycle Bin (Trash)', 'Show a shortcut to the trash folder', 'user-trash-symbolic', null);
     addSwitchRow(modGroup, settings, 'show-desktop-button', 'Show Desktop Button', 'Quickly minimize all windows', 'computer-symbolic', null);
     addSwitchRow(modGroup, settings, 'show-grid-button', 'Show Applications Button', 'App drawer launcher', 'view-app-grid-symbolic', null);
-    const gridPosRow = addSegmentedRow(prefs, modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [{
-        name: 'Start',
-        value: 'START'
-    },
-    {
-        name: 'End',
-        value: 'END'
-    }
+    const gridPosRow = addSegmentedRow(modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [
+        { name: 'Start', value: 'START' },
+        { name: 'End', value: 'END' }
     ]);
 
-    const gridColorRow = addColorRow(prefs, modGroup, settings, 'grid-icon-color', 'App Grid Button Color', 'preferences-desktop-appearance-symbolic');
+    const gridColorRow = addColorRow(modGroup, settings, 'grid-icon-color', 'App Grid Button Color', 'preferences-desktop-appearance-symbolic');
 
     const oldGridIconRow = addSwitchRow(modGroup, settings, 'use-old-grid-icon', 'Use Old App Grid Icon', 'Show default dotted grid icon instead of Dhruva logo', 'view-app-grid-symbolic', null);
 
@@ -140,7 +135,7 @@ export function buildModulesPage(prefs, window, settings) {
         upper: 300,
         step_increment: 5
     },
-        makeResetBtn(prefs, settings)
+        makeResetBtn(settings)
     );
 
     const syncGridSettingsVisibility = () => {
@@ -160,10 +155,10 @@ export function buildModulesPage(prefs, window, settings) {
         resetIconBtn.set_sensitive(hasCustomIcon);
     };
 
-    prefs._settingsSignals.push(settings.connect('changed::custom-grid-icon', syncGridSettingsVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::show-grid-button', syncGridSettingsVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::use-old-grid-icon', syncGridSettingsVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::full-width', syncGridSettingsVisibility));
+    settings.connect('changed::custom-grid-icon', syncGridSettingsVisibility);
+    settings.connect('changed::show-grid-button', syncGridSettingsVisibility);
+    settings.connect('changed::use-old-grid-icon', syncGridSettingsVisibility);
+    settings.connect('changed::full-width', syncGridSettingsVisibility);
 
     syncGridSettingsVisibility();
 
@@ -171,8 +166,8 @@ export function buildModulesPage(prefs, window, settings) {
         const isFullWidth = settings.get_boolean('full-width');
         gridPosRow.set_visible(settings.get_boolean('show-grid-button') && !isFullWidth);
     };
-    prefs._settingsSignals.push(settings.connect('changed::show-grid-button', syncGridBtn));
-    prefs._settingsSignals.push(settings.connect('changed::full-width', syncGridBtn));
+    settings.connect('changed::show-grid-button', syncGridBtn);
+    settings.connect('changed::full-width', syncGridBtn);
     syncGridBtn();
 
     const defaultFolderGroup = new Adw.PreferencesGroup({
@@ -295,62 +290,21 @@ export function buildModulesPage(prefs, window, settings) {
                 title: 'Path (e.g. /home/user/Projects)'
             });
 
-            const iconOptions = [{
-                name: 'Default Folder',
-                value: 'folder-symbolic'
-            },
-            {
-                name: 'Downloads',
-                value: 'folder-download-symbolic'
-            },
-            {
-                name: 'Documents',
-                value: 'folder-documents-symbolic'
-            },
-            {
-                name: 'Pictures',
-                value: 'folder-pictures-symbolic'
-            },
-            {
-                name: 'Videos',
-                value: 'folder-videos-symbolic'
-            },
-            {
-                name: 'Music',
-                value: 'folder-music-symbolic'
-            },
-            {
-                name: 'Public Share',
-                value: 'folder-publicshare-symbolic'
-            },
-            {
-                name: 'Templates',
-                value: 'folder-templates-symbolic'
-            },
-            {
-                name: 'Desktop',
-                value: 'user-desktop-symbolic'
-            },
-            {
-                name: 'Favorite (Heart)',
-                value: 'emblem-favorite-symbolic'
-            },
-            {
-                name: 'Star / Bookmark',
-                value: 'bookmark-symbolic'
-            },
-            {
-                name: 'Games',
-                value: 'applications-games-symbolic'
-            },
-            {
-                name: 'Code / Projects',
-                value: 'applications-engineering-symbolic'
-            },
-            {
-                name: 'Cloud / Remote',
-                value: 'folder-remote-symbolic'
-            }
+            const iconOptions = [
+                { name: 'Default Folder', value: 'folder-symbolic' },
+                { name: 'Downloads', value: 'folder-download-symbolic' },
+                { name: 'Documents', value: 'folder-documents-symbolic' },
+                { name: 'Pictures', value: 'folder-pictures-symbolic' },
+                { name: 'Videos', value: 'folder-videos-symbolic' },
+                { name: 'Music', value: 'folder-music-symbolic' },
+                { name: 'Public Share', value: 'folder-publicshare-symbolic' },
+                { name: 'Templates', value: 'folder-templates-symbolic' },
+                { name: 'Desktop', value: 'user-desktop-symbolic' },
+                { name: 'Favorite (Heart)', value: 'emblem-favorite-symbolic' },
+                { name: 'Star / Bookmark', value: 'bookmark-symbolic' },
+                { name: 'Games', value: 'applications-games-symbolic' },
+                { name: 'Code / Projects', value: 'applications-engineering-symbolic' },
+                { name: 'Cloud / Remote', value: 'folder-remote-symbolic' }
             ];
 
             const iconModel = Gtk.StringList.new(iconOptions.map(opt => opt.name));
@@ -405,7 +359,7 @@ export function buildModulesPage(prefs, window, settings) {
         lower: 10,
         upper: 36,
         step_increment: 1
-    }, makeResetBtn(prefs, settings));
+    }, makeResetBtn(settings));
     
     let clockPosRow = null;
 
@@ -434,15 +388,15 @@ export function buildModulesPage(prefs, window, settings) {
             clockOptions.push({ name: 'Right Edge', value: 'RIGHT_END' });
         }
 
-        clockPosRow = addSegmentedRow(prefs, clockGroup, settings, 'clock-position', 'Clock Position', 'Separate from App Grid', 'format-justify-right-symbolic', clockOptions);
+        clockPosRow = addSegmentedRow(clockGroup, settings, 'clock-position', 'Clock Position', 'Separate from App Grid', 'format-justify-right-symbolic', clockOptions);
 
         clockPosRow.set_visible(showClock);
         clockSizeRow.set_visible(showClock);
         use24hRow.set_visible(showClock);
     };
 
-    prefs._settingsSignals.push(settings.connect('changed::show-clock', syncClockVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::full-width', syncClockVisibility)); 
+    settings.connect('changed::show-clock', syncClockVisibility);
+    settings.connect('changed::full-width', syncClockVisibility); 
     syncClockVisibility();
 
     const dangerGroup = new Adw.PreferencesGroup({

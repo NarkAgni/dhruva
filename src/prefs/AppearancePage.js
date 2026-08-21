@@ -36,57 +36,22 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     });
     page.add(colorsGroup);
 
-    const themeOptions = [{
-        name: 'Custom Color',
-        value: 'default'
-    },
-    {
-        name: 'Wallpaper Color',
-        value: 'chameleon'
-    },
-    {
-        name: 'Carbon',
-        value: 'carbon'
-    },
-    {
-        name: 'Nord',
-        value: 'nord'
-    },
-    {
-        name: 'Catppuccin Mocha',
-        value: 'catppuccin'
-    },
-    {
-        name: 'Gruvbox Dark',
-        value: 'gruvbox'
-    },
-    {
-        name: 'Ash Glass',
-        value: 'ash'
-    },
-    {
-        name: 'Dracula',
-        value: 'dracula'
-    },
-    {
-        name: 'Tokyo Night',
-        value: 'tokyo-night'
-    },
-    {
-        name: 'Aurora',
-        value: 'aurora'
-    },
-    {
-        name: 'Sunset',
-        value: 'sunset'
-    },
-    {
-        name: 'Slate Ocean',
-        value: 'slate-ocean'
-    },
+    const themeOptions = [
+        { name: 'Custom Color', value: 'default' },
+        { name: 'Wallpaper Color', value: 'chameleon' },
+        { name: 'Carbon', value: 'carbon' },
+        { name: 'Nord', value: 'nord' },
+        { name: 'Catppuccin Mocha', value: 'catppuccin' },
+        { name: 'Gruvbox Dark', value: 'gruvbox' },
+        { name: 'Ash Glass', value: 'ash' },
+        { name: 'Dracula', value: 'dracula' },
+        { name: 'Tokyo Night', value: 'tokyo-night' },
+        { name: 'Aurora', value: 'aurora' },
+        { name: 'Sunset', value: 'sunset' },
+        { name: 'Slate Ocean', value: 'slate-ocean' },
     ];
 
-    addComboRow(prefs, colorsGroup, settings, 'dock-theme', 'Dock Theme', 'Choose a preset theme or use custom colors', 'preferences-desktop-theme-symbolic', themeOptions, null);
+    addComboRow(colorsGroup, settings, 'dock-theme', 'Dock Theme', 'Choose a preset theme or use custom colors', 'preferences-desktop-theme-symbolic', themeOptions, null);
 
     const chameleonBanner = new Adw.ActionRow({
         title: 'Chameleon Active',
@@ -96,17 +61,12 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     });
     colorsGroup.add(chameleonBanner);
 
-    const bgColorRow = addColorRow(prefs, colorsGroup, settings, 'background-color', 'Primary Color', 'preferences-desktop-appearance-symbolic');
+    const bgColorRow = addColorRow(colorsGroup, settings, 'background-color', 'Primary Color', 'preferences-desktop-appearance-symbolic');
     const useGradRow = addSwitchRow(colorsGroup, settings, 'use-gradient', 'Use Gradient', 'Blend with a second color', 'view-continuous-symbolic', null);
-    const bgGradColorRow = addColorRow(prefs, colorsGroup, settings, 'background-gradient-color', 'Secondary Color', 'preferences-desktop-appearance-symbolic');
-    const gradDirRow = addSegmentedRow(prefs, colorsGroup, settings, 'gradient-direction', 'Gradient Direction', 'Flow of the gradient', 'view-refresh-symbolic', [{
-        name: 'Vertical',
-        value: 'vertical'
-    },
-    {
-        name: 'Horizontal',
-        value: 'horizontal'
-    }
+    const bgGradColorRow = addColorRow(colorsGroup, settings, 'background-gradient-color', 'Secondary Color', 'preferences-desktop-appearance-symbolic');
+    const gradDirRow = addSegmentedRow(colorsGroup, settings, 'gradient-direction', 'Gradient Direction', 'Flow of the gradient', 'view-refresh-symbolic', [
+        { name: 'Vertical', value: 'vertical' },
+        { name: 'Horizontal', value: 'horizontal' }
     ]);
 
     addCustomSpinRow(colorsGroup, settings, 'background-opacity', 'Background Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
@@ -124,7 +84,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     const syncTooltipVisibility = () => {
         tooltipOpacityRow.set_visible(!settings.get_boolean('hover-zoom'));
     };
-    prefs._settingsSignals.push(settings.connect('changed::hover-zoom', syncTooltipVisibility));
+    settings.connect('changed::hover-zoom', syncTooltipVisibility);
     syncTooltipVisibility();
 
     const radiusRow = addCustomSpinRow(colorsGroup, settings, 'border-radius', 'Border Radius', 'Corner roundness', 'media-record-symbolic', {
@@ -165,13 +125,13 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         step_increment: 5
     }, createResetBtn);
 
-    addColorRow(prefs, desktopBtnExp, settings, 'desktop-btn-color', 'Color', 'preferences-desktop-appearance-symbolic');
+    addColorRow(desktopBtnExp, settings, 'desktop-btn-color', 'Color', 'preferences-desktop-appearance-symbolic');
 
     const syncDesktopBtnVisibility = () => {
         const isFull = settings.get_boolean('full-width');
         desktopBtnExp.set_visible(isFull);
     };
-    prefs._settingsSignals.push(settings.connect('changed::full-width', syncDesktopBtnVisibility));
+    settings.connect('changed::full-width', syncDesktopBtnVisibility);
     syncDesktopBtnVisibility();
 
     addCustomSpinRow(strokeExpander, settings, 'stroke-width', 'Stroke Width', 'Thickness in pixels (0 to disable)', 'format-text-strikethrough-symbolic', {
@@ -180,7 +140,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         step_increment: 1
     }, createResetBtn);
 
-    addColorRow(prefs, strokeExpander, settings, 'stroke-color', 'Stroke Color', 'preferences-desktop-appearance-symbolic');
+    addColorRow(strokeExpander, settings, 'stroke-color', 'Stroke Color', 'preferences-desktop-appearance-symbolic');
 
     addCustomSpinRow(strokeExpander, settings, 'stroke-opacity', 'Stroke Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
@@ -193,7 +153,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         radiusRow.set_visible(!isFull);
         strokeExpander.set_visible(!isFull);
     };
-    prefs._settingsSignals.push(settings.connect('changed::full-width', syncRadiusVisibility));
+    settings.connect('changed::full-width', syncRadiusVisibility);
     syncRadiusVisibility();
 
     const sepGroup = new Adw.PreferencesGroup({
@@ -225,7 +185,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         upper: 100,
         step_increment: 5
     }, createResetBtn);
-    addColorRow(prefs, modSepExp, settings, 'separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
+    addColorRow(modSepExp, settings, 'separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
     addCustomSpinRow(modSepExp, settings, 'separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
@@ -255,7 +215,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         upper: 100,
         step_increment: 5
     }, createResetBtn);
-    addColorRow(prefs, appSepExp, settings, 'running-separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
+    addColorRow(appSepExp, settings, 'running-separator-color', 'Color', 'preferences-desktop-appearance-symbolic');
     addCustomSpinRow(appSepExp, settings, 'running-separator-opacity', 'Opacity', '0 = Invisible, 100 = Solid', 'view-reveal-symbolic', {
         lower: 0,
         upper: 100,
@@ -287,26 +247,15 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
     indGroup.add(indExpander);
 
     addSwitchRow(indExpander, settings, 'show-running-indicators', 'Show Indicators', 'Display active marks under icons', 'media-record-symbolic', createResetBtn);
-    addComboRow(prefs, indExpander, settings, 'indicator-style', 'Indicator Style', 'Shape of the indicator', 'view-list-symbolic', [{
-        name: 'Dot',
-        value: 'dot'
-    },
-    {
-        name: 'Dash',
-        value: 'dash'
-    },
-    {
-        name: 'Line',
-        value: 'line'
-    },
-    {
-        name: 'Square',
-        value: 'square'
-    }
+    addComboRow(indExpander, settings, 'indicator-style', 'Indicator Style', 'Shape of the indicator', 'view-list-symbolic', [
+        { name: 'Dot', value: 'dot' },
+        { name: 'Dash', value: 'dash' },
+        { name: 'Line', value: 'line' },
+        { name: 'Square', value: 'square' }
     ], null);
 
     let indColorRow = null;
-    indColorRow = addColorRow(prefs, indExpander, settings, 'indicator-color', 'Indicator Color', 'preferences-desktop-appearance-symbolic');
+    indColorRow = addColorRow(indExpander, settings, 'indicator-color', 'Indicator Color', 'preferences-desktop-appearance-symbolic');
 
     addCustomSpinRow(indExpander, settings, 'indicator-size', 'Indicator Size', 'Limit: 2px to 12px', 'zoom-in-symbolic', {
         lower: 2,
@@ -335,7 +284,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         if (indColorRow) indColorRow.set_visible(!isChameleon);
     };
 
-    prefs._settingsSignals.push(settings.connect('changed::dock-theme', syncThemeVisibility));
-    prefs._settingsSignals.push(settings.connect('changed::use-gradient', syncThemeVisibility));
+    settings.connect('changed::dock-theme', syncThemeVisibility);
+    settings.connect('changed::use-gradient', syncThemeVisibility);
     syncThemeVisibility();
 }

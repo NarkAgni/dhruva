@@ -17,15 +17,19 @@
  */
 
 
+function isActorAlive(actor) {
+    if (!actor) return false;
+    return actor.visible !== undefined;
+}
+
 export function getDockButtons(dockActor) {
-    if (!dockActor || dockActor.__destroyed || (dockActor.is_destroyed && dockActor.is_destroyed())) return [];
+    if (!isActorAlive(dockActor)) return [];
 
     const box = dockActor.boxActor || dockActor;
-    if (!box || box.__destroyed || (box.is_destroyed && box.is_destroyed())) return [];
+    if (!isActorAlive(box)) return [];
 
     return box.get_children().filter(c => {
-        if (!c || c.__destroyed) return false;
-        if (c.is_destroyed && c.is_destroyed()) return false;
+        if (!isActorAlive(c)) return false;
         if (c.get_parent && c.get_parent() === null) return false;
 
         if (c._isExternal || c._isModule) return true;
@@ -103,7 +107,7 @@ export class MagnifierMath {
         if (!children || children.length === 0) return;
 
         const btns = children.filter(c => {
-            if (!c || c.__destroyed) return false;
+            if (!isActorAlive(c)) return false;
             const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
             return !sClass.includes('dock-separator');
         });

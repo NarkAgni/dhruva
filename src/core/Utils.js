@@ -18,15 +18,17 @@
 
 
 import GLib from 'gi://GLib';
+import { TimeoutTracker } from './TimeoutTracker.js';
 
 
 export function debounce(func, wait) {
+    const timers = new TimeoutTracker();
     let timeoutId = null;
 
     const wrapper = function (...args) {
-        if (timeoutId) GLib.source_remove(timeoutId);
+        if (timeoutId) timers.remove(timeoutId);
 
-        timeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, wait, () => {
+        timeoutId = timers.addTimeout(GLib.PRIORITY_DEFAULT, wait, () => {
             timeoutId = null;
             func.apply(this, args);
             return GLib.SOURCE_REMOVE;
@@ -34,10 +36,8 @@ export function debounce(func, wait) {
     };
 
     wrapper.cancel = () => {
-        if (timeoutId) {
-            GLib.source_remove(timeoutId);
-            timeoutId = null;
-        }
+        timers.destroy();
+        timeoutId = null;
     };
 
     return wrapper;

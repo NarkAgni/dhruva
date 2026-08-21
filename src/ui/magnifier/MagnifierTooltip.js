@@ -24,7 +24,8 @@ import Clutter from 'gi://Clutter';
 export function clearTooltipDelay(dockActor) {
     if (!dockActor) return;
     if (dockActor._tooltipDelayId) {
-        GLib.source_remove(dockActor._tooltipDelayId);
+        if (dockActor._dockUI && dockActor._dockUI.registry) dockActor._dockUI.registry.remove(dockActor._tooltipDelayId);
+        else GLib.source_remove(dockActor._tooltipDelayId);
         dockActor._tooltipDelayId = null;
     }
     dockActor._tooltipReady = false;

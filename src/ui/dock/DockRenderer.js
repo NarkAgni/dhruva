@@ -28,6 +28,7 @@ import { isActorAlive, updateLayout, captureActorRect } from './DockLayoutEngine
 import { createSeparator, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
 import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMagnification } from '../magnifier/Magnifier.js';
 
+
 export { isActorAlive, captureActorRect, updateLayout, applyDynamicStyles, resolveTooltipColors };
 
 
@@ -103,15 +104,19 @@ export function renderDock(dockUI, forceRender = false) {
 
     if (!forceRender && dockUI.actor._lastIconClickTime) {
         const elapsed = Date.now() - dockUI.actor._lastIconClickTime;
-        if (elapsed < 850) {
+        if (elapsed < 350) {
             dockUI._pendingRender = false;
-            if (!dockUI._delayedRenderId) {
-                dockUI._delayedRenderId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 850 - elapsed + 10, () => {
-                    dockUI._delayedRenderId = null;
-                    if (dockUI.queueRender) dockUI.queueRender();
-                    return GLib.SOURCE_REMOVE;
-                });
+            
+            if (dockUI._delayedRenderId) {
+                dockUI.registry.remove(dockUI._delayedRenderId);
+                dockUI._delayedRenderId = null;
             }
+            dockUI._delayedRenderId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 850 - elapsed + 10, () => {
+                dockUI._delayedRenderId = null;
+                if (dockUI.queueRender) dockUI.queueRender();
+                return GLib.SOURCE_REMOVE;
+            });
+
             return;
         }
     }
@@ -120,7 +125,7 @@ export function renderDock(dockUI, forceRender = false) {
 
     const oldVisuals = new Map();
     const cacheActor = (c) => {
-        if (!c || (c.is_destroyed && c.is_destroyed())) return;
+        if (!c) return;
         let id = null;
         if (c._delegate && c._delegate.app && c._delegate.app.get_id) id = c._delegate.app.get_id();
         else if (c._delegate && c._delegate.isFolder) id = c._delegate.folderData.id;
@@ -386,10 +391,10 @@ export function renderDock(dockUI, forceRender = false) {
 
         if (!dockUI.actor._magEnterId) {
             if (dockUI._magnifierSetupIdleId) {
-                GLib.source_remove(dockUI._magnifierSetupIdleId);
+                dockUI.registry.remove(dockUI._magnifierSetupIdleId);
                 dockUI._magnifierSetupIdleId = null;
             }
-            dockUI._magnifierSetupIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            dockUI._magnifierSetupIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 dockUI._magnifierSetupIdleId = null;
                 if (!dockUI.actor || !dockUI.boxActor) return GLib.SOURCE_REMOVE;
 

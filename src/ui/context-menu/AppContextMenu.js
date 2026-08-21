@@ -16,7 +16,6 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -27,6 +26,7 @@ import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 
 import PeekManager from '../../core/PeekManager.js';
 import { applyThemeStyle } from './ContextMenuStyle.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { createThumbnailScroll } from './WindowThumbnailBuilder.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { resetMagnification, applyRealtimeFrame } from '../magnifier/Magnifier.js';
@@ -38,20 +38,31 @@ export default class AppContextMenu {
         this.dockUI = dockUI;
         this.appManager = dockUI.appManager;
         this.app = app;
+        
         this.buttonActor = buttonActor;
+        
+        if (this.buttonActor) {
+            this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
+        }
+
         this.isCtrlPressed = isCtrlPressed;
         this.openPrefsCallback = openPrefsCallback;
+
+        this.timers = new TimeoutTracker();
 
         this._isHiding = false;
         this._dynamicPanelWidth = 280;
         this._previousFocus = global.stage.get_key_focus();
-        this._signals = new Map();
 
         this.actor = new St.Widget({ style_class: 'context-menu-overlay', reactive: true, x_expand: true, y_expand: true });
         global.stage.set_key_focus(null);
 
-        this._addSignal(this.actor, 'button-release-event', () => { this.hide(); return Clutter.EVENT_STOP; });
-        this._addSignal(this.actor, 'touch-event', (_a, event) => { if (event.type() === Clutter.EventType.TOUCH_END) this.hide(); return Clutter.EVENT_STOP; });
+        this.actor.connectObject(
+            'button-release-event', () => { this.hide(); return Clutter.EVENT_STOP; },
+            'touch-event', (_a, event) => { if (event.type() === Clutter.EventType.TOUCH_END) this.hide(); return Clutter.EVENT_STOP; },
+            'destroy', () => this._cleanup(),
+            this
+        );
 
         if (!disablePeek) this.peekManager = new PeekManager(this.dockUI, this.actor);
 
@@ -60,8 +71,12 @@ export default class AppContextMenu {
         this.menuContainer.add_child(this.bgDrawingArea);
 
         this.panel = new St.BoxLayout({ vertical: true, reactive: true, style_class: 'context-menu-panel', style: 'background-color: transparent; border: none; box-shadow: none;' });
-        this._addSignal(this.panel, 'button-release-event', () => Clutter.EVENT_STOP);
-        this._addSignal(this.panel, 'touch-event', () => Clutter.EVENT_STOP);
+
+        this.panel.connectObject(
+            'button-release-event', () => Clutter.EVENT_STOP,
+            'touch-event', () => Clutter.EVENT_STOP,
+            this
+        );
 
         this.menuContainer.add_child(this.panel);
         applyThemeStyle(this, this.panel);
@@ -69,18 +84,16 @@ export default class AppContextMenu {
         this.actor.add_child(this.menuContainer);
     }
 
-    _addSignal(target, signal, callback) {
-        if (!target) return;
-        const id = target.connect(signal, callback);
-        if (!this._signals.has(target)) this._signals.set(target, []);
-        this._signals.get(target).push(id);
-    }
+    _cleanup() {
+        this.timers.destroy();
 
-    _clearSignals() {
-        for (const [target, signalIds] of this._signals.entries()) {
-            signalIds.forEach(id => { target.disconnect(id); });
-        }
-        this._signals.clear();
+        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
+        if (this.dockUI && this.dockUI._activeContextMenu === this) this.dockUI._activeContextMenu = null;
+        if (this.peekManager) { this.peekManager.destroy(); this.peekManager = null; }
+
+        this.actor.disconnectObject(this);
+        this.panel.disconnectObject(this);
+        if (this.buttonActor) this.buttonActor.disconnectObject(this);
     }
 
     _buildMenu() {
@@ -94,16 +107,16 @@ export default class AppContextMenu {
                 fData.apps.forEach(appId => this.dockUI.appManager.favManager.addFavorite(appId));
                 this.dockUI.folderManager.deleteFolder(fData.id);
                 this.dockUI.queueRender(); this.hide();
-            }));
+            }, false, this));
             this.panel.add_child(createIconMenuItem('Close All Apps', () => {
                 fData.apps.forEach(appId => { const a = this.dockUI.appManager.appSystem.lookup_app(appId); if (a) a.request_quit(); });
                 this.hide();
-            }));
+            }, false, this));
             addSeparator(this.panel);
             this.panel.add_child(createIconMenuItem(`Delete ${fData.name}`, () => {
                 this.dockUI.folderManager.deleteFolder(fData.id);
                 this.dockUI.queueRender(); this.hide();
-            }, true));
+            }, true, this));
             return;
         }
 
@@ -130,21 +143,25 @@ export default class AppContextMenu {
                 if (!f.apps.includes(this.app.get_id())) {
                     const btn = createIconMenuItem(`Add to ${f.name}`, () => {
                         this.dockUI.folderManager.addAppToFolder(f.id, this.app.get_id());
-                        
+
                         if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
                         else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
                         else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
-                        
+
                         if (this.dockUI._activeFolderMenu && this.dockUI._activeFolderMenu.folderData.id === f.id) {
                             if (!this.dockUI._activeFolderMenu.folderData.apps.includes(this.app.get_id())) this.dockUI._activeFolderMenu.folderData.apps.push(this.app.get_id());
                             if (this.dockUI._activeFolderMenu.forceRefresh) this.dockUI._activeFolderMenu.forceRefresh();
                         }
                         this.dockUI.queueRender(); this.hide();
-                    });
+                    }, false, this);
                     btn.set_style('transition-duration: 150ms; border-radius: 6px;');
                     const label = btn.get_child().get_first_child();
                     if (label) label.set_style('color: #0fb55e; font-weight: 700;');
-                    btn.connect('notify::hover', () => { btn.set_style(btn.hover ? 'background-color: rgba(15, 181, 94, 0.15); transition-duration: 150ms; border-radius: 6px;' : 'background-color: transparent; transition-duration: 150ms; border-radius: 6px;'); });
+
+                    btn.connectObject('notify::hover', () => {
+                        btn.set_style(btn.hover ? 'background-color: rgba(15, 181, 94, 0.15); transition-duration: 150ms; border-radius: 6px;' : 'background-color: transparent; transition-duration: 150ms; border-radius: 6px;');
+                    }, btn);
+
                     this.panel.add_child(btn); addedFolder = true;
                 }
             });
@@ -152,7 +169,7 @@ export default class AppContextMenu {
         }
 
         if (this.app.is_module && this.app.open) {
-            this.panel.add_child(createMenuItem(`Open ${this.app.get_name()}`, () => { this.app.open(); this.hide(); })); addSeparator(this.panel);
+            this.panel.add_child(createMenuItem(`Open ${this.app.get_name()}`, () => { this.app.open(); this.hide(); }, false, this)); addSeparator(this.panel);
         }
 
         if ((this.app.get_id ? this.app.get_id() : '') === 'dhruva-module-recycle-bin') this._addTrashActions();
@@ -163,14 +180,14 @@ export default class AppContextMenu {
         const quietContext = new Gio.AppLaunchContext();
 
         if (this.app.can_open_new_window && this.app.can_open_new_window()) {
-            this.panel.add_child(createMenuItem('New Window', () => { if (appInfo) appInfo.launch([], quietContext); else this.app.open_new_window(-1); this.hide(); }));
+            this.panel.add_child(createMenuItem('New Window', () => { if (appInfo) appInfo.launch([], quietContext); else this.app.open_new_window(-1); this.hide(); }, false, this));
             hasNewWindow = true;
         }
 
         if (actions.length > 0) {
             actions.forEach(action => {
                 if (action.toLowerCase().includes('new-window') && hasNewWindow) return;
-                this.panel.add_child(createMenuItem(appInfo.get_action_name(action), () => { appInfo.launch_action(action, quietContext); this.hide(); }));
+                this.panel.add_child(createMenuItem(appInfo.get_action_name(action), () => { appInfo.launch_action(action, quietContext); this.hide(); }, false, this));
             });
         }
 
@@ -181,20 +198,20 @@ export default class AppContextMenu {
             this.panel.add_child(createMenuItem(isPinned ? 'Unpin from Dhruva' : 'Pin to Dhruva', () => {
                 if (isPinned) this.appManager.removeApp(this.app); else this.appManager.addApp(this.app);
                 this.dockUI._renderDock(); this.hide();
-            }));
+            }, false, this));
         }
 
         if (this.buttonActor && this.buttonActor._inFolder) {
             this.panel.add_child(createIconMenuItem(`Remove from ${this.buttonActor._folderName || 'Stack'}`, () => {
                 this.dockUI.folderManager.removeAppFromFolder(this.buttonActor._folderId, this.app.get_id());
-                
+
                 if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
                 else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
                 else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
-                
+
                 if (this.buttonActor.get_parent()) this.buttonActor.destroy();
                 this.dockUI.queueRender(); this.hide();
-            }, true));
+            }, true, this));
         }
 
         if (this.app.get_state() === Shell.AppState.RUNNING) {
@@ -204,12 +221,16 @@ export default class AppContextMenu {
                 if (this.app.request_quit) this.app.request_quit();
                 if (this.dockUI.actor) this.dockUI.actor._lastIconClickTime = 0;
                 this.dockUI._renderDock(); this.hide();
-            }, true));
+            }, true, this));
         }
 
         if (this.isCtrlPressed && this.openPrefsCallback) {
             addSeparator(this.panel);
-            this.panel.add_child(createMenuItem('Dhruva Settings', () => { this.hide(); this.openPrefsCallback(); }));
+            this.panel.add_child(createMenuItem('Dhruva Settings', () => {
+                this.hide();
+                const res = this.openPrefsCallback();
+                if (res instanceof Promise) res.catch(e => console.warn('[Dhruva]', e.message));
+            }, false, this));
         }
     }
 
@@ -218,14 +239,13 @@ export default class AppContextMenu {
         const appId = app.get_id();
         if (!this.dockUI._ignoringApps) this.dockUI._ignoringApps = new Set();
         this.dockUI._ignoringApps.add(appId);
-        if (!this.dockUI._ignoreAppTimers) this.dockUI._ignoreAppTimers = [];
-        
-        const timerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2000, () => {
+
+        const callback = () => {
             if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
-            if (this.dockUI && this.dockUI._ignoreAppTimers) this.dockUI._ignoreAppTimers = this.dockUI._ignoreAppTimers.filter(id => id !== timerId);
             return GLib.SOURCE_REMOVE;
-        });
-        this.dockUI._ignoreAppTimers.push(timerId);
+        };
+
+        this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 2000, callback);
     }
 
     _confirmEmptyTrash() {
@@ -244,29 +264,30 @@ export default class AppContextMenu {
         let trashHasItems = false;
         const iter = Gio.File.new_for_uri('trash:///').enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
         trashHasItems = iter.next_file(null) !== null; iter.close(null);
-        
+
         const emptyBtn = new St.Button({ reactive: trashHasItems, x_expand: true, style_class: trashHasItems ? 'context-menu-action-btn-destructive' : 'context-menu-action-btn' });
         const label = new St.Label({ text: trashHasItems ? 'Empty Trash' : 'Trash is Empty', style_class: trashHasItems ? 'context-menu-action-label-destructive' : 'context-menu-action-label' });
         if (!trashHasItems) { emptyBtn.set_opacity(100); label.set_style('color: rgba(255,255,255,0.25);'); }
         emptyBtn.set_child(label);
-        if (trashHasItems) emptyBtn.connect('clicked', () => { this.hide(); this._confirmEmptyTrash(); });
+        if (trashHasItems) emptyBtn.connectObject('clicked', () => { this.hide(); this._confirmEmptyTrash(); }, emptyBtn);
         this.panel.add_child(emptyBtn); addSeparator(this.panel);
     }
 
     _updatePosition() {
         if (this._isHiding || !this.actor || !this.menuContainer) return;
-        
-        const isDestroyed = !this.buttonActor || this.buttonActor.is_destroyed && this.buttonActor.is_destroyed() || !this.buttonActor.get_parent();
-        if (isDestroyed) { 
+
+        if (!this.buttonActor || !this.buttonActor.get_parent()) {
             if (this.dockUI && this.dockUI.boxActor && this.app) {
                 const newBtn = this.dockUI.boxActor.get_children().find(c => c._delegate && c._delegate.app && c._delegate.app.get_id() === this.app.get_id());
                 if (newBtn) {
+                    if (this.buttonActor) this.buttonActor.disconnectObject(this);
                     this.buttonActor = newBtn;
+                    this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
                 } else {
                     this.hide(); return;
                 }
             } else {
-                this.hide(); return; 
+                this.hide(); return;
             }
         }
 
@@ -321,15 +342,18 @@ export default class AppContextMenu {
     show(dockPosition) {
         this._dockPos = dockPosition;
         this._isFirstPosition = true;
-        
+
         if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', true);
 
-        if (this._showDelayId) GLib.source_remove(this._showDelayId);
-        this._showDelayId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+        this.timers.remove(this._showDelayId);
+
+        const setupUI = () => {
             this._showDelayId = null;
             if (this._isHiding || !this.actor) return GLib.SOURCE_REMOVE;
 
-            if (this.dockUI && this.dockUI._activeContextMenu && this.dockUI._activeContextMenu !== this) this.dockUI._activeContextMenu._forceDestroy();
+            if (this.dockUI && this.dockUI._activeContextMenu && this.dockUI._activeContextMenu !== this) {
+                this.dockUI._activeContextMenu.actor.destroy();
+            }
             this.dockUI._activeContextMenu = this;
 
             Main.layoutManager.addChrome(this.actor, { affectsStruts: false });
@@ -337,12 +361,12 @@ export default class AppContextMenu {
 
             if (this.dockUI && this.dockUI.actor) {
                 const parent = this.actor.get_parent();
-                if (!this.peekManager) { 
-                    if (parent) parent.set_child_above_sibling(this.actor, null); 
-                } else { 
-                    const sibling = this.dockUI.actor; 
-                    const siblingParent = sibling && sibling.get_parent ? sibling.get_parent() : null; 
-                    if (parent && sibling && parent === siblingParent) parent.set_child_below_sibling(this.actor, sibling); 
+                if (!this.peekManager) {
+                    if (parent) parent.set_child_above_sibling(this.actor, null);
+                } else {
+                    const sibling = this.dockUI.actor;
+                    const siblingParent = sibling && sibling.get_parent ? sibling.get_parent() : null;
+                    if (parent && sibling && parent === siblingParent) parent.set_child_below_sibling(this.actor, sibling);
                 }
             }
 
@@ -352,32 +376,40 @@ export default class AppContextMenu {
             let padBottom = 12, padTop = 12, padLeft = 12, padRight = 12;
             if (dockPosition === 'BOTTOM') padBottom += ah; else if (dockPosition === 'TOP') padTop += ah; else if (dockPosition === 'LEFT') padLeft += ah; else if (dockPosition === 'RIGHT') padRight += ah;
             this.panel.set_style(`background-color: transparent; border: none; box-shadow: none; padding: ${padTop}px ${padRight}px ${padBottom}px ${padLeft}px;`);
-            
+
             this.menuContainer.opacity = 0;
             this._updatePosition();
 
             this.menuContainer.ease({ opacity: 255, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
 
-            if (this._posTrackerId) GLib.source_remove(this._posTrackerId);
-            this._posTrackerId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+            this.timers.remove(this._posTrackerId);
+
+            const trackPos = () => {
                 if (this._isHiding || !this.actor) {
                     this._posTrackerId = null;
                     return GLib.SOURCE_REMOVE;
                 }
                 this._updatePosition();
                 return GLib.SOURCE_CONTINUE;
-            });
+            };
+
+            this._posTrackerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 16, trackPos);
 
             return GLib.SOURCE_REMOVE;
-        });
+        };
+
+        this._showDelayId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 150, setupUI);
     }
 
     hide() {
         if (this._isHiding) return;
         this._isHiding = true;
 
-        if (this._showDelayId) { GLib.source_remove(this._showDelayId); this._showDelayId = null; }
-        if (this._posTrackerId) { GLib.source_remove(this._posTrackerId); this._posTrackerId = null; }
+        this.timers.remove(this._showDelayId);
+        this._showDelayId = null;
+        
+        this.timers.remove(this._posTrackerId);
+        this._posTrackerId = null;
 
         if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
         if (this.dockUI && this.dockUI._activeContextMenu === this) this.dockUI._activeContextMenu = null;
@@ -393,25 +425,12 @@ export default class AppContextMenu {
         if (this.menuContainer) {
             this.menuContainer.ease({
                 opacity: 0, scale_x: 0.95, scale_y: 0.95, duration: 120, mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onComplete: () => { 
-                    this._clearSignals(); 
-                    if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor); 
-                    if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null); 
-                    if (this.actor) this.actor.destroy(); 
+                onComplete: () => {
+                    if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
+                    if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null);
+                    if (this.actor) this.actor.destroy();
                 }
             });
         }
-    }
-
-    _forceDestroy() {
-        if (this._showDelayId) { GLib.source_remove(this._showDelayId); this._showDelayId = null; }
-        if (this._posTrackerId) { GLib.source_remove(this._posTrackerId); this._posTrackerId = null; }
-        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
-        if (this.dockUI && this.dockUI._activeContextMenu === this) this.dockUI._activeContextMenu = null;
-        if (this.peekManager) { this.peekManager.destroy(); this.peekManager = null; }
-        this._clearSignals();
-        if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
-        if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null);
-        if (this.actor) this.actor.destroy();
     }
 }

@@ -24,54 +24,45 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { TimeoutTracker } from './TimeoutTracker.js';
+
 
 const QUICK_LAUNCH_KEY_NAMES = [
-    'quick-launch-accel-1',
-    'quick-launch-accel-2',
-    'quick-launch-accel-3',
-    'quick-launch-accel-4',
-    'quick-launch-accel-5',
-    'quick-launch-accel-6',
-    'quick-launch-accel-7',
-    'quick-launch-accel-8',
-    'quick-launch-accel-9',
+    'quick-launch-accel-1', 'quick-launch-accel-2', 'quick-launch-accel-3',
+    'quick-launch-accel-4', 'quick-launch-accel-5', 'quick-launch-accel-6',
+    'quick-launch-accel-7', 'quick-launch-accel-8', 'quick-launch-accel-9',
 ];
 
 const DIGIT_SYMBOLS = new Map([
-    [Clutter.KEY_1, 1],
-    [Clutter.KEY_2, 2],
-    [Clutter.KEY_3, 3],
-    [Clutter.KEY_4, 4],
-    [Clutter.KEY_5, 5],
-    [Clutter.KEY_6, 6],
-    [Clutter.KEY_7, 7],
-    [Clutter.KEY_8, 8],
-    [Clutter.KEY_9, 9],
+    [Clutter.KEY_1, 1], [Clutter.KEY_2, 2], [Clutter.KEY_3, 3],
+    [Clutter.KEY_4, 4], [Clutter.KEY_5, 5], [Clutter.KEY_6, 6],
+    [Clutter.KEY_7, 7], [Clutter.KEY_8, 8], [Clutter.KEY_9, 9],
 ]);
 
 export default class QuickLaunchManager {
     constructor(settings, getTargetDock) {
         this.settings = settings;
         this.getTargetDock = getTargetDock;
-        this._accelHandlerIds = [];
+        this.timers = new TimeoutTracker();
         this._stageCaptureId = null;
         this._bindIdleId = 0;
+        this._dispatchIdleId = 0;
+        this._activateTimeoutId = 0;
         this._lastQlTs = 0;
         this._lastQlDigit = 0;
         this._activeBindings = new Set();
 
         for (const name of QUICK_LAUNCH_KEY_NAMES) {
-            const id = this.settings.connect(`changed::${name}`, () => {
+            this.settings.connectObject(`changed::${name}`, () => {
                 this._rebindWmShortcuts();
-            });
-            this._accelHandlerIds.push(id);
+            }, this);
         }
 
         this._stageCaptureId = global.stage.connect('captured-event', (_stage, event) => {
             return this._onStageCapturedEvent(event);
         });
 
-        this._bindIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        this._bindIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._bindIdleId = 0;
             this._rebindWmShortcuts();
             return GLib.SOURCE_REMOVE;
@@ -85,7 +76,12 @@ export default class QuickLaunchManager {
         this._lastQlTs = now;
         this._lastQlDigit = digit;
 
-        GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
+        if (this._dispatchIdleId) {
+            this.timers.remove(this._dispatchIdleId);
+        }
+        
+        this._dispatchIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT, () => {
+            this._dispatchIdleId = 0;
             this._activateDigitSlot(digit);
             return GLib.SOURCE_REMOVE;
         });
@@ -160,8 +156,7 @@ export default class QuickLaunchManager {
             const a = this.settings.get_strv(name);
             const accelOk = a && a.length > 0 && !!a[0];
 
-            if (!accelOk)
-                continue;
+            if (!accelOk) continue;
 
             const handler = () => {
                 this._dispatchDigit(digit);
@@ -174,7 +169,8 @@ export default class QuickLaunchManager {
 
     _activateDigitSlot(digit) {
         const dock = this.getTargetDock ? this.getTargetDock() : null;
-        if (!dock || dock._isDestroyed || !dock.boxActor) return;
+        
+        if (!dock || !dock.boxActor) return;
 
         let target = this._resolveTargetByDigit(dock, digit);
         if (!target && dock._renderDock) {
@@ -185,8 +181,13 @@ export default class QuickLaunchManager {
 
         if (dock.autoHideManager && dock.autoHideManager.isHidden) {
             dock.autoHideManager._show(true);
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
-                if (dock._isDestroyed) return GLib.SOURCE_REMOVE;
+            
+            if (this._activateTimeoutId) this.timers.remove(this._activateTimeoutId);
+            
+            this._activateTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 50, () => {
+                this._activateTimeoutId = 0;
+                
+                if (!dock || !dock.actor) return GLib.SOURCE_REMOVE;
                 if (dock.actor) dock.actor._lastIconClickTime = Date.now();
                 target._activateCallback(1, 0);
                 return GLib.SOURCE_REMOVE;
@@ -212,33 +213,25 @@ export default class QuickLaunchManager {
         const focusActor = global.stage.get_key_focus ? global.stage.get_key_focus() : null;
         if (!focusActor) return false;
 
-        if (focusActor instanceof St.Entry)
-            return true;
+        if (focusActor instanceof St.Entry) return true;
 
         let parent = focusActor;
         for (let i = 0; i < 5 && parent; i++) {
-            if (parent instanceof St.Entry)
-                return true;
-            if (!parent.get_parent)
-                break;
+            if (parent instanceof St.Entry) return true;
+            if (!parent.get_parent) break;
             parent = parent.get_parent();
         }
         return false;
     }
 
     _resolveTargetByDigit(dock, digit) {
-        const children = dock.boxActor && dock.boxActor.get_children ?
-            dock.boxActor.get_children() :
-            [];
-
+        const children = dock.boxActor && dock.boxActor.get_children ? dock.boxActor.get_children() : [];
         const targets = [];
 
         children.forEach(child => {
             if (!child || child._isExternal || child.visible === false || !child._activateCallback) return;
-
             const sClass = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
             if (!sClass.includes('dock-app-button')) return;
-
             targets.push(child);
         });
 
@@ -248,15 +241,9 @@ export default class QuickLaunchManager {
     }
 
     destroy() {
-        if (this._bindIdleId) {
-            GLib.source_remove(this._bindIdleId);
-            this._bindIdleId = 0;
-        }
+        this.timers.destroy();
 
-        for (const id of this._accelHandlerIds) {
-            this.settings.disconnect(id);
-        }
-        this._accelHandlerIds = [];
+        if (this.settings) this.settings.disconnectObject(this);
 
         if (this._stageCaptureId) {
             global.stage.disconnect(this._stageCaptureId);
