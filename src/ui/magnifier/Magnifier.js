@@ -71,6 +71,21 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     const scaleFactor = isVertical ? dockActor.scale_y : dockActor.scale_x;
     const localCursor = (isVertical ? cy - dy : cx - dx) / scaleFactor;
 
+    const dockThickness = isVertical ? (dockActor._cachedW || dockActor.width || 64) : (dockActor._cachedH || dockActor.height || 64);
+    const crossCursor = isVertical ? cx - dx : cy - dy;
+
+    if (crossCursor < -25 || crossCursor > dockThickness + 25) {
+        if (!dockActor._isDragging && !isContextMenuOpen()) {
+            if (!dockActor._isResetting) {
+                resetMagnification(dockActor);
+                dockActor._isResetting = true;
+            }
+        }
+        return;
+    }
+
+    dockActor._isResetting = false;
+
     const cached = dockActor._fixedSlots;
     if (cached && cached.count === n) {
         const boxX = dockActor.boxActor ? dockActor.boxActor.x : 0;
@@ -363,7 +378,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 if (dockActor._tooltipDelayId && dockActor._magTimers) {
                     dockActor._magTimers.remove(dockActor._tooltipDelayId);
                 }
-                
+
                 const showTooltip = () => {
                     dockActor._tooltipDelayId = null;
                     dockActor._tooltipReady = true;
@@ -396,7 +411,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 }, dockActor._magTooltip);
 
                 Main.layoutManager.uiGroup.add_child(dockActor._magTooltip);
-                
+
                 if (!dockActor._magDestroyHandlerId) {
                     dockActor._magDestroyHandlerId = dockActor.connectObject('destroy', () => {
                         if (dockActor._magTooltip) {
@@ -537,7 +552,7 @@ export function resetMagnification(dockActor, suppressForMs = 0) {
         if (dockActor._suppressTimeoutId && dockActor._magTimers) {
             dockActor._magTimers.remove(dockActor._suppressTimeoutId);
         }
-        
+
         const removeSuppress = () => {
             dockActor._suppressZoom = false;
             dockActor._suppressTimeoutId = null;
@@ -640,28 +655,22 @@ function _checkPointerLeave(dockActor, settings) {
             boundsTop = Math.min(boundsTop, by);
             boundsBottom = Math.max(boundsBottom, by + bh);
         }
-        
+
         const basePadX = isVertical ? 15 : 20;
         const basePadY = isVertical ? 20 : 15;
         const inBaseBounds = px >= boundsLeft - basePadX && px <= boundsRight + basePadX && py >= boundsTop - basePadY && py <= boundsBottom + basePadY;
 
         let inZoomedBounds = false;
         if (!inBaseBounds) {
-            const btns = getDockButtons(dockActor);
-            for (let i = 0; i < btns.length; i++) {
-                const btn = btns[i];
-                if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
-                    const [bx, by] = btn.get_transformed_position();
-                    const [bw, bh] = btn.get_transformed_size();
-                    if (px >= bx - 5 && px <= bx + bw + 5 && py >= by - 5 && py <= by + bh + 5) {
-                        inZoomedBounds = true;
-                        break;
-                    }
-                }
-            }
+            const iconSize = settings.get_int('icon-size') || 48;
+            const zoomFactor = settings.get_double('hover-zoom-factor') || 1.0;
+            const maxPadding = (iconSize * zoomFactor) + 20;
+
+            inZoomedBounds = px >= boundsLeft - maxPadding && px <= boundsRight + maxPadding && py >= boundsTop - maxPadding && py <= boundsBottom + maxPadding;
         }
-        const inside = inBaseBounds || inZoomedBounds;
         
+        const inside = inBaseBounds || inZoomedBounds;
+
         const insideTooltip = isInsideTooltip(dockActor, px, py, 24);
         const insideBridge = isPointerInDockTooltipBridge(dockActor, px, py, settings);
 
@@ -754,21 +763,15 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
             let inZoomedBounds = false;
             if (!inBaseBounds) {
-                const btns = getDockButtons(dockActor);
-                for (let i = 0; i < btns.length; i++) {
-                    const btn = btns[i];
-                    if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
-                        const [bx, by] = btn.get_transformed_position();
-                        const [bw, bh] = btn.get_transformed_size();
-                        if (ex >= bx - 5 && ex <= bx + bw + 5 && ey >= by - 5 && ey <= by + bh + 5) {
-                            inZoomedBounds = true;
-                            break;
-                        }
-                    }
-                }
+                const iconSize = settings.get_int('icon-size') || 48;
+                const zoomFactor = settings.get_double('hover-zoom-factor') || 1.0;
+                const maxPadding = (iconSize * zoomFactor) + 20;
+
+                inZoomedBounds = ex >= boundsLeft - maxPadding && ex <= boundsRight + maxPadding && ey >= boundsTop - maxPadding && ey <= boundsBottom + maxPadding;
             }
-            const onDock = inBaseBounds || inZoomedBounds;
             
+            const onDock = inBaseBounds || inZoomedBounds;
+
             const insideTooltip = isInsideTooltip(dockActor, ex, ey, 24);
             const insideBridge = isPointerInDockTooltipBridge(dockActor, ex, ey, settings);
             const pos = settings.get_string('dock-position') || 'BOTTOM';
@@ -838,25 +841,18 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             boundsTop = Math.min(boundsTop, by);
             boundsBottom = Math.max(boundsBottom, by + bh);
         }
-        
+
         const basePadX = isVertical ? 15 : 20;
         const basePadY = isVertical ? 20 : 15;
         const inBaseBounds = ex >= boundsLeft - basePadX && ex <= boundsRight + basePadX && ey >= boundsTop - basePadY && ey <= boundsBottom + basePadY;
 
         let inZoomedBounds = false;
         if (!inBaseBounds) {
-            const btns = getDockButtons(dockActor);
-            for (let i = 0; i < btns.length; i++) {
-                const btn = btns[i];
-                if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
-                    const [bx, by] = btn.get_transformed_position();
-                    const [bw, bh] = btn.get_transformed_size();
-                    if (ex >= bx - 5 && ex <= bx + bw + 5 && ey >= by - 5 && ey <= by + bh + 5) {
-                        inZoomedBounds = true;
-                        break;
-                    }
-                }
-            }
+            const iconSize = settings.get_int('icon-size') || 48;
+            const zoomFactor = settings.get_double('hover-zoom-factor') || 1.0;
+            const maxPadding = (iconSize * zoomFactor) + 20;
+
+            inZoomedBounds = ex >= boundsLeft - maxPadding && ex <= boundsRight + maxPadding && ey >= boundsTop - maxPadding && ey <= boundsBottom + maxPadding;
         }
 
         if (!inBaseBounds && !inZoomedBounds) return Clutter.EVENT_PROPAGATE;
@@ -889,7 +885,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             if (dockActor._postClickTimerId && dockActor._magTimers) {
                 dockActor._magTimers.remove(dockActor._postClickTimerId);
             }
-            
+
             const postClick = () => {
                 dockActor._postClickTimerId = null;
                 if (isAppGridOpen()) resetMagnification(dockActor);
@@ -1054,7 +1050,7 @@ export function teardownMagnification(dockActor, skipReset = false) {
         dockActor._magTimers.remove(dockActor._postClickTimerId);
         dockActor._postClickTimerId = null;
     }
-    
+
     if (dockActor._magTimers) {
         dockActor._magTimers.destroy();
         dockActor._magTimers = null;

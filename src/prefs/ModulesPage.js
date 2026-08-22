@@ -43,6 +43,7 @@ export function buildModulesPage(prefs, window, settings) {
     addSwitchRow(modGroup, settings, 'show-desktop-button', 'Show Desktop Button', 'Quickly minimize all windows', 'computer-symbolic', null);
     addSwitchRow(modGroup, settings, 'show-grid-button', 'Show Applications Button', 'App drawer launcher', 'view-app-grid-symbolic', null);
     const gridPosRow = addSegmentedRow(modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [
+        { name: 'Left Edge', value: 'LEFT_EDGE' },
         { name: 'Start', value: 'START' },
         { name: 'End', value: 'END' }
     ]);
@@ -144,7 +145,7 @@ export function buildModulesPage(prefs, window, settings) {
         const useOldIcon = settings.get_boolean('use-old-grid-icon');
         const isFullWidth = settings.get_boolean('full-width');
 
-        gridPosRow.set_visible(showGrid && !isFullWidth);
+        gridPosRow.set_visible(showGrid);
         customIconRow.set_visible(showGrid);
 
         oldGridIconRow.set_visible(showGrid && !hasCustomIcon);
@@ -164,7 +165,7 @@ export function buildModulesPage(prefs, window, settings) {
 
     const syncGridBtn = () => {
         const isFullWidth = settings.get_boolean('full-width');
-        gridPosRow.set_visible(settings.get_boolean('show-grid-button') && !isFullWidth);
+        gridPosRow.set_visible(settings.get_boolean('show-grid-button'));
     };
     settings.connect('changed::show-grid-button', syncGridBtn);
     settings.connect('changed::full-width', syncGridBtn);

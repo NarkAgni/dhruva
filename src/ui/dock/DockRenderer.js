@@ -245,7 +245,8 @@ export function renderDock(dockUI, forceRender = false) {
     const startComponents = [];
     const endComponents = [];
 
-    const gridPos = isFullWidth ? 'START' : (dockUI.settings.get_string('grid-button-position') || 'END');
+    const rawGridPos = dockUI.settings.get_string('grid-button-position') || 'END';
+    const gridPos = (rawGridPos === 'LEFT_EDGE' && !isFullWidth) ? 'START' : rawGridPos;
 
     const rawClockPos = dockUI.settings.get_string('clock-position') || 'END';
     const clockPos = (rawClockPos === 'RIGHT_END' && !isFullWidth) ? 'END' : rawClockPos;
@@ -257,6 +258,9 @@ export function renderDock(dockUI, forceRender = false) {
 
     dockUI.extractedDesktop = isFullWidth ? desktopModule : null;
 
+    const extractGrid = isFullWidth && gridPos === 'LEFT_EDGE';
+    dockUI.gridBtn = extractGrid ? gridBtn : null;
+
     if (!extractClock && clockPos === 'START' && clockModule && showClock) {
         startComponents.push(clockModule);
     }
@@ -265,7 +269,7 @@ export function renderDock(dockUI, forceRender = false) {
         startComponents.push(createSeparator(dockUI, iconSize, isVerticalDock, 'module', 'dhruva-sep-start'));
     }
 
-    if (gridPos === 'START' && gridBtn && !isFullWidth) {
+    if (gridPos === 'START' && gridBtn && !extractGrid) {
         startComponents.push(gridBtn);
     }
 
@@ -277,7 +281,7 @@ export function renderDock(dockUI, forceRender = false) {
     
     actualEndItems.push(...systemModules);
     
-    if (gridPos !== 'START' && gridBtn && !isFullWidth) {
+    if (gridPos === 'END' && gridBtn && !extractGrid) {
         actualEndItems.push(gridBtn);
     }
 
@@ -389,7 +393,7 @@ export function renderDock(dockUI, forceRender = false) {
 
         if (dockUI.gridBtn) setPivot(dockUI.gridBtn);
 
-        if (!dockUI.actor._magEnterId) {
+        if (!dockUI.actor._isMagSetup) {
             if (dockUI._magnifierSetupIdleId) {
                 dockUI.registry.remove(dockUI._magnifierSetupIdleId);
                 dockUI._magnifierSetupIdleId = null;
@@ -421,23 +425,16 @@ export function renderDock(dockUI, forceRender = false) {
                     const basePadX = isVerticalDock ? 15 : 20;
                     const basePadY = isVerticalDock ? 20 : 15;
                     const inBaseBounds = cx >= ax - basePadX && cx <= ax + aw + basePadX && cy >= ay - basePadY && cy <= ay + ah + basePadY;
-                    let inZoomedBounds = false;
-                    
-                    if (!inBaseBounds && dockUI.boxActor) {
-                        const btns = dockUI.boxActor.get_children();
-                        for (let i = 0; i < btns.length; i++) {
-                            const btn = btns[i];
-                            if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
-                                const [bx, by] = btn.get_transformed_position();
-                                const [bw, bh] = btn.get_transformed_size();
-                                if (cx >= bx - 5 && cx <= bx + bw + 5 && cy >= by - 5 && cy <= by + bh + 5) {
-                                    inZoomedBounds = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
 
+                    let inZoomedBounds = false;
+                    if (!inBaseBounds && dockUI.boxActor) {
+                        const iconSize = dockUI.settings.get_int('icon-size') || 48;
+                        const zoomFactor = dockUI.settings.get_double('hover-zoom-factor') || 1.0;
+                        const maxPadding = (iconSize * zoomFactor) + 20;
+                        
+                        inZoomedBounds = cx >= ax - maxPadding && cx <= ax + aw + maxPadding && cy >= ay - maxPadding && cy <= ay + ah + maxPadding;
+                    }
+                    
                     if (inBaseBounds || inZoomedBounds) {
                         applyRealtimeFrame(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings, Date.now());
                     } else {

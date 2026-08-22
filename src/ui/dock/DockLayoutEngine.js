@@ -58,7 +58,6 @@ export function updateLayout(dockUI) {
     const isFullWidth = dockUI.settings.get_boolean('full-width');
     const pos = dockUI.dockPosition;
     const isVertical = pos === 'LEFT' || pos === 'RIGHT';
-    const gridPos = dockUI.settings.get_string('grid-button-position') || 'END';
     const alignment = dockUI.settings.get_string('icon-alignment') || 'CENTER';
     const monitorResult = dockUI.monitorManager.getCurrentMonitor();
     
@@ -187,7 +186,8 @@ export function updateLayout(dockUI) {
     }
 
     let cx = 0, cy = 0;
-    let rightOffset = padScale;
+    let rightOffset = 0;
+    let bottomOffset = 0;
     
     if (isFullWidth && dockUI.extractedDesktop && dockUI.extractedDesktop.visible) {
         const deskBtnWidth = dockUI.settings.get_int('desktop-btn-width');
@@ -201,12 +201,13 @@ export function updateLayout(dockUI) {
         const dy = isVertical ? bgY + bgH - dHeight : bgY;
         
         dockUI.extractedDesktop.set_position(dx, dy);
-        rightOffset = isVertical ? padScale : dWidth;
+        rightOffset = isVertical ? 0 : dWidth;
+        bottomOffset = isVertical ? dHeight : 0;
     }
 
     if (isFullWidth && dockUI.extractedClock && dockUI.extractedClock.visible) {
-        cx = isVertical ? bgX + (bgW - clockW) / 2 : bgX + bgW - clockW - rightOffset;
-        cy = isVertical ? bgY + bgH - clockH - padScale : bgY + (bgH - clockH) / 2;
+        cx = isVertical ? bgX + (bgW - clockW) / 2 : bgX + bgW - clockW - rightOffset - 4;
+        cy = isVertical ? bgY + bgH - clockH - bottomOffset - 4 : bgY + (bgH - clockH) / 2;
         dockUI.extractedClock.set_position(cx, cy);
     }
 

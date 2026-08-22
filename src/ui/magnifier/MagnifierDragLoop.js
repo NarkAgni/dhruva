@@ -76,18 +76,11 @@ export function startDragLoop(dockActor, isVertical, settings) {
 
         let inZoomedBounds = false;
         if (!inBaseBounds) {
-            const btns = getDockButtons(dockActor);
-            for (let i = 0; i < btns.length; i++) {
-                const btn = btns[i];
-                if (btn.scale_x > 1.05 || btn.scale_y > 1.05) {
-                    const [bx, by] = btn.get_transformed_position();
-                    const [bw, bh] = btn.get_transformed_size();
-                    if (cx >= bx - 5 && cx <= bx + bw + 5 && cy >= by - 5 && cy <= by + bh + 5) {
-                        inZoomedBounds = true;
-                        break;
-                    }
-                }
-            }
+            const iconSize = settings.get_int('icon-size') || 48;
+            const zoomFactor = settings.get_double('hover-zoom-factor') || 1.0;
+            const maxPadding = (iconSize * zoomFactor) + 20;
+            
+            inZoomedBounds = cx >= boundsLeft - maxPadding && cx <= boundsRight + maxPadding && cy >= boundsTop - maxPadding && cy <= boundsBottom + maxPadding;
         }
 
         const isInsideDock = inBaseBounds || inZoomedBounds;

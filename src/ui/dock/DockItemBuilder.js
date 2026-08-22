@@ -309,13 +309,14 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
                 dockUI.actor._launchTimeoutId = null;
                 if (!dockUI.isActorAlive(dockUI.actor)) return GLib.SOURCE_REMOVE;
                 
+                const tempUnpauseTarget = {}; 
                 global.stage.connectObject('captured-event', (stage, event) => {
                     if (event.type() === Clutter.EventType.MOTION) {
                         setMagnifierPauseState(dockUI.actor, 'app-launch', false);
-                        global.stage.disconnectObject(dockUI.actor);
+                        global.stage.disconnectObject(tempUnpauseTarget); 
                     }
                     return Clutter.EVENT_PROPAGATE;
-                }, dockUI.actor);
+                }, tempUnpauseTarget);
 
                 return GLib.SOURCE_REMOVE;
             });
