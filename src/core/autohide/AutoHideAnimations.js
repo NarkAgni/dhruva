@@ -239,7 +239,9 @@ export function animateHide(ahm) {
     ahm._applyDockInputState(false);
 
     ahm.dockUI.actor.remove_all_transitions();
-    ahm._setAutoHideMagnifierPaused(true);
+    try {
+        ahm._setAutoHideMagnifierPaused(true);
+    } catch {}
 
     const pos = ahm._getDockPosition();
     const offset = (ahm.settings.get_int('dock-margin') || 0) + 80;

@@ -34,9 +34,16 @@ const FLIP_DURATION = 300;
 const TOOLTIP_DELAY_MS = 600;
 
 function isActorAlive(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
+    if (!actor)
+        return false;
+
+    try {
+        return actor.visible !== undefined;
+    } catch (e) {
+        return false;
+    }
 }
+
 
 export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now = null) {
     if (!dockActor || dockActor._isHidden || !dockActor.visible || dockActor._suppressZoom) {
