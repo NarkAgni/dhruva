@@ -155,7 +155,7 @@ export default class NotificationManager {
         const oversample = 3;
         const baseHeight = Math.max(18, Math.floor(iconSize * 0.38));
         const displayCount = count > 99 ? '99+' : count.toString();
-        const baseFontSize = Math.max(10, Math.floor(baseHeight * 0.95));
+        const baseFontSize = Math.max(10, Math.floor(baseHeight * 0.62));
 
         const drawHeight = baseHeight * oversample;
         const fontSize = baseFontSize * oversample;
@@ -180,7 +180,7 @@ export default class NotificationManager {
             const layout = area.create_pango_layout(displayCount);
             layout.set_font_description(Pango.FontDescription.from_string(`Sans Bold ${fontSize}px`));
 
-            cr.setSourceRGBA(155 / 255, 155 / 255, 155 / 255, 1.0);
+            cr.setSourceRGBA(1.0, 59 / 255, 48 / 255, 1.0);
             const r = h / 2;
             cr.newSubPath();
             cr.arc(r, r, r, Math.PI / 2, Math.PI * 1.5);
@@ -188,7 +188,7 @@ export default class NotificationManager {
             cr.closePath();
             cr.fill();
 
-            cr.setSourceRGBA(0, 0, 0, 1.0);
+            cr.setSourceRGBA(1.0, 1.0, 1.0, 1.0);
             const [textW, textH] = layout.get_pixel_size();
             cr.moveTo((w - textW) / 2, (h - textH) / 2);
             PangoCairo.show_layout(cr, layout);
