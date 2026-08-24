@@ -291,9 +291,13 @@ export default class AutoHideManager {
         } else {
             shouldHide = anyOverlap;
         }
-
+        
         if (shouldHide) {
-            this._hide();
+            if (this.isHidden) {
+                if (!this._edgePointerPollId) this._startEdgePointerPoll();
+            } else {
+                this._hide();
+            }
         } else {
             this._show(false, true);
         }
