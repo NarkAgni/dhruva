@@ -31,8 +31,14 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 
 
 function isActorAlive(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
+    if (!actor)
+        return false;
+
+    try {
+        return actor.visible !== undefined;
+    } catch (e) {
+        return false;
+    }
 }
 
 export function createWindowControl(iconName, rgbColor, onClick, bindObj) {

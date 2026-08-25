@@ -102,14 +102,13 @@ export default class AutoHideManager {
         const actualMonitor = monitorData.monitor;
         const activeWs = global.workspace_manager.get_active_workspace();
 
-        if (activeWs) {
-            for (const win of activeWs.list_windows()) {
-                if (!win || win.minimized || win.get_monitor() !== dockMonitorIndex) continue;
-                if (win.is_fullscreen()) return true;
+        for (const win of activeWs.list_windows()) {
+            if (!win || win.minimized || win.get_monitor() !== dockMonitorIndex) continue;
+            if (win.get_window_type() === Meta.WindowType.DESKTOP) continue;   // <-- aggiungi questa riga
+            if (win.is_fullscreen()) return true;
 
-                const r = win.get_frame_rect();
-                if (r.width >= actualMonitor.width - 2 && r.height >= actualMonitor.height - 30) return true;
-            }
+            const r = win.get_frame_rect();
+            if (r.width >= actualMonitor.width - 2 && r.height >= actualMonitor.height - 30) return true;
         }
 
         const focusWin = global.display.get_focus_window();
@@ -292,9 +291,13 @@ export default class AutoHideManager {
         } else {
             shouldHide = anyOverlap;
         }
-
+        
         if (shouldHide) {
-            this._hide();
+            if (this.isHidden) {
+                if (!this._edgePointerPollId) this._startEdgePointerPoll();
+            } else {
+                this._hide();
+            }
         } else {
             this._show(false, true);
         }
