@@ -51,6 +51,22 @@ export default class DockManager {
         if (!this._originalDash) return;
         if (this._hijackedOrigBox) return;
 
+        if (!this._origAdjustIconSize && this._originalDash._adjustIconSize) {
+            this._origAdjustIconSize = this._originalDash._adjustIconSize.bind(this._originalDash);
+            this._originalDash._adjustIconSize = () => {
+                const box = this._originalDash._box;
+                if (!box) return;
+                const children = box.get_children ? box.get_children() : [];
+                const firstIcon = children.find(c => c && c.icon && c.icon.ensure_style);
+                if (!firstIcon) return;
+                try {
+                    this._origAdjustIconSize();
+                } catch (_e) {
+                    // Safe swallow
+                }
+            };
+        }
+
         this._originalDash.opacity = 0;
         this._originalDash.reactive = false;
 
@@ -224,7 +240,12 @@ export default class DockManager {
     }
 
     _restoreGnomeDash() {
-        const originalBox = this._originalDash?._box;
+        if (this._originalDash && this._origAdjustIconSize) {
+            this._originalDash._adjustIconSize = this._origAdjustIconSize;
+            this._origAdjustIconSize = null;
+        }
+
+        const originalBox = this._originalDash._box;
 
         if (this._hijackedOrigBox && this._nativeOrigAdd && this._nativeOrigInsert && this._nativeOrigRemove) {
             this._hijackedOrigBox.add_child = this._nativeOrigAdd;
@@ -278,9 +299,12 @@ export default class DockManager {
         if (!this.dockUI || !this.dockUI.actor || !this.dockUI.boxActor || !this.dockUI.actor.visible) return;
         if (!this.dockUI.actor.is_mapped()) return;
 
-        this.dockUI.actor.remove_all_transitions();
-        this.dockUI.actor.translation_x = 0;
-        this.dockUI.actor.translation_y = 0;
+        const isAutohideActive = this.dockUI.autoHideManager && (this.dockUI.autoHideManager.isAnimating || this.dockUI.autoHideManager.isHidden);
+        if (!isAutohideActive) {
+            this.dockUI.actor.remove_all_transitions();
+            this.dockUI.actor.translation_x = 0;
+            this.dockUI.actor.translation_y = 0;
+        }
 
         const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorResult || !monitorResult.monitor) return;
@@ -321,11 +345,6 @@ export default class DockManager {
         }
 
         this.dockUI.actor.set_position(xPos, yPos);
-
-        if (this.dockUI.autoHideManager) {
-            this.dockUI.autoHideManager.isVisible = true;
-            this.dockUI.autoHideManager.isAnimating = false;
-        }
     }
 
     destroy() {

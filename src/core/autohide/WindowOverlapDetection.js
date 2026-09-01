@@ -18,161 +18,98 @@
 
 
 import Meta from 'gi://Meta';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
-export function isValidWindow(_ahm, win) {
-    if (!win || win.minimized) return false;
-    
-    if (win.unmanaging !== undefined && win.unmanaging === true) return false;
-    
-    if (win.is_skip_taskbar()) return false;
-
-    const type = win.get_window_type();
-    if (type === Meta.WindowType.DESKTOP || type === Meta.WindowType.DOCK ||
-        type === Meta.WindowType.MENU || type === Meta.WindowType.SPLASHSCREEN ||
-        type === Meta.WindowType.DROPDOWN_MENU || type === Meta.WindowType.POPUP_MENU ||
-        type === Meta.WindowType.OVERRIDE_OTHER || type === Meta.WindowType.TOOLTIP) {
-        return false;
+export class WindowOverlapDetection {
+    constructor(dockUI) {
+        this.dockUI = dockUI;
     }
 
-    const wmClass = win.get_wm_class();
-    if (wmClass === 'ding' || wmClass === 'DesktopUi' || wmClass === 'conky') return false;
-
-    const activeWs = global.workspace_manager.get_active_workspace();
-    const isOnActiveWs = win.is_on_all_workspaces() || win.get_workspace() === activeWs;
-    
-    if (!isOnActiveWs) return false;
-
-    const ws = win.get_workspace();
-    if (ws && !win.is_on_all_workspaces()) {
-        const validWindows = ws.list_windows();
-        if (!validWindows.includes(win)) return false;
+    getDockRect() {
+        if (!this.dockUI || !this.dockUI.actor) return null;
+        const [x, y] = this.dockUI.actor.get_position();
+        const w = this.dockUI.actor.width;
+        const h = this.dockUI.actor.height;
+        return { x, y, width: w, height: h };
     }
 
-    return true;
-}
+    rectsIntersect(r1, r2, tolerance = 16) {
+        const pos = this.dockUI.dockPosition;
+        let left = r1.x;
+        let right = r1.x + r1.width;
+        let top = r1.y;
+        let bottom = r1.y + r1.height;
 
-export function shouldStayVisibleForTransientUI(ahm) {
-    if (!ahm.dockUI || !ahm.dockUI.actor) return false;
-    
-    if (Main.overview.visible && !ahm.settings.get_boolean('independent-dock')) {
-        return true;
+        if (pos === 'BOTTOM') {
+            top -= tolerance;
+        } else if (pos === 'TOP') {
+            bottom += tolerance;
+        } else if (pos === 'LEFT') {
+            right += tolerance;
+        } else if (pos === 'RIGHT') {
+            left -= tolerance;
+        }
+
+        return !(
+            r2.x >= right ||
+            (r2.x + r2.width) <= left ||
+            r2.y >= bottom ||
+            (r2.y + r2.height) <= top
+        );
     }
 
-    if (ahm.isPaused()) return true;
-    if (ahm.dockUI._activeContextMenu || (ahm.dockUI.appGridUI && ahm.dockUI.appGridUI.isOpen)) {
-        return true;
-    }
+    shouldHide(mode) {
+        if (mode === 'none') return false;
+        if (mode === 'always') return true;
 
-    if (ahm.dockUI.shouldIgnoreAutoHide && ahm.dockUI.shouldIgnoreAutoHide()) {
-        return true;
-    }
+        const dockRect = this.getDockRect();
+        if (!dockRect) return false;
 
-    return false;
-}
+        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
+        const curMonitorIdx = monitorResult ? monitorResult.index : 0;
 
-export function recalculateOverlap(ahm) {
-    if (!ahm.dockUI || !ahm.dockUI.actor) return;
+        const activeWs = global.workspace_manager.get_active_workspace();
+        if (!activeWs) return false;
 
-    if (ahm._shouldStayVisibleForTransientUI()) {
-        ahm._pointerUpdate = false;
-        ahm._updateHidden(false, false, false);
-        return;
-    }
+        const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, activeWs);
+        const focusWindow = global.display.get_focus_window();
 
-    const mode = ahm._getHideMode();
+        for (let i = 0; i < allWindows.length; i++) {
+            const win = allWindows[i];
+            if (!win) continue;
 
-    if (mode === 'none' || mode === 'never') {
-        ahm._pointerUpdate = false;
-        ahm._updateHidden(false, false, false);
-        return;
-    }
-    
-    if (mode === 'auto' || mode === 'always' || mode === 'always-hide') {
-        ahm._pointerUpdate = false;
-        ahm._updateHidden(true, true, true);
-        return;
-    }
+            if (win.minimized || !win.is_hidden && win.is_hidden()) continue;
+            if (win.get_monitor() !== curMonitorIdx) continue;
 
-    const monitorData = ahm.dockUI.monitorManager.getCurrentMonitor();
-    if (!monitorData || !monitorData.monitor) return;
-    const dockMonitorIndex = monitorData.index;
+            const winType = win.get_window_type();
+            if (winType !== Meta.WindowType.NORMAL && winType !== Meta.WindowType.DIALOG && winType !== Meta.WindowType.MODAL_DIALOG) {
+                continue;
+            }
 
-    const bounds = ahm._getTheoreticalDockBounds();
-    const focusWin = global.display.get_focus_window();
-    const activeWs = global.workspace_manager.get_active_workspace();
+            const winRect = win.get_frame_rect();
 
-    let anyOverlap = false;
-    let activeWinOverlap = false;
-    let maximizedOverlap = false;
-    let isFullscreenActive = false;
+            if (mode === 'maximized') {
+                const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
+                if (isMax) return true;
+            }
 
-    if (activeWs) {
-        const wsWindows = activeWs.list_windows();
-        for (const win of wsWindows) {
-            if (!win || win.minimized || win.get_monitor() !== dockMonitorIndex) continue;
+            if (mode === 'intelligent') {
+                if (win === focusWindow) {
+                    const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
+                    if (isMax || this.rectsIntersect(dockRect, winRect, 16)) {
+                        return true;
+                    }
+                }
+            }
 
-            const isFS = win.is_fullscreen();
-            if (isFS) {
-                isFullscreenActive = true;
-                break;
+            if (mode === 'dodge-all') {
+                const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
+                if (isMax || this.rectsIntersect(dockRect, winRect, 16)) {
+                    return true;
+                }
             }
         }
-    }
 
-    if (!isFullscreenActive && focusWin && focusWin.get_monitor() === dockMonitorIndex) {
-        if (focusWin.is_fullscreen()) {
-            isFullscreenActive = true;
-        }
-    }
-
-    if (isFullscreenActive) {
-        if (ahm.dockUI.actor) ahm.dockUI.actor._suppressZoom = true;
-        ahm._pointerUpdate = false;
-        ahm._updateHidden(true, true, true);
-        return;
-    }
-
-    for (const wa of global.get_window_actors()) {
-        const win = wa.get_meta_window();
-        if (!win || !ahm._isValidWindow(win) || win.get_monitor() !== dockMonitorIndex) continue;
-
-        const r = win.get_frame_rect();
-        const overlaps = (r.x < bounds.x + bounds.width && r.x + r.width > bounds.x &&
-            r.y < bounds.y + bounds.height && r.y + r.height > bounds.y);
-
-        if (!overlaps) continue;
-
-        anyOverlap = true;
-        if (win === focusWin) activeWinOverlap = true;
-        if (win.maximized_horizontally || win.maximized_vertically || win.get_window_type() === Meta.WindowType.DIALOG) {
-            maximizedOverlap = true;
-        }
-    }
-
-    ahm._pointerUpdate = false;
-    ahm._updateHidden(anyOverlap, activeWinOverlap, maximizedOverlap);
-}
-
-export function trackFocusedWindow(ahm) {
-    const focusWin = global.display.get_focus_window();
-    if (ahm._trackedWin === focusWin) return;
-
-    if (ahm._trackedWin) {
-        ahm._trackedWin.disconnectObject(ahm);
-    }
-
-    ahm._trackedWin = focusWin;
-
-    if (ahm._trackedWin) {
-        ahm._trackedWin.connectObject(
-            'size-changed', () => ahm._queueOverlapCheck(),
-            'position-changed', () => ahm._queueOverlapCheck(),
-            'notify::maximized-vertically', () => ahm._queueOverlapCheck(),
-            'notify::fullscreen', () => ahm._queueOverlapCheck(),
-            'unmanaged', () => ahm._queueOverlapCheck(),
-            ahm
-        );
+        return false;
     }
 }

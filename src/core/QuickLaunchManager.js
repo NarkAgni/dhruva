@@ -180,7 +180,7 @@ export default class QuickLaunchManager {
         if (!target || !target._activateCallback) return;
 
         if (dock.autoHideManager && dock.autoHideManager.isHidden) {
-            dock.autoHideManager._show(true);
+            dock.autoHideManager.show();
             
             if (this._activateTimeoutId) this.timers.remove(this._activateTimeoutId);
             

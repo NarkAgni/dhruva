@@ -167,40 +167,6 @@
       <summary>Indicator Glow</summary>
     </key>
 
-    <key name="hide-mode" type="s">
-      <choices>
-        <choice value='none'/>
-        <choice value='intelligent'/>
-        <choice value='dodge-all'/>
-        <choice value='maximized'/>
-        <choice value='active'/>
-        <choice value='auto'/>
-        <choice value='always'/>
-      </choices>
-      <default>'none'</default>
-      <summary>Auto-hide mode</summary>
-    </key>
-
-    <key name="auto-hide" type="b">
-      <default>false</default>
-      <summary>Auto-hide dock when a window overlaps it</summary>
-    </key>
-
-    <key name="hide-delay" type="i">
-      <default>0</default>
-      <summary>Hide Delay in ms</summary>
-    </key>
-
-    <key name="unhide-delay" type="i">
-      <default>0</default>
-      <summary>Unhide Delay in ms</summary>
-    </key>
-
-    <key name="edge-dwell-delay" type="i">
-      <default>100</default>
-      <summary>Edge Reveal Delay (Pressure) in ms</summary>
-    </key>
-
     <key name="quick-launch-accel-1" type="as">
       <default><![CDATA[['<Super>1']]]></default>
       <summary>Dhruva quick launch</summary>
@@ -494,6 +460,33 @@
       <default>'both'</default>
       <summary>New Window Action</summary>
       <description>Choose how to open a new window for a running app.</description>
+  </key>
+
+  <key name="hide-mode" type="s">
+    <choices>
+      <choice value='always'/>
+      <choice value='intelligent'/>
+      <choice value='dodge-all'/>
+      <choice value='maximized'/>
+      <choice value='none'/>
+    </choices>
+    <default>'none'</default>
+    <summary>Auto-hide mode</summary>
+  </key>
+
+  <key name="hide-delay" type="i">
+    <default>100</default>
+    <summary>Hide Delay in ms</summary>
+  </key>
+
+  <key name="unhide-delay" type="i">
+    <default>0</default>
+    <summary>Unhide Delay in ms</summary>
+  </key>
+
+  <key name="edge-dwell-delay" type="i">
+    <default>150</default>
+    <summary>Edge Reveal Delay (Pressure) in ms</summary>
   </key>
 
   </schema>

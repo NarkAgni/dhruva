@@ -32,14 +32,13 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
 
     const visGroup = new Adw.PreferencesGroup({
         title: 'Visibility Rules',
-        description: 'When and how the dock hides itself'
+        description: 'Configure dock auto-hide behavior and timings'
     });
     page.add(visGroup);
 
-    addComboRow(visGroup, settings, 'hide-mode', 'Hide Mode', 'Intelligent dodge is recommended', 'go-bottom-symbolic', [
+    addComboRow(visGroup, settings, 'hide-mode', 'Hide Mode', 'Choose when the dock should hide', 'go-bottom-symbolic', [
         { name: 'Intelligent (Dodge Active)', value: 'intelligent' },
         { name: 'Dodge All Windows', value: 'dodge-all' },
-        { name: 'Dodge Active Window', value: 'active' },
         { name: 'Dodge Maximized', value: 'maximized' },
         { name: 'Always Hide', value: 'always' },
         { name: 'Never Hide', value: 'none' }
@@ -50,12 +49,14 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
         upper: 2000,
         step_increment: 50
     }, createResetBtn);
+
     const unhideDelayRow = addCustomSpinRow(visGroup, settings, 'unhide-delay', 'Unhide Delay', 'Milliseconds before showing', 'preferences-system-time-symbolic', {
         lower: 0,
         upper: 2000,
         step_increment: 50
     }, createResetBtn);
-    const dwellDelayRow = addCustomSpinRow(visGroup, settings, 'edge-dwell-delay', 'Edge Reveal Delay (Pressure)', 'Hold mouse at the edge for this long to reveal (ms)', 'timer-symbolic', {
+
+    const dwellDelayRow = addCustomSpinRow(visGroup, settings, 'edge-dwell-delay', 'Edge Pressure Delay', 'Hold mouse at screen edge to reveal (ms)', 'timer-symbolic', {
         lower: 0,
         upper: 1500,
         step_increment: 50

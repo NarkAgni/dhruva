@@ -540,10 +540,8 @@ export class FolderMenuBuilder {
 
         iconBtn.connectObject('clicked', () => {
             this.folderMenu.hide();
-            if (this.dockUI) this.dockUI._pauseAutoHide = true;
             const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico'], Gio.SubprocessFlags.STDOUT_PIPE);
             proc.communicate_utf8_async(null, null, (p, res) => {
-                if (this.dockUI) this.dockUI._pauseAutoHide = false;
                 try {
                     const [, stdout] = p.communicate_utf8_finish(res);
                     if (stdout && stdout.trim()) {

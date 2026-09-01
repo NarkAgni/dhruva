@@ -99,11 +99,8 @@ export function updateLayout(dockUI) {
     const iconSize = dockUI.settings.get_int('icon-size');
     const maxExpansion = hoverZoom ? (iconSize * 3.5 * (actualMax - 1.0)) : 0;
 
-    const hideMode = dockUI.settings.get_string('hide-mode');
-    const forceEdgeSize = isFullWidth || (hideMode === 'never' || hideMode === 'none');
-
-    const actorW = forceEdgeSize ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : boxW + (sWidth * 2);
-    const actorH = forceEdgeSize ? (isVertical ? monitor.height : Math.max(boxH, gridH) + (sWidth * 2)) : boxH + (sWidth * 2);
+    const actorW = isFullWidth ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : boxW + (sWidth * 2);
+    const actorH = isFullWidth ? (isVertical ? monitor.height : Math.max(boxH, gridH) + (sWidth * 2)) : boxH + (sWidth * 2);
 
     dockUI.actor.set_size(actorW, actorH);
 
@@ -276,13 +273,4 @@ export function updateLayout(dockUI) {
 
     dockUI.actor._cachedW = actorW;
     dockUI.actor._cachedH = actorH;
-
-    if (dockUI.autoHideManager) {
-        if (dockUI.autoHideManager._updateEdgeTrigger) {
-            dockUI.autoHideManager._updateEdgeTrigger();
-        }
-        if (dockUI.autoHideManager._scheduleUpdate) {
-            dockUI.autoHideManager._scheduleUpdate(10);
-        }
-    }
 }

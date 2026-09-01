@@ -269,7 +269,6 @@ export default class DockUI {
 
         WATCHED_SETTINGS.forEach(key => {
             this.settings.connectObject(`changed::${key}`, () => {
-                if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
                 this.queueRender();
                 this._updateLayout();
             }, this);
@@ -277,7 +276,6 @@ export default class DockUI {
 
         STYLE_SETTINGS.forEach(key => {
             this.settings.connectObject(`changed::${key}`, () => {
-                if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
                 this._applyDynamicStyles();
                 this._updateLayout();
             }, this);
@@ -285,7 +283,6 @@ export default class DockUI {
 
         ['full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
             this.settings.connectObject(`changed::${key}`, () => {
-                if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
                 this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
                 this._renderDock();
                 if (key === 'full-width') this._updateStruts();
@@ -294,11 +291,9 @@ export default class DockUI {
 
         this.settings.connectObject('changed::hide-mode', () => {
             this._updateStruts();
-            this.queueRender();
         }, this);
 
         this.settings.connectObject('changed::dock-position', () => {
-            if (this.autoHideManager && this.autoHideManager._forceShow) this.autoHideManager._forceShow();
             const newPos = this.settings.get_string('dock-position');
             const isNewVertical = newPos === 'LEFT' || newPos === 'RIGHT';
 
@@ -309,16 +304,21 @@ export default class DockUI {
             this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 this._updateLayout();
                 if (this.dockManager) this.dockManager.updatePosition();
+                if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
                 return GLib.SOURCE_REMOVE;
             });
         }, this);
 
         this.settings.connectObject('changed::dock-margin', () => {
             if (this.dockManager) this.dockManager.updatePosition();
+            if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
+            this._updateStruts();
         }, this);
 
         this.settings.connectObject('changed::preferred-monitor', () => {
             this.dockManager.updatePosition();
+            if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
+            this._updateStruts();
             this.queueRender();
         }, this);
 
@@ -360,26 +360,45 @@ export default class DockUI {
     _updateStruts() {
         if (!this.actor) return;
         const hideMode = this.settings.get_string('hide-mode');
-        const isNeverHide = (hideMode === 'never' || hideMode === 'none');
+        const shouldAffectStruts = (hideMode === 'none');
 
-        if (this.actor._affectsStruts !== isNeverHide) {
-            this.actor._affectsStruts = isNeverHide;
-            Main.layoutManager.removeChrome(this.actor);
-            Main.layoutManager.addChrome(this.actor, {
-                affectsStruts: isNeverHide,
-                trackFullscreen: true
-            });
+        Main.layoutManager.removeChrome(this.actor);
+        this.actor._affectsStruts = shouldAffectStruts;
+        Main.layoutManager.addChrome(this.actor, {
+            affectsStruts: shouldAffectStruts,
+            trackFullscreen: true
+        });
+
+        if (this.dockManager) {
+            this.dockManager.updatePosition();
+        }
+
+        if (global.display && global.display.get_workspace_manager) {
+            const wm = global.display.get_workspace_manager();
+            if (wm) {
+                const nWorkspaces = wm.get_n_workspaces();
+                for (let i = 0; i < nWorkspaces; i++) {
+                    const ws = wm.get_workspace_by_index(i);
+                    if (ws && ws.list_windows) {
+                        const wins = ws.list_windows();
+                        wins.forEach(w => {
+                            if (w && w.check_needs_move_to_workspace) {
+                                w.check_needs_move_to_workspace();
+                            }
+                        });
+                    }
+                }
+            }
+        }
+
+        if (Main.layoutManager._queueUpdateRegions) {
+            Main.layoutManager._queueUpdateRegions();
         }
     }
 
     isPreviewTooltipVisible() {
         const tooltip = this.actor && this.actor._magTooltip;
-        return !!(tooltip && tooltip.visible && tooltip.opacity > 0);
-    }
-
-    shouldIgnoreAutoHide() {
-        if (this.isPreviewTooltipVisible()) return true;
-        return !!(this._activeFolderMenu || this._pauseAutoHide);
+        return Boolean(tooltip && tooltip.visible && tooltip.opacity > 0);
     }
 
     _applyIndicatorBaselineAlignment() {
@@ -397,17 +416,25 @@ export default class DockUI {
     }
 
     show() {
-        this._updateStruts();
+        const hideMode = this.settings.get_string('hide-mode');
+        const shouldAffectStruts = (hideMode === 'none');
+        this.actor._affectsStruts = shouldAffectStruts;
+
+        Main.layoutManager.addChrome(this.actor, {
+            affectsStruts: shouldAffectStruts,
+            trackFullscreen: true
+        });
 
         this.actor.connectObject('notify::mapped', () => {
             if (!this.actor.is_mapped()) return;
             this._renderDock();
             if (this.dockManager) this.dockManager.updatePosition();
+            if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
         }, this);
 
         global.display.connectObject('workareas-changed', () => {
             if (this.dockManager) this.dockManager.updatePosition();
-            if (this.autoHideManager && this.autoHideManager._updateEdgeTrigger) this.autoHideManager._updateEdgeTrigger();
+            if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
         }, this);
 
         setupWindowEffects(this.settings, this);
@@ -441,13 +468,6 @@ export default class DockUI {
                         this.actor.show();
                         this.actor.opacity = 255;
                     }
-
-                    if (this.actor._affectsStruts) {
-                        Main.layoutManager.removeChrome(this.actor);
-                        Main.layoutManager.addChrome(this.actor, { affectsStruts: false, trackFullscreen: true });
-                        this.actor._affectsStruts = false;
-                        this._strutsDisabledForOverview = true;
-                    }
                 } else {
                     if (this.isActorAlive(this.actor)) {
                         this.actor.hide();
@@ -470,7 +490,7 @@ export default class DockUI {
                     this.actor.show();
                     this.actor.opacity = 255;
                 }
-                if (this.autoHideManager && this.autoHideManager._show) this.autoHideManager._show(true);
+                if (this.autoHideManager) this.autoHideManager.show();
             }
 
             if (!isIndependent || showInOverview) {
@@ -503,13 +523,8 @@ export default class DockUI {
                 });
             }
 
-            if (isIndependent) {
-                if (this.autoHideManager) {
-                    this.autoHideManager.isHidden = true;
-                    if (this.autoHideManager._show) this.autoHideManager._show(true);
-                }
-            } else {
-                if (this.autoHideManager && this.autoHideManager._scheduleUpdate) this.autoHideManager._scheduleUpdate(0);
+            if (this.autoHideManager) {
+                this.autoHideManager.checkVisibility();
             }
         }, this);
 
@@ -638,7 +653,10 @@ export default class DockUI {
         }
 
         if (this.registry) this.registry.destroy();
-        if (this.autoHideManager) this.autoHideManager.destroy();
+        if (this.autoHideManager) {
+            this.autoHideManager.destroy();
+            this.autoHideManager = null;
+        }
         if (this.dockManager) this.dockManager.destroy();
         if (this.appGridUI) this.appGridUI.destroy();
         if (this.notificationManager) this.notificationManager.destroy();
