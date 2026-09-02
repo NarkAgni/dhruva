@@ -75,6 +75,43 @@ export default class DockManager {
             this._originalDash.show();
         }
 
+        const checkIsMediaActive = (actor) => {
+            if (!isActorAlive(actor)) return false;
+
+            let fullText = '';
+            let hasPlayerWidgets = false;
+
+            const scanActor = (a) => {
+                if (!isActorAlive(a) || !a.get_children) return;
+                a.get_children().forEach(sub => {
+                    const t = (sub.get_text ? sub.get_text() : sub.text) || '';
+                    if (typeof t === 'string' && t.trim().length > 0) {
+                        fullText += ' ' + t.toLowerCase();
+                    }
+                    const sc = sub.get_style_class_name ? sub.get_style_class_name() : (sub.style_class || '');
+                    if (sc.includes('pill') || sc.includes('player') || sc.includes('music') || sc.includes('track')) {
+                        hasPlayerWidgets = true;
+                    }
+                    scanActor(sub);
+                });
+            };
+            scanActor(actor);
+
+            const trimmed = fullText.trim();
+
+            if (trimmed.includes('no media') || 
+                trimmed.includes('waiting for playback') || 
+                trimmed === 'paused' ||
+                trimmed === 'stopped') {
+                return false;
+            }
+
+            if (trimmed.length >= 2) return true;
+
+            const [w] = actor.get_transformed_size ? actor.get_transformed_size() : [0, 0];
+            return hasPlayerWidgets || w > 30;
+        };
+
         const stealExternalWidget = (child) => {
             if (!child) return false;
             const sc = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
@@ -90,8 +127,18 @@ export default class DockManager {
                 child._isModule;
 
             if (!isGnomeOrDhruva) {
-                if (!isActorAlive(child)) return false;
-                if (this._externalActors.has(child)) return true;
+                if (!isActorAlive(child)) {
+                    return false;
+                }
+
+                if (this._externalActors.has(child)) {
+                    if (this.dockUI && this.dockUI.boxActor && child.get_parent() !== this.dockUI.boxActor) {
+                        const cur = child.get_parent();
+                        if (cur) cur.remove_child(child);
+                        this.dockUI.boxActor.add_child(child);
+                    }
+                    return true;
+                }
 
                 const parent = child.get_parent();
                 if (parent) {
@@ -101,18 +148,8 @@ export default class DockManager {
                 child._isExternal = true;
                 child._dhruvaExternalOwner = this;
                 child._is3rdParty = true;
+                child._isPillActive = false;
                 this._externalActors.add(child);
-
-                child.connectObject('destroy', () => {
-                    markActorDisposed(child);
-                    this._externalActors.delete(child);
-                    if (this.dockUI && this.dockUI.queueRender) {
-                        this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                            if (this.dockUI) this.dockUI.queueRender();
-                            return GLib.SOURCE_REMOVE;
-                        });
-                    }
-                }, this);
 
                 child._isStatic = true;
                 if (child.ease) {
@@ -134,20 +171,6 @@ export default class DockManager {
                     this.dockUI.boxActor.add_child(child);
                 }
 
-                this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 300, () => {
-                    if (child && this.dockUI && isActorAlive(child)) {
-                        if (child.remove_all_transitions) child.remove_all_transitions();
-                        if (child.visible) child.opacity = 255;
-                        child.scale_x = 1;
-                        child.scale_y = 1;
-                    }
-
-                    if (this.dockUI && this.dockUI.queueRender) {
-                        this.dockUI.queueRender();
-                    }
-                    return GLib.SOURCE_REMOVE;
-                });
-
                 if (!this._3rdPartyCheckerRunning) {
                     this._3rdPartyCheckerRunning = true;
 
@@ -157,16 +180,15 @@ export default class DockManager {
                             return GLib.SOURCE_REMOVE;
                         }
 
-                        Array.from(this._externalActors).forEach(ext => {
-                            if (!isActorAlive(ext)) {
-                                this._externalActors.delete(ext);
-                                return;
-                            }
-                            if (!ext._is3rdParty) return;
+                        this._externalActors.forEach(ext => {
+                            if (ext && ext._is3rdParty && isActorAlive(ext)) {
+                                if (this.dockUI.boxActor && ext.get_parent() !== this.dockUI.boxActor) {
+                                    const curP = ext.get_parent();
+                                    if (curP) curP.remove_child(ext);
+                                    this.dockUI.boxActor.add_child(ext);
+                                }
 
-                            try {
                                 let fullText = '';
-
                                 const collectText = (actor) => {
                                     if (!isActorAlive(actor) || !actor.get_children) return;
                                     actor.get_children().forEach(sub => {
@@ -190,16 +212,13 @@ export default class DockManager {
                                 } else {
                                     if (!ext.visible) ext.show();
                                 }
-                            } catch (_e) {
-                                markActorDisposed(ext);
-                                this._externalActors.delete(ext);
                             }
                         });
 
                         return GLib.SOURCE_CONTINUE;
                     };
 
-                    this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 300, globalChecker);
+                    this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 400, globalChecker);
                 }
 
                 return true;

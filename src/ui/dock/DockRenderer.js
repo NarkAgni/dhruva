@@ -348,20 +348,28 @@ export function renderDock(dockUI, forceRender = false) {
     endComponents.forEach(c => { applyOldVisuals(c); dockUI.boxActor.add_child(c); });
 
     if (dockUI.dockManager && dockUI.dockManager._externalActors) {
-        const externals = dockUI.dockManager._externalActors;
-        Array.from(externals).forEach(extActor => {
-            if (!isActorAlive(extActor)) {
-                externals.delete(extActor);
-                return;
-            }
-            try {
-                applyOldVisuals(extActor);
-                const parent = extActor.get_parent();
-                if (parent && parent !== dockUI.boxActor) return;
-                if (!parent) dockUI.boxActor.add_child(extActor);
-            } catch (_e) {
-                markActorDisposed(extActor);
-                externals.delete(extActor);
+        dockUI.dockManager._externalActors.forEach(extActor => {
+            if (isActorAlive(extActor)) {
+                try {
+                    applyOldVisuals(extActor);
+                    const currentParent = extActor.get_parent();
+                    if (currentParent && currentParent !== dockUI.boxActor) {
+                        currentParent.remove_child(extActor);
+                    }
+                    if (extActor.get_parent() !== dockUI.boxActor) {
+                        dockUI.boxActor.add_child(extActor);
+                    }
+
+                    if (extActor._isPillActive) {
+                        extActor.show();
+                        extActor.opacity = 255;
+                        extActor.set_size(-1, -1);
+                    } else {
+                        extActor.hide();
+                    }
+                } catch (e) {
+                    // safe swallow
+                }
             }
         });
     }

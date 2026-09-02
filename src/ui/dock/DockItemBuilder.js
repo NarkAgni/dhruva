@@ -26,13 +26,13 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { hexToRgba } from '../../core/Utils.js';
 import FolderMenu from '../folder-menu/FolderMenu.js';
+import ScrollManager from '../../core/ScrollManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
-import ScrollManager from '../../core/ScrollManager.js';
 
 
 export function createSeparator(dockUI, iconSize, isVerticalDock, type = 'module', sepId = 'dhruva-sep-default') {
