@@ -21,10 +21,48 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
+function cycleAppWindows(windows, dir) {
+    if (!windows || windows.length === 0) return;
+
+    if (windows.length < 2) {
+        const target = windows[0];
+        target.unminimize();
+        Main.activateWindow(target);
+        return;
+    }
+
+    const focusWin = global.display.get_focus_window();
+    let idx = windows.indexOf(focusWin);
+    if (idx === -1) idx = 0;
+
+    let nextIdx = idx;
+    if (dir === Clutter.ScrollDirection.UP) {
+        nextIdx = (idx - 1 + windows.length) % windows.length;
+    } else if (dir === Clutter.ScrollDirection.DOWN) {
+        nextIdx = (idx + 1) % windows.length;
+    }
+
+    if (nextIdx !== idx) {
+        const target = windows[nextIdx];
+        target.unminimize();
+        Main.activateWindow(target);
+    }
+}
+
 export default class ScrollManager {
     static setupDockScroll(dockActor, settings) {
         dockActor.connectObject('scroll-event', (actor, event) => {
             actor._lastIconClickTime = Date.now();
+
+            const dockUI = actor._dockUI;
+            const hoveredBtn = dockUI ? dockUI._hoveredAppButton : null;
+            const hoveredApp = hoveredBtn && hoveredBtn._delegate ? hoveredBtn._delegate.app : null;
+
+            if (hoveredApp && settings.get_boolean('scroll-action-app')) {
+                const windows = hoveredApp.get_windows();
+                cycleAppWindows(windows, event.get_scroll_direction());
+                return Clutter.EVENT_STOP;
+            }
 
             if (!settings.get_boolean('scroll-action-dock')) return Clutter.EVENT_PROPAGATE;
 
@@ -55,34 +93,7 @@ export default class ScrollManager {
 
             if (!settings.get_boolean('scroll-action-app')) return Clutter.EVENT_STOP;
 
-            const dir = event.get_scroll_direction();
-            const windows = getWindowsFn();
-
-            if (!windows || windows.length === 0) return Clutter.EVENT_STOP;
-
-            if (windows.length < 2) {
-                const target = windows[0];
-                target.unminimize();
-                Main.activateWindow(target);
-                return Clutter.EVENT_STOP;
-            }
-
-            const focusWin = global.display.get_focus_window();
-            let idx = windows.indexOf(focusWin);
-            if (idx === -1) idx = 0;
-
-            let nextIdx = idx;
-            if (dir === Clutter.ScrollDirection.UP) {
-                nextIdx = (idx - 1 + windows.length) % windows.length;
-            } else if (dir === Clutter.ScrollDirection.DOWN) {
-                nextIdx = (idx + 1) % windows.length;
-            }
-
-            if (nextIdx !== idx) {
-                const target = windows[nextIdx];
-                target.unminimize();
-                Main.activateWindow(target);
-            }
+            cycleAppWindows(getWindowsFn(), event.get_scroll_direction());
             return Clutter.EVENT_STOP;
         }, appButton);
     }

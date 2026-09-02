@@ -32,6 +32,7 @@ import { animateIconClick } from '../effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
+import ScrollManager from '../../core/ScrollManager.js';
 
 
 export function createSeparator(dockUI, iconSize, isVerticalDock, type = 'module', sepId = 'dhruva-sep-default') {
@@ -227,6 +228,9 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
     btn._baseBg = baseBg;
 
     btn.connectObject('notify::hover', () => {
+        if (btn.hover) dockUI._hoveredAppButton = btn;
+        else if (dockUI._hoveredAppButton === btn) dockUI._hoveredAppButton = null;
+
         if (dockUI.settings.get_boolean('hover-zoom')) return;
 
         const expanded = (isRunning && showIndicators) || btn.hover;
@@ -285,6 +289,8 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
         }
         return Clutter.EVENT_PROPAGATE;
     }, btn);
+
+    ScrollManager.setupAppScroll(btn, () => app.get_windows(), dockUI.settings);
 
     btn._activateCallback = (buttonNum, state = 0) => {
         const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
