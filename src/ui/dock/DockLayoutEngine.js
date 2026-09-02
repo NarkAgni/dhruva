@@ -20,9 +20,27 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
+// Actors whose owner already disposed them (Clutter 'destroy' seen).
+// JS expando props on a disposed GObject wrapper are not reliable, so track
+// disposal out-of-band in a WeakSet rather than tagging the actor itself.
+const _disposedActors = new WeakSet();
+
+export function markActorDisposed(actor) {
+    if (actor) _disposedActors.add(actor);
+}
+
 export function isActorAlive(actor) {
     if (!actor) return false;
-    return actor.visible !== undefined;
+    if (_disposedActors.has(actor)) return false;
+    try {
+        // GJS logs a critical (and, once finalized, throws) when a disposed
+        // GObject is touched. Treat either outcome as "dead" and never let it
+        // propagate into a render pass.
+        if (typeof actor.get_parent !== 'function') return false;
+        return actor.visible !== undefined;
+    } catch (_e) {
+        return false;
+    }
 }
 
 export function captureActorRect(dockUI, actor, fallbackWin = null) {

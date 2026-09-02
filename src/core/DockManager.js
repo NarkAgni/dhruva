@@ -22,6 +22,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { TimeoutTracker } from './TimeoutTracker.js';
+import { isActorAlive, markActorDisposed } from '../ui/dock/DockLayoutEngine.js';
 
 
 export default class DockManager {
@@ -89,6 +90,9 @@ export default class DockManager {
                 child._isModule;
 
             if (!isGnomeOrDhruva) {
+                if (!isActorAlive(child)) return false;
+                if (this._externalActors.has(child)) return true;
+
                 const parent = child.get_parent();
                 if (parent) {
                     parent.remove_child(child);
@@ -98,6 +102,22 @@ export default class DockManager {
                 child._dhruvaExternalOwner = this;
                 child._is3rdParty = true;
                 this._externalActors.add(child);
+
+                // The owning extension may dispose this actor at any time
+                // (e.g. Dynamic Music Pill recreates its pill when the MPRIS
+                // source changes). Drop our reference the moment Clutter
+                // starts tearing it down so no later render pass touches a
+                // disposed GObject (issue #54).
+                child.connectObject('destroy', () => {
+                    markActorDisposed(child);
+                    this._externalActors.delete(child);
+                    if (this.dockUI && this.dockUI.queueRender) {
+                        this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                            if (this.dockUI) this.dockUI.queueRender();
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    }
+                }, this);
 
                 child._isStatic = true;
                 if (child.ease) {
@@ -120,7 +140,7 @@ export default class DockManager {
                 }
 
                 this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 300, () => {
-                    if (child && this.dockUI && this.dockUI.isActorAlive(child)) {
+                    if (child && this.dockUI && isActorAlive(child)) {
                         if (child.remove_all_transitions) child.remove_all_transitions();
                         if (child.visible) child.opacity = 255;
                         child.scale_x = 1;
@@ -142,12 +162,19 @@ export default class DockManager {
                             return GLib.SOURCE_REMOVE;
                         }
 
-                        this._externalActors.forEach(ext => {
-                            if (ext && ext._is3rdParty && ext.visible !== undefined) {
+                        // Snapshot first: we may delete from the Set while iterating.
+                        Array.from(this._externalActors).forEach(ext => {
+                            if (!isActorAlive(ext)) {
+                                this._externalActors.delete(ext);
+                                return;
+                            }
+                            if (!ext._is3rdParty) return;
+
+                            try {
                                 let fullText = '';
 
                                 const collectText = (actor) => {
-                                    if (!actor || !actor.get_children) return;
+                                    if (!isActorAlive(actor) || !actor.get_children) return;
                                     actor.get_children().forEach(sub => {
                                         const t = (sub.get_text ? sub.get_text() : sub.text) || '';
                                         if (typeof t === 'string' && t.trim().length > 0) {
@@ -169,6 +196,10 @@ export default class DockManager {
                                 } else {
                                     if (!ext.visible) ext.show();
                                 }
+                            } catch (_e) {
+                                // Actor was disposed mid-walk; drop it and move on.
+                                markActorDisposed(ext);
+                                this._externalActors.delete(ext);
                             }
                         });
 
@@ -184,18 +215,22 @@ export default class DockManager {
         };
 
         const releaseExternalWidget = (child) => {
-            if (child && child._isExternal) {
-                this._externalActors.delete(child);
+            if (!child) return;
+            const wasTracked = this._externalActors.delete(child);
+            if (!wasTracked && !child._isExternal) return;
+
+            if (isActorAlive(child)) {
+                child.disconnectObject(this);
                 child._isExternal = false;
                 child._dhruvaExternalOwner = null;
                 child._is3rdParty = false;
+            }
 
-                if (this.dockUI && this.dockUI.queueRender) {
-                    this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                        if (this.dockUI) this.dockUI.queueRender();
-                        return GLib.SOURCE_REMOVE;
-                    });
-                }
+            if (this.dockUI && this.dockUI.queueRender) {
+                this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    if (this.dockUI) this.dockUI.queueRender();
+                    return GLib.SOURCE_REMOVE;
+                });
             }
         };
 
@@ -219,7 +254,24 @@ export default class DockManager {
                     if (!stealExternalWidget(child)) _nativeOrigInsert(child, index);
                 };
                 origBox.remove_child = (child) => {
-                    _nativeOrigRemove(child);
+                    // A stolen actor is re-parented into Dhruva's dock box, but
+                    // its owner still believes it lives in the GNOME dash and
+                    // calls origBox.remove_child(actor) on teardown. Forwarding
+                    // that to the native remove on origBox hits
+                    // "clutter_actor_remove_child: assertion 'child->priv->parent
+                    // != NULL' failed" and then a NULL deref (SIGSEGV, #54).
+                    // Detach from the actor's *actual* parent instead.
+                    if (!isActorAlive(child)) {
+                        releaseExternalWidget(child);
+                        return;
+                    }
+
+                    const realParent = child.get_parent();
+                    if (realParent === origBox) {
+                        _nativeOrigRemove(child);
+                    } else if (realParent) {
+                        realParent.remove_child(child);
+                    }
                     releaseExternalWidget(child);
                 };
 
@@ -258,9 +310,11 @@ export default class DockManager {
         }
 
         if (originalBox && this._externalActors && this._externalActors.size > 0) {
-            this._externalActors.forEach(child => {
-                if (!child || child._dhruvaExternalOwner !== this) return;
-                if (child.visible === undefined) return;
+            Array.from(this._externalActors).forEach(child => {
+                if (!isActorAlive(child)) return;
+                if (child._dhruvaExternalOwner !== this) return;
+
+                child.disconnectObject(this);
 
                 const parent = child.get_parent();
                 if (parent) {
@@ -269,6 +323,7 @@ export default class DockManager {
 
                 child._isExternal = false;
                 child._dhruvaExternalOwner = null;
+                child._is3rdParty = false;
 
                 if (this._nativeOrigAdd && originalBox === this._hijackedOrigBox) {
                     this._nativeOrigAdd(child);
