@@ -25,6 +25,7 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+
 import AppGridUI from '../AppGridUI.js';
 import { debounce } from '../../core/Utils.js';
 import AppManager from '../../core/AppManager.js';
@@ -93,7 +94,7 @@ export default class DockUI {
         this._updateLayout = () => updateLayout(this);
         this._applyDynamicStyles = () => applyDynamicStyles(this);
         this._getIndicatorProps = () => getIndicatorProps(this);
-        this._captureActorRect = (actor, fb) => captureActorRect(this, actor, fb);
+        this._captureActorRect = (actor, fb) => captureActorRect(actor, fb);
         this.isActorAlive = isActorAlive;
 
         this.queueRender = debounce((force) => {
@@ -364,36 +365,17 @@ export default class DockUI {
 
         Main.layoutManager.removeChrome(this.actor);
         this.actor._affectsStruts = shouldAffectStruts;
+        
         Main.layoutManager.addChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
-            trackFullscreen: true
+            trackFullscreen: false
         });
 
         if (this.dockManager) {
             this.dockManager.updatePosition();
         }
 
-        if (global.display && global.display.get_workspace_manager) {
-            const wm = global.display.get_workspace_manager();
-            if (wm) {
-                const nWorkspaces = wm.get_n_workspaces();
-                for (let i = 0; i < nWorkspaces; i++) {
-                    const ws = wm.get_workspace_by_index(i);
-                    if (ws && ws.list_windows) {
-                        const wins = ws.list_windows();
-                        wins.forEach(w => {
-                            if (w && w.check_needs_move_to_workspace) {
-                                w.check_needs_move_to_workspace();
-                            }
-                        });
-                    }
-                }
-            }
-        }
-
-        if (Main.layoutManager._queueUpdateRegions) {
-            Main.layoutManager._queueUpdateRegions();
-        }
+        Main.layoutManager._queueUpdateRegions();
     }
 
     isPreviewTooltipVisible() {
@@ -422,7 +404,7 @@ export default class DockUI {
 
         Main.layoutManager.addChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
-            trackFullscreen: true
+            trackFullscreen: false
         });
 
         this.actor.connectObject('notify::mapped', () => {

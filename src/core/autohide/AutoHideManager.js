@@ -164,15 +164,17 @@ export default class AutoHideManager {
 
         if (mode === 'none') {
             this.edgeDetection.hide();
-            this.show();
+            this.dockUI.actor.remove_all_transitions();
+            this.isHidden = false;
+            this.isAnimating = false;
+            this.dockUI.actor.translation_x = 0;
+            this.dockUI.actor.translation_y = 0;
+            this.dockUI.actor.opacity = 255;
+            this.dockUI.actor.show();
         } else {
             this.edgeDetection.show();
             this._rebindAllOpenWindows();
             this.scheduleCheck(0);
-            this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
-                this.scheduleCheck(0);
-                return GLib.SOURCE_REMOVE;
-            });
         }
     }
 

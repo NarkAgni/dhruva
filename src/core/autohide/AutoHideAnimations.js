@@ -52,7 +52,7 @@ export function animateShow(dockUI, onComplete) {
         opacity: 255,
         duration: 250,
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => {
+        onStopped: (_isFinished) => {
             if (onComplete) onComplete();
         },
     });
@@ -70,7 +70,7 @@ export function animateHide(dockUI, onComplete) {
         opacity: 0,
         duration: 250,
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
-        onComplete: () => {
+        onStopped: (_isFinished) => {
             if (onComplete) onComplete();
         },
     });

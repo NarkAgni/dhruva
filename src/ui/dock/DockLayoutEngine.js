@@ -17,15 +17,31 @@
  */
 
 
+import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
-export function isActorAlive(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
+const _disposedActors = new WeakSet();
+
+export function markActorDisposed(actor) {
+    if (actor) _disposedActors.add(actor);
 }
 
-export function captureActorRect(dockUI, actor, fallbackWin = null) {
+export function isActorAlive(actor) {
+    if (!actor) return false;
+    if (_disposedActors.has(actor)) return false;
+
+    try {
+        const isFinalized = GObject.Object.prototype.is_finalized?.call(actor) ?? false;
+        if (isFinalized) return false;
+
+        return actor.get_stage?.() !== undefined;
+    } catch (_e) {
+        return false;
+    }
+}
+
+export function captureActorRect(actor, fallbackWin = null) {
     if (isActorAlive(actor)) {
         const [x, y] = actor.get_transformed_position();
         const [w, h] = actor.get_transformed_size();

@@ -91,7 +91,8 @@ export function buildModulesPage(prefs, window, settings) {
                     return;
                 }
 
-                const configDir = GLib.get_user_config_dir() + '/dhruva@narkagni/icon';
+                const uuid = prefs.metadata.uuid || 'dhruva@narkagni';
+                const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
                 GLib.mkdir_with_parents(configDir, 0o755);
                 const dir = Gio.File.new_for_path(configDir);
                 const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
@@ -361,7 +362,7 @@ export function buildModulesPage(prefs, window, settings) {
         upper: 36,
         step_increment: 1
     }, makeResetBtn(settings));
-    
+
     let clockPosRow = null;
 
     const syncClockVisibility = () => {
@@ -371,7 +372,7 @@ export function buildModulesPage(prefs, window, settings) {
 
         if (!isFullWidth && currentPos === 'RIGHT_END') {
             settings.set_string('clock-position', 'END');
-        } 
+        }
         else if (isFullWidth && currentPos !== 'RIGHT_END') {
             settings.set_string('clock-position', 'RIGHT_END');
         }
@@ -397,7 +398,7 @@ export function buildModulesPage(prefs, window, settings) {
     };
 
     settings.connect('changed::show-clock', syncClockVisibility);
-    settings.connect('changed::full-width', syncClockVisibility); 
+    settings.connect('changed::full-width', syncClockVisibility);
     syncClockVisibility();
 
     const dangerGroup = new Adw.PreferencesGroup({

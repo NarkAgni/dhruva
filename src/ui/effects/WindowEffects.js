@@ -140,10 +140,10 @@ function _patchWm() {
             const tracker = Shell.WindowTracker.get_default();
             const winApp = tracker.get_window_app(actor.meta_window);
             const winClass = actor.meta_window.get_wm_class() ? actor.meta_window.get_wm_class().toLowerCase() : '';
-            
+
             const isPending = _dockUI._pendingLaunches.some(p => {
                 if (p.consumed) return false;
-                
+
                 if (p.appId && winApp && winApp.get_id() === p.appId) {
                     return true;
                 } else if (p.appId && winClass) {
@@ -154,13 +154,13 @@ function _patchWm() {
                 } else if (p.isFolder && (winClass.includes('nautilus') || winClass.includes('files'))) {
                     return true;
                 }
-                
+
                 return false;
             });
 
             if (isPending) return false;
         }
-        
+
         return _origShouldAnimate.call(this, actor, types);
     };
 
@@ -241,7 +241,7 @@ export function setupWindowEffects(settings, dockUI) {
 
             if (actor === _pendingActor && global._dhruvaIsFade) {
                 global._dhruvaIsFade = false;
-                
+
                 const capturedActor = _pendingActor;
                 _addEffectIdle(() => {
                     if (_pendingActor === capturedActor) _pendingActor = null;
@@ -249,7 +249,7 @@ export function setupWindowEffects(settings, dockUI) {
 
                 _animatingActors.add(actor);
                 if (actor.remove_all_transitions) actor.remove_all_transitions();
-                
+
                 actor.set_pivot_point(0.5, 0.5);
                 actor.ease({
                     opacity: 0,
@@ -281,14 +281,14 @@ export function setupWindowEffects(settings, dockUI) {
                 iconPos = _pendingIcon;
                 dockPos = _pendingDockPos;
                 isOurAnimation = true;
-                
+
                 const capturedActor = _pendingActor;
                 _addEffectIdle(() => {
                     if (_pendingActor === capturedActor) {
                         _pendingActor = _pendingIcon = _pendingDockPos = null;
                     }
                 });
-            } 
+            }
             else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
                 const win = actor.meta_window;
                 const tracker = Shell.WindowTracker.get_default();
@@ -300,7 +300,8 @@ export function setupWindowEffects(settings, dockUI) {
 
                     for (let i = 0; i < children.length; i++) {
                         const btn = children[i];
-                        if (btn._delegate && btn._delegate.app && btn._delegate.app.get_id() === appId) {
+                        const delegate = btn._delegate;
+                        if (delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId) {
                             iconPos = _resolveIconRect(btn, win);
                             dockPos = _dockUI.dockPosition;
                             isOurAnimation = true;
@@ -317,7 +318,7 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             _animatingActors.add(actor);
-            
+
             if (actor.remove_all_transitions) {
                 actor.remove_all_transitions();
             }
@@ -329,10 +330,10 @@ export function setupWindowEffects(settings, dockUI) {
         },
         'unminimize', (_wm, actor) => {
             const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
-            
+
             if (actor === _pendingActor && global._dhruvaIsFade) {
                 global._dhruvaIsFade = false;
-                
+
                 const capturedActor = _pendingActor;
                 _addEffectIdle(() => {
                     if (_pendingActor === capturedActor) _pendingActor = null;
@@ -340,12 +341,12 @@ export function setupWindowEffects(settings, dockUI) {
 
                 _animatingActors.add(actor);
                 if (actor.remove_all_transitions) actor.remove_all_transitions();
-                
+
                 actor.show();
                 actor.opacity = 0;
                 actor.set_pivot_point(0.5, 0.5);
                 actor.set_scale(0.93, 0.93);
-                
+
                 actor.ease({
                     opacity: 255,
                     scale_x: 1.0,
@@ -376,14 +377,14 @@ export function setupWindowEffects(settings, dockUI) {
                 iconPos = _pendingIcon;
                 dockPos = _pendingDockPos;
                 isOurAnimation = true;
-                
+
                 const capturedActor = _pendingActor;
                 _addEffectIdle(() => {
                     if (_pendingActor === capturedActor) {
                         _pendingActor = _pendingIcon = _pendingDockPos = null;
                     }
                 });
-            } 
+            }
             else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
                 const win = actor.meta_window;
                 const tracker = Shell.WindowTracker.get_default();
@@ -395,7 +396,8 @@ export function setupWindowEffects(settings, dockUI) {
 
                     for (let i = 0; i < children.length; i++) {
                         const btn = children[i];
-                        if (btn._delegate && btn._delegate.app && btn._delegate.app.get_id() === appId) {
+                        const delegate = btn._delegate;
+                        if (delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId) {
                             iconPos = _resolveIconRect(btn, win);
                             dockPos = _dockUI.dockPosition;
                             isOurAnimation = true;
@@ -412,7 +414,7 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             _animatingActors.add(actor);
-            
+
             if (actor.remove_all_transitions) {
                 actor.remove_all_transitions();
             }
@@ -441,7 +443,7 @@ export function teardownWindowEffects() {
     if (_effectTimers) {
         _effectTimers = null;
     }
-    
+
     _animatingActors.clear();
 
     _pendingActor = null;
@@ -490,7 +492,7 @@ export function animateRestore(win, btn, dockPosition) {
 
 export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     const actor = win.get_compositor_private();
-    
+
     if (!_isActorUsable(actor)) return;
 
     const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
@@ -502,7 +504,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     }
 
     _animatingActors.add(actor);
-    actor._isDhruvaLaunching = true; 
+    actor._isDhruvaLaunching = true;
 
     if (actor.remove_all_transitions) actor.remove_all_transitions();
 
@@ -519,7 +521,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
 export function fadeMinimize(win) {
     const wa = win.get_compositor_private();
     if (!wa) { win.minimize(); return; }
-    
+
     _pendingActor = wa;
     global._dhruvaIsFade = true;
     win.minimize();
@@ -527,12 +529,12 @@ export function fadeMinimize(win) {
 
 export function fadeRestore(win) {
     const wa = win.get_compositor_private();
-    if (!wa) { 
-        win.unminimize(); 
-        win.activate(global.get_current_time()); 
-        return; 
+    if (!wa) {
+        win.unminimize();
+        win.activate(global.get_current_time());
+        return;
     }
-    
+
     _pendingActor = wa;
     global._dhruvaIsFade = true;
     win.unminimize();

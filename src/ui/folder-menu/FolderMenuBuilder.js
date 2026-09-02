@@ -28,16 +28,20 @@ import PangoCairo from 'gi://PangoCairo';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import emojisData from '../emojis.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 
+
+const CACHED_EMOJIS = emojisData.emojis || [];
+const CACHED_CATEGORIES = ['All', ...new Set(CACHED_EMOJIS.map(e => e.category).filter(Boolean))];
 
 class EmojiPicker {
     constructor(folderMenu, onSelect) {
         this.folderMenu = folderMenu;
         this.onSelect = onSelect;
         this.dockUI = folderMenu.dockUI;
-        this.emojiList = [];
-        this.categories = ['All'];
+        this.emojiList = CACHED_EMOJIS;
+        this.categories = CACHED_CATEGORIES;
         this.currentCategory = 'All';
         this.activeEmojiButtons = [];
         this.currentFocusIndex = -1;
@@ -48,46 +52,6 @@ class EmojiPicker {
     async show() {
         if (this.folderMenu.menuContainer) {
             this.folderMenu.menuContainer.hide();
-        }
-
-        try {
-            const emojiFile = Gio.File.new_for_path(`${GLib.get_home_dir()}/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/emojis.json`);
-
-            const readContentsAsync = (file) => {
-                return new Promise((resolve) => {
-                    if (!file.query_exists(null)) {
-                        resolve(null);
-                        return;
-                    }
-                    file.load_contents_async(null, (obj, res) => {
-                        const [success, contents] = obj.load_contents_finish(res);
-                        resolve(success ? contents : null);
-                    });
-                });
-            };
-
-            const contents = await readContentsAsync(emojiFile);
-            if (contents) {
-                const decoder = new TextDecoder('utf-8');
-                const parsed = JSON.parse(decoder.decode(contents));
-                this.emojiList = parsed.emojis || [];
-                const cats = new Set();
-                this.emojiList.forEach(e => {
-                    if (e.category) cats.add(e.category);
-                });
-                this.categories = ['All', ...Array.from(cats)];
-            }
-        } catch (_e) {
-            this.emojiList = [{
-                emoji: '😀',
-                name: 'grinning face',
-                category: 'Smileys'
-            }, {
-                emoji: '📁',
-                name: 'folder',
-                category: 'Objects'
-            }];
-            this.categories = ['All', 'Smileys', 'Objects'];
         }
 
         this.overlay = new St.Widget({
@@ -537,9 +501,17 @@ export class FolderMenuBuilder {
         this.panel.add_child(titleBox);
 
         let selectedIcon = this.folderData.icon;
+        const uuid = this.dockUI.appManager.uuid || 'dhruva@narkagni';
+        const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
 
         iconBtn.connectObject('clicked', () => {
             this.folderMenu.hide();
+            const zenityPath = GLib.find_program_in_path('zenity');
+            if (!zenityPath) {
+                Main.notifyError('Dhruva', 'zenity is required for file selection dialogs.');
+                return;
+            }
+
             const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico'], Gio.SubprocessFlags.STDOUT_PIPE);
             proc.communicate_utf8_async(null, null, (p, res) => {
                 try {
@@ -547,16 +519,25 @@ export class FolderMenuBuilder {
                     if (stdout && stdout.trim()) {
                         const pickedPath = stdout.trim();
                         const ext = pickedPath.split('.').pop().toLowerCase();
-                        const configDir = `${GLib.get_user_config_dir()}/dhruva@narkagni/icon`;
                         GLib.mkdir_with_parents(configDir, 0o755);
-                        const destPath = `${configDir}/folder_icon_${Date.now()}.${ext}`;
-                        Gio.File.new_for_path(pickedPath).copy(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, null, null);
-                        selectedIcon = destPath;
-                        this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, selectedIcon);
-                        this.dockUI.queueRender();
+                        const destPath = GLib.build_filenamev([configDir, `folder_icon_${Date.now()}.${ext}`]);
+
+                        const srcFile = Gio.File.new_for_path(pickedPath);
+                        const destFile = Gio.File.new_for_path(destPath);
+
+                        srcFile.copy_async(destFile, Gio.FileCopyFlags.OVERWRITE, GLib.PRIORITY_DEFAULT, null, null, (f, copyRes) => {
+                            try {
+                                f.copy_finish(copyRes);
+                                selectedIcon = destPath;
+                                this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, selectedIcon);
+                                this.dockUI.queueRender();
+                            } catch (err) {
+                                console.error('[Dhruva]', err);
+                            }
+                        });
                     }
                 } catch (e) {
-                    console.error(e);
+                    console.error('[Dhruva]', e);
                 }
             });
         }, this);
@@ -583,9 +564,8 @@ export class FolderMenuBuilder {
         emojiBtn.connectObject('clicked', () => {
             this.showEmojiPicker((selectedEmoji) => {
                 try {
-                    const configDir = `${GLib.get_user_config_dir()}/dhruva@narkagni/icon`;
                     GLib.mkdir_with_parents(configDir, 0o755);
-                    const destPath = `${configDir}/emoji_${Date.now()}.png`;
+                    const destPath = GLib.build_filenamev([configDir, `emoji_${Date.now()}.png`]);
 
                     const surface = new cairo.ImageSurface(cairo.Format.ARGB32, 128, 128);
                     const cr = new cairo.Context(surface);

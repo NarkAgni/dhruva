@@ -26,6 +26,11 @@ import MultiMonitorController from './src/core/MultiMonitorController.js';
 
 export default class DhruvaExtension extends Extension {
     enable() {
+        const ubuntuDock = Main.extensionManager?.lookup('ubuntu-dock@ubuntu.com');
+        if (ubuntuDock && ubuntuDock.state === 1) {
+            console.warn('[Dhruva] Detected active ubuntu-dock@ubuntu.com. Disabling or resetting its pressure barriers is recommended.');
+        }
+
         this._settings = this.getSettings();
 
         this._monitorController = new MultiMonitorController(

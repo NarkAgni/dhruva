@@ -24,6 +24,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { applyIconFilter } from '../DragDrop.js';
+import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 
 
@@ -174,7 +175,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     if (hoverZoom) applyIconFilter(gridModule);
 
-    gridModule._activateCallback = (buttonNum) => {
+    gridModule._activateCallback = (buttonNum, state = 0) => {
         if (buttonNum === 1) {
             animateIconClick(gridIconBin, settings.get_string('click-effect'));
 
@@ -210,6 +211,21 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
             }
 
             if (dockUI.actor) dockUI.actor._suppressZoom = true;
+        } else if (buttonNum === 3) {
+            const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
+            if (dockUI._activeContextMenu) {
+                if (dockUI._activeContextMenu._forceDestroy) {
+                    dockUI._activeContextMenu._forceDestroy();
+                }
+                dockUI._activeContextMenu = null;
+            }
+            new AppContextMenu(
+                dockUI,
+                gridModule._delegate.app,
+                gridModule,
+                isCtrl,
+                dockUI.openPrefsCallback
+            ).show(dockUI.dockPosition);
         }
     };
 
@@ -224,11 +240,17 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
             return Clutter.EVENT_STOP;
         }
 
-        if (event.get_button() === 1) {
+        const button = event.get_button();
+        const state = event.get_state();
+
+        if (button === 1) {
             if (dockUI.actor && dockUI.actor._lastIconClickTime !== undefined) {
                 dockUI.actor._lastIconClickTime = Date.now();
             }
-            gridModule._activateCallback(1);
+            gridModule._activateCallback(1, state);
+            return Clutter.EVENT_STOP;
+        } else if (button === 3) {
+            gridModule._activateCallback(3, state);
             return Clutter.EVENT_STOP;
         }
         return Clutter.EVENT_PROPAGATE;

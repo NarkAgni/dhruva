@@ -58,9 +58,9 @@ export default class QuickLaunchManager {
             }, this);
         }
 
-        this._stageCaptureId = global.stage.connect('captured-event', (_stage, event) => {
+        global.stage.connectObject('captured-event', (_stage, event) => {
             return this._onStageCapturedEvent(event);
-        });
+        }, this);
 
         this._bindIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._bindIdleId = 0;
@@ -79,7 +79,7 @@ export default class QuickLaunchManager {
         if (this._dispatchIdleId) {
             this.timers.remove(this._dispatchIdleId);
         }
-        
+
         this._dispatchIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT, () => {
             this._dispatchIdleId = 0;
             this._activateDigitSlot(digit);
@@ -169,7 +169,7 @@ export default class QuickLaunchManager {
 
     _activateDigitSlot(digit) {
         const dock = this.getTargetDock ? this.getTargetDock() : null;
-        
+
         if (!dock || !dock.boxActor) return;
 
         let target = this._resolveTargetByDigit(dock, digit);
@@ -181,12 +181,12 @@ export default class QuickLaunchManager {
 
         if (dock.autoHideManager && dock.autoHideManager.isHidden) {
             dock.autoHideManager.show();
-            
+
             if (this._activateTimeoutId) this.timers.remove(this._activateTimeoutId);
-            
+
             this._activateTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 50, () => {
                 this._activateTimeoutId = 0;
-                
+
                 if (!dock || !dock.actor) return GLib.SOURCE_REMOVE;
                 if (dock.actor) dock.actor._lastIconClickTime = Date.now();
                 target._activateCallback(1, 0);
@@ -245,10 +245,7 @@ export default class QuickLaunchManager {
 
         if (this.settings) this.settings.disconnectObject(this);
 
-        if (this._stageCaptureId) {
-            global.stage.disconnect(this._stageCaptureId);
-            this._stageCaptureId = null;
-        }
+        global.stage.disconnectObject(this);
 
         for (const name of this._activeBindings) {
             Main.wm.removeKeybinding(name);

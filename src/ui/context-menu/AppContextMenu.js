@@ -38,9 +38,9 @@ export default class AppContextMenu {
         this.dockUI = dockUI;
         this.appManager = dockUI.appManager;
         this.app = app;
-        
+
         this.buttonActor = buttonActor;
-        
+
         if (this.buttonActor) {
             this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
         }
@@ -224,8 +224,13 @@ export default class AppContextMenu {
             }, true, this));
         }
 
-        if (this.isCtrlPressed && this.openPrefsCallback) {
-            addSeparator(this.panel);
+        const isAppGrid = (this.app.get_id ? this.app.get_id() : '') === 'dhruva-grid-button';
+        const shouldShowSettings = (this.isCtrlPressed || isAppGrid) && Boolean(this.openPrefsCallback);
+
+        if (shouldShowSettings) {
+            if (!isAppGrid) {
+                addSeparator(this.panel);
+            }
             this.panel.add_child(createMenuItem('Dhruva Settings', () => {
                 this.hide();
                 const res = this.openPrefsCallback();
@@ -248,29 +253,112 @@ export default class AppContextMenu {
         this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 2000, callback);
     }
 
+    _emptyTrashAsync() {
+        const trashRoot = Gio.File.new_for_uri('trash:///');
+        trashRoot.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, null, (file, res) => {
+            try {
+                const enumerator = file.enumerate_children_finish(res);
+                const deleteNext = () => {
+                    enumerator.next_files_async(10, GLib.PRIORITY_DEFAULT, null, (e, filesRes) => {
+                        try {
+                            const files = e.next_files_finish(filesRes);
+                            if (!files || files.length === 0) {
+                                enumerator.close(null);
+                                return;
+                            }
+                            files.forEach(info => {
+                                const child = trashRoot.get_child(info.get_name());
+                                child.delete_async(GLib.PRIORITY_DEFAULT, null, () => { });
+                            });
+                            deleteNext();
+                        } catch (_err) {
+                            enumerator.close(null);
+                        }
+                    });
+                };
+                deleteNext();
+            } catch (err) {
+                console.error('[Dhruva] Failed to enumerate trash:', err);
+            }
+        });
+    }
+
     _confirmEmptyTrash() {
         const dialog = new ModalDialog.ModalDialog({ styleClass: 'dhruva-modal-dialog', destroyOnClose: true });
         const content = new St.BoxLayout({ vertical: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style: 'spacing: 12px; padding: 24px 20px 12px 20px; text-align: center;' });
         content.add_child(new St.Label({ text: 'Empty Trash?', style: 'font-weight: 800; font-size: 22px; color: #ffffff; text-align: center;' }));
         const descLabel = new St.Label({ text: 'Are you sure you want to permanently delete all items from the Trash?\nThis action cannot be undone.', style: 'font-size: 15px; color: rgba(255, 255, 255, 0.75); text-align: center; margin-top: 4px;' });
-        descLabel.clutter_text.line_wrap = true; descLabel.clutter_text.justify = true;
-        content.add_child(descLabel); dialog.contentLayout.add_child(content);
+        descLabel.clutter_text.line_wrap = true;
+        descLabel.clutter_text.justify = true;
+        content.add_child(descLabel);
+        dialog.contentLayout.add_child(content);
         dialog.addButton({ label: 'Cancel', action: () => dialog.close(), key: Clutter.KEY_Escape });
-        dialog.addButton({ label: 'Empty Trash', action: () => { dialog.close(); GLib.spawn_command_line_async('gio trash --empty'); }, isDefault: true });
+        dialog.addButton({ label: 'Empty Trash', action: () => { dialog.close(); this._emptyTrashAsync(); }, isDefault: true });
         dialog.open();
     }
 
     _addTrashActions() {
-        let trashHasItems = false;
-        const iter = Gio.File.new_for_uri('trash:///').enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-        trashHasItems = iter.next_file(null) !== null; iter.close(null);
-
-        const emptyBtn = new St.Button({ reactive: trashHasItems, x_expand: true, style_class: trashHasItems ? 'context-menu-action-btn-destructive' : 'context-menu-action-btn' });
-        const label = new St.Label({ text: trashHasItems ? 'Empty Trash' : 'Trash is Empty', style_class: trashHasItems ? 'context-menu-action-label-destructive' : 'context-menu-action-label' });
-        if (!trashHasItems) { emptyBtn.set_opacity(100); label.set_style('color: rgba(255,255,255,0.25);'); }
+        const emptyBtn = new St.Button({
+            reactive: false,
+            x_expand: true,
+            style_class: 'context-menu-action-btn'
+        });
+        const label = new St.Label({
+            text: 'Checking Trash...',
+            style_class: 'context-menu-action-label',
+            style: 'color: rgba(255,255,255,0.4);'
+        });
         emptyBtn.set_child(label);
-        if (trashHasItems) emptyBtn.connectObject('clicked', () => { this.hide(); this._confirmEmptyTrash(); }, emptyBtn);
-        this.panel.add_child(emptyBtn); addSeparator(this.panel);
+        this.panel.add_child(emptyBtn);
+        addSeparator(this.panel);
+
+        const trashFile = Gio.File.new_for_uri('trash:///');
+        trashFile.query_info_async(
+            'trash::item-count',
+            Gio.FileQueryInfoFlags.NONE,
+            GLib.PRIORITY_DEFAULT,
+            null,
+            (file, res) => {
+                let hasItems = false;
+                try {
+                    const info = file.query_info_finish(res);
+                    if (info.has_attribute('trash::item-count')) {
+                        hasItems = info.get_attribute_uint32('trash::item-count') > 0;
+                    } else {
+                        const iter = file.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                        hasItems = iter.next_file(null) !== null;
+                        iter.close(null);
+                    }
+                } catch (e) {
+                    try {
+                        const iter = file.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                        hasItems = iter.next_file(null) !== null;
+                        iter.close(null);
+                    } catch (_err) {
+                        hasItems = false;
+                    }
+                }
+
+                if (!this.panel || !emptyBtn.get_parent()) return;
+
+                if (hasItems) {
+                    emptyBtn.reactive = true;
+                    emptyBtn.style_class = 'context-menu-action-btn-destructive';
+                    label.set_text('Empty Trash');
+                    label.style_class = 'context-menu-action-label-destructive';
+                    label.set_style('');
+                    emptyBtn.connectObject('clicked', () => {
+                        this.hide();
+                        this._confirmEmptyTrash();
+                    }, emptyBtn);
+                } else {
+                    emptyBtn.reactive = false;
+                    emptyBtn.set_opacity(100);
+                    label.set_text('Trash is Empty');
+                    label.set_style('color: rgba(255,255,255,0.25);');
+                }
+            }
+        );
     }
 
     _updatePosition() {
@@ -407,7 +495,7 @@ export default class AppContextMenu {
 
         this.timers.remove(this._showDelayId);
         this._showDelayId = null;
-        
+
         this.timers.remove(this._posTrackerId);
         this._posTrackerId = null;
 

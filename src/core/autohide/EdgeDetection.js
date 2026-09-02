@@ -18,8 +18,11 @@
 
 
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 
 import { TimeoutTracker } from '../TimeoutTracker.js';
 
@@ -34,6 +37,14 @@ export class EdgeDetection {
         this.triggerActor = null;
 
         this._createTrigger();
+        this._setupBarriers();
+
+        this.dockUI.actor.connectObject(
+            'notify::allocation', () => this.updateGeometry(),
+            'notify::x', () => this.updateGeometry(),
+            'notify::y', () => this.updateGeometry(),
+            this
+        );
     }
 
     _createTrigger() {
@@ -151,6 +162,86 @@ export class EdgeDetection {
         this.triggerActor.set_size(w, h);
     }
 
+    _setupBarriers() {
+        const hasBarrierCapability = Boolean(
+            global.backend &&
+            Meta.BackendCapabilities &&
+            (global.backend.capabilities & Meta.BackendCapabilities.BARRIERS) !== 0
+        );
+
+        if (!hasBarrierCapability) return;
+
+        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
+        if (!monitorResult || !monitorResult.monitor) return;
+        const monitor = monitorResult.monitor;
+        const pos = this.dockUI.dockPosition;
+
+        let props;
+        if (pos === 'BOTTOM') {
+            props = {
+                x1: monitor.x,
+                x2: monitor.x + monitor.width,
+                y1: monitor.y + monitor.height,
+                y2: monitor.y + monitor.height,
+                directions: Meta.BarrierDirection.NEGATIVE_Y,
+            };
+        } else if (pos === 'TOP') {
+            props = {
+                x1: monitor.x,
+                x2: monitor.x + monitor.width,
+                y1: monitor.y,
+                y2: monitor.y,
+                directions: Meta.BarrierDirection.POSITIVE_Y,
+            };
+        } else if (pos === 'LEFT') {
+            props = {
+                x1: monitor.x,
+                x2: monitor.x,
+                y1: monitor.y,
+                y2: monitor.y + monitor.height,
+                directions: Meta.BarrierDirection.POSITIVE_X,
+            };
+        } else if (pos === 'RIGHT') {
+            props = {
+                x1: monitor.x + monitor.width,
+                x2: monitor.x + monitor.width,
+                y1: monitor.y,
+                y2: monitor.y + monitor.height,
+                directions: Meta.BarrierDirection.NEGATIVE_X,
+            };
+        }
+
+        try {
+            this._barrier = new Meta.Barrier({
+                backend: global.backend,
+                ...props,
+            });
+
+            const dwellDelay = this.dockUI.settings.get_int('edge-dwell-delay') || 150;
+
+            this._pressure = new Layout.PressureBarrier(
+                dwellDelay,
+                1000,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW
+            );
+
+            this._pressure.addBarrier(this._barrier);
+            this._pressure.connectObject('trigger', () => {
+                if (this.onEdgeTrigger) this.onEdgeTrigger();
+            }, this);
+        } catch (e) {
+            console.warn('[Dhruva] Could not initialize pressure barrier, using chrome trigger fallback:', e);
+            if (this._barrier) {
+                this._barrier.destroy();
+                this._barrier = null;
+            }
+            if (this._pressure) {
+                this._pressure.destroy();
+                this._pressure = null;
+            }
+        }
+    }
+
     show() {
         if (this.triggerActor) this.triggerActor.show();
     }
@@ -160,6 +251,19 @@ export class EdgeDetection {
     }
 
     destroy() {
+        if (this.dockUI && this.dockUI.actor) {
+            this.dockUI.actor.disconnectObject(this);
+        }
+        if (this._pressure) {
+            this._pressure.disconnectObject(this);
+            this._pressure.destroy();
+            this._pressure = null;
+        }
+        if (this._barrier) {
+            this._barrier.destroy();
+            this._barrier = null;
+        }
+
         if (this._dwellTimeoutId) {
             this.timers.remove(this._dwellTimeoutId);
             this._dwellTimeoutId = 0;

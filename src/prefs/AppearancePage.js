@@ -107,7 +107,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         subtitle: 'Customize the right-edge desktop button',
         icon_name: 'computer-symbolic'
     });
-    
+
     const masterDeskReset = createGroupReset(['desktop-btn-width', 'desktop-btn-opacity', 'desktop-btn-color']);
     masterDeskReset.valign = Gtk.Align.CENTER;
     desktopBtnExp.add_suffix(masterDeskReset);
@@ -167,7 +167,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         subtitle: 'Divides clock, grid, and system icons',
         icon_name: 'format-text-strikethrough-symbolic'
     });
-    
+
     const masterModSepReset = createGroupReset(['show-module-separator', 'separator-width', 'separator-height', 'separator-color', 'separator-opacity']);
     masterModSepReset.valign = Gtk.Align.CENTER;
     modSepExp.add_suffix(masterModSepReset);
@@ -197,7 +197,7 @@ export function buildAppearancePage(prefs, window, settings, createResetBtn, cre
         subtitle: 'Divides pinned apps from running apps',
         icon_name: 'format-justify-center-symbolic'
     });
-    
+
     const masterAppSepReset = createGroupReset(['show-app-separator', 'running-separator-width', 'running-separator-height', 'running-separator-color', 'running-separator-opacity']);
     masterAppSepReset.valign = Gtk.Align.CENTER;
     appSepExp.add_suffix(masterAppSepReset);

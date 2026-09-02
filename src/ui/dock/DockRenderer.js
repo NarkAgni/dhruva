@@ -24,8 +24,8 @@ import Shell from 'gi://Shell';
 import { buildModules } from '../modules/DockModules.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { applyDynamicStyles, resolveTooltipColors } from './DockThemeResolver.js';
-import { isActorAlive, updateLayout, captureActorRect } from './DockLayoutEngine.js';
 import { createSeparator, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
+import { isActorAlive, markActorDisposed, updateLayout, captureActorRect } from './DockLayoutEngine.js';
 import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMagnification } from '../magnifier/Magnifier.js';
 
 
@@ -348,10 +348,20 @@ export function renderDock(dockUI, forceRender = false) {
     endComponents.forEach(c => { applyOldVisuals(c); dockUI.boxActor.add_child(c); });
 
     if (dockUI.dockManager && dockUI.dockManager._externalActors) {
-        dockUI.dockManager._externalActors.forEach(extActor => {
-            if (isActorAlive(extActor)) {
+        const externals = dockUI.dockManager._externalActors;
+        Array.from(externals).forEach(extActor => {
+            if (!isActorAlive(extActor)) {
+                externals.delete(extActor);
+                return;
+            }
+            try {
                 applyOldVisuals(extActor);
-                dockUI.boxActor.add_child(extActor);
+                const parent = extActor.get_parent();
+                if (parent && parent !== dockUI.boxActor) return;
+                if (!parent) dockUI.boxActor.add_child(extActor);
+            } catch (_e) {
+                markActorDisposed(extActor);
+                externals.delete(extActor);
             }
         });
     }

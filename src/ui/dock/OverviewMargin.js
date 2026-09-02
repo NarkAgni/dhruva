@@ -31,7 +31,7 @@ export function scheduleOverviewMarginRetry(dockUI) {
         dockUI._overviewMarginRetryId = null;
         if (!Main.overview.visible)
             return GLib.SOURCE_REMOVE;
-s
+        
         updateLayout(dockUI);
         applyOverviewDockMargin(dockUI);
         return GLib.SOURCE_REMOVE;
@@ -40,6 +40,10 @@ s
 
 export function applyOverviewDockMargin(dockUI) {
     if (!dockUI.isActorAlive(dockUI.actor) || !dockUI.isActorAlive(dockUI.boxActor))
+        return;
+
+    const currentMon = dockUI.monitorManager.getCurrentMonitor();
+    if (!currentMon || currentMon.index !== Main.layoutManager.primaryIndex)
         return;
 
     const controls = Main.overview._overview && Main.overview._overview._controls;
