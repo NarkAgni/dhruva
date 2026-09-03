@@ -404,7 +404,7 @@ export default class DockUI {
 
         Main.layoutManager.addChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
-            trackFullscreen: false
+            trackFullscreen: true
         });
 
         this.actor.connectObject('notify::mapped', () => {

@@ -24,7 +24,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { EdgeDetection } from './EdgeDetection.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
-import { animateShow, animateHide } from './AutoHideAnimations.js';
+import { animateShow, animateHide, getHideOffsets } from './AutoHideAnimations.js';
 import { WindowOverlapDetection } from './WindowOverlapDetection.js';
 
 
@@ -149,6 +149,7 @@ export default class AutoHideManager {
             'position-changed', () => this.scheduleCheck(16),
             'size-changed', () => this.scheduleCheck(16),
             'raised', () => this.scheduleCheck(16),
+            'notify::fullscreen', () => this.scheduleCheck(10),
             'unmanaged', () => {
                 win.disconnectObject(this);
                 this._trackedWindows.delete(win);
@@ -212,13 +213,38 @@ export default class AutoHideManager {
         });
     }
 
+    _isCurrentMonitorFullscreen() {
+        const monitorResult = this.dockUI?.monitorManager?.getCurrentMonitor();
+        const curMonitorIdx = monitorResult ? monitorResult.index : 0;
+
+        const activeWs = global.workspace_manager.get_active_workspace();
+        if (!activeWs) return false;
+
+        const windows = global.display.get_tab_list(Meta.TabList.NORMAL, activeWs);
+        return windows.some(win => {
+            if (!win || win.minimized) return false;
+            if (win.is_hidden && win.is_hidden()) return false;
+            return win.get_monitor() === curMonitorIdx && win.is_fullscreen();
+        });
+    }
+
     checkVisibility() {
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
             this._hideTimeoutId = 0;
         }
 
+        if (this._isCurrentMonitorFullscreen()) {
+            if (this.edgeDetection) this.edgeDetection.hide();
+            this.forceHideImmediately();
+            return;
+        }
+
         const mode = this.settings ? (this.settings.get_string('hide-mode') || 'none') : 'none';
+        if (mode !== 'none' && this.edgeDetection) {
+            this.edgeDetection.show();
+        }
+
         if (mode === 'none') {
             this.show();
             return;
@@ -255,7 +281,24 @@ export default class AutoHideManager {
         }
     }
 
+    forceHideImmediately() {
+        this._clearTimers();
+        this._isHovered = false;
+        this.isHidden = true;
+        this.isAnimating = false;
+
+        if (!this.dockUI || !this.dockUI.actor) return;
+
+        this.dockUI.actor.remove_all_transitions();
+        const { hideX, hideY } = getHideOffsets(this.dockUI);
+        this.dockUI.actor.translation_x = hideX;
+        this.dockUI.actor.translation_y = hideY;
+        this.dockUI.actor.opacity = 0;
+    }
+
     showWithDelay() {
+        if (this._isCurrentMonitorFullscreen()) return;
+
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
             this._hideTimeoutId = 0;
@@ -280,6 +323,8 @@ export default class AutoHideManager {
     }
 
     show() {
+        if (this._isCurrentMonitorFullscreen()) return;
+
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
             this._hideTimeoutId = 0;
