@@ -25,6 +25,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 
 import PeekManager from '../../core/PeekManager.js';
+import { setBoxVertical } from '../../core/Utils.js';
 import { applyThemeStyle } from './ContextMenuStyle.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { createThumbnailScroll } from './WindowThumbnailBuilder.js';
@@ -70,7 +71,8 @@ export default class AppContextMenu {
         this.bgDrawingArea = new St.DrawingArea({ x_expand: true, y_expand: true, style: 'background-color: transparent;' });
         this.menuContainer.add_child(this.bgDrawingArea);
 
-        this.panel = new St.BoxLayout({ vertical: true, reactive: true, style_class: 'context-menu-panel', style: 'background-color: transparent; border: none; box-shadow: none;' });
+        this.panel = new St.BoxLayout({ reactive: true, style_class: 'context-menu-panel', style: 'background-color: transparent; border: none; box-shadow: none;' });
+setBoxVertical(this.panel, true);
 
         this.panel.connectObject(
             'button-release-event', () => Clutter.EVENT_STOP,
@@ -99,7 +101,8 @@ export default class AppContextMenu {
     _buildMenu() {
         if (!this.app && this.buttonActor && this.buttonActor._isFolder) {
             const fData = this.buttonActor._folderData;
-            const titleBox = new St.BoxLayout({ vertical: false, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style_class: 'context-menu-header-box' });
+            const titleBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style_class: 'context-menu-header-box' });
+setBoxVertical(titleBox, false);
             titleBox.add_child(new St.Label({ text: fData.name, style_class: 'context-menu-header-title' }));
             this.panel.add_child(titleBox); addSeparator(this.panel);
 
@@ -122,7 +125,8 @@ export default class AppContextMenu {
 
         if (!this.app) return;
 
-        const titleBox = new St.BoxLayout({ vertical: false, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style_class: 'context-menu-header-box' });
+        const titleBox = new St.BoxLayout({ x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style_class: 'context-menu-header-box' });
+setBoxVertical(titleBox, false);
         titleBox.add_child(new St.Label({ text: this.app.get_name(), style_class: 'context-menu-header-title' }));
         this.panel.add_child(titleBox); addSeparator(this.panel);
 
@@ -285,7 +289,8 @@ export default class AppContextMenu {
 
     _confirmEmptyTrash() {
         const dialog = new ModalDialog.ModalDialog({ styleClass: 'dhruva-modal-dialog', destroyOnClose: true });
-        const content = new St.BoxLayout({ vertical: true, x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style: 'spacing: 12px; padding: 24px 20px 12px 20px; text-align: center;' });
+        const content = new St.BoxLayout({ x_align: Clutter.ActorAlign.CENTER, y_align: Clutter.ActorAlign.CENTER, style: 'spacing: 12px; padding: 24px 20px 12px 20px; text-align: center;' });
+setBoxVertical(content, true);
         content.add_child(new St.Label({ text: 'Empty Trash?', style: 'font-weight: 800; font-size: 22px; color: #ffffff; text-align: center;' }));
         const descLabel = new St.Label({ text: 'Are you sure you want to permanently delete all items from the Trash?\nThis action cannot be undone.', style: 'font-size: 15px; color: rgba(255, 255, 255, 0.75); text-align: center; margin-top: 4px;' });
         descLabel.clutter_text.line_wrap = true;

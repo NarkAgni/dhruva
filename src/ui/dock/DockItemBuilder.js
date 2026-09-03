@@ -24,11 +24,11 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { hexToRgba } from '../../core/Utils.js';
 import FolderMenu from '../folder-menu/FolderMenu.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
+import { hexToRgba, setBoxVertical } from '../../core/Utils.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
@@ -156,7 +156,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPr
             y_expand: true,
             clip_to_allocation: false
         });
-        dotBox.set_vertical(isVerticalDock);
+        setBoxVertical(dotBox, isVerticalDock);
         dotBox._isIndicator = true;
         dotBox._baseTx = indPropsGlobal.tx;
         dotBox._baseTy = indPropsGlobal.ty;
@@ -550,7 +550,7 @@ export function buildFolderButton(dockUI, folder, indPropsGlobal) {
             reactive: false
         });
         
-        dotBox.set_vertical(isVerticalDock);
+        setBoxVertical(dotBox, isVerticalDock);
         dotBox._isIndicator = true;
         dotBox._baseTx = indPropsGlobal.tx;
         dotBox._baseTy = indPropsGlobal.ty;

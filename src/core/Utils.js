@@ -18,6 +18,8 @@
 
 
 import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
+
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 
@@ -66,4 +68,24 @@ export function hexToRgba(colorStr, alpha) {
     }
 
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+export function setBoxVertical(box, isVertical) {
+    if (!box) return;
+    if (box.set_orientation) {
+        box.set_orientation(isVertical ? Clutter.Orientation.VERTICAL : Clutter.Orientation.HORIZONTAL);
+    } else if (box.set_vertical) {
+        box.set_vertical(isVertical);
+    }
+}
+
+export function getBoxVertical(box) {
+    if (!box) return false;
+    if (box.get_orientation) {
+        return box.get_orientation() === Clutter.Orientation.VERTICAL;
+    }
+    if (box.get_vertical) {
+        return box.get_vertical();
+    }
+    return false;
 }

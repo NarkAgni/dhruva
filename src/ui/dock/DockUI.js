@@ -25,15 +25,14 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-
 import AppGridUI from '../AppGridUI.js';
-import { debounce } from '../../core/Utils.js';
 import AppManager from '../../core/AppManager.js';
 import DockManager from '../../core/DockManager.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import FolderManager from '../../core/FolderManager.js';
 import MonitorManager from '../../core/MonitorManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { debounce, setBoxVertical } from '../../core/Utils.js';
 import { cleanupTrashEffects } from '../effects/TrashEffect.js';
 import { teardownMagnification } from '../magnifier/Magnifier.js';
 import NotificationManager from '../../core/NotificationManager.js';
@@ -112,7 +111,7 @@ export default class DockUI {
         this.bgActor = new St.Widget({ name: 'DhruvaBackground', style_class: 'plank-like-dock-bg', reactive: true, clip_to_allocation: false });
         this.boxActor = new St.BoxLayout({ name: 'Dhruva', style_class: 'plank-like-dock', reactive: true, track_hover: true, clip_to_allocation: false });
 
-        this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
+        setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
         this.boxActor._delegate = { acceptDrop: () => true, handleDragDrop: () => true };
 
         this.actor.add_child(this.bgActor);
@@ -284,7 +283,7 @@ export default class DockUI {
 
         ['full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
             this.settings.connectObject(`changed::${key}`, () => {
-                this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
+                setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
                 this._renderDock();
                 if (key === 'full-width') this._updateStruts();
             }, this);
@@ -299,7 +298,7 @@ export default class DockUI {
             const isNewVertical = newPos === 'LEFT' || newPos === 'RIGHT';
 
             this.dockPosition = newPos;
-            this.boxActor.set_vertical(isNewVertical);
+            setBoxVertical(this.boxActor, isNewVertical);
             this.queueRender();
 
             this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
@@ -437,7 +436,7 @@ export default class DockUI {
                     if (this.dockPosition !== 'LEFT') {
                         this._originalPosForOverview = this.dockPosition;
                         this.dockPosition = 'LEFT';
-                        this.boxActor.set_vertical(true);
+                        setBoxVertical(this.boxActor, true);
 
                         this._isOverviewActive = true;
                         this._renderDock(true);
@@ -486,7 +485,7 @@ export default class DockUI {
 
             if (isIndependent && showInOverview && this._originalPosForOverview) {
                 this.dockPosition = this._originalPosForOverview;
-                this.boxActor.set_vertical(this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
+                setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
 
                 this._isOverviewActive = false;
                 this._renderDock(true);

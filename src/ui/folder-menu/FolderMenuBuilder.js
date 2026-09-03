@@ -29,6 +29,7 @@ import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import emojisData from '../emojis.js';
+import { setBoxVertical } from '../../core/Utils.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 
 
@@ -74,28 +75,28 @@ class EmojiPicker {
         const tooltipCss = this.dockUI.actor._tooltipBg || 'background-color: rgba(20,20,30,0.97);';
 
         const picker = new St.BoxLayout({
-            vertical: true,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
             style: `border-radius: 16px; padding: 16px 24px; border: 1px solid rgba(255,255,255,0.12); width: 680px; ${tooltipCss}`,
             reactive: true
         });
+        setBoxVertical(picker, true);
 
         const headerBox = new St.BoxLayout({
-            vertical: false,
             style: 'margin-bottom: 12px; spacing: 8px;',
             y_align: Clutter.ActorAlign.CENTER
         });
+        setBoxVertical(headerBox, false);
 
         const catBtn = new St.Button({
             reactive: true,
             style: 'padding: 8px 14px; border-radius: 8px; background-color: rgba(255,255,255,0.1);'
         });
         const catBox = new St.BoxLayout({
-            vertical: false,
             style: 'spacing: 8px;',
             y_align: Clutter.ActorAlign.CENTER
         });
+        setBoxVertical(catBox, false);
         const catLabel = new St.Label({
             text: 'All',
             style: 'color: white; font-weight: bold; font-size: 14px;'
@@ -120,11 +121,11 @@ class EmojiPicker {
         picker.add_child(headerBox);
 
         const dropdownBox = new St.BoxLayout({
-            vertical: true,
             style: `border-radius: 12px; padding: 6px; border: 1px solid rgba(255,255,255,0.15); ${tooltipCss}`,
             visible: false,
             reactive: true
         });
+        setBoxVertical(dropdownBox, true);
         dropdownBox.connectObject('button-release-event', () => Clutter.EVENT_STOP, this);
 
         this.overlay.connectObject('button-release-event', () => {
@@ -155,9 +156,8 @@ class EmojiPicker {
             vscrollbar_policy: St.PolicyType.NEVER,
             hscrollbar_policy: St.PolicyType.NEVER
         });
-        const ddInnerBox = new St.BoxLayout({
-            vertical: true
-        });
+        const ddInnerBox = new St.BoxLayout({});
+        setBoxVertical(ddInnerBox, true);
         ddScroll.add_child(ddInnerBox);
         dropdownBox.add_child(ddScroll);
 
@@ -198,26 +198,26 @@ class EmojiPicker {
         });
 
         this.gridContainer = new St.BoxLayout({
-            vertical: true,
             x_expand: true,
             style: 'padding-right: 0px; padding-bottom: 16px;'
         });
+        setBoxVertical(this.gridContainer, true);
         this.scrollView.add_child(this.gridContainer);
         picker.add_child(this.scrollView);
 
         const detailBox = new St.BoxLayout({
-            vertical: false,
             style: 'margin-top: 16px; padding: 10px 14px; border-radius: 10px; background-color: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05);',
             y_align: Clutter.ActorAlign.CENTER
         });
+        setBoxVertical(detailBox, false);
         this.bigEmojiLabel = new St.Label({
             text: '✨',
             style: 'font-size: 32px; margin-right: 14px;'
         });
         const textDetailBox = new St.BoxLayout({
-            vertical: true,
             x_expand: true
         });
+        setBoxVertical(textDetailBox, true);
         this.emojiNameLabel = new St.Label({
             text: 'Hover an emoji',
             style: 'font-size: 14px; font-weight: bold; color: white;'
@@ -268,10 +268,10 @@ class EmojiPicker {
         shown.forEach((item, index) => {
             if (index % 8 === 0) {
                 currentRow = new St.BoxLayout({
-                    vertical: false,
                     x_align: Clutter.ActorAlign.CENTER,
                     style: index > 0 ? 'margin-top: 8px;' : ''
                 });
+                setBoxVertical(currentRow, false);
                 this.gridContainer.add_child(currentRow);
             }
             const emoji = item.emoji;
@@ -412,10 +412,10 @@ export class FolderMenuBuilder {
 
     buildMenu() {
         const titleBox = new St.BoxLayout({
-            vertical: false,
             x_align: Clutter.ActorAlign.CENTER,
             style: 'margin-bottom: 16px; min-height: 32px;'
         });
+        setBoxVertical(titleBox, false);
         const titleStack = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
             x_expand: true,
@@ -423,10 +423,10 @@ export class FolderMenuBuilder {
         });
 
         const displayBox = new St.BoxLayout({
-            vertical: false,
             x_align: Clutter.ActorAlign.CENTER,
             style: 'spacing: 8px;'
         });
+        setBoxVertical(displayBox, false);
         const nameLabel = new St.Label({
             text: this.folderData.name,
             style: 'font-weight: bold; font-size: 16px; color: white;',
@@ -473,11 +473,11 @@ export class FolderMenuBuilder {
         displayBox.add_child(emojiBtn);
 
         const editBox = new St.BoxLayout({
-            vertical: false,
             style: 'spacing: 8px;',
             visible: false,
             y_align: Clutter.ActorAlign.CENTER
         });
+        setBoxVertical(editBox, false);
         const nameEntry = new St.Entry({
             text: this.folderData.name,
             hint_text: 'Name',
@@ -594,10 +594,10 @@ export class FolderMenuBuilder {
         }, this);
 
         this.folderMenu.gridMasterBox = new St.BoxLayout({
-            vertical: true,
             style: 'spacing: 8px;',
             x_align: Clutter.ActorAlign.CENTER
         });
+        setBoxVertical(this.folderMenu.gridMasterBox, true);
         this.panel.add_child(this.folderMenu.gridMasterBox);
         this.refreshGrid();
     }
@@ -658,9 +658,9 @@ export class FolderMenuBuilder {
         const appsPerRow = 5;
 
         let currentRow = new St.BoxLayout({
-            vertical: false,
             style: 'spacing: 8px;'
         });
+        setBoxVertical(currentRow, false);
         currentRow._delegate = this.folderMenu.gridMasterBox._delegate;
         this.folderMenu.gridMasterBox.add_child(currentRow);
 
@@ -675,9 +675,9 @@ export class FolderMenuBuilder {
 
             if (count > 0 && count % appsPerRow === 0) {
                 currentRow = new St.BoxLayout({
-                    vertical: false,
                     style: 'spacing: 8px;'
                 });
+                setBoxVertical(currentRow, false);
                 currentRow._delegate = this.folderMenu.gridMasterBox._delegate;
                 this.folderMenu.gridMasterBox.add_child(currentRow);
             }

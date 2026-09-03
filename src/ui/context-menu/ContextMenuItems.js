@@ -20,6 +20,8 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 
+import { setBoxVertical } from '../../core/Utils.js';
+
 
 export function createIconMenuItem(text, onClick, isDestructive = false, bindObject = null) {
     const btn = new St.Button({
@@ -29,10 +31,10 @@ export function createIconMenuItem(text, onClick, isDestructive = false, bindObj
     });
 
     const box = new St.BoxLayout({
-        vertical: false,
         style: 'spacing: 12px;',
         y_align: Clutter.ActorAlign.CENTER
     });
+    setBoxVertical(box, false);
 
     box.add_child(new St.Label({
         text,
@@ -69,9 +71,9 @@ export function createCheckboxItem(text, isChecked, onClick, bindObject = null) 
     });
 
     const box = new St.BoxLayout({
-        vertical: false,
         y_align: Clutter.ActorAlign.CENTER
     });
+    setBoxVertical(box, false);
 
     const checkbox = new St.Bin({
         style_class: isChecked ? 'context-menu-checkbox-box checked' : 'context-menu-checkbox-box'

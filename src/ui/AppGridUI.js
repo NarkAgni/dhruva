@@ -23,6 +23,7 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { setBoxVertical } from '../core/Utils.js';
 import AppContextMenu from './context-menu/AppContextMenu.js';
 
 
@@ -73,9 +74,9 @@ export default class AppGridUI {
 
         this.panel = new St.BoxLayout({
             style_class: 'app-list-panel',
-            vertical: true,
             reactive: true,
         });
+        setBoxVertical(this.panel, true);
 
         this.panel.connectObject(
             'button-release-event', () => Clutter.EVENT_STOP,
@@ -84,10 +85,10 @@ export default class AppGridUI {
         );
 
         const headerBox = new St.BoxLayout({
-            vertical: false,
             x_expand: true,
             style: 'margin-bottom: 12px;',
         });
+        setBoxVertical(headerBox, false);
 
         const leftSpacer = new St.Widget({ x_expand: true });
 
@@ -190,13 +191,13 @@ export default class AppGridUI {
         });
 
         this.listContainer = new St.BoxLayout({
-            vertical: true,
             style_class: 'app-list-container',
             style: 'padding-bottom: 16px;',
             x_expand: true,
             y_expand: true,
             y_align: Clutter.ActorAlign.START,
         });
+        setBoxVertical(this.listContainer, true);
 
         this._populateData();
 
@@ -249,11 +250,11 @@ export default class AppGridUI {
             style: 'border-radius: 8px;',
         });
         const content = new St.BoxLayout({
-            vertical: false,
             y_align: Clutter.ActorAlign.CENTER,
             x_expand: true,
             style: 'padding: 6px 4px;',
         });
+        setBoxVertical(content, false);
         const icon = app.create_icon_texture(32);
         const nameLabel = this._createOptimizedLabel(name, 14, false);
 
@@ -279,10 +280,10 @@ export default class AppGridUI {
         btn.set_size(96, 104);
 
         const content = new St.BoxLayout({
-            vertical: true,
             y_align: Clutter.ActorAlign.CENTER,
             x_align: Clutter.ActorAlign.FILL,
         });
+        setBoxVertical(content, true);
         const icon = app.create_icon_texture(48);
         const nameLabel = this._createOptimizedLabel(name, 12, true);
 
@@ -347,10 +348,10 @@ export default class AppGridUI {
             visibleApps.forEach((item, index) => {
                 if (index % cols === 0) {
                     rowBox = new St.BoxLayout({
-                        vertical: false,
                         style: 'spacing: 4px; margin-bottom: 4px;',
                         x_align: Clutter.ActorAlign.CENTER,
                     });
+                    setBoxVertical(rowBox, false);
                     this.listContainer.add_child(rowBox);
                 }
                 const widget = this._createGridItem(item.app, item.name);

@@ -21,6 +21,7 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { setBoxVertical } from '../../core/Utils.js';
 import { createWindowControl } from './ContextMenuItems.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 
@@ -57,7 +58,8 @@ function createThumbnailScroll(menu, app, windows, customSize) {
         return Clutter.EVENT_PROPAGATE;
     }, menu);
 
-    const thumbBox = new St.BoxLayout({ vertical: false, reactive: true, style_class: 'context-menu-thumb-box', style: `spacing: ${thumbSpacing}px;` });
+    const thumbBox = new St.BoxLayout({ reactive: true, style_class: 'context-menu-thumb-box', style: `spacing: ${thumbSpacing}px;` });
+setBoxVertical(thumbBox, false);
     if (windows.length <= 2) thumbBox.x_align = Clutter.ActorAlign.CENTER;
 
     let currentWindowsList = [...windows];
@@ -97,7 +99,8 @@ function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed)
     const titleLbl = new St.Label({ text: winTitleText, style_class: 'context-menu-thumb-title', reactive: false });
     const labelBin = new St.Bin({ child: titleLbl, x_align: Clutter.ActorAlign.FILL, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true, style_class: 'context-menu-thumb-title-bin' });
 
-    const controlsBox = new St.BoxLayout({ vertical: false, opacity: 0, reactive: true, style_class: 'context-menu-controls-box', style: 'spacing: 4px; padding: 6px;' });
+    const controlsBox = new St.BoxLayout({ opacity: 0, reactive: true, style_class: 'context-menu-controls-box', style: 'spacing: 4px; padding: 6px;' });
+setBoxVertical(controlsBox, false);
 
     if (!win.minimized) {
         controlsBox.add_child(createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {

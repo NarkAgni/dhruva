@@ -21,6 +21,7 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { getBoxVertical } from '../../core/Utils.js';
 import PeekManager from '../../core/PeekManager.js';
 import { stopDragLoop } from './MagnifierDragLoop.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
@@ -651,7 +652,7 @@ function _checkPointerLeave(dockActor, settings) {
         const daw = dockActor._cachedW || dockActor.width || 0;
         const dah = dockActor._cachedH || dockActor.height || 0;
 
-        const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
+        const isVertical = getBoxVertical(dockActor.boxActor);
 
         let boundsLeft = dax, boundsRight = dax + daw, boundsTop = day, boundsBottom = day + dah;
         if (dockActor.bgActor) {
@@ -762,7 +763,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 boundsBottom = Math.max(boundsBottom, by + bh);
             }
 
-            const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
+            const isVertical = getBoxVertical(dockActor.boxActor);
 
             const basePadX = isVertical ? 15 : 20;
             const basePadY = isVertical ? 20 : 15;
@@ -836,7 +837,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         const [dax, day] = dockActor.get_transformed_position();
         const [daw, dah] = dockActor.get_transformed_size();
 
-        const isVertical = dockActor.boxActor ? dockActor.boxActor.get_vertical() : false;
+        const isVertical = getBoxVertical(dockActor.boxActor);
         const actualMaxZoom = 1.0 + (settings.get_double('hover-zoom-factor') - 1.0) * 2.0;
 
         let boundsLeft = dax, boundsRight = dax + daw, boundsTop = day, boundsBottom = day + dah;

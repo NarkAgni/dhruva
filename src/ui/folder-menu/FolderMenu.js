@@ -23,8 +23,9 @@ import Clutter from 'gi://Clutter';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { setBoxVertical } from '../../core/Utils.js';
 import { FolderMenuBuilder } from './FolderMenuBuilder.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { dropDelegate, dropButton, dropAppId, applyThemeStyle } from './FolderMenuStyle.js';
 
@@ -72,11 +73,11 @@ export default class FolderMenu {
         this.menuContainer.add_child(this.bgDrawingArea);
 
         this.panel = new St.BoxLayout({
-            vertical: true,
             reactive: true,
             style_class: 'context-menu-panel',
             style: 'background-color: transparent; border: none; box-shadow: none;'
         });
+        setBoxVertical(this.panel, true);
         this.panel.connectObject('button-release-event', () => Clutter.EVENT_STOP, this);
 
         const handleExternalAppDrop = (source) => {

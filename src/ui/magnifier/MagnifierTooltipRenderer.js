@@ -24,6 +24,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { hideTooltip } from './MagnifierTooltip.js';
+import { setBoxVertical } from '../../core/Utils.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
@@ -66,7 +67,8 @@ export function createWindowControl(iconName, rgbColor, onClick, bindObj) {
 export function createTooltipActor() {
     const tooltip = new St.Widget({ layout_manager: new Clutter.BinLayout(), visible: false, reactive: true, track_hover: true, style: 'background-color: transparent;' });
     const tooltipBg = new St.DrawingArea({ x_expand: true, y_expand: true, style: 'background-color: transparent;' });
-    const tooltipBox = new St.BoxLayout({ vertical: true, style_class: 'dhruva-tooltip', style: 'background-color: transparent; border: none; box-shadow: none;' });
+    const tooltipBox = new St.BoxLayout({ style_class: 'dhruva-tooltip', style: 'background-color: transparent; border: none; box-shadow: none;' });
+    setBoxVertical(tooltipBox, true);
     tooltip.add_child(tooltipBg); tooltip.add_child(tooltipBox);
     return { tooltip, tooltipBg, tooltipBox };
 }
@@ -155,7 +157,8 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     }
 
     if (windows.length > 0) {
-        const thumbBox = new St.BoxLayout({ vertical: false, style: 'spacing: 12px; margin-top: 10px;' });
+        const thumbBox = new St.BoxLayout({ style: 'spacing: 12px; margin-top: 10px;' });
+setBoxVertical(thumbBox, false);
         const customSize = settings.get_int('context-menu-size') || 200;
 
         windows.forEach(win => {
@@ -179,7 +182,8 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
             const winTitleLbl = new St.Label({ text: winTitleText, style_class: 'context-menu-thumb-title', reactive: false });
             const labelBin = new St.Bin({ child: winTitleLbl, x_align: Clutter.ActorAlign.FILL, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true, style_class: 'context-menu-thumb-title-bin' });
 
-            const controlsBox = new St.BoxLayout({ vertical: false, opacity: 0, reactive: true, style_class: 'context-menu-controls-box', style: 'spacing: 4px; padding: 6px;' });
+            const controlsBox = new St.BoxLayout({ opacity: 0, reactive: true, style_class: 'context-menu-controls-box', style: 'spacing: 4px; padding: 6px;' });
+setBoxVertical(controlsBox, false);
             
             if (!win.minimized) {
                 controlsBox.add_child(createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
