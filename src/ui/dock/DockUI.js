@@ -362,12 +362,17 @@ export default class DockUI {
         const hideMode = this.settings.get_string('hide-mode');
         const shouldAffectStruts = (hideMode === 'none');
 
+        if (shouldAffectStruts) {
+            this.actor.translation_x = 0;
+            this.actor.translation_y = 0;
+        }
+
         Main.layoutManager.removeChrome(this.actor);
         this.actor._affectsStruts = shouldAffectStruts;
-        
+
         Main.layoutManager.addChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
-            trackFullscreen: false
+            trackFullscreen: true,
         });
 
         if (this.dockManager) {

@@ -37,6 +37,7 @@ export default class AutoHideManager {
         this.isHidden = false;
         this.isAnimating = false;
         this._isHovered = false;
+        this._wasFullscreen = false;
 
         this._hideTimeoutId = 0;
         this._showTimeoutId = 0;
@@ -234,10 +235,24 @@ export default class AutoHideManager {
             this._hideTimeoutId = 0;
         }
 
-        if (this._isCurrentMonitorFullscreen()) {
+        const isFullscreen = this._isCurrentMonitorFullscreen();
+
+        if (isFullscreen) {
+            if (!this._wasFullscreen) {
+                this._wasFullscreen = true;
+                if (this.dockUI) this.dockUI._updateStruts();
+            }
             if (this.edgeDetection) this.edgeDetection.hide();
             this.forceHideImmediately();
             return;
+        }
+
+        if (this._wasFullscreen) {
+            this._wasFullscreen = false;
+            if (this.dockUI) {
+                this.dockUI._updateStruts();
+                this.dockUI.queueRender(true);
+            }
         }
 
         const mode = this.settings ? (this.settings.get_string('hide-mode') || 'none') : 'none';
