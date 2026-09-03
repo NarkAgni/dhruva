@@ -352,20 +352,21 @@ export function renderDock(dockUI, forceRender = false) {
             if (isActorAlive(extActor)) {
                 try {
                     applyOldVisuals(extActor);
+
                     const currentParent = extActor.get_parent();
-                    if (currentParent && currentParent !== dockUI.boxActor) {
-                        currentParent.remove_child(extActor);
-                    }
-                    if (extActor.get_parent() !== dockUI.boxActor) {
+                    if (currentParent !== dockUI.boxActor) {
+                        if (currentParent) currentParent.remove_child(extActor);
                         dockUI.boxActor.add_child(extActor);
+                    } else {
+                        dockUI.boxActor.set_child_above_sibling(extActor, null);
                     }
 
-                    if (extActor._isPillActive) {
-                        extActor.show();
-                        extActor.opacity = 255;
-                        extActor.set_size(-1, -1);
+                    const shouldShow = extActor._isPillActive !== false && !extActor._mediaDead && !isVerticalDock;
+                    if (shouldShow) {
+                        if (!extActor.visible) extActor.show();
+                        if (extActor.opacity !== 255) extActor.opacity = 255;
                     } else {
-                        extActor.hide();
+                        if (extActor.visible) extActor.hide();
                     }
                 } catch (e) {
                     // safe swallow

@@ -132,6 +132,12 @@ export default class DockManager {
 
                 if (this.dockUI && this.dockUI.boxActor) {
                     this.dockUI.boxActor.add_child(child);
+                    try {
+                        this.dockUI.boxActor.set_child_above_sibling(child, null);
+                    } catch (_e) { }
+                    if (this.dockUI.queueRender) {
+                        this.dockUI.queueRender();
+                    }
                 }
 
                 if (!this._3rdPartyCheckerRunning) {
@@ -169,11 +175,16 @@ export default class DockManager {
                                     fullText.trim() === '';
 
                                 const isVert = this.dockUI && (this.dockUI.dockPosition === 'LEFT' || this.dockUI.dockPosition === 'RIGHT');
+                                ext._mediaDead = isMediaDead;
 
-                                if (isVert || isMediaDead) {
-                                    if (ext.visible) ext.hide();
-                                } else {
-                                    if (!ext.visible) ext.show();
+                                const shouldBeVisible = !isVert && !isMediaDead;
+                                ext._isPillActive = shouldBeVisible;
+
+                                if (!shouldBeVisible && ext.visible) {
+                                    ext.hide();
+                                } else if (shouldBeVisible && !ext.visible) {
+                                    ext.show();
+                                    ext.opacity = 255;
                                 }
                             }
                         });
