@@ -17,98 +17,91 @@
  */
 
 
-import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
-
-
 export default class FolderManager {
-    constructor(settings, uuid) {
+    constructor(settings, uuid, appManager = null) {
         this.settings = settings;
-        this.uuid = uuid || 'dhruva@narkagni'; 
-        
-        this.extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), this.uuid]);
-        this.dbPath = GLib.build_filenamev([this.extConfigDir, 'dhruva-folders.json']);
+        this.uuid = uuid || 'dhruva@narkagni';
+        this.appManager = appManager;
 
         this.folders = [];
-        this._loadFoldersAsync();
-
-        this.settings.connectObject('changed::app-folders', () => {
-            if (!this.isIndependent()) {
-                this._loadFoldersAsync();
-            }
-        }, this);
-
-        this.settings.connectObject('changed::independent-dock', () => {
-            this._loadFoldersAsync();
-        }, this);
+        this._loadFolders();
     }
 
-    isIndependent() {
-        return this.settings.get_boolean('independent-dock');
+    setAppManager(appManager) {
+        this.appManager = appManager;
+        this._loadFolders();
     }
 
     onStateChanged(callback) {
         this._onStateChangedCallback = callback;
     }
 
-    _loadFoldersAsync() {
-        if (this.isIndependent()) {
-            const file = Gio.File.new_for_path(this.dbPath);
-            file.load_contents_async(null, (obj, res) => {
-                try {
-                    let [success, contents] = obj.load_contents_finish(res);
-                    if (success) {
-                        const decoder = new TextDecoder('utf-8');
-                        const parsed = JSON.parse(decoder.decode(contents));
-                        this.folders = Array.isArray(parsed) ? parsed : [];
-                    } else {
-                        this.folders = [];
-                    }
-                } catch (e) {
-                    this.folders = [];
-                }
-                
-                if (this._onStateChangedCallback) {
-                    this._onStateChangedCallback();
-                }
-            });
-        } else {
-            const data = this.settings.get_string('app-folders');
-            try {
-                this.folders = JSON.parse(data || '[]');
-            } catch (e) {
-                this.folders = [];
-            }
-            if (this._onStateChangedCallback) {
-                this._onStateChangedCallback();
-            }
+    _notifyStateChanged() {
+        if (this._onStateChangedCallback) {
+            this._onStateChangedCallback();
         }
+    }
+
+    _loadFolders() {
+        if (this.appManager) {
+            this.folders = this.appManager.getFolders();
+        } else {
+            this.folders = [];
+        }
+        this._notifyStateChanged();
     }
 
     _saveFolders() {
-        if (this.isIndependent()) {
-            GLib.mkdir_with_parents(this.extConfigDir, 0o755);
-            const dataStr = JSON.stringify(this.folders, null, 2);
-            
-            const file = Gio.File.new_for_path(this.dbPath);
-            const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
-            
-            file.replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null, (obj, res) => {
-                obj.replace_contents_finish(res);
-            });
-        } else {
-            this.settings.set_string('app-folders', JSON.stringify(this.folders));
+        if (this.appManager) {
+            this.appManager.saveFolders(this.folders);
         }
+        this._notifyStateChanged();
     }
 
-    createFolder(name = "New Folder", icon = "folder-symbolic") {
+    saveFolders() {
+        this._saveFolders();
+    }
+
+    createFolder(name = 'New Folder', icon = 'folder-symbolic') {
+        const id = `dhruva-folder-${Date.now()}`;
         const newFolder = {
-            id: 'dhruva-folder-' + Date.now(),
-            name: name,
-            icon: icon,
+            id,
+            name,
+            icon,
             apps: []
         };
         this.folders.push(newFolder);
+
+        if (this.appManager) {
+            const currentPinned = this.appManager.getCurrentPinnedList();
+            const currentOrder = [...this.appManager.getDockOrder()];
+            const newFolderKey = `folder:${id}`;
+
+            const baseOrder = [];
+
+            currentOrder.forEach(key => {
+                if (key !== newFolderKey && !baseOrder.includes(key)) {
+                    baseOrder.push(key);
+                }
+            });
+
+            currentPinned.forEach(appId => {
+                if (!baseOrder.includes(appId)) {
+                    baseOrder.push(appId);
+                }
+            });
+
+            this.folders.forEach(f => {
+                const fKey = `folder:${f.id}`;
+                if (fKey !== newFolderKey && !baseOrder.includes(fKey)) {
+                    baseOrder.push(fKey);
+                }
+            });
+
+            baseOrder.push(newFolderKey);
+            this.appManager.saveDockOrder(baseOrder);
+        }
+
         this._saveFolders();
         return newFolder.id;
     }
@@ -141,8 +134,8 @@ export default class FolderManager {
     updateFolder(folderId, newName, newIcon) {
         const folder = this.folders.find(f => f.id === folderId);
         if (folder) {
-            if (newName) folder.name = newName;
-            if (newIcon) folder.icon = newIcon;
+            if (newName !== undefined) folder.name = newName;
+            if (newIcon !== undefined) folder.icon = newIcon;
             this._saveFolders();
             return true;
         }
@@ -151,16 +144,22 @@ export default class FolderManager {
 
     deleteFolder(folderId) {
         this.folders = this.folders.filter(f => f.id !== folderId);
+
+        if (this.appManager) {
+            const order = this.appManager.getDockOrder().filter(k => k !== `folder:${folderId}`);
+            this.appManager.saveDockOrder(order);
+        }
+
         this._saveFolders();
     }
 
     getFolders() {
-        return this.folders;
+        return this.folders || [];
     }
 
     destroy() {
-        if (this.settings) {
-            this.settings.disconnectObject(this);
-        }
+        this.folders = [];
+        this.appManager = null;
+        this._onStateChangedCallback = null;
     }
 }

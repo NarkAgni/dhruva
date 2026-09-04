@@ -76,7 +76,7 @@ export default class DockUI {
         this._cursorResetTimeouts = [];
 
         this.appManager = new AppManager(uuid, this.settings);
-        this.folderManager = new FolderManager(this.settings, uuid);
+        this.folderManager = new FolderManager(this.settings, uuid, this.appManager);
         this.monitorManager = new MonitorManager(this.settings, monitorIndex);
         this.dockManager = new DockManager(this, settings);
         this.notificationManager = new NotificationManager(this);

@@ -120,9 +120,9 @@ export default class FolderMenu {
 
         this.actor.add_child(this.menuContainer);
 
-        this.dockUI.settings.connectObject('changed::app-folders', () => {
-            if (this._isInternalSave) return;
-            if (this.dockUI && this.dockUI.folderManager) {
+        if (this.dockUI && this.dockUI.folderManager) {
+            this.dockUI.folderManager.onStateChanged(() => {
+                if (this._isInternalSave) return;
                 const updatedFolder = this.dockUI.folderManager.getFolders().find(f => f.id === this.folderData.id);
                 if (updatedFolder) {
                     this.folderData = updatedFolder;
@@ -130,8 +130,8 @@ export default class FolderMenu {
                 } else {
                     this.hide();
                 }
-            }
-        }, this.actor);
+            });
+        }
 
         if (this.dockUI.appManager && this.dockUI.appManager.appSystem) {
             this.dockUI.appManager.appSystem.connectObject('installed-changed', () => {
@@ -146,8 +146,7 @@ export default class FolderMenu {
     }
 
     _updatePosition() {
-        if (!this.actor) return;
-        if (!this.menuContainer) return;
+        if (!this.actor || !this.menuContainer) return;
 
         const isDestroyed = !this.buttonActor || !this.buttonActor.get_parent();
 
@@ -234,12 +233,8 @@ export default class FolderMenu {
 
     _saveFolderState() {
         this._isInternalSave = true;
-        if (this.dockUI.folderManager.saveFolders) {
+        if (this.dockUI.folderManager) {
             this.dockUI.folderManager.saveFolders();
-        } else if (this.dockUI.folderManager._saveFolders) {
-            this.dockUI.folderManager._saveFolders();
-        } else {
-            this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
         }
         this.dockUI.queueRender();
         
@@ -262,9 +257,7 @@ export default class FolderMenu {
             this._showDelayId = null;
             if (!this.actor) return GLib.SOURCE_REMOVE;
 
-            Main.layoutManager.addChrome(this.actor, {
-                affectsStruts: false
-            });
+            Main.layoutManager.addChrome(this.actor, { affectsStruts: false });
             if (this.dockUI && this.dockUI.actor) {
                 const parent = this.actor.get_parent();
                 const sibling = this.dockUI.actor;

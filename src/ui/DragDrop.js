@@ -216,42 +216,28 @@ export function setupDragAndDrop(btn, app, dockUI) {
             if (draggedIndex === -1) return DND.DragMotionResult.MOVE_DROP;
 
             const now = Date.now();
-            if (now - lastSwapTime < 100) return DND.DragMotionResult.MOVE_DROP;
+            if (now - lastSwapTime < 80) return DND.DragMotionResult.MOVE_DROP;
 
             const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
             const [px, py] = global.get_pointer();
-            const [dx, dy] = mainActor.get_transformed_position();
-            const localCursor = isVertical ? py - dy : px - dx;
-
-            const slotModel = getFixedSlots(mainActor, isVertical, allBtns);
-            if (!slotModel || !slotModel.orderedSlots) return DND.DragMotionResult.MOVE_DROP;
-
-            const centers = slotModel.centersByBtn;
-            const orderedSlots = slotModel.orderedSlots;
-
-            let favIds = [];
-            if (dockUI.settings.get_boolean('independent-dock')) {
-                favIds = dockUI.appManager.pinnedApps || [];
-            } else {
-                favIds = dockUI.appManager.favManager.getFavorites().map(a => a.get_id ? a.get_id() : '');
-            }
-
-            const isDraggedPinned = isDraggedFolder || favIds.includes(draggedId);
 
             let closestIndex = draggedIndex;
             let minDiff = Infinity;
+
             for (let i = 0; i < allBtns.length; i++) {
-                const targetBtnDelegate = allBtns[i]._delegate;
+                const targetBtn = allBtns[i];
+                const targetBtnDelegate = targetBtn._delegate;
                 if (!targetBtnDelegate) continue;
 
                 if (!targetBtnDelegate.isFolder && (!targetBtnDelegate.app || targetBtnDelegate.app.is_module)) continue;
 
-                const curTargetId = targetBtnDelegate.isFolder ? targetBtnDelegate.folderData.id : (targetBtnDelegate.app.get_id ? targetBtnDelegate.app.get_id() : '');
-                const isTargetPinned = targetBtnDelegate.isFolder || favIds.includes(curTargetId);
+                const [bx, by] = targetBtn.get_transformed_position();
+                const [bw, bh] = targetBtn.get_transformed_size();
 
-                if (isDraggedPinned && !isTargetPinned) continue;
+                const visualCenter = isVertical ? (by + bh / 2) : (bx + bw / 2);
+                const cursorCoord = isVertical ? py : px;
 
-                const diff = Math.abs(centers[i] - localCursor);
+                const diff = Math.abs(visualCenter - cursorCoord);
                 if (diff < minDiff) {
                     minDiff = diff;
                     closestIndex = i;
@@ -270,11 +256,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             }
             lastSwapTime = now;
 
-            const numSlots = orderedSlots.length;
-            const avgSlotWidth = numSlots > 1 ?
-                (orderedSlots[numSlots - 1] - orderedSlots[0]) / (numSlots - 1) :
-                dockUI.settings.get_int('icon-size') + 8;
-
+            const avgSlotWidth = dockUI.settings.get_int('icon-size') + 8;
             const displaced = [];
             if (closestIndex > draggedIndex) {
                 for (let k = draggedIndex + 1; k <= closestIndex; k++)
@@ -372,6 +354,21 @@ export function setupDragAndDrop(btn, app, dockUI) {
                 dockUI.folderManager.deleteFolder(entityId);
             } else {
                 dockUI.appManager.removeApp(app);
+
+                const isIndependent = dockUI.settings.get_boolean('independent-dock');
+                if (!isIndependent && app && app.get_id) {
+                    try {
+                        const appId = app.get_id();
+                        const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+                        const currentFavs = shellSettings.get_strv('favorite-apps') || [];
+                        if (currentFavs.includes(appId)) {
+                            const newFavs = currentFavs.filter(id => id !== appId);
+                            shellSettings.set_strv('favorite-apps', newFavs);
+                        }
+                    } catch (e) {
+                        console.error(`[Dhruva] Failed to unpin from GNOME Dash: ${e.message}`);
+                    }
+                }
             }
 
             btn.opacity = 0;
@@ -394,20 +391,27 @@ export function setupDragAndDrop(btn, app, dockUI) {
         }
 
         const currentBtns = getDockButtons(mainActor);
-        const newOrderIds = [];
+        const newOrderKeys = [];
         currentBtns.forEach(b => {
             if (b._delegate) {
-                if (!b._delegate.isFolder && b._delegate.app && !b._delegate.app.is_module && b._delegate.app.get_id) {
-                    newOrderIds.push(b._delegate.app.get_id());
+                if (b._delegate.isFolder && b._delegate.folderData) {
+                    newOrderKeys.push(`folder:${b._delegate.folderData.id}`);
+                } else if (b._delegate.app && !b._delegate.app.is_module && b._delegate.app.get_id) {
+                    newOrderKeys.push(b._delegate.app.get_id());
                 }
             }
         });
+
+        if (dockUI.appManager.saveDockOrder) {
+            dockUI.appManager.saveDockOrder(newOrderKeys);
+        }
 
         const isIndependent = dockUI.settings.get_boolean('independent-dock');
 
         if (isIndependent) {
             const currentPinnedIds = dockUI.appManager.pinnedApps || [];
-            const finalPinnedOrder = newOrderIds.filter(id => currentPinnedIds.includes(id) || id === entityId);
+            const onlyAppIds = newOrderKeys.filter(id => !id.startsWith('folder:'));
+            const finalPinnedOrder = onlyAppIds.filter(id => currentPinnedIds.includes(id) || id === entityId);
 
             currentPinnedIds.forEach(id => {
                 if (!finalPinnedOrder.includes(id)) {
@@ -419,8 +423,9 @@ export function setupDragAndDrop(btn, app, dockUI) {
         } else {
             const favManager = dockUI.appManager.favManager;
             const currentFavIds = favManager.getFavorites().map(a => a.get_id());
+            const onlyAppIds = newOrderKeys.filter(id => !id.startsWith('folder:'));
 
-            const finalFavOrder = newOrderIds.filter(id => currentFavIds.includes(id) || id === entityId);
+            const finalFavOrder = onlyAppIds.filter(id => currentFavIds.includes(id) || id === entityId);
 
             currentFavIds.forEach(id => {
                 if (!finalFavOrder.includes(id)) {

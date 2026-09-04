@@ -31,7 +31,6 @@ import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMag
 
 export { isActorAlive, captureActorRect, updateLayout, applyDynamicStyles, resolveTooltipColors };
 
-
 export function getIndicatorProps(dockUI) {
     const indStyle = dockUI.settings.get_string('indicator-style') || 'dot';
     const indSize = dockUI.settings.get_int('indicator-size') || 4;
@@ -185,7 +184,11 @@ export function renderDock(dockUI, forceRender = false) {
 
     const folders = (dockUI.folderManager && dockUI.folderManager.getFolders()) || [];
     const appsInFolders = new Set();
-    folders.forEach(f => f.apps.forEach(appId => appsInFolders.add(appId)));
+    folders.forEach(f => {
+        if (Array.isArray(f.apps)) {
+            f.apps.forEach(appId => appsInFolders.add(appId));
+        }
+    });
 
     if (dockUI._ignoringApps && dockUI._ignoringApps.size > 0) {
         displayApps = displayAppsRaw.filter(app => {
@@ -204,7 +207,7 @@ export function renderDock(dockUI, forceRender = false) {
     const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
 
     const indPropsGlobal = getIndicatorProps(dockUI);
-    const pinnedButtons = [];
+    const pinnedButtonsMap = new Map();
     const unpinnedButtons = [];
 
     displayApps.forEach(app => {
@@ -225,12 +228,29 @@ export function renderDock(dockUI, forceRender = false) {
         }
 
         const btn = buildAppButton(dockUI, app, isRunning, finalActiveWindows, indPropsGlobal);
-        if (dockUI.appManager.hasApp(app)) pinnedButtons.push(btn);
-        else unpinnedButtons.push(btn);
+        if (dockUI.appManager.hasApp(app)) {
+            pinnedButtonsMap.set(app.get_id(), btn);
+        } else {
+            unpinnedButtons.push(btn);
+        }
     });
 
     folders.forEach(folder => {
         const btn = buildFolderButton(dockUI, folder, indPropsGlobal);
+        pinnedButtonsMap.set(`folder:${folder.id}`, btn);
+    });
+
+    const savedOrder = dockUI.appManager.getDockOrder ? dockUI.appManager.getDockOrder() : [];
+    const pinnedButtons = [];
+
+    savedOrder.forEach(key => {
+        if (pinnedButtonsMap.has(key)) {
+            pinnedButtons.push(pinnedButtonsMap.get(key));
+            pinnedButtonsMap.delete(key);
+        }
+    });
+
+    pinnedButtonsMap.forEach(btn => {
         pinnedButtons.push(btn);
     });
 
