@@ -47,11 +47,12 @@ export function getIndicatorProps(dockUI) {
 
     let dw = indSize, dh = indSize, br = '100px';
 
+    const heightPad = dockUI.settings.get_int('dock-height') || 6;
+    const safeHeightPad = Math.max(heightPad, 4);
+
     if (indStyle === 'square') {
         br = '2px';
     } else if (indStyle === 'dash' || indStyle === 'line') {
-        const heightPad = dockUI.settings.get_int('dock-height') || 6;
-        const safeHeightPad = Math.max(heightPad, 4);
         const squareSize = hoverZoom ? iconSize : (iconSize + safeHeightPad * 2); 
         const len = indStyle === 'line' ? squareSize : Math.max(12, indSize * 2.5);
         const thick = Math.max(2, Math.floor(indSize / (indStyle === 'line' ? 1.5 : 1.2)));
@@ -60,26 +61,17 @@ export function getIndicatorProps(dockUI) {
         br = '0px';
     }
     
-    const heightPad = dockUI.settings.get_int('dock-height') || 6;
-    const safeHeightPad = Math.max(heightPad, 4);
+    const edgeMargin = 4;
+    const offset = Math.max(1, safeHeightPad - edgeMargin);
 
     let tx = 0, ty = 0;
-    if (dockUI.dockPosition === 'BOTTOM') ty = safeHeightPad;
-    else if (dockUI.dockPosition === 'TOP') ty = -safeHeightPad;
-    else if (dockUI.dockPosition === 'LEFT') tx = -safeHeightPad;
-    else if (dockUI.dockPosition === 'RIGHT') tx = safeHeightPad;
+    if (dockUI.dockPosition === 'BOTTOM') ty = offset;
+    else if (dockUI.dockPosition === 'TOP') ty = -offset;
+    else if (dockUI.dockPosition === 'LEFT') tx = -offset;
+    else if (dockUI.dockPosition === 'RIGHT') tx = offset;
 
-    let iconTx = 0, iconTy = 0;
-    if (dockUI.settings.get_boolean('show-running-indicators')) {
-        const padding = safeHeightPad; 
-        const indThickness = isVert ? dw : dh;
-        const shiftAmt = Math.max(0, indThickness + indGap - padding);
-
-        if (dockUI.dockPosition === 'BOTTOM') iconTy = -shiftAmt;
-        else if (dockUI.dockPosition === 'TOP') iconTy = shiftAmt;
-        else if (dockUI.dockPosition === 'LEFT') iconTx = shiftAmt;
-        else if (dockUI.dockPosition === 'RIGHT') iconTx = -shiftAmt;
-    }
+    const iconTx = 0;
+    const iconTy = 0;
 
     const shadowStr = indGlow ? `box-shadow: 0px 0px 8px ${indColor}CC;` : '';
     const style = `width: ${dw}px; height: ${dh}px; background-color: ${indColor}; border-radius: ${br}; ${shadowStr}`;
