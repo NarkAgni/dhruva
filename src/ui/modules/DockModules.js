@@ -21,7 +21,10 @@ import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import cairo from 'gi://cairo';
+import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
+import PangoCairo from 'gi://PangoCairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { hexToRgba } from '../../core/Utils.js';
@@ -34,11 +37,92 @@ import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { buildSystemFoldersModule } from './SystemFoldersModule.js';
+import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { buildDesktopButtonModule, toggleDesktop } from './DesktopButtonModule.js';
 
 
-const _forcedFolderState = {};
+function isWindowForFolder(w, folderPath, folderName) {
+    if (!w || w.is_skip_taskbar()) return false;
+
+    const tracker = Shell.WindowTracker.get_default();
+    const app = tracker.get_window_app(w);
+    const appId = app ? (app.get_id() || '').toLowerCase() : '';
+    const wmClass = (w.get_wm_class() || '').toLowerCase();
+
+    if (!appId.includes('nautilus') && !wmClass.includes('nautilus') && !wmClass.includes('files')) {
+        return false;
+    }
+
+    const winTitle = (w.get_title() || '').toLowerCase().trim();
+    if (!winTitle) return false;
+
+    const candidates = [];
+    if (folderName) candidates.push(folderName.toLowerCase().trim());
+
+    if (folderPath) {
+        const cleanPath = folderPath.replace(/\/+$/, '');
+        const base = cleanPath.split('/').pop();
+        if (base) candidates.push(base.toLowerCase().trim());
+
+        if (cleanPath === GLib.get_home_dir()) {
+            candidates.push('home');
+            const user = GLib.get_user_name();
+            if (user) candidates.push(user.toLowerCase());
+        }
+    }
+
+    for (let i = 0; i < candidates.length; i++) {
+        const c = candidates[i];
+        if (!c) continue;
+        if (winTitle === c) return true;
+        if (winTitle.startsWith(`${c} —`) || winTitle.startsWith(`${c} -`)) return true;
+        if (winTitle.endsWith(`— ${c}`) || winTitle.endsWith(`- ${c}`)) return true;
+        if (winTitle.includes(c)) return true;
+    }
+    return false;
+}
+
+function getCrispEmojiIcon(emojiText, renderSize) {
+    const uuid = 'dhruva@narkagni';
+    const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
+    GLib.mkdir_with_parents(configDir, 0o755);
+
+    const hash = GLib.compute_checksum_for_string(GLib.ChecksumType.MD5, emojiText, -1);
+    const emojiFile = Gio.File.new_for_path(GLib.build_filenamev([configDir, `emoji_${hash}.png`]));
+
+    if (!emojiFile.query_exists(null)) {
+        try {
+            const surface = new cairo.ImageSurface(cairo.Format.ARGB32, 128, 128);
+            const cr = new cairo.Context(surface);
+
+            const layout = PangoCairo.create_layout(cr);
+            layout.set_text(emojiText, -1);
+
+            const fontDesc = Pango.FontDescription.from_string('Noto Color Emoji 83px');
+            layout.set_font_description(fontDesc);
+
+            const [tw, th] = layout.get_pixel_size();
+            cr.moveTo((128 - tw) / 2, (128 - th) / 2);
+            PangoCairo.show_layout(cr, layout);
+
+            surface.writeToPNG(emojiFile.get_path());
+            cr.$dispose();
+        } catch (e) {
+            return new St.Icon({
+                icon_name: 'folder',
+                icon_size: renderSize,
+                style_class: 'dock-grid-icon'
+            });
+        }
+    }
+
+    return new St.Icon({
+        gicon: Gio.FileIcon.new(emojiFile),
+        icon_size: renderSize,
+        style_class: 'dock-grid-icon'
+    });
+}
 
 export function buildModules(dockUI, iconSize) {
     const systemModules = [];
@@ -51,64 +135,77 @@ export function buildModules(dockUI, iconSize) {
     const zoomFactor = settings.get_double('hover-zoom-factor');
     const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
 
-    const toggleAppWindow = (uri, possibleTitles, btnActor) => {
+    const toggleAppWindow = (uri, folderPath, folderName, btnActor) => {
         const workspace = global.workspace_manager.get_active_workspace();
         const windows = workspace.list_windows();
         const focusWin = global.display.get_focus_window();
 
-        const targetWin = windows.find(w => {
-            const wmClass = w.get_wm_class();
-            if (!wmClass || !wmClass.toLowerCase().includes('nautilus')) return false;
-            return possibleTitles.includes(w.get_title());
-        });
+        const targetWin = windows.find(w => isWindowForFolder(w, folderPath, folderName));
 
         if (targetWin) {
-            if (targetWin === focusWin) animateMinimize(targetWin, btnActor, dockUI.dockPosition);
-            else {
+            if (targetWin === focusWin && !targetWin.minimized) {
+                animateMinimize(targetWin, btnActor, dockUI.dockPosition);
+            } else {
                 animateRestore(targetWin, btnActor, dockUI.dockPosition);
                 Main.activateWindow(targetWin);
             }
         } else {
             Gio.AppInfo.launch_default_for_uri(uri, null);
 
-            if (possibleTitles && possibleTitles.length > 0) {
-                const mainTitle = possibleTitles[0];
-                _forcedFolderState[mainTitle] = Date.now();
-                dockUI.queueRender();
-
-                if (!dockUI._folderTimeoutsMap) dockUI._folderTimeoutsMap = new Map();
-                if (dockUI._folderTimeoutsMap.has(mainTitle)) {
-                    dockUI.registry.remove(dockUI._folderTimeoutsMap.get(mainTitle));
-                }
-
-                const newTimeout = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 3000, () => {
-                    delete _forcedFolderState[mainTitle];
-                    dockUI._folderTimeoutsMap.delete(mainTitle);
-                    if (dockUI && dockUI.queueRender) dockUI.queueRender();
+            [300, 600, 1100].forEach(delay => {
+                dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
+                    dockUI.queueRender();
                     return GLib.SOURCE_REMOVE;
                 });
-                dockUI._folderTimeoutsMap.set(mainTitle, newTimeout);
-            }
+            });
         }
     };
 
-    const createBtn = (iconOrName, tooltipName, clickAction, possibleTitles = []) => {
+    const createBtn = (iconOrName, tooltipName, clickAction, folderPath = null) => {
         const isString = typeof iconOrName === 'string';
-        const modIconSize = (isString && iconOrName.startsWith('user-trash')) ? Math.floor(iconSize * 0.95) : Math.floor(iconSize * 1.25);
+        const isEmoji = isString && iconOrName.startsWith('emoji:');
+        const isCustomFile = isString && !isEmoji && (iconOrName.startsWith('/') || iconOrName.startsWith('file://'));
 
+        const modIconSize = (isString && iconOrName.startsWith('user-trash')) ? Math.floor(iconSize * 0.95) : iconSize;
         const renderSize = Math.ceil(modIconSize * actualMaxZoom);
-        const gicon = isString ? Gio.ThemedIcon.new(iconOrName) : iconOrName;
 
-        const icon = new St.Icon({
-            gicon,
-            icon_size: renderSize,
-            style_class: 'dock-grid-icon'
-        });
+        let iconActor;
 
-        icon.set_size(modIconSize, modIconSize);
+        if (isEmoji) {
+            const cleanEmoji = iconOrName.replace('emoji:', '');
+            iconActor = getCrispEmojiIcon(cleanEmoji, renderSize);
+            iconActor.set_size(modIconSize, modIconSize);
+        } else if (isCustomFile) {
+            const cleanPath = iconOrName.replace('file://', '');
+            const gfile = Gio.File.new_for_path(cleanPath);
+
+            if (gfile.query_exists(null)) {
+                iconActor = new St.Icon({
+                    gicon: Gio.FileIcon.new(gfile),
+                    icon_size: renderSize,
+                    style_class: 'dock-grid-icon'
+                });
+            } else {
+                iconActor = new St.Icon({
+                    icon_name: 'folder',
+                    icon_size: renderSize,
+                    style_class: 'dock-grid-icon'
+                });
+            }
+            iconActor.set_size(modIconSize, modIconSize);
+        } else {
+            const finalName = iconOrName || 'folder';
+            const gicon = isString ? Gio.ThemedIcon.new(finalName) : finalName;
+            iconActor = new St.Icon({
+                gicon,
+                icon_size: renderSize,
+                style_class: 'dock-grid-icon'
+            });
+            iconActor.set_size(modIconSize, modIconSize);
+        }
 
         const iconBin = new St.Bin({
-            child: icon,
+            child: iconActor,
             width: iconSize,
             height: iconSize,
             x_align: Clutter.ActorAlign.CENTER,
@@ -131,7 +228,6 @@ export function buildModules(dockUI, iconSize) {
         appBox.set_pivot_point(0.5, 0.5);
 
         const getMatchingWindows = () => {
-            if (!possibleTitles.length) return [];
             let wins = [];
             const nWorkspaces = global.workspace_manager.get_n_workspaces();
 
@@ -139,17 +235,10 @@ export function buildModules(dockUI, iconSize) {
                 wins = wins.concat(global.workspace_manager.get_workspace_by_index(i).list_windows());
             }
 
-            const filteredWins = wins.filter(w => {
-                const wmClass = w.get_wm_class();
-                if (!wmClass) return false;
-                const isNautilus = wmClass.toLowerCase().includes('nautilus') || wmClass.toLowerCase().includes('files');
-                const winTitle = w.get_title() || '';
-                return isNautilus && possibleTitles.some(t => winTitle.includes(t));
-            });
-
+            const filteredWins = wins.filter(w => isWindowForFolder(w, folderPath, tooltipName));
             let finalWins = WorkspaceFilter.filterWindows(filteredWins, settings);
 
-            if (settings.get_boolean('isolate-monitors')) {
+            if (settings.get_boolean('isolate-monitors') && dockUI.monitorManager) {
                 const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
                 finalWins = finalWins.filter(w => w.get_monitor() === currentMonitorIndex);
             }
@@ -158,7 +247,7 @@ export function buildModules(dockUI, iconSize) {
         };
 
         const activeWins = getMatchingWindows();
-        const isRunning = activeWins.length > 0 || (possibleTitles.length > 0 && _forcedFolderState[possibleTitles[0]] !== undefined);
+        const isRunning = activeWins.length > 0;
 
         if (isRunning && settings.get_boolean('show-running-indicators')) {
             const numDots = (activeWins.length > 1 && (indProps.indStyle === 'dot' || indProps.indStyle === 'square')) ? 2 : 1;
@@ -253,6 +342,7 @@ export function buildModules(dockUI, iconSize) {
             y_align: Clutter.ActorAlign.FILL
         });
 
+        btn._isModule = true;
         btn.set_pivot_point(0.5, 0.5);
         btn._hasRunningIndicator = isExpanded;
         btn.set_style('background-color: transparent;');
@@ -274,7 +364,7 @@ export function buildModules(dockUI, iconSize) {
                 if (isExpanded) {
                     hoverBg.set_style(`background-color: ${hexToRgba(indProps.indColor, 0.35)}; border-radius: 0px; transition-duration: 150ms;`);
                 } else {
-                    hoverBg.set_style('background-color: rgba(255, 255, 255, 0.15); border-radius: 0px; transition-duration: 150ms;');
+                    hoverBg.set_style(`background-color: rgba(255, 255, 255, 0.15); border-radius: 0px; transition-duration: 150ms;`);
                 }
             } else {
                 hoverBg.set_style(`background-color: ${btn._baseBg}; border-radius: 0px; transition-duration: 150ms;`);
@@ -289,7 +379,7 @@ export function buildModules(dockUI, iconSize) {
                 get_id: () => safeId,
                 get_name: () => tooltipName,
                 get_state: () => (getMatchingWindows().length > 0 ? Shell.AppState.RUNNING : 0),
-                get_windows: getMatchingWindows,
+                get_windows: () => getMatchingWindows(),
                 get_app_info: () => null,
                 can_open_new_window: () => false,
                 request_quit: () => {
@@ -316,6 +406,11 @@ export function buildModules(dockUI, iconSize) {
                 dockUI.actor._lastIconClickTime = Date.now();
                 animateIconClick(iconBin, settings.get_string('click-effect'));
                 clickAction(btn);
+
+                if (dockUI.actor) {
+                    dockUI.actor._suppressZoom = false;
+                    setMagnifierPauseState(dockUI.actor, 'app-launch', false);
+                }
             } else if (buttonNum === 3) {
                 const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
                 if (dockUI._activeContextMenu) {
@@ -353,16 +448,6 @@ export function buildModules(dockUI, iconSize) {
                 return Clutter.EVENT_STOP;
             }
             return Clutter.EVENT_PROPAGATE;
-        }, btn);
-
-        btn.connectObject('destroy', () => {
-            if (possibleTitles && possibleTitles.length > 0) {
-                const mainTitle = possibleTitles[0];
-                if (dockUI._folderTimeoutsMap && dockUI._folderTimeoutsMap.has(mainTitle)) {
-                    dockUI.registry.remove(dockUI._folderTimeoutsMap.get(mainTitle));
-                    dockUI._folderTimeoutsMap.delete(mainTitle);
-                }
-            }
         }, btn);
 
         ScrollManager.setupAppScroll(btn, getMatchingWindows, settings);

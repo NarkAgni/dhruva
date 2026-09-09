@@ -26,6 +26,16 @@ import { makeResetBtn } from './ResetButtons.js';
 import { addSwitchRow, addSegmentedRow, addColorRow, addCustomSpinRow } from './PrefsWidgets.js';
 
 
+function getGraphemeCount(str) {
+    if (!str) return 0;
+    try {
+        const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+        return Array.from(segmenter.segment(str)).length;
+    } catch (e) {
+        return Array.from(str).length;
+    }
+}
+
 export function buildModulesPage(prefs, window, settings) {
     const page = new Adw.PreferencesPage({
         title: 'Modules',
@@ -83,7 +93,12 @@ export function buildModulesPage(prefs, window, settings) {
         dialog.set_filters(filterList);
 
         dialog.open(window, null, (dlg, res) => {
-            const file = dlg.open_finish(res);
+            let file;
+            try {
+                file = dlg.open_finish(res);
+            } catch (e) {
+                return;
+            }
             if (file) {
                 const ext = file.get_basename().split('.').pop().toLowerCase();
 
@@ -108,7 +123,6 @@ export function buildModulesPage(prefs, window, settings) {
                 file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
                 settings.set_string('custom-grid-icon', destPath);
             }
-
         });
     });
 
@@ -144,7 +158,6 @@ export function buildModulesPage(prefs, window, settings) {
         const showGrid = settings.get_boolean('show-grid-button');
         const hasCustomIcon = settings.get_string('custom-grid-icon') !== '';
         const useOldIcon = settings.get_boolean('use-old-grid-icon');
-        const isFullWidth = settings.get_boolean('full-width');
 
         gridPosRow.set_visible(showGrid);
         customIconRow.set_visible(showGrid);
@@ -165,7 +178,6 @@ export function buildModulesPage(prefs, window, settings) {
     syncGridSettingsVisibility();
 
     const syncGridBtn = () => {
-        const isFullWidth = settings.get_boolean('full-width');
         gridPosRow.set_visible(settings.get_boolean('show-grid-button'));
     };
     settings.connect('changed::show-grid-button', syncGridBtn);
@@ -178,17 +190,17 @@ export function buildModulesPage(prefs, window, settings) {
     });
     page.add(defaultFolderGroup);
 
-    addSwitchRow(defaultFolderGroup, settings, 'show-home', 'Home', 'Shortcut to Home directory', 'user-home-symbolic', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-downloads', 'Downloads', 'Shortcut to Downloads', 'folder-download-symbolic', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-documents', 'Documents', 'Shortcut to Documents', 'folder-documents-symbolic', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-pictures', 'Pictures', 'Shortcut to Pictures', 'folder-pictures-symbolic', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-videos', 'Videos', 'Shortcut to Videos', 'folder-videos-symbolic', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-music', 'Music', 'Shortcut to Music', 'folder-music-symbolic', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-home', 'Home', 'Shortcut to Home directory', 'user-home', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-downloads', 'Downloads', 'Shortcut to Downloads', 'folder-download', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-documents', 'Documents', 'Shortcut to Documents', 'folder-documents', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-pictures', 'Pictures', 'Shortcut to Pictures', 'folder-pictures', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-videos', 'Videos', 'Shortcut to Videos', 'folder-videos', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-music', 'Music', 'Shortcut to Music', 'folder-music', null);
 
     const mountRow = new Adw.ActionRow({
         title: 'Show USB &amp; Mounted Drives',
         subtitle: 'Automatically show connected drives and partitions on the dock',
-        icon_name: 'drive-harddisk-symbolic'
+        icon_name: 'drive-harddisk'
     });
 
     const mountToggle = new Gtk.Switch({
@@ -212,28 +224,395 @@ export function buildModulesPage(prefs, window, settings) {
     });
     page.add(customFoldersGroup);
 
+    const folderListBox = new Gtk.ListBox({
+        selection_mode: Gtk.SelectionMode.NONE,
+        css_classes: ['boxed-list']
+    });
+    customFoldersGroup.add(folderListBox);
+
     let customFolders = [];
     try {
         customFolders = JSON.parse(settings.get_string('custom-folders') || '[]');
     } catch (e) { }
 
-    const buildFolderList = () => {
-        if (customFoldersGroup._rows) {
-            customFoldersGroup._rows.forEach(r => customFoldersGroup.remove(r));
+    const iconOptions = [
+        { name: 'System Folder (Default)', value: 'folder' },
+        { name: 'Home', value: 'user-home' },
+        { name: 'Downloads', value: 'folder-download' },
+        { name: 'Documents', value: 'folder-documents' },
+        { name: 'Pictures', value: 'folder-pictures' },
+        { name: 'Videos', value: 'folder-videos' },
+        { name: 'Music', value: 'folder-music' },
+        { name: 'Public Share', value: 'folder-publicshare' },
+        { name: 'Templates', value: 'folder-templates' },
+        { name: 'Desktop', value: 'user-desktop' },
+        { name: 'Projects / Code', value: 'folder-development' },
+        { name: 'Cloud / Remote', value: 'folder-remote' }
+    ];
+
+    const openFolderDialog = (editIndex) => {
+        const isEditing = (typeof editIndex === 'number' && editIndex >= 0);
+        const folderToEdit = isEditing ? customFolders[editIndex] : null;
+
+        const isGnome45 = !Adw.AlertDialog;
+        let dialog;
+
+        const headingTitle = isEditing ? 'Edit Quick Folder' : 'Add Quick Folder';
+        const actionLabel = isEditing ? 'Update' : 'Add';
+
+        if (isGnome45) {
+            dialog = new Adw.MessageDialog({
+                heading: headingTitle,
+                transient_for: window,
+                modal: true
+            });
+        } else {
+            dialog = new Adw.AlertDialog({
+                heading: headingTitle
+            });
         }
-        customFoldersGroup._rows = [];
+
+        dialog.add_response('cancel', 'Cancel');
+        dialog.add_response('confirm', actionLabel);
+        dialog.set_response_appearance('confirm', Adw.ResponseAppearance.SUGGESTED);
+
+        const vbox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 12
+        });
+        const inputGrp = new Adw.PreferencesGroup();
+
+        const nameInput = new Adw.EntryRow({
+            title: 'Folder Name (e.g. Workspace)'
+        });
+        if (folderToEdit && folderToEdit.name) {
+            nameInput.set_text(folderToEdit.name);
+        }
+
+        const pathInput = new Adw.EntryRow({
+            title: 'Folder Path'
+        });
+        if (folderToEdit && folderToEdit.path) {
+            pathInput.set_text(folderToEdit.path);
+        }
+
+        const browseFolderBtn = new Gtk.Button({
+            icon_name: 'folder-open-symbolic',
+            valign: Gtk.Align.CENTER,
+            css_classes: ['flat'],
+            tooltip_text: 'Browse folder...'
+        });
+
+        browseFolderBtn.connect('clicked', () => {
+            const fileDialog = new Gtk.FileDialog({
+                title: 'Select Folder'
+            });
+            fileDialog.select_folder(window, null, (dlg, res) => {
+                let folder;
+                try {
+                    folder = dlg.select_folder_finish(res);
+                } catch (e) {
+                    return;
+                }
+                if (folder) {
+                    const p = folder.get_path();
+                    if (p) {
+                        pathInput.set_text(p);
+                        if (!nameInput.get_text()) {
+                            nameInput.set_text(folder.get_basename());
+                        }
+                    }
+                }
+            });
+        });
+        pathInput.add_suffix(browseFolderBtn);
+
+        const modeModel = Gtk.StringList.new([
+            'Preset System Icon',
+            'Custom Image File',
+            'Custom Emoji'
+        ]);
+
+        const modeRow = new Adw.ComboRow({
+            title: 'Icon Type',
+            model: modeModel
+        });
+
+        const iconModel = Gtk.StringList.new(iconOptions.map(opt => opt.name));
+        const iconInput = new Adw.ComboRow({
+            title: 'Select Preset Icon',
+            model: iconModel
+        });
+
+        const customImageRow = new Adw.ActionRow({
+            title: 'Select Image File',
+            subtitle: 'PNG, SVG, ICO format'
+        });
+
+        let customPickedImagePath = (folderToEdit && folderToEdit.icon && folderToEdit.icon.startsWith('/')) ? folderToEdit.icon : '';
+
+        const customImgBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+            valign: Gtk.Align.CENTER
+        });
+
+        const initialImgLabel = customPickedImagePath ? customPickedImagePath.split('/').pop() : 'None';
+        const customImgLabel = new Gtk.Label({
+            label: initialImgLabel,
+            css_classes: ['dim-label'],
+            ellipsize: 3,
+            max_width_chars: 14
+        });
+
+        const browseImgBtn = new Gtk.Button({
+            label: 'Browse...'
+        });
+
+        browseImgBtn.connect('clicked', () => {
+            const imgDialog = new Gtk.FileDialog({
+                title: 'Select Custom Folder Icon Image'
+            });
+            const filter = new Gtk.FileFilter();
+            filter.set_name('Images (.png, .svg, .ico)');
+            filter.add_mime_type('image/png');
+            filter.add_mime_type('image/svg+xml');
+            filter.add_mime_type('image/x-icon');
+            filter.add_mime_type('image/vnd.microsoft.icon');
+
+            const filterList = Gio.ListStore.new(Gtk.FileFilter);
+            filterList.append(filter);
+            imgDialog.set_filters(filterList);
+
+            imgDialog.open(window, null, (dlg, res) => {
+                let file;
+                try {
+                    file = dlg.open_finish(res);
+                } catch (e) {
+                    return;
+                }
+                if (file) {
+                    const ext = file.get_basename().split('.').pop().toLowerCase();
+                    if (!['png', 'svg', 'ico'].includes(ext)) {
+                        return;
+                    }
+
+                    const uuid = prefs.metadata.uuid || 'dhruva@narkagni';
+                    const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'folder_icons']);
+                    GLib.mkdir_with_parents(configDir, 0o755);
+
+                    const timestamp = Date.now();
+                    const destPath = GLib.build_filenamev([configDir, `custom_folder_${timestamp}.${ext}`]);
+                    const destFile = Gio.File.new_for_path(destPath);
+
+                    try {
+                        file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
+                        customPickedImagePath = destPath;
+                        customImgLabel.set_text(file.get_basename());
+                    } catch (err) { }
+                }
+            });
+        });
+
+        customImgBox.append(customImgLabel);
+        customImgBox.append(browseImgBtn);
+        customImageRow.add_suffix(customImgBox);
+
+        const emojiInput = new Adw.EntryRow({
+            title: 'Enter Emoji (Only 1 emoji allowed)'
+        });
+
+        const errorLabel = new Gtk.Label({
+            label: 'Only 1 emoji is allowed. Multiple emojis are not supported.',
+            css_classes: ['error'],
+            visible: false,
+            halign: Gtk.Align.START,
+            margin_start: 12,
+            margin_top: 4
+        });
+
+        emojiInput.connect('changed', () => {
+            const val = emojiInput.get_text().replace(/^emoji:/, '').trim();
+            const count = getGraphemeCount(val);
+            if (count > 1) {
+                emojiInput.add_css_class('error');
+                errorLabel.set_visible(true);
+            } else {
+                emojiInput.remove_css_class('error');
+                errorLabel.set_visible(false);
+            }
+        });
+
+        let initialMode = 0;
+        if (folderToEdit && folderToEdit.icon) {
+            if (folderToEdit.icon.startsWith('emoji:')) {
+                initialMode = 2;
+                emojiInput.set_text(folderToEdit.icon.replace('emoji:', ''));
+            } else if (folderToEdit.icon.startsWith('/')) {
+                initialMode = 1;
+            } else {
+                initialMode = 0;
+                const foundIdx = iconOptions.findIndex(opt => opt.value === folderToEdit.icon);
+                if (foundIdx >= 0) {
+                    iconInput.set_selected(foundIdx);
+                }
+            }
+        }
+
+        const syncModeVisibility = () => {
+            const selected = modeRow.get_selected();
+            iconInput.set_visible(selected === 0);
+            customImageRow.set_visible(selected === 1);
+            emojiInput.set_visible(selected === 2);
+            if (selected !== 2) {
+                errorLabel.set_visible(false);
+                emojiInput.remove_css_class('error');
+            } else {
+                const val = emojiInput.get_text().replace(/^emoji:/, '').trim();
+                const isErr = getGraphemeCount(val) > 1;
+                errorLabel.set_visible(isErr);
+                if (isErr) emojiInput.add_css_class('error');
+            }
+        };
+
+        modeRow.connect('notify::selected', syncModeVisibility);
+        modeRow.set_selected(initialMode);
+        syncModeVisibility();
+
+        inputGrp.add(nameInput);
+        inputGrp.add(pathInput);
+        inputGrp.add(modeRow);
+        inputGrp.add(iconInput);
+        inputGrp.add(customImageRow);
+        inputGrp.add(emojiInput);
+        vbox.append(inputGrp);
+        vbox.append(errorLabel);
+        dialog.set_extra_child(vbox);
+
+        dialog.connect('response', (dlg, response) => {
+            if (response === 'confirm') {
+                const activeMode = modeRow.get_selected();
+
+                if (activeMode === 2) {
+                    const rawEmoji = emojiInput.get_text().replace(/^emoji:/, '').trim();
+                    const emojiCount = getGraphemeCount(rawEmoji);
+
+                    if (emojiCount > 1) {
+                        emojiInput.add_css_class('error');
+                        errorLabel.set_visible(true);
+                        if (isGnome45) {
+                            dialog.present();
+                        } else {
+                            dialog.present(window);
+                        }
+                        return;
+                    }
+                }
+
+                const folderPath = pathInput.get_text().trim() || GLib.get_home_dir();
+                const folderName = nameInput.get_text().trim() || 'Custom Folder';
+
+                let finalIcon = 'folder';
+
+                if (activeMode === 0) {
+                    finalIcon = iconOptions[iconInput.get_selected()].value || 'folder';
+                } else if (activeMode === 1) {
+                    finalIcon = customPickedImagePath || 'folder';
+                } else if (activeMode === 2) {
+                    const rawEmoji = emojiInput.get_text().replace(/^emoji:/, '').trim();
+                    finalIcon = rawEmoji ? `emoji:${rawEmoji}` : 'folder';
+                }
+
+                const itemData = {
+                    name: folderName,
+                    path: folderPath,
+                    icon: finalIcon
+                };
+
+                if (isEditing) {
+                    customFolders[editIndex] = itemData;
+                } else {
+                    customFolders.push(itemData);
+                }
+
+                settings.set_string('custom-folders', JSON.stringify(customFolders));
+                buildFolderList();
+            }
+
+            if (isGnome45) dlg.close();
+        });
+
+        if (isGnome45) {
+            dialog.present();
+        } else {
+            dialog.present(window);
+        }
+    };
+
+    const buildFolderList = () => {
+        let child = folderListBox.get_first_child();
+        while (child) {
+            const next = child.get_next_sibling();
+            folderListBox.remove(child);
+            child = next;
+        }
 
         customFolders.forEach((f, idx) => {
             const row = new Adw.ActionRow({
                 title: f.name,
-                subtitle: f.path,
-                icon_name: f.icon || 'folder-symbolic'
+                subtitle: f.path
+            });
+
+            const iconVal = f.icon || 'folder';
+
+            if (iconVal.startsWith('emoji:')) {
+                const cleanEmoji = iconVal.replace('emoji:', '');
+                const emojiLabel = new Gtk.Label({
+                    label: cleanEmoji,
+                    css_classes: ['title-2'],
+                    valign: Gtk.Align.CENTER
+                });
+                row.add_prefix(emojiLabel);
+            } else if (iconVal.startsWith('/')) {
+                try {
+                    const gfile = Gio.File.new_for_path(iconVal);
+                    if (gfile.query_exists(null)) {
+                        const fileIcon = Gio.FileIcon.new(gfile);
+                        const img = Gtk.Image.new_from_gicon(fileIcon);
+                        img.set_pixel_size(24);
+                        row.add_prefix(img);
+                    } else {
+                        row.set_icon_name('folder');
+                    }
+                } catch (e) {
+                    row.set_icon_name('folder');
+                }
+            } else {
+                row.set_icon_name(iconVal);
+            }
+
+            const actionsBox = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 6,
+                valign: Gtk.Align.CENTER
+            });
+
+            const editBtn = new Gtk.Button({
+                icon_name: 'document-edit-symbolic',
+                valign: Gtk.Align.CENTER,
+                css_classes: ['flat', 'circular'],
+                tooltip_text: 'Edit folder'
+            });
+
+            editBtn.connect('clicked', () => {
+                openFolderDialog(idx);
             });
 
             const delBtn = new Gtk.Button({
                 icon_name: 'user-trash-symbolic',
                 valign: Gtk.Align.CENTER,
-                css_classes: ['flat', 'circular', 'destructive-action']
+                css_classes: ['flat', 'circular', 'destructive-action'],
+                tooltip_text: 'Remove folder'
             });
 
             delBtn.connect('clicked', () => {
@@ -242,9 +621,11 @@ export function buildModulesPage(prefs, window, settings) {
                 buildFolderList();
             });
 
-            row.add_suffix(delBtn);
-            customFoldersGroup.add(row);
-            customFoldersGroup._rows.push(row);
+            actionsBox.append(editBtn);
+            actionsBox.append(delBtn);
+            row.add_suffix(actionsBox);
+
+            folderListBox.append(row);
         });
 
         const addRow = new Adw.ActionRow();
@@ -259,90 +640,8 @@ export function buildModulesPage(prefs, window, settings) {
         });
         addRow.set_child(centerLabel);
 
-        addRow.connect('activated', () => {
-            const isGnome45 = !Adw.AlertDialog;
-            let dialog;
-
-            if (isGnome45) {
-                dialog = new Adw.MessageDialog({
-                    heading: 'Add Quick Folder',
-                    transient_for: window,
-                    modal: true
-                });
-            } else {
-                dialog = new Adw.AlertDialog({
-                    heading: 'Add Quick Folder'
-                });
-            }
-
-            dialog.add_response('cancel', 'Cancel');
-            dialog.add_response('add', 'Add');
-            dialog.set_response_appearance('add', Adw.ResponseAppearance.SUGGESTED);
-
-            const vbox = new Gtk.Box({
-                orientation: Gtk.Orientation.VERTICAL,
-                spacing: 12
-            });
-            const inputGrp = new Adw.PreferencesGroup();
-
-            const nameInput = new Adw.EntryRow({
-                title: 'Name (e.g. Projects)'
-            });
-            const pathInput = new Adw.EntryRow({
-                title: 'Path (e.g. /home/user/Projects)'
-            });
-
-            const iconOptions = [
-                { name: 'Default Folder', value: 'folder-symbolic' },
-                { name: 'Downloads', value: 'folder-download-symbolic' },
-                { name: 'Documents', value: 'folder-documents-symbolic' },
-                { name: 'Pictures', value: 'folder-pictures-symbolic' },
-                { name: 'Videos', value: 'folder-videos-symbolic' },
-                { name: 'Music', value: 'folder-music-symbolic' },
-                { name: 'Public Share', value: 'folder-publicshare-symbolic' },
-                { name: 'Templates', value: 'folder-templates-symbolic' },
-                { name: 'Desktop', value: 'user-desktop-symbolic' },
-                { name: 'Favorite (Heart)', value: 'emblem-favorite-symbolic' },
-                { name: 'Star / Bookmark', value: 'bookmark-symbolic' },
-                { name: 'Games', value: 'applications-games-symbolic' },
-                { name: 'Code / Projects', value: 'applications-engineering-symbolic' },
-                { name: 'Cloud / Remote', value: 'folder-remote-symbolic' }
-            ];
-
-            const iconModel = Gtk.StringList.new(iconOptions.map(opt => opt.name));
-            const iconInput = new Adw.ComboRow({
-                title: 'Folder Icon',
-                model: iconModel
-            });
-
-            inputGrp.add(nameInput);
-            inputGrp.add(pathInput);
-            inputGrp.add(iconInput);
-            vbox.append(inputGrp);
-            dialog.set_extra_child(vbox);
-
-            dialog.connect('response', (dlg, response) => {
-                if (response === 'add') {
-                    customFolders.push({
-                        name: nameInput.get_text().trim() || 'Custom Folder',
-                        path: pathInput.get_text().trim() || '/',
-                        icon: iconOptions[iconInput.get_selected()].value
-                    });
-                    settings.set_string('custom-folders', JSON.stringify(customFolders));
-                    buildFolderList();
-                }
-                if (isGnome45) dlg.close();
-            });
-
-            if (isGnome45) {
-                dialog.present();
-            } else {
-                dialog.present(window);
-            }
-        });
-
-        customFoldersGroup.add(addRow);
-        customFoldersGroup._rows.push(addRow);
+        addRow.connect('activated', () => openFolderDialog(-1));
+        folderListBox.append(addRow);
     };
 
     buildFolderList();
@@ -372,8 +671,7 @@ export function buildModulesPage(prefs, window, settings) {
 
         if (!isFullWidth && currentPos === 'RIGHT_END') {
             settings.set_string('clock-position', 'END');
-        }
-        else if (isFullWidth && currentPos !== 'RIGHT_END') {
+        } else if (isFullWidth && currentPos !== 'RIGHT_END') {
             settings.set_string('clock-position', 'RIGHT_END');
         }
 
@@ -469,7 +767,6 @@ export function buildModulesPage(prefs, window, settings) {
             const jsonStr = JSON.stringify(config, null, 2);
             const path = file.get_path();
             if (path) GLib.file_set_contents(path, jsonStr);
-
         });
     });
     backupGroup.add(exportRow);

@@ -27,8 +27,8 @@ import { hideTooltip } from './MagnifierTooltip.js';
 import { setBoxVertical } from '../../core/Utils.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
-import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 
 
 function isActorAlive(actor) {
@@ -148,12 +148,19 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
 
     let windows = [];
     if (btn._delegate && btn._delegate.app && btn._delegate.app.get_windows) {
-        windows = btn._delegate.app.get_windows();
-        if (settings.get_boolean('isolate-monitors') && dockActor._dockUI) {
-            const currentMonitorIndex = dockActor._dockUI.monitorManager.getCurrentMonitor().index;
-            windows = windows.filter(w => w.get_monitor() === currentMonitorIndex);
+        try {
+            windows = btn._delegate.app.get_windows() || [];
+        } catch (_) {
+            windows = [];
         }
-        windows = WorkspaceFilter.filterWindows(windows, settings);
+
+        if (windows.length > 0) {
+            if (settings.get_boolean('isolate-monitors') && dockActor._dockUI) {
+                const currentMonitorIndex = dockActor._dockUI.monitorManager.getCurrentMonitor().index;
+                windows = windows.filter(w => w && w.get_monitor && w.get_monitor() === currentMonitorIndex);
+            }
+            windows = WorkspaceFilter.filterWindows(windows, settings);
+        }
     }
 
     if (windows.length > 0) {

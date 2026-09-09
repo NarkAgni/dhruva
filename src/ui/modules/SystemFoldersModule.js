@@ -27,24 +27,16 @@ export function buildSystemFoldersModule(dockUI, _iconSize, createBtn, toggleApp
 
     if (settings.get_boolean('show-home')) {
         const homeDir = GLib.get_home_dir();
-        const homeName = homeDir.split('/').pop();
-        const realName = GLib.get_real_name() || '';
-        const titles = ['Home', homeName, realName];
-        systemModules.push(createBtn('user-home', 'Home', (btn) => toggleAppWindow(`file://${homeDir}`, titles, btn), titles));
+        systemModules.push(createBtn('user-home', 'Home', (btn) => toggleAppWindow(`file://${homeDir}`, homeDir, 'Home', btn), homeDir));
     }
 
     const addHomeFolder = (setting, icon, dirEnum, fallback) => {
         if (settings.get_boolean(setting)) {
-            const dirPath = GLib.get_user_special_dir(dirEnum);
-            if (dirPath) {
-                const file = Gio.File.new_for_path(dirPath);
-                const name = file.get_basename();
-                const uri = file.get_uri();
-                systemModules.push(createBtn(icon, name, (btn) => toggleAppWindow(uri, [name, fallback], btn), [name, fallback]));
-            } else {
-                const fallbackPath = `${GLib.get_home_dir()}/${fallback}`;
-                systemModules.push(createBtn(icon, fallback, (btn) => toggleAppWindow(`file://${fallbackPath}`, [fallback], btn), [fallback]));
-            }
+            const dirPath = GLib.get_user_special_dir(dirEnum) || `${GLib.get_home_dir()}/${fallback}`;
+            const file = Gio.File.new_for_path(dirPath);
+            const name = file.get_basename();
+            const uri = file.get_uri();
+            systemModules.push(createBtn(icon, name, (btn) => toggleAppWindow(uri, dirPath, name, btn), dirPath));
         }
     };
 
@@ -61,23 +53,27 @@ export function buildSystemFoldersModule(dockUI, _iconSize, createBtn, toggleApp
             const name = mount.get_name();
             const uri = mount.get_root().get_uri();
             const gicon = mount.get_icon() || Gio.ThemedIcon.new('drive-harddisk-symbolic');
+            const rootPath = mount.get_root().get_path() || '';
 
-            systemModules.push(createBtn(gicon, name, (btn) => toggleAppWindow(uri, [name], btn), [name]));
+            systemModules.push(createBtn(gicon, name, (btn) => toggleAppWindow(uri, rootPath, name, btn), rootPath));
         });
     }
 
     const customFoldersRaw = settings.get_string('custom-folders');
     if (customFoldersRaw) {
-        const parsedData = JSON.parse(customFoldersRaw);
-        if (Array.isArray(parsedData)) {
-            parsedData.forEach(f => {
-                const fPath = f.path || '/';
-                const fName = f.name || 'Custom Folder';
-                const fIcon = f.icon || 'folder-symbolic';
-                const uri = fPath.startsWith('file://') || fPath.includes('://') ? fPath : Gio.File.new_for_path(fPath).get_uri();
-                systemModules.push(createBtn(fIcon, fName, (btn) => toggleAppWindow(uri, [fName], btn), [fName]));
-            });
-        }
+        try {
+            const parsedData = JSON.parse(customFoldersRaw);
+            if (Array.isArray(parsedData)) {
+                parsedData.forEach(f => {
+                    const fPath = f.path || '/';
+                    const fName = f.name || 'Custom Folder';
+                    const fIcon = f.icon || 'folder';
+                    const uri = fPath.startsWith('file://') || fPath.includes('://') ? fPath : Gio.File.new_for_path(fPath).get_uri();
+
+                    systemModules.push(createBtn(fIcon, fName, (btn) => toggleAppWindow(uri, fPath, fName, btn), fPath));
+                });
+            }
+        } catch (e) { }
     }
 
     return systemModules;
