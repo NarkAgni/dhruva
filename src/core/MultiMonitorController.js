@@ -18,7 +18,6 @@
 
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-
 import DockUI from '../ui/dock/DockUI.js';
 
 
@@ -28,6 +27,10 @@ export default class MultiMonitorController {
         this.openPrefsCallback = openPrefsCallback;
         this.uuid = uuid;
         this.docks = [];
+
+        this.settings.connectObject('changed::show-on-all-monitors', () => {
+            this.reloadDocks();
+        }, this);
     }
 
     reloadDocks() {
@@ -40,7 +43,7 @@ export default class MultiMonitorController {
             const numMonitors = global.display.get_n_monitors();
             let monitorOrder = Array.from({ length: numMonitors }, (_v, i) => i);
 
-            if (focusedMonitor !== null && focusedMonitor >= 0 && focusedMonitor < numMonitors) {
+            if (focusedMonitor >= 0 && focusedMonitor < numMonitors) {
                 monitorOrder = [
                     focusedMonitor,
                     ...monitorOrder.filter(i => i !== focusedMonitor),
@@ -61,44 +64,49 @@ export default class MultiMonitorController {
 
     getFocusedMonitorIndex() {
         const focused = global.display.get_focus_window();
-        if (focused) return focused.get_monitor();
-        return Main.layoutManager.primaryIndex ?? 0;
+        if (focused) {
+            return focused.get_monitor();
+        }
+        return Main.layoutManager.primaryIndex;
     }
 
     getQuickLaunchDock() {
-        if (!this.docks || this.docks.length === 0) return null;
+        if (this.docks.length === 0) {
+            return null;
+        }
 
         const focusedMonitor = this.getFocusedMonitorIndex();
-        if (focusedMonitor !== null && focusedMonitor >= 0) {
-            const focusedDock = this.docks.find(dock => {
-                return dock.monitorManager && dock.monitorManager.getCurrentMonitor().index === focusedMonitor;
-            });
-            if (focusedDock) return focusedDock;
+        const focusedDock = this.docks.find(dock => {
+            return dock.monitorManager.getCurrentMonitor().index === focusedMonitor;
+        });
+        if (focusedDock) {
+            return focusedDock;
         }
 
-        let pointerMonitor = null;
-        if (global.display.get_current_monitor) {
-            pointerMonitor = global.display.get_current_monitor();
-        }
-
-        if (pointerMonitor !== null && pointerMonitor >= 0) {
+        const pointerMonitor = global.display.get_current_monitor();
+        if (pointerMonitor >= 0) {
             const pointerDock = this.docks.find(dock => {
-                return dock.monitorManager && dock.monitorManager.getCurrentMonitor().index === pointerMonitor;
+                return dock.monitorManager.getCurrentMonitor().index === pointerMonitor;
             });
-            if (pointerDock) return pointerDock;
+            if (pointerDock) {
+                return pointerDock;
+            }
         }
 
         return this.docks[0];
     }
 
     destroyDocks() {
-        if (this.docks && this.docks.length > 0) {
-            this.docks.forEach(dock => {
-                if (dock && dock.destroy) {
-                    dock.destroy();
-                }
-            });
-            this.docks = [];
-        }
+        this.docks.forEach(dock => {
+            dock.destroy();
+        });
+        this.docks = [];
+    }
+
+    destroy() {
+        this.settings.disconnectObject(this);
+        this.destroyDocks();
+        this.settings = null;
+        this.openPrefsCallback = null;
     }
 }

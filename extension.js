@@ -26,41 +26,41 @@ import MultiMonitorController from './src/core/MultiMonitorController.js';
 
 export default class DhruvaExtension extends Extension {
     enable() {
-        const ubuntuDock = Main.extensionManager?.lookup('ubuntu-dock@ubuntu.com');
-        if (ubuntuDock && ubuntuDock.state === 1) {
-            console.warn('[Dhruva] Detected active ubuntu-dock@ubuntu.com. Disabling or resetting its pressure barriers is recommended.');
-        }
-
         this._settings = this.getSettings();
 
         this._monitorController = new MultiMonitorController(
             this._settings,
-            () => {
-                const res = this.openPreferences();
-                if (res instanceof Promise) res.catch(err => console.warn('[Dhruva]', err.message));
-            },
+            () => this.openPreferences(),
             this.uuid
         );
 
-        Main.layoutManager.connectObject('monitors-changed', () => {
-            this._monitorController.reloadDocks();
-        }, this);
+        Main.layoutManager.connectObject(
+            'monitors-changed',
+            () => {
+                if (this._monitorController) {
+                    this._monitorController.reloadDocks();
+                }
+            },
+            this
+        );
 
-        const getAxis = () => {
-            const pos = this._settings.get_string('dock-position');
-            return (pos === 'LEFT' || pos === 'RIGHT') ? 'vertical' : 'horizontal';
-        };
-        this._currentAxis = getAxis();
+        this._currentAxis = this._getAxis();
 
         this._settings.connectObject(
-            'changed::show-on-all-monitors', () => {
-                this._monitorController.reloadDocks();
-            },
-            'changed::dock-position', () => {
-                const newAxis = getAxis();
-                if (this._currentAxis !== newAxis) {
-                    this._currentAxis = newAxis;
+            'changed::show-on-all-monitors',
+            () => {
+                if (this._monitorController) {
                     this._monitorController.reloadDocks();
+                }
+            },
+            'changed::dock-position',
+            () => {
+                const axis = this._getAxis();
+                if (this._currentAxis !== axis) {
+                    this._currentAxis = axis;
+                    if (this._monitorController) {
+                        this._monitorController.reloadDocks();
+                    }
                 }
             },
             this
@@ -76,7 +76,10 @@ export default class DhruvaExtension extends Extension {
 
     disable() {
         Main.layoutManager.disconnectObject(this);
-        this._settings.disconnectObject(this);
+
+        if (this._settings) {
+            this._settings.disconnectObject(this);
+        }
 
         if (this._quickLaunchManager) {
             this._quickLaunchManager.destroy();
@@ -84,11 +87,16 @@ export default class DhruvaExtension extends Extension {
         }
 
         if (this._monitorController) {
-            this._monitorController.destroyDocks();
+            this._monitorController.destroy();
             this._monitorController = null;
         }
 
         this._currentAxis = null;
         this._settings = null;
+    }
+
+    _getAxis() {
+        const pos = this._settings.get_string('dock-position');
+        return (pos === 'LEFT' || pos === 'RIGHT') ? 'vertical' : 'horizontal';
     }
 }

@@ -215,6 +215,10 @@ export default class AutoHideManager {
     }
 
     _isCurrentMonitorFullscreen() {
+        if (Main.overview && (Main.overview.visible || Main.overview.visibleTarget)) {
+            return false;
+        }
+
         const monitorResult = this.dockUI?.monitorManager?.getCurrentMonitor();
         const curMonitorIdx = monitorResult ? monitorResult.index : 0;
 
@@ -233,6 +237,13 @@ export default class AutoHideManager {
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
             this._hideTimeoutId = 0;
+        }
+
+        const isOverviewOpen = Main.overview && (Main.overview.visible || Main.overview.visibleTarget);
+
+        if (isOverviewOpen) {
+            this.show();
+            return;
         }
 
         const isFullscreen = this._isCurrentMonitorFullscreen();
@@ -267,11 +278,6 @@ export default class AutoHideManager {
 
         if (this._isHovered) {
             this.showWithDelay();
-            return;
-        }
-
-        if (Main.overview && (Main.overview.visible || Main.overview.visibleTarget)) {
-            this.show();
             return;
         }
 
@@ -312,7 +318,8 @@ export default class AutoHideManager {
     }
 
     showWithDelay() {
-        if (this._isCurrentMonitorFullscreen()) return;
+        const isOverviewOpen = Main.overview && (Main.overview.visible || Main.overview.visibleTarget);
+        if (this._isCurrentMonitorFullscreen() && !isOverviewOpen) return;
 
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
@@ -338,7 +345,8 @@ export default class AutoHideManager {
     }
 
     show() {
-        if (this._isCurrentMonitorFullscreen()) return;
+        const isOverviewOpen = Main.overview && (Main.overview.visible || Main.overview.visibleTarget);
+        if (this._isCurrentMonitorFullscreen() && !isOverviewOpen) return;
 
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
