@@ -26,95 +26,73 @@ import { createWindowControl } from './ContextMenuItems.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 
 
-function createThumbnailScroll(menu, app, windows, customSize) {
-    const thumbSpacing = 12;
-    const maxWidth = (customSize * 2) + thumbSpacing;
-    const scrollStyle = windows.length > 2 ? `max-width: ${maxWidth}px;` : '';
-
-    const thumbScroll = new St.ScrollView({
-        vscrollbar_policy: St.PolicyType.NEVER,
-        hscrollbar_policy: windows.length > 2 ? St.PolicyType.AUTOMATIC : St.PolicyType.NEVER,
-        enable_mouse_scrolling: true, 
-        overlay_scrollbars: true, 
-        style_class: 'context-menu-thumb-scroll',
-        style: scrollStyle
-    });
-
-    thumbScroll.connectObject('scroll-event', (_actor, event) => {
-        let [dx, dy] = event.get_scroll_direction() === Clutter.ScrollDirection.SMOOTH ? event.get_scroll_delta() : [0, 0];
-        const direction = event.get_scroll_direction();
-        
-        if (direction === Clutter.ScrollDirection.UP) dy = -1; else if (direction === Clutter.ScrollDirection.DOWN) dy = 1; else if (direction === Clutter.ScrollDirection.LEFT) dx = -1; else if (direction === Clutter.ScrollDirection.RIGHT) dx = 1;
-        if (Math.abs(dy) > Math.abs(dx) && dy !== 0) { dx = dy; dy = 0; }
-        
-        if (dx !== 0) {
-            const adjustment = thumbScroll.get_hadjustment ? thumbScroll.get_hadjustment() : thumbScroll.get_hscroll_bar().get_adjustment();
-            if (adjustment) {
-                const step = direction === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50;
-                const newVal = Math.min(Math.max(adjustment.get_value() + step, adjustment.get_lower()), adjustment.get_upper() - adjustment.get_page_size());
-                adjustment.set_value(newVal); return Clutter.EVENT_STOP;
-            }
-        }
-        return Clutter.EVENT_PROPAGATE;
-    }, menu);
-
-    const thumbBox = new St.BoxLayout({ reactive: true, style_class: 'context-menu-thumb-box', style: `spacing: ${thumbSpacing}px;` });
-setBoxVertical(thumbBox, false);
-    if (windows.length <= 2) thumbBox.x_align = Clutter.ActorAlign.CENTER;
-
-    let currentWindowsList = [...windows];
-    currentWindowsList.forEach(win => {
-        const card = createThumbnailCard(menu, win, customSize, thumbScroll, () => {
-            currentWindowsList = currentWindowsList.filter(w => w !== win);
-            if (currentWindowsList.length === 0) {
-                menu._addAppToIgnoreList(app);
-                if (menu.dockUI.actor) menu.dockUI.actor._lastIconClickTime = 0;
-                menu.dockUI._renderDock(); menu.hide();
-            }
-        });
-        thumbBox.add_child(card);
-    });
-
-    thumbScroll.add_child(thumbBox); 
-    return thumbScroll;
-}
+const THUMB_SPACING = 12;
+const MAX_TITLE_LEN = 20;
 
 function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed) {
     const card = new St.Widget({ layout_manager: new Clutter.BinLayout(), reactive: true });
-    const thumbBtn = new St.Button({ reactive: true, x_expand: true, y_expand: true, style_class: 'context-menu-thumb-btn' });
+    const thumbBtn = new St.Button({
+        reactive: true,
+        x_expand: true,
+        y_expand: true,
+        style_class: 'context-menu-thumb-btn'
+    });
 
     const compPrivate = win.get_compositor_private();
     if (compPrivate) {
         const clone = new Clutter.Clone({ source: compPrivate, reactive: false });
         const rect = win.get_frame_rect();
-        const w = Math.max(1, rect.width || 1); const h = Math.max(1, rect.height || 1);
-        let thumbW = customSize; let thumbH = (h / w) * thumbW;
-        if (thumbH > customSize * 0.8) { thumbH = customSize * 0.8; thumbW = (w / h) * thumbH; }
+        const w = Math.max(1, rect.width || 1);
+        const h = Math.max(1, rect.height || 1);
+        let thumbW = customSize;
+        let thumbH = (h / w) * thumbW;
+        if (thumbH > customSize * 0.8) {
+            thumbH = customSize * 0.8;
+            thumbW = (w / h) * thumbH;
+        }
         clone.set_size(thumbW, thumbH);
         thumbBtn.set_child(new St.Bin({ child: clone, style: 'border-radius: 6px; overflow: hidden;' }));
     }
 
     let winTitleText = win.get_title() || 'Window';
-    if (winTitleText.length > 20) winTitleText = `${winTitleText.substring(0, 18)}...`;
+    if (winTitleText.length > MAX_TITLE_LEN) {
+        winTitleText = `${winTitleText.substring(0, 18)}...`;
+    }
     const titleLbl = new St.Label({ text: winTitleText, style_class: 'context-menu-thumb-title', reactive: false });
-    const labelBin = new St.Bin({ child: titleLbl, x_align: Clutter.ActorAlign.FILL, y_align: Clutter.ActorAlign.END, x_expand: true, y_expand: true, style_class: 'context-menu-thumb-title-bin' });
+    const labelBin = new St.Bin({
+        child: titleLbl,
+        x_align: Clutter.ActorAlign.FILL,
+        y_align: Clutter.ActorAlign.END,
+        x_expand: true,
+        y_expand: true,
+        style_class: 'context-menu-thumb-title-bin'
+    });
 
-    const controlsBox = new St.BoxLayout({ opacity: 0, reactive: true, style_class: 'context-menu-controls-box', style: 'spacing: 4px; padding: 6px;' });
-setBoxVertical(controlsBox, false);
+    const controlsBox = new St.BoxLayout({
+        opacity: 0,
+        reactive: true,
+        style_class: 'context-menu-controls-box',
+        style: 'spacing: 4px; padding: 6px;'
+    });
+    setBoxVertical(controlsBox, false);
 
     if (!win.minimized) {
         controlsBox.add_child(createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
-            menu.hide(); animateMinimize(win, menu.buttonActor, menu.dockUI.dockPosition);
+            menu.hide();
+            animateMinimize(win, menu.buttonActor, menu.dockUI.dockPosition);
         }, menu));
     }
 
-    const isMaximized = win.is_maximized ? win.is_maximized() : false;
+    const isMaximized = Boolean(win.is_maximized && win.is_maximized());
     const maxIcon = win.minimized ? 'view-fullscreen-symbolic' : (isMaximized ? 'window-restore-symbolic' : 'window-maximize-symbolic');
     
     controlsBox.add_child(createWindowControl(maxIcon, '40, 201, 64', () => {
-        menu._previousFocus = null; menu.hide(); win.activate(global.get_current_time());
+        menu._previousFocus = null;
+        menu.hide();
+        win.activate(global.get_current_time());
         if (win.minimized) animateRestore(win, menu.buttonActor, menu.dockUI.dockPosition);
-        else if (isMaximized) win.unmaximize(); else win.maximize();
+        else if (isMaximized) win.unmaximize();
+        else win.maximize();
         Main.activateWindow(win);
     }, menu));
 
@@ -124,7 +102,10 @@ setBoxVertical(controlsBox, false);
         const remaining = thumbBox ? thumbBox.get_children().length - 1 : 0;
 
         card.ease({
-            scale_x: 0, scale_y: 0, opacity: 0, duration: 150,
+            scale_x: 0,
+            scale_y: 0,
+            opacity: 0,
+            duration: 150,
             onComplete: () => {
                 if (card) card.destroy();
                 
@@ -149,9 +130,17 @@ setBoxVertical(controlsBox, false);
     };
 
     controlsBox.add_child(createWindowControl('window-close-symbolic', '255, 59, 48', handleClose, menu));
-    const controlsBin = new St.Bin({ child: controlsBox, x_align: Clutter.ActorAlign.END, y_align: Clutter.ActorAlign.START, x_expand: true, y_expand: true });
+    const controlsBin = new St.Bin({
+        child: controlsBox,
+        x_align: Clutter.ActorAlign.END,
+        y_align: Clutter.ActorAlign.START,
+        x_expand: true,
+        y_expand: true
+    });
 
-    card.add_child(thumbBtn); card.add_child(labelBin); card.add_child(controlsBin);
+    card.add_child(thumbBtn);
+    card.add_child(labelBin);
+    card.add_child(controlsBin);
 
     card.connectObject('enter-event', () => {
         controlsBox.ease({ opacity: 255, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_BACK });
@@ -172,13 +161,85 @@ setBoxVertical(controlsBox, false);
     thumbBtn.connectObject('clicked', () => {
         menu._previousFocus = null;
         if (win.minimized) animateRestore(win, menu.buttonActor, menu.dockUI.dockPosition);
-        win.activate(global.get_current_time()); Main.activateWindow(win); menu.hide();
+        win.activate(global.get_current_time());
+        Main.activateWindow(win);
+        menu.hide();
     }, menu);
 
-    thumbBtn.connectObject('button-press-event', (_a, event) => event.get_button() === 2 ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE, menu);
-    thumbBtn.connectObject('button-release-event', (_a, event) => { if (event.get_button() === 2) { handleClose(); return Clutter.EVENT_STOP; } return Clutter.EVENT_PROPAGATE; }, menu);
+    thumbBtn.connectObject('button-press-event', (_a, event) => (event.get_button() === 2 ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE), menu);
+    thumbBtn.connectObject('button-release-event', (_a, event) => {
+        if (event.get_button() === 2) {
+            handleClose();
+            return Clutter.EVENT_STOP;
+        }
+        return Clutter.EVENT_PROPAGATE;
+    }, menu);
 
     return card;
 }
 
-export { createThumbnailScroll };
+export function createThumbnailScroll(menu, app, windows, customSize) {
+    const maxWidth = (customSize * 2) + THUMB_SPACING;
+    const scrollStyle = windows.length > 2 ? `max-width: ${maxWidth}px;` : '';
+
+    const thumbScroll = new St.ScrollView({
+        vscrollbar_policy: St.PolicyType.NEVER,
+        hscrollbar_policy: windows.length > 2 ? St.PolicyType.AUTOMATIC : St.PolicyType.NEVER,
+        enable_mouse_scrolling: true, 
+        overlay_scrollbars: true, 
+        style_class: 'context-menu-thumb-scroll',
+        style: scrollStyle
+    });
+
+    thumbScroll.connectObject('scroll-event', (_actor, event) => {
+        let [dx, dy] = event.get_scroll_direction() === Clutter.ScrollDirection.SMOOTH ? event.get_scroll_delta() : [0, 0];
+        const direction = event.get_scroll_direction();
+        
+        if (direction === Clutter.ScrollDirection.UP) dy = -1;
+        else if (direction === Clutter.ScrollDirection.DOWN) dy = 1;
+        else if (direction === Clutter.ScrollDirection.LEFT) dx = -1;
+        else if (direction === Clutter.ScrollDirection.RIGHT) dx = 1;
+
+        if (Math.abs(dy) > Math.abs(dx) && dy !== 0) {
+            dx = dy;
+            dy = 0;
+        }
+        
+        if (dx !== 0) {
+            const adjustment = thumbScroll.get_hadjustment ? thumbScroll.get_hadjustment() : thumbScroll.get_hscroll_bar().get_adjustment();
+            if (adjustment) {
+                const step = direction === Clutter.ScrollDirection.SMOOTH ? dx * 40 : dx * 50;
+                const newVal = Math.min(Math.max(adjustment.get_value() + step, adjustment.get_lower()), adjustment.get_upper() - adjustment.get_page_size());
+                adjustment.set_value(newVal);
+                return Clutter.EVENT_STOP;
+            }
+        }
+        return Clutter.EVENT_PROPAGATE;
+    }, menu);
+
+    const thumbBox = new St.BoxLayout({
+        reactive: true,
+        style_class: 'context-menu-thumb-box',
+        style: `spacing: ${THUMB_SPACING}px;`
+    });
+    setBoxVertical(thumbBox, false);
+
+    if (windows.length <= 2) thumbBox.x_align = Clutter.ActorAlign.CENTER;
+
+    let currentWindowsList = [...windows];
+    currentWindowsList.forEach(win => {
+        const card = createThumbnailCard(menu, win, customSize, thumbScroll, () => {
+            currentWindowsList = currentWindowsList.filter(w => w !== win);
+            if (currentWindowsList.length === 0) {
+                menu._addAppToIgnoreList(app);
+                if (menu.dockUI.actor) menu.dockUI.actor._lastIconClickTime = 0;
+                menu.dockUI._renderDock();
+                menu.hide();
+            }
+        });
+        thumbBox.add_child(card);
+    });
+
+    thumbScroll.add_child(thumbBox); 
+    return thumbScroll;
+}

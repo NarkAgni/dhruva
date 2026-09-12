@@ -17,47 +17,14 @@
  */
 
 
-import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { isActorAlive } from '../../core/Utils.js';
+import { calculateScale, calculatePivot, calculateBackgroundBounds } from './DockGeometryCalculator.js';
 
-const _disposedActors = new WeakSet();
 
-export function markActorDisposed(actor) {
-    if (actor) _disposedActors.add(actor);
-}
-
-export function isActorAlive(actor) {
-    if (!actor) return false;
-    if (_disposedActors.has(actor)) return false;
-
-    try {
-        const isFinalized = GObject.Object.prototype.is_finalized?.call(actor) ?? false;
-        if (isFinalized) return false;
-
-        return actor.get_stage?.() !== undefined;
-    } catch (_e) {
-        return false;
-    }
-}
-
-export function captureActorRect(actor, fallbackWin = null) {
-    if (isActorAlive(actor)) {
-        const [x, y] = actor.get_transformed_position();
-        const [w, h] = actor.get_transformed_size();
-        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0)
-            return { x, y, w, h };
-    }
-
-    if (fallbackWin) {
-        const frameRect = fallbackWin.get_frame_rect();
-        if (frameRect) {
-            return { x: frameRect.x + frameRect.width / 2 - 0.5, y: frameRect.y + frameRect.height / 2 - 0.5, w: 1, h: 1 };
-        }
-    }
-
-    return { x: 0, y: 0, w: 1, h: 1 };
-}
+const DEFAULT_BOX_SIZE = 10;
+const FALLBACK_PANEL_HEIGHT = 27;
 
 export function updateLayout(dockUI) {
     if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) return;
@@ -80,9 +47,8 @@ export function updateLayout(dockUI) {
     if (!monitorResult || !monitorResult.monitor) return;
 
     const actualMonitor = monitorResult.monitor;
-    const topOffset = (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) 
-        ? (Main.panel.height || 27) 
-        : 0;
+    const hasPanel = monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible;
+    const topOffset = hasPanel ? (Main.panel.height || FALLBACK_PANEL_HEIGHT) : 0;
 
     const monitor = {
         x: actualMonitor.x,
@@ -93,16 +59,18 @@ export function updateLayout(dockUI) {
 
     let [, boxW] = dockUI.boxActor.get_preferred_width(-1);
     let [, boxH] = dockUI.boxActor.get_preferred_height(-1);
-    boxW = boxW || 10;
-    boxH = boxH || 10;
+    boxW = boxW || DEFAULT_BOX_SIZE;
+    boxH = boxH || DEFAULT_BOX_SIZE;
 
-    let gridW = 0, gridH = 0;
+    let gridW = 0;
+    let gridH = 0;
     if (dockUI.gridBtn && dockUI.gridBtn.visible && isFullWidth) {
         [, gridW] = dockUI.gridBtn.get_preferred_width(-1);
         [, gridH] = dockUI.gridBtn.get_preferred_height(-1);
     }
 
-    let clockW = 0, clockH = 0;
+    let clockW = 0;
+    let clockH = 0;
     if (dockUI.extractedClock && dockUI.extractedClock.visible && isFullWidth) {
         [, clockW] = dockUI.extractedClock.get_preferred_width(-1);
         [, clockH] = dockUI.extractedClock.get_preferred_height(-1);
@@ -137,79 +105,35 @@ export function updateLayout(dockUI) {
     const totalW = contentW + (maxExpansion * 2) + (sWidth * 2);
     const totalH = contentH + (maxExpansion * 2) + (sWidth * 2);
 
-    let scale = 1.0;
-    const paddingBuffer = 20;
-
-    if (isVertical && totalH > monitor.height - paddingBuffer) {
-        scale = (monitor.height - paddingBuffer) / totalH;
-    } else if (!isVertical && totalW > monitor.width - paddingBuffer) {
-        scale = (monitor.width - paddingBuffer) / totalW;
-    }
-
-    let pivotX = 0.5, pivotY = 0.5;
-    if (pos === 'LEFT') pivotX = 0.0;
-    else if (pos === 'RIGHT') pivotX = 1.0;
-    else if (pos === 'TOP') pivotY = 0.0;
-    else if (pos === 'BOTTOM') pivotY = 1.0;
-
-    if (isFullWidth) {
-        if (!isVertical) {
-            if (alignment === 'START') pivotX = 0.0;
-            else if (alignment === 'END') pivotX = 1.0;
-        } else {
-            if (alignment === 'START') pivotY = 0.0;
-            else if (alignment === 'END') pivotY = 1.0;
-        }
-    }
+    const scale = calculateScale(isVertical, totalW, totalH, monitor);
+    const { pivotX, pivotY } = calculatePivot(pos, isFullWidth, isVertical, alignment);
 
     dockUI.actor.set_pivot_point(pivotX, pivotY);
     dockUI.actor.set_scale(scale, scale);
 
-    let bgX, bgY, bgW, bgH;
-    if (isFullWidth) {
-        bgW = isVertical ? boxW + (sWidth * 2) : monitor.width / scale;
-        bgH = isVertical ? monitor.height / scale : boxH + (sWidth * 2);
-
-        if (!isVertical) {
-            bgX = -pivotX * monitor.width * ((1.0 / scale) - 1.0);
-            bgY = pos === 'BOTTOM' ? actorH - bgH : (pos === 'TOP' ? 0 : (actorH - bgH) / 2);
-        } else {
-            bgY = -pivotY * monitor.height * ((1.0 / scale) - 1.0);
-            bgX = pos === 'RIGHT' ? actorW - bgW : (pos === 'LEFT' ? 0 : (actorW - bgW) / 2);
-        }
-    } else {
-        bgW = boxW + (sWidth * 2);
-        bgH = boxH + (sWidth * 2);
-        bgX = (actorW - bgW) / 2;
-        bgY = (actorH - bgH) / 2;
-
-        if (pos === 'BOTTOM') bgY = actorH - bgH;
-        else if (pos === 'TOP') bgY = 0;
-        else if (pos === 'LEFT') bgX = 0;
-        else if (pos === 'RIGHT') bgX = actorW - bgW;
-    }
+    const { bgX, bgY, bgW, bgH } = calculateBackgroundBounds(
+        isFullWidth, isVertical, pos, scale, sWidth, boxW, boxH, monitor, pivotX, pivotY, actorW, actorH
+    );
 
     const padScale = 10 / scale;
-    let gx = 0, gy = 0;
 
     if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
-        gx = isVertical ? bgX + (bgW - gridW) / 2 : bgX + padScale;
-        gy = isVertical ? bgY + padScale : bgY + (bgH - gridH) / 2;
+        const gx = isVertical ? bgX + (bgW - gridW) / 2 : bgX + padScale;
+        const gy = isVertical ? bgY + padScale : bgY + (bgH - gridH) / 2;
         dockUI.gridBtn.set_position(gx, gy);
     }
 
-    let cx = 0, cy = 0;
+    let cx = 0;
+    let cy = 0;
     let rightOffset = 0;
     let bottomOffset = 0;
     
     if (isFullWidth && dockUI.extractedDesktop && dockUI.extractedDesktop.visible) {
         const deskBtnWidth = dockUI.settings.get_int('desktop-btn-width');
-        
         const dWidth = isVertical ? bgW : deskBtnWidth;
         const dHeight = isVertical ? deskBtnWidth : bgH;
         
         dockUI.extractedDesktop.set_size(dWidth, dHeight);
-        
         const dx = isVertical ? bgX : bgX + bgW - dWidth;
         const dy = isVertical ? bgY + bgH - dHeight : bgY;
         
@@ -224,14 +148,14 @@ export function updateLayout(dockUI) {
         dockUI.extractedClock.set_position(cx, cy);
     }
 
-    let contentX = sWidth, contentY = sWidth;
-    const fullExp = maxExpansion;
+    let contentX = sWidth;
+    let contentY = sWidth;
     const safetyGap = 40 / scale;
 
     if (!isVertical) {
         if (isFullWidth) {
-            if (alignment === 'START') contentX = bgX + padScale + fullExp;
-            else if (alignment === 'END') contentX = bgX + bgW - boxW - padScale - fullExp;
+            if (alignment === 'START') contentX = bgX + padScale + maxExpansion;
+            else if (alignment === 'END') contentX = bgX + bgW - boxW - padScale - maxExpansion;
             else contentX = bgX + (bgW - boxW) / 2;
         } else {
             contentX = bgX + (bgW - boxW) / 2;
@@ -239,8 +163,8 @@ export function updateLayout(dockUI) {
         contentY = bgY + (bgH - boxH) / 2;
     } else {
         if (isFullWidth) {
-            if (alignment === 'START') contentY = bgY + padScale + fullExp;
-            else if (alignment === 'END') contentY = bgY + bgH - boxH - padScale - fullExp;
+            if (alignment === 'START') contentY = bgY + padScale + maxExpansion;
+            else if (alignment === 'END') contentY = bgY + bgH - boxH - padScale - maxExpansion;
             else contentY = bgY + (bgH - boxH) / 2;
         } else {
             contentY = bgY + (bgH - boxH) / 2;
@@ -251,11 +175,11 @@ export function updateLayout(dockUI) {
     if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
         if (!isVertical) {
             const gridRight = (bgX + padScale) + gridW + safetyGap;
-            const boxLeft = contentX - fullExp;
+            const boxLeft = contentX - maxExpansion;
             if (boxLeft < gridRight) contentX += (gridRight - boxLeft);
         } else {
             const gridBottom = (bgY + padScale) + gridH + safetyGap;
-            const boxTop = contentY - fullExp;
+            const boxTop = contentY - maxExpansion;
             if (boxTop < gridBottom) contentY += (gridBottom - boxTop);
         }
     }
@@ -263,11 +187,11 @@ export function updateLayout(dockUI) {
     if (isFullWidth && dockUI.extractedClock && dockUI.extractedClock.visible) {
         if (!isVertical) {
             const clockLeft = cx - safetyGap;
-            const boxRight = contentX + boxW + fullExp;
+            const boxRight = contentX + boxW + maxExpansion;
             if (boxRight > clockLeft) contentX -= (boxRight - clockLeft);
         } else {
             const clockTop = cy - safetyGap;
-            const boxBottom = contentY + boxH + fullExp;
+            const boxBottom = contentY + boxH + maxExpansion;
             if (boxBottom > clockTop) contentY -= (boxBottom - clockTop);
         }
     }

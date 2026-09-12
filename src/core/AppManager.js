@@ -23,6 +23,14 @@ import Shell from 'gi://Shell';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
 
 
+const DEFAULT_PINNED_APPS = [
+    'org.gnome.Nautilus.desktop',
+    'org.gnome.Terminal.desktop',
+    'org.gnome.Software.desktop',
+    'org.gnome.Calculator.desktop',
+    'org.gnome.TextEditor.desktop'
+];
+
 export default class AppManager {
     constructor(uuid, settings) {
         this.appSystem = Shell.AppSystem.get_default();
@@ -62,19 +70,13 @@ export default class AppManager {
             return [...(this.pinnedApps || [])];
         }
         const favorites = this.favManager.getFavorites();
-        return favorites.map(a => a.get_id ? a.get_id() : '').filter(Boolean);
+        return favorites.map(a => (a.get_id ? a.get_id() : '')).filter(Boolean);
     }
 
     loadDockStateSync() {
         const file = Gio.File.new_for_path(this.dbPath);
         if (!file.query_exists(null)) {
-            this.pinnedApps = [
-                'org.gnome.Nautilus.desktop',
-                'org.gnome.Terminal.desktop',
-                'org.gnome.Software.desktop',
-                'org.gnome.Calculator.desktop',
-                'org.gnome.TextEditor.desktop'
-            ];
+            this.pinnedApps = [...DEFAULT_PINNED_APPS];
             this.dockOrder = [...this.pinnedApps];
             this.folders = [];
             this.saveDockState();
@@ -91,7 +93,7 @@ export default class AppManager {
                     this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
                     this.dockOrder = [...parsed];
                     this.folders = [];
-                } else if (parsed && typeof parsed === 'object') {
+                } else if (parsed && Boolean(parsed) && !Array.isArray(parsed)) {
                     this.pinnedApps = Array.isArray(parsed.apps) ? parsed.apps : [];
                     this.dockOrder = Array.isArray(parsed.order) ? parsed.order : [];
                     this.folders = Array.isArray(parsed.folders) ? parsed.folders : [];
@@ -102,13 +104,7 @@ export default class AppManager {
             console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
         }
 
-        this.pinnedApps = [
-            'org.gnome.Nautilus.desktop',
-            'org.gnome.Terminal.desktop',
-            'org.gnome.Software.desktop',
-            'org.gnome.Calculator.desktop',
-            'org.gnome.TextEditor.desktop'
-        ];
+        this.pinnedApps = [...DEFAULT_PINNED_APPS];
         this.dockOrder = [...this.pinnedApps];
         this.folders = [];
         this.saveDockState();
@@ -160,10 +156,8 @@ export default class AppManager {
                 if (currentFolderKeys.includes(key) && !finalOrder.includes(key)) {
                     finalOrder.push(key);
                 }
-            } else {
-                if (currentPinned.includes(key) && !finalOrder.includes(key)) {
-                    finalOrder.push(key);
-                }
+            } else if (currentPinned.includes(key) && !finalOrder.includes(key)) {
+                finalOrder.push(key);
             }
         });
 
@@ -211,7 +205,7 @@ export default class AppManager {
 
     addApp(app) {
         if (!app) return false;
-        let id = app.get_id();
+        const id = app.get_id();
 
         if (this.isIndependent()) {
             if (!this.pinnedApps.includes(id)) {
@@ -237,7 +231,7 @@ export default class AppManager {
 
     removeApp(app) {
         if (!app) return false;
-        let id = app.get_id ? app.get_id() : app;
+        const id = app.get_id ? app.get_id() : app;
 
         this.dockOrder = (this.dockOrder || []).filter(itemId => itemId !== id);
 
@@ -279,7 +273,7 @@ export default class AppManager {
             const runningApps = this.appSystem.get_running();
             const favIds = new Set(favorites.map(a => a.get_id()));
 
-            let displayApps = [...favorites];
+            const displayApps = [...favorites];
 
             if (showUnpinned) {
                 runningApps.forEach(app => {
@@ -296,19 +290,18 @@ export default class AppManager {
 
         const runningApps = this.appSystem.get_running();
         const runningIds = new Set(runningApps.map(a => a.get_id()));
-        let displayApps = [];
+        const displayApps = [];
         let needsSave = false;
 
         this.pinnedApps = this.pinnedApps.filter(id => {
-            let app = this.appSystem.lookup_app(id);
+            const app = this.appSystem.lookup_app(id);
             if (app) {
                 displayApps.push(app);
                 runningIds.delete(id);
                 return true;
-            } else {
-                needsSave = true;
-                return false;
             }
+            needsSave = true;
+            return false;
         });
 
         if (needsSave) this.saveDockState();

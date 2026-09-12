@@ -42,6 +42,10 @@ import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { buildDesktopButtonModule, toggleDesktop } from './DesktopButtonModule.js';
 
 
+const EMOJI_TEXTURE_SIZE = 128;
+const DRAG_MOVE_CANCEL_THRESHOLD = 35;
+const APP_LAUNCH_RENDER_DELAYS = [300, 600, 1100];
+
 function isWindowForFolder(w, folderPath, folderName) {
     if (!w || w.is_skip_taskbar()) return false;
 
@@ -84,8 +88,7 @@ function isWindowForFolder(w, folderPath, folderName) {
 }
 
 function getCrispEmojiIcon(emojiText, renderSize) {
-    const uuid = 'dhruva@narkagni';
-    const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
+    const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), 'dhruva@narkagni', 'icon']);
     GLib.mkdir_with_parents(configDir, 0o755);
 
     const hash = GLib.compute_checksum_for_string(GLib.ChecksumType.MD5, emojiText, -1);
@@ -93,7 +96,7 @@ function getCrispEmojiIcon(emojiText, renderSize) {
 
     if (!emojiFile.query_exists(null)) {
         try {
-            const surface = new cairo.ImageSurface(cairo.Format.ARGB32, 128, 128);
+            const surface = new cairo.ImageSurface(cairo.Format.ARGB32, EMOJI_TEXTURE_SIZE, EMOJI_TEXTURE_SIZE);
             const cr = new cairo.Context(surface);
 
             const layout = PangoCairo.create_layout(cr);
@@ -103,12 +106,12 @@ function getCrispEmojiIcon(emojiText, renderSize) {
             layout.set_font_description(fontDesc);
 
             const [tw, th] = layout.get_pixel_size();
-            cr.moveTo((128 - tw) / 2, (128 - th) / 2);
+            cr.moveTo((EMOJI_TEXTURE_SIZE - tw) / 2, (EMOJI_TEXTURE_SIZE - th) / 2);
             PangoCairo.show_layout(cr, layout);
 
             surface.writeToPNG(emojiFile.get_path());
             cr.$dispose();
-        } catch (e) {
+        } catch (_e) {
             return new St.Icon({
                 icon_name: 'folder',
                 icon_size: renderSize,
@@ -152,7 +155,7 @@ export function buildModules(dockUI, iconSize) {
         } else {
             Gio.AppInfo.launch_default_for_uri(uri, null);
 
-            [300, 600, 1100].forEach(delay => {
+            APP_LAUNCH_RENDER_DELAYS.forEach(delay => {
                 dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
                     dockUI.queueRender();
                     return GLib.SOURCE_REMOVE;
@@ -212,6 +215,7 @@ export function buildModules(dockUI, iconSize) {
             y_align: Clutter.ActorAlign.CENTER
         });
         iconBin.set_pivot_point(0.5, 0.5);
+
         const indProps = dockUI._getIndicatorProps();
         iconBin.translation_x = indProps.iconTx;
         iconBin.translation_y = indProps.iconTy;
@@ -291,12 +295,10 @@ export function buildModules(dockUI, iconSize) {
 
         const dockHeightPad = settings.get_int('dock-height') || 6;
         const pad = Math.max(dockHeightPad, 4);
-
         const expandedDim = iconSize + pad * 2;
         const collapsedDim = iconSize + 2;
 
         const isExpanded = isRunning && settings.get_boolean('show-running-indicators') && !hoverZoom;
-
         const targetW = isVertical ? iconSize : (isExpanded ? expandedDim : collapsedDim);
         const targetH = isVertical ? (isExpanded ? expandedDim : collapsedDim) : iconSize;
 
@@ -432,7 +434,7 @@ export function buildModules(dockUI, iconSize) {
             const state = event.get_state();
             const [rx, ry] = event.get_coords();
 
-            if (Math.abs(rx - (btn._pressX || rx)) > 35 || Math.abs(ry - (btn._pressY || ry)) > 35) {
+            if (Math.abs(rx - (btn._pressX || rx)) > DRAG_MOVE_CANCEL_THRESHOLD || Math.abs(ry - (btn._pressY || ry)) > DRAG_MOVE_CANCEL_THRESHOLD) {
                 return Clutter.EVENT_PROPAGATE;
             }
 
@@ -469,14 +471,14 @@ export function buildModules(dockUI, iconSize) {
         }
     }
 
-    const folders = buildSystemFoldersModule(dockUI, iconSize, createBtn, toggleAppWindow);
+    const folders = buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow);
     systemModules.push(...folders);
 
     if (settings.get_boolean('show-trash')) {
-        systemModules.push(buildTrashModule(iconSize, createBtn, toggleAppWindow));
+        systemModules.push(buildTrashModule(createBtn, toggleAppWindow));
     }
 
-    clockModule = buildClockModule(dockUI, iconSize);
+    clockModule = buildClockModule(dockUI);
 
     return {
         systemModules,

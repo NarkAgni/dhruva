@@ -19,8 +19,18 @@
 
 import cairo from 'gi://cairo';
 
+import { hexToRgba } from '../../core/Utils.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 
+
+const CORNER_RADIUS = 18;
+const ARROW_HEIGHT = 12;
+const ARROW_WIDTH = 24;
+
+function parseRgba(str) {
+    const m = (str || '').match(/[\d.]+/g);
+    return m ? m.map(Number) : [0, 0, 0, 0];
+}
 
 export function dropDelegate(source) {
     if (!source) return {};
@@ -57,14 +67,7 @@ export function applyThemeStyle(folderMenu, panel) {
     const sColor = settings.get_string('stroke-color') || '#ffffff';
     const sOpacity = settings.get_int('stroke-opacity') / 100.0;
 
-    const _hexToRgba = (hex, alpha) => {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    };
-
-    let bgRgba = _hexToRgba(settings.get_string('background-color') || '#000000', opacity);
+    let bgRgba = hexToRgba(settings.get_string('background-color') || '#000000', opacity);
 
     if (themeId === 'chameleon') {
         const { r, g, b } = (folderMenu.dockUI._chameleonColor && folderMenu.dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
@@ -90,16 +93,13 @@ export function applyThemeStyle(folderMenu, panel) {
 
     panel.set_style('background-color: transparent; border: none;');
     folderMenu.bgDrawingArea._bgRgba = bgRgba;
-    folderMenu.bgDrawingArea._strokeRgba = sWidth > 0 ? _hexToRgba(sColor, sOpacity) : 'transparent';
+    folderMenu.bgDrawingArea._strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'transparent';
     folderMenu.bgDrawingArea._sWidth = sWidth;
 
     folderMenu.bgDrawingArea.connectObject('repaint', (area) => {
         if (!folderMenu._dockPos) return;
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
-        const r = 18;
-        const ah = 12;
-        const aw = 24;
         const sw = area._sWidth || 0;
         const half = sw / 2;
         const w = fullW - sw;
@@ -108,17 +108,12 @@ export function applyThemeStyle(folderMenu, panel) {
         const ax = (area._arrowCenter || fullW / 2) - half;
         const ay = (area._arrowCenter || fullH / 2) - half;
 
-        const parseRgba = (str) => {
-            const m = (str || '').match(/[\d.]+/g);
-            return m ? m.map(Number) : [0, 0, 0, 0];
-        };
-
         cr.save();
         cr.setOperator(cairo.Operator.CLEAR);
         cr.paint();
         cr.restore();
         cr.translate(half, half);
-        traceMenuPath(cr, w, h, r, ah, aw, folderMenu._dockPos, ax, ay);
+        traceMenuPath(cr, w, h, CORNER_RADIUS, ARROW_HEIGHT, ARROW_WIDTH, folderMenu._dockPos, ax, ay);
 
         const [br, bg, bb, ba] = parseRgba(area._bgRgba);
         cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);

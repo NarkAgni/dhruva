@@ -23,6 +23,8 @@ import Clutter from 'gi://Clutter';
 import { setBoxVertical } from '../../core/Utils.js';
 
 
+const CONTROL_BTN_SIZE = 20;
+
 export function createIconMenuItem(text, onClick, isDestructive = false, bindObject = null) {
     const btn = new St.Button({
         reactive: true,
@@ -63,42 +65,6 @@ export function createMenuItem(text, onClick, isDestructive = false, bindObject 
     return btn;
 }
 
-export function createCheckboxItem(text, isChecked, onClick, bindObject = null) {
-    const btn = new St.Button({
-        reactive: true,
-        x_expand: true,
-        style_class: 'context-menu-action-btn'
-    });
-
-    const box = new St.BoxLayout({
-        y_align: Clutter.ActorAlign.CENTER
-    });
-    setBoxVertical(box, false);
-
-    const checkbox = new St.Bin({
-        style_class: isChecked ? 'context-menu-checkbox-box checked' : 'context-menu-checkbox-box'
-    });
-
-    if (isChecked) {
-        checkbox.set_child(new St.Icon({
-            icon_name: 'object-select-symbolic',
-            icon_size: 12,
-            style: 'color: white; font-weight: bold;'
-        }));
-    }
-
-    box.add_child(checkbox);
-    box.add_child(new St.Label({
-        text,
-        style_class: 'context-menu-action-label',
-        y_align: Clutter.ActorAlign.CENTER
-    }));
-
-    btn.set_child(box);
-    if (onClick) btn.connectObject('clicked', onClick, bindObject || btn);
-    return btn;
-}
-
 export function createWindowControl(iconName, rgbColor, onClick, bindObject = null) {
     const btn = new St.Button({
         child: new St.Icon({
@@ -118,22 +84,14 @@ export function createWindowControl(iconName, rgbColor, onClick, bindObject = nu
     if (onClick) btn.connectObject('clicked', onClick, target);
 
     btn.connectObject('enter-event', () => {
-        btn.set_style(`background-color: rgba(${rgbColor}, 0.75); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.45); transition-duration: 150ms;`);
-        btn.ease({
-            scale_x: 1.1,
-            scale_y: 1.1,
-            duration: 120
-        });
+        btn.set_style(`background-color: rgba(${rgbColor}, 0.75); border-radius: 999px; width: ${CONTROL_BTN_SIZE}px; height: ${CONTROL_BTN_SIZE}px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 10px rgba(0,0,0,0.45); transition-duration: 150ms;`);
+        btn.ease({ scale_x: 1.1, scale_y: 1.1, duration: 120 });
         return Clutter.EVENT_PROPAGATE;
     }, target);
 
     btn.connectObject('leave-event', () => {
-        btn.set_style(`background-color: rgba(${rgbColor}, 0.40); border-radius: 999px; width: 20px; height: 20px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 5px rgba(0,0,0,0.25); transition-duration: 150ms;`);
-        btn.ease({
-            scale_x: 1.0,
-            scale_y: 1.0,
-            duration: 120
-        });
+        btn.set_style(`background-color: rgba(${rgbColor}, 0.40); border-radius: 999px; width: ${CONTROL_BTN_SIZE}px; height: ${CONTROL_BTN_SIZE}px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 5px rgba(0,0,0,0.25); transition-duration: 150ms;`);
+        btn.ease({ scale_x: 1.0, scale_y: 1.0, duration: 120 });
         return Clutter.EVENT_PROPAGATE;
     }, target);
 

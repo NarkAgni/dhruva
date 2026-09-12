@@ -20,15 +20,14 @@
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
-import { getDockButtons } from './MagnifierMath.js';
-import { applyRealtimeFrame } from './Magnifier.js';
+import { isActorAlive } from '../../core/Utils.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { applyRealtimeFrame } from './MagnifierFrameEngine.js';
+import { getDockButtons, isPointerWithinDockBounds } from './MagnifierMath.js';
 
 
-function isActorAlive(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
-}
+const DRAG_TICK_INTERVAL_MS = 16;
+const RESET_DURATION_MS = 200;
 
 export function stopDragLoop(dockActor) {
     if (dockActor && dockActor._dragLoopId && dockActor._magTimers) {
@@ -54,36 +53,7 @@ export function startDragLoop(dockActor, isVertical, settings) {
         }
 
         const [cx, cy] = global.get_pointer();
-        const [dx, dy] = dockActor.get_transformed_position();
-        const [dw, dh] = dockActor.get_transformed_size();
-
-        let boundsLeft = dx;
-        let boundsRight = dx + dw;
-        let boundsTop = dy;
-        let boundsBottom = dy + dh;
-        if (dockActor.bgActor) {
-            const [bx, by] = dockActor.bgActor.get_transformed_position();
-            const [bw, bh] = dockActor.bgActor.get_transformed_size();
-            boundsLeft = Math.min(boundsLeft, bx);
-            boundsRight = Math.max(boundsRight, bx + bw);
-            boundsTop = Math.min(boundsTop, by);
-            boundsBottom = Math.max(boundsBottom, by + bh);
-        }
-
-        const basePadX = isVertical ? 15 : 20;
-        const basePadY = isVertical ? 20 : 15;
-        const inBaseBounds = cx >= boundsLeft - basePadX && cx <= boundsRight + basePadX && cy >= boundsTop - basePadY && cy <= boundsBottom + basePadY;
-
-        let inZoomedBounds = false;
-        if (!inBaseBounds) {
-            const iconSize = settings.get_int('icon-size') || 48;
-            const zoomFactor = settings.get_double('hover-zoom-factor') || 1.0;
-            const maxPadding = (iconSize * zoomFactor) + 20;
-            
-            inZoomedBounds = cx >= boundsLeft - maxPadding && cx <= boundsRight + maxPadding && cy >= boundsTop - maxPadding && cy <= boundsBottom + maxPadding;
-        }
-
-        const isInsideDock = inBaseBounds || inZoomedBounds;
+        const isInsideDock = isPointerWithinDockBounds(dockActor, cx, cy, isVertical, settings);
 
         if (!isInsideDock) {
             if (!dragWasOutside) {
@@ -93,11 +63,11 @@ export function startDragLoop(dockActor, isVertical, settings) {
                         scale_y: 1.0,
                         translation_x: 0,
                         translation_y: 0,
-                        duration: 200,
+                        duration: RESET_DURATION_MS,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     });
                 });
-                if (dockActor.bgActor && dockActor.bgActor.set_pivot_point) {
+                if (dockActor.bgActor) {
                     dockActor.bgActor.set_pivot_point(0.5, 0.5);
                 }
                 dragWasOutside = true;
@@ -115,5 +85,5 @@ export function startDragLoop(dockActor, isVertical, settings) {
     };
 
     if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
-    dockActor._dragLoopId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, loopTick);
+    dockActor._dragLoopId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, DRAG_TICK_INTERVAL_MS, loopTick);
 }

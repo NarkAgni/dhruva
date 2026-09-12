@@ -29,7 +29,9 @@
     </key>
 
     <key name="show-independent-in-overview" type="b">
-        <default>false</default>
+      <default>false</default>
+      <summary>Show Independent Dock in Overview</summary>
+      <description>Display the custom dock when the GNOME overview is active.</description>
     </key>
 
     <key name="full-width" type="b">
@@ -169,7 +171,7 @@
 
     <key name="quick-launch-accel-1" type="as">
       <default><![CDATA[['<Super>1']]]></default>
-      <summary>Dhruva quick launch</summary>
+      <summary>Dhruva quick launch slot 1</summary>
     </key>
 
     <key name="quick-launch-accel-2" type="as">
@@ -239,6 +241,74 @@
     <key name="hover-zoom-factor" type="d">
       <default>2.0</default>
       <summary>Icon zoom multiplier on hover</summary>
+    </key>
+
+    <key name="hover-zoom-style" type="s">
+      <choices>
+        <choice value='fluid'/>
+        <choice value='domino'/>
+        <choice value='cylinder'/>
+        <choice value='magnetic'/>
+        <choice value='jelly'/>
+        <choice value='coverflow'/>
+      </choices>
+      <default>'coverflow'</default>
+      <summary>Hover Zoom Animation Style</summary>
+    </key>
+
+    <key name="hover-zoom-rise" type="i">
+      <default>16</default>
+      <summary>Icon Elevation / Rise distance in pixels</summary>
+    </key>
+
+    <key name="hover-zoom-width" type="b">
+      <default>true</default>
+      <summary>Dynamic Slot Width Expansion</summary>
+    </key>
+
+    <key name="hover-zoom-smoothness" type="d">
+      <default>0.26</default>
+      <summary>Hover Zoom Motion Smoothness Factor</summary>
+    </key>
+
+    <key name="hover-zoom-radius" type="d">
+      <default>3.5</default>
+      <summary>Hover Zoom Spread Radius Multiplier</summary>
+    </key>
+
+    <key name="hover-zoom-gap-factor" type="d">
+      <default>2.3</default>
+      <summary>Dynamic Slot Width Push Gap Factor</summary>
+    </key>
+
+    <key name="hover-zoom-domino-tilt" type="i">
+      <default>14</default>
+      <summary>Domino Effect Tilt Angle</summary>
+    </key>
+
+    <key name="hover-zoom-cylinder-angle" type="i">
+      <default>32</default>
+      <summary>Cylinder Drum Roll Angle</summary>
+    </key>
+
+    <key name="hover-zoom-magnetic-strength" type="i">
+      <default>12</default>
+      <summary>Magnetic Cursor Snap Strength (px)</summary>
+    </key>
+
+    <key name="hover-zoom-jelly-stretch" type="d">
+      <default>0.75</default>
+      <summary>Jelly Stretch Pull Intensity</summary>
+    </key>
+
+    <key name="hover-zoom-jelly-squish" type="d">
+      <default>0.50</default>
+      <summary>Jelly Shrink / Squish Compression Intensity</summary>
+    </key>
+
+    <key name="hover-zoom-coverflow-angle" type="i">
+      <default>38</default>
+      <summary>Cover Flow Yaw Tilt Angle</summary>
     </key>
 
     <key name="show-apps-preview" type="b">
@@ -454,40 +524,40 @@
       <default>true</default>
       <summary>Show Unpinned Apps</summary>
       <description>Show running apps that are not pinned to the dock.</description>
-  </key>
+    </key>
 
-  <key name="new-window-action" type="s">
+    <key name="new-window-action" type="s">
       <default>'both'</default>
       <summary>New Window Action</summary>
       <description>Choose how to open a new window for a running app.</description>
-  </key>
+    </key>
 
-  <key name="hide-mode" type="s">
-    <choices>
-      <choice value='always'/>
-      <choice value='intelligent'/>
-      <choice value='dodge-all'/>
-      <choice value='maximized'/>
-      <choice value='none'/>
-    </choices>
-    <default>'none'</default>
-    <summary>Auto-hide mode</summary>
-  </key>
+    <key name="hide-mode" type="s">
+      <choices>
+        <choice value='always'/>
+        <choice value='intelligent'/>
+        <choice value='dodge-all'/>
+        <choice value='maximized'/>
+        <choice value='none'/>
+      </choices>
+      <default>'none'</default>
+      <summary>Auto-hide mode</summary>
+    </key>
 
-  <key name="hide-delay" type="i">
-    <default>100</default>
-    <summary>Hide Delay in ms</summary>
-  </key>
+    <key name="hide-delay" type="i">
+      <default>100</default>
+      <summary>Hide Delay in ms</summary>
+    </key>
 
-  <key name="unhide-delay" type="i">
-    <default>0</default>
-    <summary>Unhide Delay in ms</summary>
-  </key>
+    <key name="unhide-delay" type="i">
+      <default>0</default>
+      <summary>Unhide Delay in ms</summary>
+    </key>
 
-  <key name="edge-dwell-delay" type="i">
-    <default>150</default>
-    <summary>Edge Reveal Delay (Pressure) in ms</summary>
-  </key>
+    <key name="edge-dwell-delay" type="i">
+      <default>150</default>
+      <summary>Edge Reveal Delay (Pressure) in ms</summary>
+    </key>
 
   </schema>
 </schemalist>

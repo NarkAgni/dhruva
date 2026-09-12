@@ -29,6 +29,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 
+const RENDER_DEBOUNCE_INTERVAL_MS = 60;
+const BADGE_OVERSAMPLE = 3;
+
 export default class NotificationManager {
     constructor(dockUI) {
         this.dockUI = dockUI;
@@ -43,7 +46,7 @@ export default class NotificationManager {
 
     _requestRender() {
         if (!this.dockUI || this._renderDebounceId) return;
-        this._renderDebounceId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 60, () => {
+        this._renderDebounceId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, RENDER_DEBOUNCE_INTERVAL_MS, () => {
             this._renderDebounceId = null;
             if (this.dockUI && this.dockUI.queueRender) {
                 this.dockUI.queueRender();
@@ -52,7 +55,7 @@ export default class NotificationManager {
         });
     }
 
-   _setupListeners() {
+    _setupListeners() {
         this._dbusSignalId = Gio.DBus.session.signal_subscribe(
             null,
             'com.canonical.Unity.LauncherEntry',
@@ -102,14 +105,14 @@ export default class NotificationManager {
         if (!app) return 0;
 
         if (app.get_state && app.get_state() === Shell.AppState.STOPPED) {
-            const id = app.get_id() ? app.get_id().toLowerCase() : '';
+            const id = app.get_id ? app.get_id().toLowerCase() : '';
             if (id && this._appBadgeCounts.has(id)) {
                 this._appBadgeCounts.delete(id);
             }
             return 0;
         }
 
-        const fullId = app.get_id() ? app.get_id().toLowerCase() : '';
+        const fullId = app.get_id ? app.get_id().toLowerCase() : '';
         if (!fullId) return 0;
 
         let count = 0;
@@ -152,13 +155,12 @@ export default class NotificationManager {
     createBadgeActor(count, iconSize) {
         if (count <= 0) return null;
 
-        const oversample = 3;
         const baseHeight = Math.max(18, Math.floor(iconSize * 0.38));
         const displayCount = count > 99 ? '99+' : count.toString();
         const baseFontSize = Math.max(10, Math.floor(baseHeight * 0.62));
 
-        const drawHeight = baseHeight * oversample;
-        const fontSize = baseFontSize * oversample;
+        const drawHeight = baseHeight * BADGE_OVERSAMPLE;
+        const fontSize = baseFontSize * BADGE_OVERSAMPLE;
 
         const badgeArea = new St.DrawingArea({
             clip_to_allocation: false
@@ -198,10 +200,10 @@ export default class NotificationManager {
 
         badgeArea.queue_repaint();
 
-        badgeArea.set_scale(1 / oversample, 1 / oversample);
+        badgeArea.set_scale(1 / BADGE_OVERSAMPLE, 1 / BADGE_OVERSAMPLE);
         badgeArea.set_pivot_point(0, 0);
 
-        const visualW = drawWidth / oversample;
+        const visualW = drawWidth / BADGE_OVERSAMPLE;
 
         const shiftLeft = Math.floor(iconSize * 0.50);
         const shiftUp = Math.floor(iconSize * 0.60);

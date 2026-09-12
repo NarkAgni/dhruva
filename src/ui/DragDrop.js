@@ -22,12 +22,15 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
+import { isActorAlive } from '../core/Utils.js';
 import { playTrashEffect } from './effects/TrashEffect.js';
+import { resetMagnification } from './magnifier/MagnifierReset.js';
+import { applyRealtimeFrame } from './magnifier/MagnifierFrameEngine.js';
 import { getDockButtons, getFixedSlots } from './magnifier/MagnifierMath.js';
 import { stopDragLoop, startDragLoop } from './magnifier/MagnifierDragLoop.js';
-import { resetMagnification, applyRealtimeFrame } from './magnifier/Magnifier.js';
 
 
+const DRAG_SWAP_THROTTLE_MS = 80;
 let lastSwapTime = 0;
 
 function _sourceDelegate(source) {
@@ -49,17 +52,13 @@ function _sourceId(source) {
     return null;
 }
 
-function isActorAlive(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
-}
-
 function _setMergeHint(btn, dockUI) {
     if (!isActorAlive(btn)) return;
     const mainActor = dockUI.actor;
 
-    if (mainActor._mergeTargetButton && mainActor._mergeTargetButton !== btn)
+    if (mainActor._mergeTargetButton && mainActor._mergeTargetButton !== btn) {
         _clearMergeHint(mainActor._mergeTargetButton, dockUI);
+    }
 
     mainActor._mergeDropActive = true;
     mainActor._mergeTargetButton = btn;
@@ -96,8 +95,9 @@ export function applyIconFilter(btn) {
     const appBox = btn.get_child();
     if (!appBox) return;
     const icon = appBox.get_first_child();
-    if (icon && icon.set_content_scaling_filters)
+    if (icon && icon.set_content_scaling_filters) {
         icon.set_content_scaling_filters(1, 1);
+    }
 }
 
 export function setupDragAndDrop(btn, app, dockUI) {
@@ -105,8 +105,9 @@ export function setupDragAndDrop(btn, app, dockUI) {
     if (app && app.is_module) return;
 
     const clearHintsOnLeave = () => {
-        if (dockUI.actor._mergeTargetButton)
+        if (dockUI.actor._mergeTargetButton) {
             _clearMergeHint(dockUI.actor._mergeTargetButton, dockUI);
+        }
         return DND.DragMotionResult.MOVE_DROP;
     };
 
@@ -155,7 +156,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
                     } else {
                         const targetAppId = (app && app.get_id) ? app.get_id() : null;
                         if (targetAppId && targetAppId !== draggedId) {
-                            const folderId = dockUI.folderManager.createFolder("New Folder");
+                            const folderId = dockUI.folderManager.createFolder('New Folder');
                             dockUI.folderManager.addAppToFolder(folderId, targetAppId);
                             dockUI.folderManager.addAppToFolder(folderId, draggedId);
                         }
@@ -216,7 +217,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             if (draggedIndex === -1) return DND.DragMotionResult.MOVE_DROP;
 
             const now = Date.now();
-            if (now - lastSwapTime < 80) return DND.DragMotionResult.MOVE_DROP;
+            if (now - lastSwapTime < DRAG_SWAP_THROTTLE_MS) return DND.DragMotionResult.MOVE_DROP;
 
             const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
             const [px, py] = global.get_pointer();
@@ -259,11 +260,13 @@ export function setupDragAndDrop(btn, app, dockUI) {
             const avgSlotWidth = dockUI.settings.get_int('icon-size') + 8;
             const displaced = [];
             if (closestIndex > draggedIndex) {
-                for (let k = draggedIndex + 1; k <= closestIndex; k++)
+                for (let k = draggedIndex + 1; k <= closestIndex; k++) {
                     displaced.push({ b: allBtns[k], offset: avgSlotWidth });
+                }
             } else {
-                for (let k = closestIndex; k < draggedIndex; k++)
+                for (let k = closestIndex; k < draggedIndex; k++) {
                     displaced.push({ b: allBtns[k], offset: -avgSlotWidth });
+                }
             }
 
             displaced.forEach(({ b: dispBtn, offset }) => {
@@ -279,11 +282,13 @@ export function setupDragAndDrop(btn, app, dockUI) {
     const draggable = DND.makeDraggable(btn, { restoreOnSuccess: false });
 
     draggable.connect('drag-cancelled', () => {
-        if (dockUI.actor._mergeTargetButton)
+        if (dockUI.actor._mergeTargetButton) {
             _clearMergeHint(dockUI.actor._mergeTargetButton, dockUI);
+        }
 
-        if (draggable._dragActor)
+        if (draggable._dragActor) {
             draggable._dragActor.opacity = 0;
+        }
 
         const [px, py] = global.get_pointer();
         const [bx, by] = dockUI.boxActor.get_transformed_position();
@@ -321,8 +326,9 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const mainActor = dockUI.actor;
         mainActor._isDragging = false;
         mainActor._lastIconClickTime = Date.now();
-        if (mainActor._mergeTargetButton)
+        if (mainActor._mergeTargetButton) {
             _clearMergeHint(mainActor._mergeTargetButton, dockUI);
+        }
 
         stopDragLoop(mainActor);
 

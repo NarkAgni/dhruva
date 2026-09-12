@@ -21,6 +21,11 @@ import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
 
+const WALLPAPER_SAMPLE_SIZE = 80;
+const WALLPAPER_PIXEL_STEP = 4;
+const DEFAULT_THEME_BG = { r: 30, g: 30, b: 40 };
+const DEFAULT_THEME_RAW = { r: 90, g: 100, b: 130 };
+
 export const DockThemes = {
     default: {
         name: 'Custom (From Settings)',
@@ -136,11 +141,7 @@ function _rgbToHsl(r, g, b) {
                 break;
         }
     }
-    return {
-        h: h * 360,
-        s,
-        l
-    };
+    return { h: h * 360, s, l };
 }
 
 function _hslToRgb(h, s, l) {
@@ -157,11 +158,7 @@ function _hslToRgb(h, s, l) {
 
     if (s === 0) {
         const v = Math.round(l * 255);
-        return {
-            r: v,
-            g: v,
-            b: v
-        };
+        return { r: v, g: v, b: v };
     }
 
     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
@@ -202,7 +199,7 @@ export function extractWallpaperDominantColor() {
         const path = file.get_path();
         if (!path) return null;
 
-        const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 80, 80, false);
+        const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false);
         if (!pixbuf) return null;
 
         const w = pixbuf.get_width();
@@ -215,10 +212,9 @@ export function extractWallpaperDominantColor() {
         let totalG = 0;
         let totalB = 0;
         let count = 0;
-        const step = 4;
 
-        for (let y = 0; y < h; y += step) {
-            for (let x = 0; x < w; x += step) {
+        for (let y = 0; y < h; y += WALLPAPER_PIXEL_STEP) {
+            for (let x = 0; x < w; x += WALLPAPER_PIXEL_STEP) {
                 const idx = y * rowstride + x * channels;
                 if (idx + 2 >= pixels.length) continue;
 
@@ -236,13 +232,10 @@ export function extractWallpaperDominantColor() {
             }
         }
 
-        const fallbackBg = { r: 30, g: 30, b: 40 };
-        const fallbackRaw = { r: 90, g: 100, b: 130 };
-
         if (count === 0) {
             return {
-                bg: fallbackBg,
-                raw: fallbackRaw
+                bg: DEFAULT_THEME_BG,
+                raw: DEFAULT_THEME_RAW
             };
         }
 
@@ -258,7 +251,7 @@ export function extractWallpaperDominantColor() {
             bg: { r: bgR, g: bgG, b: bgB },
             raw: { r: rawR, g: rawG, b: rawB }
         };
-    } catch (e) {
+    } catch (_e) {
         return null;
     }
 }

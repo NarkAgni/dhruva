@@ -18,8 +18,8 @@
 
 
 export function traceMenuPath(ctx, width, height, radius, arrowHeight, arrowWidth, dockPos, arrowX, arrowY) {
-    arrowX = Math.max(radius + arrowWidth / 2, Math.min(arrowX, width - radius - arrowWidth / 2));
-    arrowY = Math.max(radius + arrowWidth / 2, Math.min(arrowY, height - radius - arrowWidth / 2));
+    const clampedArrowX = Math.max(radius + arrowWidth / 2, Math.min(arrowX, width - radius - arrowWidth / 2));
+    const clampedArrowY = Math.max(radius + arrowWidth / 2, Math.min(arrowY, height - radius - arrowWidth / 2));
 
     ctx.newPath();
 
@@ -29,20 +29,20 @@ export function traceMenuPath(ctx, width, height, radius, arrowHeight, arrowWidt
         ctx.arc(width - radius, radius, radius, -Math.PI / 2, 0);
         ctx.lineTo(width, height - arrowHeight - radius);
         ctx.arc(width - radius, height - arrowHeight - radius, radius, 0, Math.PI / 2);
-        ctx.lineTo(arrowX + arrowWidth / 2, height - arrowHeight);
-        ctx.lineTo(arrowX + 2, height - 2);
-        ctx.curveTo(arrowX, height, arrowX, height, arrowX - 2, height - 2);
-        ctx.lineTo(arrowX - arrowWidth / 2, height - arrowHeight);
+        ctx.lineTo(clampedArrowX + arrowWidth / 2, height - arrowHeight);
+        ctx.lineTo(clampedArrowX + 2, height - 2);
+        ctx.curveTo(clampedArrowX, height, clampedArrowX, height, clampedArrowX - 2, height - 2);
+        ctx.lineTo(clampedArrowX - arrowWidth / 2, height - arrowHeight);
         ctx.lineTo(radius, height - arrowHeight);
         ctx.arc(radius, height - arrowHeight - radius, radius, Math.PI / 2, Math.PI);
         ctx.lineTo(0, radius);
         ctx.arc(radius, radius, radius, Math.PI, 3 * Math.PI / 2);
     } else if (dockPos === 'TOP') {
         ctx.moveTo(radius, arrowHeight);
-        ctx.lineTo(arrowX - arrowWidth / 2, arrowHeight);
-        ctx.lineTo(arrowX - 2, 2);
-        ctx.curveTo(arrowX, 0, arrowX, 0, arrowX + 2, 2);
-        ctx.lineTo(arrowX + arrowWidth / 2, arrowHeight);
+        ctx.lineTo(clampedArrowX - arrowWidth / 2, arrowHeight);
+        ctx.lineTo(clampedArrowX - 2, 2);
+        ctx.curveTo(clampedArrowX, 0, clampedArrowX, 0, clampedArrowX + 2, 2);
+        ctx.lineTo(clampedArrowX + arrowWidth / 2, arrowHeight);
         ctx.lineTo(width - radius, arrowHeight);
         ctx.arc(width - radius, arrowHeight + radius, radius, -Math.PI / 2, 0);
         ctx.lineTo(width, height - radius);
@@ -55,10 +55,10 @@ export function traceMenuPath(ctx, width, height, radius, arrowHeight, arrowWidt
         ctx.moveTo(radius, 0);
         ctx.lineTo(width - arrowHeight - radius, 0);
         ctx.arc(width - arrowHeight - radius, radius, radius, -Math.PI / 2, 0);
-        ctx.lineTo(width - arrowHeight, arrowY - arrowWidth / 2);
-        ctx.lineTo(width - 2, arrowY - 2);
-        ctx.curveTo(width, arrowY, width, arrowY, width - 2, arrowY + 2);
-        ctx.lineTo(width - arrowHeight, arrowY + arrowWidth / 2);
+        ctx.lineTo(width - arrowHeight, clampedArrowY - arrowWidth / 2);
+        ctx.lineTo(width - 2, clampedArrowY - 2);
+        ctx.curveTo(width, clampedArrowY, width, clampedArrowY, width - 2, clampedArrowY + 2);
+        ctx.lineTo(width - arrowHeight, clampedArrowY + arrowWidth / 2);
         ctx.lineTo(width - arrowHeight, height - radius);
         ctx.arc(width - arrowHeight - radius, height - radius, radius, 0, Math.PI / 2);
         ctx.lineTo(radius, height);
@@ -73,13 +73,13 @@ export function traceMenuPath(ctx, width, height, radius, arrowHeight, arrowWidt
         ctx.arc(width - radius, height - radius, radius, 0, Math.PI / 2);
         ctx.lineTo(arrowHeight + radius, height);
         ctx.arc(arrowHeight + radius, height - radius, radius, Math.PI / 2, Math.PI);
-        ctx.lineTo(arrowHeight, arrowY + arrowWidth / 2);
-        ctx.lineTo(2, arrowY + 2);
-        ctx.curveTo(0, arrowY, 0, arrowY, 2, arrowY - 2);
-        ctx.lineTo(arrowHeight, arrowY - arrowWidth / 2);
+        ctx.lineTo(arrowHeight, clampedArrowY + arrowWidth / 2);
+        ctx.lineTo(2, clampedArrowY + 2);
+        ctx.curveTo(0, clampedArrowY, 0, clampedArrowY, 2, clampedArrowY - 2);
+        ctx.lineTo(arrowHeight, clampedArrowY - arrowWidth / 2);
         ctx.lineTo(arrowHeight, radius);
         ctx.arc(arrowHeight + radius, radius, radius, Math.PI, 3 * Math.PI / 2);
     }
-    
+
     ctx.closePath();
 }

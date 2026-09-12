@@ -47,12 +47,6 @@ export default class DhruvaExtension extends Extension {
         this._currentAxis = this._getAxis();
 
         this._settings.connectObject(
-            'changed::show-on-all-monitors',
-            () => {
-                if (this._monitorController) {
-                    this._monitorController.reloadDocks();
-                }
-            },
             'changed::dock-position',
             () => {
                 const axis = this._getAxis();
@@ -70,7 +64,12 @@ export default class DhruvaExtension extends Extension {
 
         this._quickLaunchManager = new QuickLaunchManager(
             this._settings,
-            () => this._monitorController.getQuickLaunchDock()
+            () => {
+                if (this._monitorController) {
+                    return this._monitorController.getQuickLaunchDock();
+                }
+                return null;
+            }
         );
     }
 
@@ -96,7 +95,7 @@ export default class DhruvaExtension extends Extension {
     }
 
     _getAxis() {
-        const pos = this._settings.get_string('dock-position');
+        const pos = this._settings ? this._settings.get_string('dock-position') : 'BOTTOM';
         return (pos === 'LEFT' || pos === 'RIGHT') ? 'vertical' : 'horizontal';
     }
 }

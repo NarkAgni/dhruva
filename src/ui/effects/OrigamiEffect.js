@@ -18,116 +18,21 @@
 
 
 import GObject from 'gi://GObject';
-import Clutter from 'gi://Clutter';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { finishMinimizeEffect, finishRestoreEffect } from './WindowEffects.js';
+
+import { BaseDeformEffect } from './BaseDeformEffect.js';
 
 
-const TARGET_OFFSET = 0.20;
-
-class OrigamiBase extends Clutter.DeformEffect {
+class OrigamiBase extends BaseDeformEffect {
     static {
         GObject.registerClass(this);
     }
 
-    _init(iconScreenPos, dockPos) {
-        super._init();
-        this._iconScreenPos = {
-            ...iconScreenPos
-        };
-        this._dockPos = dockPos || 'BOTTOM';
-        this.progress = 0;
-        this._ready = false;
-        this._finished = false;
+    _getDuration() {
+        return 600;
     }
 
-    vfunc_set_actor(actor) {
-        super.vfunc_set_actor(actor);
-        if (!actor || this._ready) return;
-
-        this._ready = true;
-        const monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
-        this._monitor = monitor;
-
-        this._win = {
-            x: actor.get_x() - monitor.x,
-            y: actor.get_y() - monitor.y,
-            w: actor.get_width(),
-            h: actor.get_height()
-        };
-
-        this._buildTarget();
-        this.set_n_tiles(32, 32);
-
-        this._timeline = new Clutter.Timeline({
-            actor,
-            duration: 600
-        });
-
-        this._timeline.connectObject(
-            'new-frame', (tl) => {
-                const currentActor = this.get_actor();
-                if (!currentActor) {
-                    this._finish();
-                    return;
-                }
-                this._setProgress(tl.get_progress());
-                const parent = currentActor.get_parent();
-                if (parent) parent.queue_redraw();
-                this.invalidate();
-            },
-            'completed', () => this._finish(),
-            this
-        );
-
-        this._timeline.start();
-        actor.connectObject('destroy', () => this._finish(), this);
-    }
-
-    _finish() {
-        if (this._finished) return;
-        this._finished = true;
-
-        if (this._timeline) {
-            this._timeline.stop();
-            this._timeline.disconnectObject(this);
-            this._timeline = null;
-        }
-
-        const actor = this.get_actor();
-        if (actor) {
-            actor.disconnectObject(this);
-            actor.remove_effect(this);
-            this._onDone(actor);
-        }
-    }
-
-    destroy() {
-        this._finish();
-    }
-
-    _buildTarget() {
-        let tgtX = this._iconScreenPos.x - this._monitor.x + this._iconScreenPos.w / 2;
-        let tgtY = this._iconScreenPos.y - this._monitor.y + this._iconScreenPos.h / 2;
-
-        if (this._dockPos === 'BOTTOM') {
-            tgtY += this._iconScreenPos.h * TARGET_OFFSET;
-        } else if (this._dockPos === 'TOP') {
-            tgtY -= this._iconScreenPos.h * TARGET_OFFSET;
-        } else if (this._dockPos === 'LEFT') {
-            tgtX -= this._iconScreenPos.w * TARGET_OFFSET;
-        } else if (this._dockPos === 'RIGHT') {
-            tgtX += this._iconScreenPos.w * TARGET_OFFSET;
-        }
-
-        this._tgt = {
-            x: tgtX,
-            y: tgtY
-        };
-    }
-
-    _setProgress(p) {
-        this.progress = p;
+    _getTiles() {
+        return [32, 32];
     }
 
     vfunc_deform_vertex(w, h, v) {
@@ -189,23 +94,11 @@ class OrigamiBase extends Clutter.DeformEffect {
         v.x = finalX;
         v.y = finalY;
     }
-
-    vfunc_modify_paint_volume() {
-        return false;
-    }
 }
 
 export class OrigamiMinimize extends OrigamiBase {
     static {
         GObject.registerClass(this);
-    }
-
-    _onDone(actor) {
-        if (actor) {
-            actor.hide();
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            finishMinimizeEffect(actor);
-        }
     }
 }
 
@@ -215,19 +108,6 @@ export class OrigamiRestore extends OrigamiBase {
     }
 
     _init(iconPos, dockPos) {
-        super._init(iconPos, dockPos);
-        this.progress = 1;
-    }
-
-    _setProgress(p) {
-        this.progress = 1 - p;
-    }
-
-    _onDone(actor) {
-        if (actor) {
-            actor.show();
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            finishRestoreEffect(actor);
-        }
+        super._init(iconPos, dockPos, true);
     }
 }

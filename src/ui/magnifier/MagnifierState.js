@@ -19,20 +19,28 @@
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { resetMagnification } from './Magnifier.js';
+import { resetMagnification } from './MagnifierReset.js';
 
 
 export function isContextMenuOpen() {
-    for (const child of Main.layoutManager.uiGroup.get_children()) {
+    const children = Main.layoutManager.uiGroup.get_children();
+    for (let i = 0; i < children.length; i++) {
+        const child = children[i];
         if (!child.mapped) continue;
-        if (child.style_class && child.style_class.includes('context-menu-overlay') && child.visible) return true;
+        if (child.style_class && child.style_class.includes('context-menu-overlay') && child.visible) {
+            return true;
+        }
     }
     return false;
 }
 
 export function isAppGridOpen() {
-    for (const child of Main.layoutManager.uiGroup.get_children()) {
-        if (child.style_class && child.style_class.includes('app-list-overlay') && child.visible) return true;
+    const children = Main.layoutManager.uiGroup.get_children();
+    for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (child.style_class && child.style_class.includes('app-list-overlay') && child.visible) {
+            return true;
+        }
     }
     return false;
 }

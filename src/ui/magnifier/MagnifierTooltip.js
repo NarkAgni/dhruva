@@ -21,11 +21,19 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
 
+const HIDE_ANIMATION_MS = 180;
+const DEFAULT_TOOLTIP_PADDING = 20;
+
 export function clearTooltipDelay(dockActor) {
     if (!dockActor) return;
     if (dockActor._tooltipDelayId) {
-        if (dockActor._dockUI && dockActor._dockUI.registry) dockActor._dockUI.registry.remove(dockActor._tooltipDelayId);
-        else GLib.source_remove(dockActor._tooltipDelayId);
+        if (dockActor._magTimers) {
+            dockActor._magTimers.remove(dockActor._tooltipDelayId);
+        } else if (dockActor._dockUI && dockActor._dockUI.registry) {
+            dockActor._dockUI.registry.remove(dockActor._tooltipDelayId);
+        } else {
+            GLib.source_remove(dockActor._tooltipDelayId);
+        }
         dockActor._tooltipDelayId = null;
     }
     dockActor._tooltipReady = false;
@@ -42,40 +50,32 @@ export function hideTooltip(dockActor) {
     }
 
     if (dockActor._magTooltip && dockActor._magTooltip.visible) {
-        if (dockActor._magTooltip.remove_all_transitions) {
-            dockActor._magTooltip.remove_all_transitions();
-        }
-        
+        dockActor._magTooltip.remove_all_transitions();
         dockActor._magTooltip.ease({
             opacity: 0,
-            duration: 180,
+            duration: HIDE_ANIMATION_MS,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
             onComplete: () => {
-                if (dockActor._magTooltip && dockActor._magTooltip.hide) {
-                    dockActor._magTooltip.hide();
-                }
+                if (dockActor._magTooltip) dockActor._magTooltip.hide();
             }
         });
     }
 }
 
-export function isInsideTooltip(dockActor, px, py, pad = 20) {
+export function isInsideTooltip(dockActor, px, py, pad = DEFAULT_TOOLTIP_PADDING) {
     if (!dockActor || !dockActor._magTooltip || !dockActor._magTooltip.visible) return false;
     const [tx, ty] = dockActor._magTooltip.get_transformed_position();
     const [tw, th] = dockActor._magTooltip.get_transformed_size();
     if (tw <= 0 || th <= 0) return false;
-    return (px >= tx - pad && px <= tx + tw + pad && py >= ty - pad && py <= ty + th + pad);
+    return px >= tx - pad && px <= tx + tw + pad && py >= ty - pad && py <= ty + th + pad;
 }
 
 export function isPointerInDockTooltipBridge(dockActor, px, py, settings) {
     if (!dockActor || !dockActor._magTooltip || !dockActor._magTooltip.visible) return false;
 
-    let lateralPad = 18;
-    let bridgePad = 12;
-
     const iconSize = settings.get_int('icon-size') || 48;
-    lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
-    bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
+    const lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
+    const bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
 
     const dockPos = settings.get_string('dock-position') || 'BOTTOM';
     const [dax, day] = dockActor.get_transformed_position();
@@ -84,39 +84,32 @@ export function isPointerInDockTooltipBridge(dockActor, px, py, settings) {
     const [tw, th] = dockActor._magTooltip.get_transformed_size();
     if (daw <= 0 || dah <= 0 || tw <= 0 || th <= 0) return false;
 
-    const dockLeft = dax;
-    const dockRight = dax + daw;
-    const dockTop = day;
-    const dockBottom = day + dah;
-
-    const tipLeft = tx;
-    const tipRight = tx + tw;
-    const tipTop = ty;
-    const tipBottom = ty + th;
-
-    let left = 0, right = 0, top = 0, bottom = 0;
+    let left = 0;
+    let right = 0;
+    let top = 0;
+    let bottom = 0;
 
     if (dockPos === 'BOTTOM') {
-        left = tipLeft - lateralPad;
-        right = tipRight + lateralPad;
-        top = tipBottom - bridgePad;
-        bottom = dockTop - 2;
+        left = tx - lateralPad;
+        right = tx + tw + lateralPad;
+        top = ty + th - bridgePad;
+        bottom = day - 2;
     } else if (dockPos === 'TOP') {
-        left = tipLeft - lateralPad;
-        right = tipRight + lateralPad;
-        top = dockBottom + 2;
-        bottom = tipTop + bridgePad;
+        left = tx - lateralPad;
+        right = tx + tw + lateralPad;
+        top = day + dah + 2;
+        bottom = ty + bridgePad;
     } else if (dockPos === 'LEFT') {
-        left = dockRight - bridgePad;
-        right = tipLeft + bridgePad;
-        top = tipTop - lateralPad;
-        bottom = tipBottom + lateralPad;
+        left = dax + daw - bridgePad;
+        right = tx + bridgePad;
+        top = ty - lateralPad;
+        bottom = ty + th + lateralPad;
     } else {
-        left = tipRight - bridgePad;
-        right = dockLeft + bridgePad;
-        top = tipTop - lateralPad;
-        bottom = tipBottom + lateralPad;
+        left = tx + tw - bridgePad;
+        right = dax + bridgePad;
+        top = ty - lateralPad;
+        bottom = ty + th + lateralPad;
     }
 
-    return (px >= left && px <= right && py >= top && py <= bottom);
+    return px >= left && px <= right && py >= top && py <= bottom;
 }

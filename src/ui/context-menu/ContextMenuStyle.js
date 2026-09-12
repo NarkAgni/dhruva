@@ -19,15 +19,13 @@
 
 import cairo from 'gi://cairo';
 
+import { hexToRgba } from '../../core/Utils.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 
 
-function hexToRgba(hex, alpha) {
-    const r = parseInt(hex.slice(1, 3), 16) || 0;
-    const g = parseInt(hex.slice(3, 5), 16) || 0;
-    const b = parseInt(hex.slice(5, 7), 16) || 0;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+const CORNER_RADIUS = 18;
+const ARROW_HEIGHT = 12;
+const ARROW_WIDTH = 24;
 
 function parseRgba(str) {
     const m = (str || '').match(/[\d.]+/g);
@@ -47,8 +45,9 @@ export function applyThemeStyle(contextMenu, panel) {
     let bgRgba = hexToRgba(settings.get_string('background-color') || '#000000', opacity);
 
     if (themeId === 'chameleon') {
-        const { r, g, b } = contextMenu.dockUI._chameleonColor?.bg || { r: 30, g: 30, b: 45 };
-        bgRgba = `rgba(${r}, ${g}, ${b}, 0.88)`;
+        const chameleonColor = contextMenu.dockUI._chameleonColor;
+        const bg = (chameleonColor && chameleonColor.bg) ? chameleonColor.bg : { r: 30, g: 30, b: 45 };
+        bgRgba = `rgba(${bg.r}, ${bg.g}, ${bg.b}, 0.88)`;
     } else if (contextMenu.dockUI.actor && contextMenu.dockUI.actor._tooltipBg) {
         const css = contextMenu.dockUI.actor._tooltipBg;
         let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
@@ -80,9 +79,6 @@ export function applyThemeStyle(contextMenu, panel) {
 
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
-        const r = 18;
-        const ah = 12;
-        const aw = 24;
         const sw = area._sWidth || 0;
         const half = sw / 2;
         const w = fullW - sw;
@@ -97,7 +93,7 @@ export function applyThemeStyle(contextMenu, panel) {
         cr.restore();
 
         cr.translate(half, half);
-        traceMenuPath(cr, w, h, r, ah, aw, contextMenu._dockPos, ax, ay);
+        traceMenuPath(cr, w, h, CORNER_RADIUS, ARROW_HEIGHT, ARROW_WIDTH, contextMenu._dockPos, ax, ay);
 
         const [br, bg, bb, ba] = parseRgba(area._bgRgba);
         cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);

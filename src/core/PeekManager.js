@@ -21,8 +21,12 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
+import { isActorAlive } from './Utils.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
+
+const DEFAULT_PEEK_SPEED = 1000;
+const HIDE_DELAY_MS = 80;
 
 export default class PeekManager {
     constructor(dockUI, overlayActor) {
@@ -63,7 +67,7 @@ export default class PeekManager {
         }
 
         if (this._currentTarget === targetWin) {
-            if (this.bigPreviewContainer.opacity < 255) {
+            if (isActorAlive(this.bigPreviewContainer) && this.bigPreviewContainer.opacity < 255) {
                 this.bigPreviewContainer.remove_all_transitions();
                 this.bigPreviewContainer.ease({
                     opacity: 255,
@@ -98,7 +102,7 @@ export default class PeekManager {
     stopPeek() {
         if (this._hideTimer) this.timers.remove(this._hideTimer);
 
-        this._hideTimer = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+        this._hideTimer = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, HIDE_DELAY_MS, () => {
             this._hideTimer = null;
             this._currentTarget = null;
             this._hideBigPreview();
@@ -119,7 +123,7 @@ export default class PeekManager {
 
     _getPeekSpeed() {
         const val = this.settings.get_int('peek-animation-speed');
-        return val > 0 ? val : 1000;
+        return val > 0 ? val : DEFAULT_PEEK_SPEED;
     }
 
     _ghostWindows(targetOpacity, duration, mode) {
@@ -147,7 +151,8 @@ export default class PeekManager {
         const maxW = monitor.width * (scalePercent / 100);
         const maxH = monitor.height * (scalePercent / 100);
 
-        let previewW = w, previewH = h;
+        let previewW = w;
+        let previewH = h;
         if (previewW > maxW) {
             previewW = maxW;
             previewH = (h / w) * previewW;
@@ -169,12 +174,17 @@ export default class PeekManager {
         });
 
         if (this._pendingWrapBin) {
-            this._pendingWrapBin.destroy();
+            if (isActorAlive(this._pendingWrapBin)) {
+                this._pendingWrapBin.destroy();
+            }
+            this._pendingWrapBin = null;
         }
         this._pendingWrapBin = wrapBin;
 
         const targetX = monitor.x + (monitor.width / 2) - (previewW / 2);
         const targetY = monitor.y + (monitor.height / 2) - (previewH / 2);
+
+        if (!isActorAlive(this.bigPreviewContainer)) return;
 
         const alreadyVisible = this.bigPreviewContainer.opacity > 50;
 
@@ -189,11 +199,15 @@ export default class PeekManager {
                 mode: Clutter.AnimationMode.EASE_IN_QUAD,
                 onComplete: () => {
                     if (!this._currentTarget || this._pendingWrapBin !== wrapBin) {
-                        wrapBin.destroy();
+                        if (isActorAlive(wrapBin)) {
+                            wrapBin.destroy();
+                        }
                         return;
                     }
 
                     this._pendingWrapBin = null;
+                    if (!isActorAlive(this.bigPreviewContainer)) return;
+
                     this.bigPreviewContainer.destroy_all_children();
                     this.bigPreviewContainer.add_child(wrapBin);
                     this.bigPreviewContainer.set_size(previewW, previewH);
@@ -233,7 +247,7 @@ export default class PeekManager {
     }
 
     _hideBigPreview() {
-        if (!this.bigPreviewContainer) return;
+        if (!isActorAlive(this.bigPreviewContainer)) return;
         this.bigPreviewContainer.remove_all_transitions();
         this.bigPreviewContainer.ease({
             opacity: 0,
@@ -249,16 +263,21 @@ export default class PeekManager {
 
         if (this._isPeeking) {
             this._ghostWindows(255, 200, Clutter.AnimationMode.EASE_OUT_QUAD);
+            this._isPeeking = false;
         }
 
         if (this._pendingWrapBin) {
-            this._pendingWrapBin.destroy();
+            if (isActorAlive(this._pendingWrapBin)) {
+                this._pendingWrapBin.destroy();
+            }
             this._pendingWrapBin = null;
         }
 
         if (this.bigPreviewContainer) {
-            this.bigPreviewContainer.remove_all_transitions();
-            this.bigPreviewContainer.destroy();
+            if (isActorAlive(this.bigPreviewContainer)) {
+                this.bigPreviewContainer.remove_all_transitions();
+                this.bigPreviewContainer.destroy();
+            }
             this.bigPreviewContainer = null;
         }
     }

@@ -28,6 +28,7 @@ import { SnakeMinimize, SnakeRestore } from './SnakeEffect.js';
 import { JellyMinimize, JellyRestore } from './JellyEffect.js';
 import { VortexMinimize, VortexRestore } from './VortexEffect.js';
 import { OrigamiMinimize, OrigamiRestore } from './OrigamiEffect.js';
+import { isActorAlive, captureActorRect } from '../../core/Utils.js';
 import { MagicLampMinimize, MagicLampRestore } from './GenieEffect.js';
 
 
@@ -50,42 +51,19 @@ let _origCompletedMinimize = null;
 let _origCompletedUnminimize = null;
 let _origCompletedMap = null;
 
-function _isActorUsable(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
-}
-
 function _addEffectIdle(cb) {
-    _effectTimers.addIdle(GLib.PRIORITY_DEFAULT, () => {
-        cb();
-        return GLib.SOURCE_REMOVE;
-    });
+    if (_effectTimers) {
+        _effectTimers.addIdle(GLib.PRIORITY_DEFAULT, () => {
+            cb();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
 }
 
 function _clearEffectIdles() {
-    _effectTimers.destroy();
-}
-
-function _resolveIconRect(btn, win) {
-    if (_isActorUsable(btn)) {
-        const [x, y] = btn.get_transformed_position();
-        const [w, h] = btn.get_transformed_size();
-        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
-            return { x, y, w, h };
-        }
+    if (_effectTimers) {
+        _effectTimers.destroy();
     }
-
-    if (win) {
-        const frameRect = win.get_frame_rect();
-        if (frameRect && Number.isFinite(frameRect.x) && Number.isFinite(frameRect.y) &&
-            Number.isFinite(frameRect.width) && Number.isFinite(frameRect.height)) {
-            const cx = frameRect.x + frameRect.width / 2;
-            const cy = frameRect.y + frameRect.height / 2;
-            return { x: cx - 0.5, y: cy - 0.5, w: 1, h: 1 };
-        }
-    }
-
-    return { x: 0, y: 0, w: 1, h: 1 };
 }
 
 function _makeMinimize(iconPos, dockPos, type) {
@@ -203,23 +181,23 @@ function _unpatchWm() {
 
 export function finishMinimizeEffect(actor) {
     _animatingActors.delete(actor);
-    if (!_isActorUsable(actor)) return;
-    if (_origCompletedMinimize && Main.wm && Main.wm._shellwm)
+    if (!isActorAlive(actor)) return;
+    if (_origCompletedMinimize && Main.wm && Main.wm._shellwm) {
         _origCompletedMinimize.call(Main.wm._shellwm, actor);
+    }
 }
 
 export function finishRestoreEffect(actor) {
     _animatingActors.delete(actor);
-    if (!_isActorUsable(actor)) return;
+    if (!isActorAlive(actor)) return;
 
     if (actor._isDhruvaLaunching) {
         actor._isDhruvaLaunching = false;
         if (_origCompletedMap && Main.wm && Main.wm._shellwm) {
             _origCompletedMap.call(Main.wm._shellwm, actor);
         }
-    } else {
-        if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm)
-            _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+    } else if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm) {
+        _origCompletedUnminimize.call(Main.wm._shellwm, actor);
     }
 }
 
@@ -259,17 +237,21 @@ export function setupWindowEffects(settings, dockUI) {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         _animatingActors.delete(actor);
-                        actor.set_pivot_point(0, 0);
-                        if (_origCompletedMinimize && Main.wm && Main.wm._shellwm)
-                            _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                        if (isActorAlive(actor)) {
+                            actor.set_pivot_point(0, 0);
+                            if (_origCompletedMinimize && Main.wm && Main.wm._shellwm) {
+                                _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                            }
+                        }
                     }
                 });
                 return;
             }
 
             if (type === 'none') {
-                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
                     _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                }
                 return;
             }
 
@@ -288,8 +270,7 @@ export function setupWindowEffects(settings, dockUI) {
                         _pendingActor = _pendingIcon = _pendingDockPos = null;
                     }
                 });
-            }
-            else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
+            } else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
                 const win = actor.meta_window;
                 const tracker = Shell.WindowTracker.get_default();
                 const app = tracker.get_window_app(win);
@@ -302,7 +283,7 @@ export function setupWindowEffects(settings, dockUI) {
                         const btn = children[i];
                         const delegate = btn._delegate;
                         if (delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId) {
-                            iconPos = _resolveIconRect(btn, win);
+                            iconPos = captureActorRect(btn, win);
                             dockPos = _dockUI.dockPosition;
                             isOurAnimation = true;
                             break;
@@ -312,8 +293,9 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (!isOurAnimation) {
-                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
                     _origCompletedMinimize.call(Main.wm._shellwm, actor);
+                }
                 return;
             }
 
@@ -355,17 +337,21 @@ export function setupWindowEffects(settings, dockUI) {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         _animatingActors.delete(actor);
-                        actor.set_pivot_point(0, 0);
-                        if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm)
-                            _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                        if (isActorAlive(actor)) {
+                            actor.set_pivot_point(0, 0);
+                            if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm) {
+                                _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                            }
+                        }
                     }
                 });
                 return;
             }
 
             if (type === 'none') {
-                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
                     _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                }
                 return;
             }
 
@@ -384,8 +370,7 @@ export function setupWindowEffects(settings, dockUI) {
                         _pendingActor = _pendingIcon = _pendingDockPos = null;
                     }
                 });
-            }
-            else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
+            } else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
                 const win = actor.meta_window;
                 const tracker = Shell.WindowTracker.get_default();
                 const app = tracker.get_window_app(win);
@@ -398,7 +383,7 @@ export function setupWindowEffects(settings, dockUI) {
                         const btn = children[i];
                         const delegate = btn._delegate;
                         if (delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId) {
-                            iconPos = _resolveIconRect(btn, win);
+                            iconPos = captureActorRect(btn, win);
                             dockPos = _dockUI.dockPosition;
                             isOurAnimation = true;
                             break;
@@ -408,8 +393,9 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (!isOurAnimation) {
-                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && _isActorUsable(actor))
+                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
                     _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+                }
                 return;
             }
 
@@ -463,10 +449,8 @@ export function animateMinimize(win, btn, dockPosition) {
         return;
     }
 
-    const iconRect = _resolveIconRect(btn, win);
-
     _pendingActor = wa;
-    _pendingIcon = iconRect;
+    _pendingIcon = captureActorRect(btn, win);
     _pendingDockPos = dockPosition;
 
     win.minimize();
@@ -480,10 +464,8 @@ export function animateRestore(win, btn, dockPosition) {
         return;
     }
 
-    const iconRect = _resolveIconRect(btn, win);
-
     _pendingActor = wa;
-    _pendingIcon = iconRect;
+    _pendingIcon = captureActorRect(btn, win);
     _pendingDockPos = dockPosition;
 
     win.unminimize();
@@ -492,8 +474,7 @@ export function animateRestore(win, btn, dockPosition) {
 
 export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     const actor = win.get_compositor_private();
-
-    if (!_isActorUsable(actor)) return;
+    if (!isActorAlive(actor)) return;
 
     const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
     if (type === 'none') {
@@ -511,7 +492,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     const old = actor.get_effect(UNMIN_EFFECT_NAME);
     if (old) actor.remove_effect(old);
 
-    const resolvedIconRect = iconRect || _resolveIconRect(btn, win);
+    const resolvedIconRect = iconRect || captureActorRect(btn, win);
 
     actor.show();
     actor.set_opacity(255);
@@ -520,7 +501,10 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
 
 export function fadeMinimize(win) {
     const wa = win.get_compositor_private();
-    if (!wa) { win.minimize(); return; }
+    if (!wa) {
+        win.minimize();
+        return;
+    }
 
     _pendingActor = wa;
     global._dhruvaIsFade = true;

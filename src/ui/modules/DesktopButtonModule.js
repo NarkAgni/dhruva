@@ -26,6 +26,9 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { fadeMinimize, fadeRestore } from '../effects/WindowEffects.js';
 
 
+const CLICK_ANIM_TIMEOUT_MS = 150;
+const WINDOW_CASCADE_DELAY_MS = 40;
+
 export function toggleDesktop(dockUI) {
     if (!dockUI._desktopTimers) {
         dockUI._desktopTimers = new TimeoutTracker();
@@ -57,14 +60,14 @@ export function toggleDesktop(dockUI) {
 
     if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
         dockUI._hiddenWindowsByDesktopBtn.forEach((w, index) => {
-            addTrackedTimeout(`restore-${index}`, index * 40, () => {
+            addTrackedTimeout(`restore-${index}`, index * WINDOW_CASCADE_DELAY_MS, () => {
                 if (w.minimized && w.unminimize) fadeRestore(w);
             });
         });
 
         const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
         if (topWin) {
-            addTrackedTimeout('activate-top', dockUI._hiddenWindowsByDesktopBtn.length * 40, () => {
+            addTrackedTimeout('activate-top', dockUI._hiddenWindowsByDesktopBtn.length * WINDOW_CASCADE_DELAY_MS, () => {
                 Main.activateWindow(topWin);
             });
         }
@@ -72,7 +75,7 @@ export function toggleDesktop(dockUI) {
     } else {
         dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
         visibleWindows.forEach((w, index) => {
-            addTrackedTimeout(`minimize-${index}`, index * 40, () => {
+            addTrackedTimeout(`minimize-${index}`, index * WINDOW_CASCADE_DELAY_MS, () => {
                 if (!w.minimized && w.minimize) fadeMinimize(w);
             });
         });
@@ -121,7 +124,7 @@ export function buildDesktopButtonModule(dockUI) {
         btn.set_style(activeStyle);
         
         btn.timers.remove(btn._clickTimeoutId);
-        btn._clickTimeoutId = btn.timers.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
+        btn._clickTimeoutId = btn.timers.addTimeout(GLib.PRIORITY_DEFAULT, CLICK_ANIM_TIMEOUT_MS, () => {
             btn._clickTimeoutId = null;
             btn.set_style(btn.hover ? hoverStyle : defaultStyle);
             return GLib.SOURCE_REMOVE;

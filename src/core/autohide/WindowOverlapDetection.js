@@ -19,6 +19,10 @@
 
 import Meta from 'gi://Meta';
 
+import { isActorAlive } from '../Utils.js';
+
+
+const DEFAULT_INTERSECT_TOLERANCE = 16;
 
 export class WindowOverlapDetection {
     constructor(dockUI) {
@@ -26,14 +30,14 @@ export class WindowOverlapDetection {
     }
 
     getDockRect() {
-        if (!this.dockUI || !this.dockUI.actor) return null;
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return null;
         const [x, y] = this.dockUI.actor.get_position();
         const w = this.dockUI.actor.width;
         const h = this.dockUI.actor.height;
         return { x, y, width: w, height: h };
     }
 
-    rectsIntersect(r1, r2, tolerance = 16) {
+    rectsIntersect(r1, r2, tolerance = DEFAULT_INTERSECT_TOLERANCE) {
         const pos = this.dockUI.dockPosition;
         let left = r1.x;
         let right = r1.x + r1.width;
@@ -78,7 +82,7 @@ export class WindowOverlapDetection {
             const win = allWindows[i];
             if (!win) continue;
 
-            if (win.minimized || !win.is_hidden && win.is_hidden()) continue;
+            if (win.minimized || (win.is_hidden && win.is_hidden())) continue;
             if (win.get_monitor() !== curMonitorIdx) continue;
 
             const winType = win.get_window_type();
@@ -96,7 +100,7 @@ export class WindowOverlapDetection {
             if (mode === 'intelligent') {
                 if (win === focusWindow) {
                     const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
-                    if (isMax || this.rectsIntersect(dockRect, winRect, 16)) {
+                    if (isMax || this.rectsIntersect(dockRect, winRect, DEFAULT_INTERSECT_TOLERANCE)) {
                         return true;
                     }
                 }
@@ -104,7 +108,7 @@ export class WindowOverlapDetection {
 
             if (mode === 'dodge-all') {
                 const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
-                if (isMax || this.rectsIntersect(dockRect, winRect, 16)) {
+                if (isMax || this.rectsIntersect(dockRect, winRect, DEFAULT_INTERSECT_TOLERANCE)) {
                     return true;
                 }
             }

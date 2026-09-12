@@ -44,7 +44,6 @@ export default class QuickLaunchManager {
         this.settings = settings;
         this.getTargetDock = getTargetDock;
         this.timers = new TimeoutTracker();
-        this._stageCaptureId = null;
         this._bindIdleId = 0;
         this._dispatchIdleId = 0;
         this._activateTimeoutId = 0;
@@ -71,8 +70,7 @@ export default class QuickLaunchManager {
 
     _dispatchDigit(digit) {
         const now = Date.now();
-        if (this._lastQlDigit === digit && now - this._lastQlTs < 70)
-            return;
+        if (this._lastQlDigit === digit && now - this._lastQlTs < 70) return;
         this._lastQlTs = now;
         this._lastQlDigit = digit;
 
@@ -154,7 +152,7 @@ export default class QuickLaunchManager {
             const digit = i + 1;
 
             const a = this.settings.get_strv(name);
-            const accelOk = a && a.length > 0 && !!a[0];
+            const accelOk = a && a.length > 0 && Boolean(a[0]);
 
             if (!accelOk) continue;
 

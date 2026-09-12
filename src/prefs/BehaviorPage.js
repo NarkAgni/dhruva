@@ -114,36 +114,147 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
     ], null);
 
     const hoverGroup = new Adw.PreferencesGroup({
-        title: 'Interaction &amp; Previews'
+        title: 'Hover Zoom Physics &amp; Motion'
     });
     page.add(hoverGroup);
 
     addSwitchRow(hoverGroup, settings, 'hover-zoom', 'Hover Zoom', 'Magnification effect on hover', 'zoom-in-symbolic', null);
-    const zoomFactorRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-factor', 'Zoom Factor', 'Maximum multiplier', 'zoom-fit-best-symbolic', {
+
+    const zoomStyleRow = addComboRow(hoverGroup, settings, 'hover-zoom-style', 'Zoom Motion Style', 'Physics profile for magnification curve', 'applications-graphics-symbolic', [
+        { name: 'Fluid', value: 'fluid' },
+        { name: 'Domino', value: 'domino' },
+        { name: 'Cylinder', value: 'cylinder' },
+        { name: 'Magnetic', value: 'magnetic' },
+        { name: 'Jelly', value: 'jelly' },
+        { name: 'Coverflow', value: 'coverflow' }
+    ], null);
+
+    const zoomFactorRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-factor', 'Zoom Factor', 'Maximum size multiplier', 'zoom-fit-best-symbolic', {
         lower: 1.1,
         upper: 3.0,
         step_increment: 0.1
     }, createResetBtn, 2);
 
-    const syncZoomFactor = () => zoomFactorRow.set_visible(settings.get_boolean('hover-zoom'));
-    settings.connect('changed::hover-zoom', syncZoomFactor);
-    syncZoomFactor();
+    const smoothnessRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-smoothness', 'Animation Smoothness', 'Tracking fluidity', 'preferences-desktop-display-symbolic', {
+        lower: 0.10,
+        upper: 0.50,
+        step_increment: 0.02
+    }, createResetBtn, 2);
 
-    addSwitchRow(hoverGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
+    const radiusRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-radius', 'Influence Spread Radius', 'How far neighbor icons react', 'transform-crop-and-resize-symbolic', {
+        lower: 2.0,
+        upper: 5.5,
+        step_increment: 0.25
+    }, createResetBtn, 2);
 
-    addCustomSpinRow(hoverGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', {
+    const riseRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-rise', 'Icon Elevation (Rise)', 'Distance icons lift towards cursor', 'go-up-symbolic', {
+        lower: 0,
+        upper: 45,
+        step_increment: 2
+    }, createResetBtn);
+
+    const widthExpRow = addSwitchRow(hoverGroup, settings, 'hover-zoom-width', 'Dynamic Slot Push', 'Expand adjacent icon slots smoothly', 'zoom-original-symbolic', null);
+
+    const gapFactorRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-gap-factor', 'Slot Spread Strength', 'Push strength between adjacent icons', 'format-justify-fill-symbolic', {
+        lower: 1.0,
+        upper: 3.0,
+        step_increment: 0.1
+    }, createResetBtn, 1);
+
+    const effectTweakGroup = new Adw.PreferencesGroup({
+        title: 'Effect Fine Tuning'
+    });
+    page.add(effectTweakGroup);
+
+    const dominoTiltRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-domino-tilt', 'Domino Tilt Angle', 'Cascade tilt angle in degrees', 'object-rotate-right-symbolic', {
+        lower: 2,
+        upper: 40,
+        step_increment: 1
+    }, createResetBtn);
+
+    const cylinderAngleRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-cylinder-angle', 'Cylinder Angle', '3D rotation arc angle', 'view-refresh-symbolic', {
+        lower: 10,
+        upper: 60,
+        step_increment: 2
+    }, createResetBtn);
+
+    const magneticStrengthRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-magnetic-strength', 'Magnetic Snap Distance', 'Cursor attraction force in pixels', 'input-mouse-symbolic', {
+        lower: 2,
+        upper: 30,
+        step_increment: 1
+    }, createResetBtn);
+
+    const jellyStretchRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-jelly-stretch', 'Jelly Stretch Intensity', 'How much icons pull/elongate along cursor path', 'transform-crop-and-resize-symbolic', {
+        lower: 0.10,
+        upper: 1.50,
+        step_increment: 0.05
+    }, createResetBtn, 2);
+
+    const jellySquishRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-jelly-squish', 'Jelly Shrink Intensity', 'How much opposite side compresses/squashes', 'zoom-out-symbolic', {
+        lower: 0.10,
+        upper: 0.90,
+        step_increment: 0.05
+    }, createResetBtn, 2);
+
+    const coverflowAngleRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-coverflow-angle', 'Coverflow Angle', 'Perspective card angle in degrees', 'view-paged-symbolic', {
+        lower: 15,
+        upper: 65,
+        step_increment: 2
+    }, createResetBtn);
+
+    const syncZoomControls = () => {
+        const enabled = settings.get_boolean('hover-zoom');
+        const style = settings.get_string('hover-zoom-style');
+        const widthEnabled = settings.get_boolean('hover-zoom-width');
+
+        zoomStyleRow.set_visible(enabled);
+        zoomFactorRow.set_visible(enabled);
+        smoothnessRow.set_visible(enabled);
+        radiusRow.set_visible(enabled);
+        riseRow.set_visible(enabled);
+        widthExpRow.set_visible(enabled);
+        gapFactorRow.set_visible(enabled && widthEnabled);
+
+        const hasSpecificTweak = enabled && (
+            style === 'domino' || style === 'cylinder' || style === 'magnetic' ||
+            style === 'jelly' || style === 'coverflow'
+        );
+        effectTweakGroup.set_visible(hasSpecificTweak);
+
+        dominoTiltRow.set_visible(enabled && style === 'domino');
+        cylinderAngleRow.set_visible(enabled && style === 'cylinder');
+        magneticStrengthRow.set_visible(enabled && style === 'magnetic');
+        jellyStretchRow.set_visible(enabled && style === 'jelly');
+        jellySquishRow.set_visible(enabled && style === 'jelly');
+        coverflowAngleRow.set_visible(enabled && style === 'coverflow');
+    };
+
+    settings.connect('changed::hover-zoom', syncZoomControls);
+    settings.connect('changed::hover-zoom-style', syncZoomControls);
+    settings.connect('changed::hover-zoom-width', syncZoomControls);
+    syncZoomControls();
+
+    const previewGroup = new Adw.PreferencesGroup({
+        title: 'Interaction &amp; Previews'
+    });
+    page.add(previewGroup);
+
+    addSwitchRow(previewGroup, settings, 'show-apps-preview', 'Show App Previews', 'Display interactive window thumbnails on hover', 'dialog-information-symbolic', null);
+
+    addCustomSpinRow(previewGroup, settings, 'context-menu-size', 'Thumbnail Width', 'Max width of window thumbnails', 'image-x-generic-symbolic', {
         lower: 100,
         upper: 500,
         step_increment: 10
     }, createResetBtn);
-    addCustomSpinRow(hoverGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', {
+
+    addCustomSpinRow(previewGroup, settings, 'big-preview-size', 'Live Preview Scale (%)', 'Screen percentage for the big center preview', 'view-fullscreen-symbolic', {
         lower: 40,
         upper: 95,
         step_increment: 5
     }, createResetBtn);
 
     const peekRow = addSwitchRow(
-        hoverGroup,
+        previewGroup,
         settings,
         'peek-effect',
         'Window Aero Peek',
@@ -153,7 +264,7 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
     );
 
     const peekSpeedRow = addCustomSpinRow(
-        hoverGroup,
+        previewGroup,
         settings,
         'peek-animation-speed',
         'Peek Animation Speed',
@@ -195,9 +306,10 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
 
     addSwitchRow(utilGroup, settings, 'lock-icons', 'Lock Icons', 'Prevent drag and drop reordering', 'system-lock-screen-symbolic', null);
     addSwitchRow(utilGroup, settings, 'show-unpinned-apps', 'Show Unpinned Apps', 'Display running apps that are not pinned to the dock', 'view-paged-symbolic', null);
+
     const qlRow = new Adw.ActionRow({
         title: 'Quick launch',
-        subtitle: 'Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard. If Super + number still runs “Switch to application”, disable that binding in system shortcuts so Dhruva can own it.',
+        subtitle: 'Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard.',
     });
     qlRow.add_prefix(new Gtk.Image({
         icon_name: 'input-keyboard-symbolic'
@@ -205,7 +317,6 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
     utilGroup.add(qlRow);
 
     addSwitchRow(utilGroup, settings, 'isolate-workspaces', 'Isolate Workspaces', 'Only show apps running on the current workspace', 'focus-windows-symbolic', null);
-
     addSwitchRow(utilGroup, settings, 'scroll-action-dock', 'Dock Scroll Action', 'Scroll on empty dock area to switch workspaces', 'input-mouse-symbolic', null);
     addSwitchRow(utilGroup, settings, 'scroll-action-app', 'App Scroll Action', 'Scroll on app icons to cycle through its windows', 'view-restore-symbolic', null);
 }

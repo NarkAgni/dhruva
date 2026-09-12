@@ -23,20 +23,26 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { setBoxVertical } from '../core/Utils.js';
+import { setBoxVertical, hexToRgba } from '../core/Utils.js';
 import AppContextMenu from './context-menu/AppContextMenu.js';
 
+
+const GRID_COLS = 5;
+const MAX_PANEL_HEIGHT = 520;
+const DOCK_SPACING_GAP = 15;
 
 function getAllApps() {
     const appSystem = Shell.AppSystem.get_default();
     const appInfos = appSystem.get_installed();
 
     const apps = [];
-    for (const appInfo of appInfos) {
+    for (let i = 0; i < appInfos.length; i++) {
+        const appInfo = appInfos[i];
         if (appInfo && appInfo.should_show()) {
             const shellApp = appSystem.lookup_app(appInfo.get_id());
-            if (shellApp)
+            if (shellApp) {
                 apps.push(shellApp);
+            }
         }
     }
     return apps;
@@ -65,8 +71,9 @@ export default class AppGridUI {
                 return Clutter.EVENT_STOP;
             },
             'touch-event', (_actor, event) => {
-                if (event.type() === Clutter.EventType.TOUCH_END)
+                if (event.type() === Clutter.EventType.TOUCH_END) {
                     this.hide();
+                }
                 return Clutter.EVENT_STOP;
             },
             this
@@ -148,10 +155,9 @@ export default class AppGridUI {
         this.searchEntry.clutter_text.connect('key-press-event', (_actor, event) => {
             const symbol = event.get_key_symbol();
             const visibleRows = this.appRows;
-            if (visibleRows.length === 0)
-                return Clutter.EVENT_PROPAGATE;
+            if (visibleRows.length === 0) return Clutter.EVENT_PROPAGATE;
 
-            const cols = this.isGridView ? 5 : 1;
+            const cols = this.isGridView ? GRID_COLS : 1;
 
             if (symbol === Clutter.KEY_Down) {
                 this.selectedIndex = Math.min(this.selectedIndex + cols, visibleRows.length - 1);
@@ -203,8 +209,7 @@ export default class AppGridUI {
 
         this.appManager.appSystem.connectObject('installed-changed', () => {
             this._populateData();
-            if (this.isOpen)
-                this._filterApps(this.searchEntry.get_text());
+            if (this.isOpen) this._filterApps(this.searchEntry.get_text());
         }, this);
 
         this.scrollView.add_child(this.listContainer);
@@ -302,8 +307,9 @@ export default class AppGridUI {
     _attachAppClickEvents(btn, app) {
         btn.connect('button-press-event', (_actor, event) => {
             if (event.get_button() === 3) {
-                if (this.dockUI._activeContextMenu)
+                if (this.dockUI._activeContextMenu) {
                     this.dockUI._activeContextMenu.hide();
+                }
 
                 const state = event.get_state();
                 const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
@@ -334,8 +340,9 @@ export default class AppGridUI {
     }
 
     _filterApps(searchText) {
-        if (this.listContainer)
+        if (this.listContainer) {
             this.listContainer.destroy_all_children();
+        }
         this.appRows = [];
 
         const query = searchText.toLowerCase().trim();
@@ -344,9 +351,8 @@ export default class AppGridUI {
 
         if (this.isGridView) {
             let rowBox = null;
-            const cols = 5;
             visibleApps.forEach((item, index) => {
-                if (index % cols === 0) {
+                if (index % GRID_COLS === 0) {
                     rowBox = new St.BoxLayout({
                         style: 'spacing: 4px; margin-bottom: 4px;',
                         x_align: Clutter.ActorAlign.CENTER,
@@ -373,36 +379,37 @@ export default class AppGridUI {
         let totalHeight = 0;
 
         if (this.isGridView) {
-            const numRows = Math.ceil(visibleCount / 5);
+            const numRows = Math.ceil(visibleCount / GRID_COLS);
             totalHeight = baseHeight + (numRows * 115) + 20;
         } else {
             const rowHeight = 48;
             totalHeight = baseHeight + (visibleCount * rowHeight) + 20;
         }
 
-        const maxPanelHeight = 520;
-        const finalHeight = Math.min(maxPanelHeight, totalHeight);
-
+        const finalHeight = Math.min(MAX_PANEL_HEIGHT, totalHeight);
         this.panel.set_height(finalHeight);
 
-        if (this.isOpen)
+        if (this.isOpen) {
             this._updatePosition();
+        }
     }
 
     _updateSelection() {
         this.appRows.forEach(item => {
-            if (this.isGridView)
+            if (this.isGridView) {
                 item.widget.set_style('border-radius: 12px; padding: 12px 4px; background-color: transparent;');
-            else
+            } else {
                 item.widget.set_style('border-radius: 8px; background-color: transparent;');
+            }
         });
 
         if (this.selectedIndex >= 0 && this.selectedIndex < this.appRows.length) {
             const target = this.appRows[this.selectedIndex];
-            if (this.isGridView)
+            if (this.isGridView) {
                 target.widget.set_style('border-radius: 12px; padding: 12px 4px; background-color: rgba(255,255,255,0.20);');
-            else
+            } else {
                 target.widget.set_style('border-radius: 8px; background-color: rgba(255,255,255,0.20);');
+            }
             this._scrollToItem(target.widget);
         }
     }
@@ -416,8 +423,7 @@ export default class AppGridUI {
         this._scrollIdleId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
             this._scrollIdleId = 0;
             const adjustment = this.scrollView.vadjustment;
-            if (!button || !adjustment)
-                return GLib.SOURCE_REMOVE;
+            if (!button || !adjustment) return GLib.SOURCE_REMOVE;
 
             const pageSize = adjustment.get_page_size();
             const currentValue = adjustment.get_value();
@@ -448,15 +454,8 @@ export default class AppGridUI {
         const sColor = settings.get_string('stroke-color') || '#ffffff';
         const sOpacity = settings.get_int('stroke-opacity') / 100.0;
 
-        const _hexToRgba = (hex, alpha) => {
-            const r = parseInt(hex.slice(1, 3), 16),
-                  g = parseInt(hex.slice(3, 5), 16),
-                  b = parseInt(hex.slice(5, 7), 16);
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        };
-
-        let bgRgba = _hexToRgba(settings.get_string('background-color') || '#241F31', opacity);
-        let strokeRgba = sWidth > 0 ? _hexToRgba(sColor, sOpacity) : 'transparent';
+        let bgRgba = hexToRgba(settings.get_string('background-color') || '#241F31', opacity);
+        let strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'transparent';
 
         if (themeId === 'chameleon') {
             const c = (this.dockUI._chameleonColor && this.dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
@@ -466,8 +465,9 @@ export default class AppGridUI {
             const css = this.dockUI.actor._tooltipBg;
             let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
             if (!match) match = css.match(/background-color:\s*(rgba?\([^)]+\))/);
-            if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent')
+            if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent') {
                 bgRgba = match[1];
+            }
         }
 
         this.panel.set_style(`
@@ -490,10 +490,8 @@ export default class AppGridUI {
     }
 
     toggle(dockPosition) {
-        if (this.isOpen)
-            this.hide();
-        else
-            this.show(dockPosition);
+        if (this.isOpen) this.hide();
+        else this.show(dockPosition);
     }
 
     show(dockPosition) {
@@ -531,28 +529,27 @@ export default class AppGridUI {
 
         this.dockUI.isAppGridOpenFlag = false;
 
-        const gap = 15;
         let posX = dockX + (dockW / 2) - (panelW / 2);
         let posY = dockY;
 
         const dockPos = overrideDockPos || this.dockUI.dockPosition;
         if (dockPos === 'TOP') {
-            posY = dockY + dockH + gap;
-            if (posY < workArea.y) posY = workArea.y + gap;
+            posY = dockY + dockH + DOCK_SPACING_GAP;
+            if (posY < workArea.y) posY = workArea.y + DOCK_SPACING_GAP;
         } else if (dockPos === 'BOTTOM') {
-            posY = dockY - panelH - gap;
+            posY = dockY - panelH - DOCK_SPACING_GAP;
         } else if (dockPos === 'LEFT') {
-            posX = dockX + dockW + gap;
+            posX = dockX + dockW + DOCK_SPACING_GAP;
             posY = dockY + (dockH / 2) - (panelH / 2);
         } else if (dockPos === 'RIGHT') {
-            posX = dockX - panelW - gap;
+            posX = dockX - panelW - DOCK_SPACING_GAP;
             posY = dockY + (dockH / 2) - (panelH / 2);
         }
 
-        if (posX < monitor.x + gap) posX = monitor.x + gap;
-        if (posX + panelW > monitor.x + monitor.width - gap) posX = monitor.x + monitor.width - panelW - gap;
-        if (posY < workArea.y) posY = workArea.y + gap;
-        if (posY + panelH > workArea.y + workArea.height - gap) posY = workArea.y + workArea.height - panelH - gap;
+        if (posX < monitor.x + DOCK_SPACING_GAP) posX = monitor.x + DOCK_SPACING_GAP;
+        if (posX + panelW > monitor.x + monitor.width - DOCK_SPACING_GAP) posX = monitor.x + monitor.width - panelW - DOCK_SPACING_GAP;
+        if (posY < workArea.y) posY = workArea.y + DOCK_SPACING_GAP;
+        if (posY + panelH > workArea.y + workArea.height - DOCK_SPACING_GAP) posY = workArea.y + workArea.height - panelH - DOCK_SPACING_GAP;
 
         this.panel.set_position(posX, posY);
     }
@@ -562,9 +559,9 @@ export default class AppGridUI {
             this._contextMenu.destroy();
             this._contextMenu = null;
         }
-        if (this.actor.get_parent())
+        if (this.actor.get_parent()) {
             Main.layoutManager.removeChrome(this.actor);
-
+        }
         this.isOpen = false;
     }
 

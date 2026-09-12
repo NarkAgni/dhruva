@@ -19,9 +19,62 @@
 
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
 
 import { TimeoutTracker } from './TimeoutTracker.js';
 
+
+const _disposedActors = new WeakSet();
+
+export function markActorDisposed(actor) {
+    if (actor) _disposedActors.add(actor);
+}
+
+export function isActorAlive(actor) {
+    if (!actor || _disposedActors.has(actor)) return false;
+
+    try {
+        const str = GObject.Object.prototype.toString.call(actor);
+        if (!str || str.includes('DISPOSED') || str.includes('finalized')) {
+            _disposedActors.add(actor);
+            return false;
+        }
+
+        const stage = Clutter.Actor.prototype.get_stage.call(actor);
+        if (!stage) {
+            return false;
+        }
+
+        return true;
+    } catch (_e) {
+        _disposedActors.add(actor);
+        return false;
+    }
+}
+
+export function captureActorRect(actor, fallbackWin = null) {
+    if (isActorAlive(actor)) {
+        const [x, y] = actor.get_transformed_position();
+        const [w, h] = actor.get_transformed_size();
+        if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+            return { x, y, w, h };
+        }
+    }
+
+    if (fallbackWin) {
+        const frameRect = fallbackWin.get_frame_rect();
+        if (frameRect) {
+            return {
+                x: frameRect.x + frameRect.width / 2 - 0.5,
+                y: frameRect.y + frameRect.height / 2 - 0.5,
+                w: 1,
+                h: 1
+            };
+        }
+    }
+
+    return { x: 0, y: 0, w: 1, h: 1 };
+}
 
 export function debounce(func, wait) {
     const timers = new TimeoutTracker();
@@ -46,9 +99,9 @@ export function debounce(func, wait) {
 }
 
 export function hexToRgba(colorStr, alpha) {
-    let r = 20,
-        g = 20,
-        b = 20;
+    let r = 20;
+    let g = 20;
+    let b = 20;
 
     if (colorStr.startsWith('#')) {
         let hex = colorStr.replace('#', '');
@@ -57,7 +110,6 @@ export function hexToRgba(colorStr, alpha) {
         r = parseInt(hex.substring(0, 2), 16) || 20;
         g = parseInt(hex.substring(2, 4), 16) || 20;
         b = parseInt(hex.substring(4, 6), 16) || 20;
-
     } else if (colorStr.startsWith('rgb')) {
         const parts = colorStr.match(/[\d.]+/g);
         if (parts && parts.length >= 3) {

@@ -22,11 +22,16 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { isActorAlive } from '../Utils.js';
 import { EdgeDetection } from './EdgeDetection.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
-import { animateShow, animateHide, getHideOffsets } from './AutoHideAnimations.js';
 import { WindowOverlapDetection } from './WindowOverlapDetection.js';
+import { animateShow, animateHide, getHideOffsets } from './AutoHideAnimations.js';
 
+
+const INIT_SYNC_DELAY_MS = 350;
+const DEFAULT_CHECK_DEBOUNCE_MS = 50;
+const MIN_HIDE_DELAY_MS = 20;
 
 export default class AutoHideManager {
     constructor(dockUI, settings) {
@@ -53,7 +58,7 @@ export default class AutoHideManager {
             },
             () => {
                 this._isHovered = false;
-                this.scheduleCheck(50);
+                this.scheduleCheck(DEFAULT_CHECK_DEBOUNCE_MS);
             }
         );
 
@@ -64,14 +69,15 @@ export default class AutoHideManager {
             this.syncMode();
         }, this);
 
-        this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 350, () => {
+        this.timers.addTimeout(GLib.PRIORITY_DEFAULT, INIT_SYNC_DELAY_MS, () => {
+            if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return GLib.SOURCE_REMOVE;
             this.syncMode();
             return GLib.SOURCE_REMOVE;
         });
     }
 
     _bindEvents() {
-        if (this.dockUI.actor) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.connectObject(
                 'enter-event', () => {
                     this._isHovered = true;
@@ -80,7 +86,7 @@ export default class AutoHideManager {
                 },
                 'leave-event', () => {
                     this._isHovered = false;
-                    this.scheduleCheck(50);
+                    this.scheduleCheck(DEFAULT_CHECK_DEBOUNCE_MS);
                     return Clutter.EVENT_PROPAGATE;
                 },
                 this
@@ -99,7 +105,7 @@ export default class AutoHideManager {
             'monitors-changed', () => {
                 this.updateTriggerGeometry();
                 this._rebindAllOpenWindows();
-                this.scheduleCheck(50);
+                this.scheduleCheck(DEFAULT_CHECK_DEBOUNCE_MS);
             },
             this
         );
@@ -121,7 +127,7 @@ export default class AutoHideManager {
                 this.show();
             },
             'hiding', () => {
-                this.scheduleCheck(50);
+                this.scheduleCheck(DEFAULT_CHECK_DEBOUNCE_MS);
             },
             'hidden', () => {
                 this.scheduleCheck(10);
@@ -137,9 +143,9 @@ export default class AutoHideManager {
         if (!activeWs) return;
 
         const windows = global.display.get_tab_list(Meta.TabList.NORMAL, activeWs);
-        windows.forEach(win => {
-            this._trackWindow(win);
-        });
+        for (let i = 0; i < windows.length; i++) {
+            this._trackWindow(windows[i]);
+        }
     }
 
     _trackWindow(win) {
@@ -161,6 +167,8 @@ export default class AutoHideManager {
     }
 
     syncMode() {
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
+
         const mode = this.settings ? (this.settings.get_string('hide-mode') || 'none') : 'none';
         this._clearTimers();
 
@@ -209,6 +217,9 @@ export default class AutoHideManager {
 
         this._checkDebounceId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, delayMs, () => {
             this._checkDebounceId = 0;
+            if (!this.dockUI || !isActorAlive(this.dockUI.actor)) {
+                return GLib.SOURCE_REMOVE;
+            }
             this.checkVisibility();
             return GLib.SOURCE_REMOVE;
         });
@@ -219,7 +230,8 @@ export default class AutoHideManager {
             return false;
         }
 
-        const monitorResult = this.dockUI?.monitorManager?.getCurrentMonitor();
+        if (!this.dockUI || !this.dockUI.monitorManager) return false;
+        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
         const curMonitorIdx = monitorResult ? monitorResult.index : 0;
 
         const activeWs = global.workspace_manager.get_active_workspace();
@@ -234,12 +246,16 @@ export default class AutoHideManager {
     }
 
     checkVisibility() {
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor) || !isActorAlive(this.dockUI.boxActor)) {
+            return;
+        }
+
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
             this._hideTimeoutId = 0;
         }
 
-        const isOverviewOpen = Main.overview && (Main.overview.visible || Main.overview.visibleTarget);
+        const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
 
         if (isOverviewOpen) {
             this.show();
@@ -290,10 +306,11 @@ export default class AutoHideManager {
 
         if (shouldHide) {
             const userHideDelay = this.settings.get_int('hide-delay');
-            const finalDelay = Math.max(20, userHideDelay);
+            const finalDelay = Math.max(MIN_HIDE_DELAY_MS, userHideDelay);
 
             this._hideTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, finalDelay, () => {
                 this._hideTimeoutId = 0;
+                if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return GLib.SOURCE_REMOVE;
                 this.hide();
                 return GLib.SOURCE_REMOVE;
             });
@@ -308,7 +325,7 @@ export default class AutoHideManager {
         this.isHidden = true;
         this.isAnimating = false;
 
-        if (!this.dockUI || !this.dockUI.actor) return;
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
 
         this.dockUI.actor.remove_all_transitions();
         const { hideX, hideY } = getHideOffsets(this.dockUI);
@@ -318,7 +335,7 @@ export default class AutoHideManager {
     }
 
     showWithDelay() {
-        const isOverviewOpen = Main.overview && (Main.overview.visible || Main.overview.visibleTarget);
+        const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
         if (this._isCurrentMonitorFullscreen() && !isOverviewOpen) return;
 
         if (this._hideTimeoutId) {
@@ -339,13 +356,14 @@ export default class AutoHideManager {
 
         this._showTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, unhideDelay, () => {
             this._showTimeoutId = 0;
+            if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return GLib.SOURCE_REMOVE;
             this.show();
             return GLib.SOURCE_REMOVE;
         });
     }
 
     show() {
-        const isOverviewOpen = Main.overview && (Main.overview.visible || Main.overview.visibleTarget);
+        const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
         if (this._isCurrentMonitorFullscreen() && !isOverviewOpen) return;
 
         if (this._hideTimeoutId) {
@@ -357,7 +375,7 @@ export default class AutoHideManager {
             this._showTimeoutId = 0;
         }
 
-        if (!this.dockUI || !this.dockUI.actor) return;
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
         if (!this.isHidden && !this.isAnimating && this.dockUI.actor.opacity === 255) return;
 
         this.isHidden = false;
@@ -384,7 +402,7 @@ export default class AutoHideManager {
             return;
         }
 
-        if (!this.dockUI || !this.dockUI.actor) return;
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
         if (this.isHidden && !this.isAnimating) return;
         if (this._isHovered) return;
 
@@ -425,7 +443,7 @@ export default class AutoHideManager {
             this.edgeDetection = null;
         }
 
-        if (this.dockUI && this.dockUI.actor) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.disconnectObject(this);
             this.dockUI.actor.translation_x = 0;
             this.dockUI.actor.translation_y = 0;

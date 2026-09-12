@@ -28,6 +28,9 @@ import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 
 
+const DEFAULT_HOVER_DURATION_MS = 200;
+const OVERVIEW_APPS_EASE_DURATION_MS = 250;
+
 export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     const settings = dockUI.settings;
     const hoverZoom = settings.get_boolean('hover-zoom');
@@ -37,7 +40,8 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     const useOldIcon = settings.get_boolean('use-old-grid-icon');
 
     const moduleFile = Gio.File.new_for_uri(import.meta.url);
-    const logoPath = moduleFile.get_parent().get_parent().get_parent().get_parent().get_child('icons').get_child('logo.svg').get_path();
+    const rootDir = moduleFile.get_parent().get_parent().get_parent().get_parent();
+    const logoPath = rootDir.get_child('icons').get_child('logo.svg').get_path();
     const hasLogo = GLib.file_test(logoPath, GLib.FileTest.EXISTS);
 
     let scaleMultiplier;
@@ -56,9 +60,8 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     let gridIcon;
     if (hasCustomIcon) {
         const gfile = Gio.File.new_for_path(customIconPath);
-        const gicon = new Gio.FileIcon({ file: gfile });
         gridIcon = new St.Icon({
-            gicon,
+            gicon: new Gio.FileIcon({ file: gfile }),
             icon_size: 256,
             style_class: 'dock-grid-icon'
         });
@@ -70,9 +73,8 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         });
     } else {
         const gfile = Gio.File.new_for_path(logoPath);
-        const gicon = new Gio.FileIcon({ file: gfile });
         gridIcon = new St.Icon({
-            gicon,
+            gicon: new Gio.FileIcon({ file: gfile }),
             icon_size: gridRenderSize,
             style_class: 'dock-grid-icon'
         });
@@ -161,9 +163,9 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         const currentDim = gridModule.hover ? expandedDim : collapsedDim;
 
         if (isVerticalDock) {
-            hoverBg.ease({ height: currentDim, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            hoverBg.ease({ height: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         } else {
-            hoverBg.ease({ width: currentDim, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            hoverBg.ease({ width: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         }
 
         if (gridModule.hover) {
@@ -191,23 +193,21 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
             if (!Main.overview.visible) {
                 Main.overview.showApps();
-            } else {
-                if (controls && controls._stateAdjustment) {
-                    const currentState = Math.round(controls._stateAdjustment.value);
-                    if (currentState !== 2) {
-                        if (controls._searchController && controls._searchController.reset) {
-                            controls._searchController.reset();
-                        }
-                        controls._stateAdjustment.ease(2, {
-                            duration: 250,
-                            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                        });
-                    } else {
-                        Main.overview.hide();
+            } else if (controls && controls._stateAdjustment) {
+                const currentState = Math.round(controls._stateAdjustment.value);
+                if (currentState !== 2) {
+                    if (controls._searchController && controls._searchController.reset) {
+                        controls._searchController.reset();
                     }
+                    controls._stateAdjustment.ease(2, {
+                        duration: OVERVIEW_APPS_EASE_DURATION_MS,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
                 } else {
                     Main.overview.hide();
                 }
+            } else {
+                Main.overview.hide();
             }
 
             if (dockUI.actor) dockUI.actor._suppressZoom = true;
@@ -229,7 +229,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         }
     };
 
-    gridModule.connectObject('button-press-event', (_actor, _event) => {
+    gridModule.connectObject('button-press-event', () => {
         if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
         return Clutter.EVENT_PROPAGATE;
     }, gridModule);

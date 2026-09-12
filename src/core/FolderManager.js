@@ -24,6 +24,7 @@ export default class FolderManager {
         this.appManager = appManager;
 
         this.folders = [];
+        this._stateListeners = new Set();
         this._loadFolders();
     }
 
@@ -33,13 +34,21 @@ export default class FolderManager {
     }
 
     onStateChanged(callback) {
-        this._onStateChangedCallback = callback;
+        this.addStateListener(callback);
+    }
+
+    addStateListener(callback) {
+        if (callback) this._stateListeners.add(callback);
+    }
+
+    removeStateListener(callback) {
+        if (callback) this._stateListeners.delete(callback);
     }
 
     _notifyStateChanged() {
-        if (this._onStateChangedCallback) {
-            this._onStateChangedCallback();
-        }
+        this._stateListeners.forEach(cb => {
+            if (cb) cb();
+        });
     }
 
     _loadFolders() {
@@ -160,6 +169,6 @@ export default class FolderManager {
     destroy() {
         this.folders = [];
         this.appManager = null;
-        this._onStateChangedCallback = null;
+        this._stateListeners.clear();
     }
 }

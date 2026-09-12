@@ -17,10 +17,12 @@
  */
 
 
-import { hexToRgba } from '../../core/Utils.js';
-import { isActorAlive } from './DockLayoutEngine.js';
+import { hexToRgba, isActorAlive } from '../../core/Utils.js';
 import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from '../Themes.js';
 
+
+const DEFAULT_CHAMELEON_BG = { r: 30, g: 30, b: 45 };
+const DEFAULT_CHAMELEON_RAW = { r: 80, g: 90, b: 120 };
 
 export function resolveTooltipColors(dockUI, themeId) {
     const settings = dockUI.settings;
@@ -28,9 +30,9 @@ export function resolveTooltipColors(dockUI, themeId) {
     const sColor = settings.get_string('stroke-color') || '#ffffff';
 
     if (themeId === 'chameleon') {
-        const { r, g, b } = (dockUI._chameleonColor && dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
+        const bg = (dockUI._chameleonColor && dockUI._chameleonColor.bg) ? dockUI._chameleonColor.bg : DEFAULT_CHAMELEON_BG;
         return {
-            css: `background-color: rgba(${r}, ${g}, ${b}, ${opacity}); background-gradient-direction: none;`,
+            css: `background-color: rgba(${bg.r}, ${bg.g}, ${bg.b}, ${opacity}); background-gradient-direction: none;`,
             fg: dockUI._chameleonAccent || sColor
         };
     }
@@ -66,7 +68,7 @@ export function applyDynamicStyles(dockUI) {
 
     if (currentTheme === 'chameleon' && !dockUI._chameleonColor) {
         const extracted = extractWallpaperDominantColor();
-        dockUI._chameleonColor = extracted || { bg: { r: 30, g: 30, b: 45 }, raw: { r: 80, g: 90, b: 120 } };
+        dockUI._chameleonColor = extracted || { bg: DEFAULT_CHAMELEON_BG, raw: DEFAULT_CHAMELEON_RAW };
         dockUI._chameleonAccent = extracted 
             ? getChameleonAccentColor(extracted.raw.r, extracted.raw.g, extracted.raw.b) 
             : '#a0c8ff';

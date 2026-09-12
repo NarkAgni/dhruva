@@ -21,7 +21,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 
-export function buildSystemFoldersModule(dockUI, _iconSize, createBtn, toggleAppWindow) {
+export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
     const systemModules = [];
     const settings = dockUI.settings;
 
@@ -73,7 +73,7 @@ export function buildSystemFoldersModule(dockUI, _iconSize, createBtn, toggleApp
                     systemModules.push(createBtn(fIcon, fName, (btn) => toggleAppWindow(uri, fPath, fName, btn), fPath));
                 });
             }
-        } catch (e) { }
+        } catch (_e) { }
     }
 
     return systemModules;

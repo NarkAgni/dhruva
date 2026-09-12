@@ -19,14 +19,19 @@
 
 import Clutter from 'gi://Clutter';
 
+import { isActorAlive } from '../../core/Utils.js';
+
+
+const DEFAULT_RESTORE_DURATION_MS = 200;
 
 export function animateIconClick(actor, effectName) {
-    if (!actor || effectName === 'none') return;
+    if (!actor || !isActorAlive(actor) || effectName === 'none') return;
 
     actor.set_pivot_point(0.5, 0.5);
     if (actor.remove_all_transitions) actor.remove_all_transitions();
 
     const restore = () => {
+        if (!isActorAlive(actor)) return;
         actor.ease({
             scale_x: 1.0,
             scale_y: 1.0,
@@ -35,10 +40,10 @@ export function animateIconClick(actor, effectName) {
             translation_y: 0,
             rotation_angle_z: 0,
             rotation_angle_y: 0,
-            duration: 200,
+            duration: DEFAULT_RESTORE_DURATION_MS,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onComplete: () => {
-                if (actor && actor.set_style) {
+                if (isActorAlive(actor) && actor.set_style) {
                     actor.set_style('');
                 }
             }
@@ -423,6 +428,7 @@ export function animateIconClick(actor, effectName) {
                 onComplete: restore
             });
             break;
+
         case 'move_down':
             actor.ease({
                 translation_y: 20,
@@ -431,6 +437,7 @@ export function animateIconClick(actor, effectName) {
                 onComplete: restore
             });
             break;
+
         case 'move_left':
             actor.ease({
                 translation_x: -20,
@@ -439,6 +446,7 @@ export function animateIconClick(actor, effectName) {
                 onComplete: restore
             });
             break;
+
         case 'move_right':
             actor.ease({
                 translation_x: 20,
@@ -447,6 +455,7 @@ export function animateIconClick(actor, effectName) {
                 onComplete: restore
             });
             break;
+
         case 'enlarge':
             actor.ease({
                 scale_x: 1.3,
@@ -456,6 +465,7 @@ export function animateIconClick(actor, effectName) {
                 onComplete: restore
             });
             break;
+
         case 'shrink':
             actor.ease({
                 scale_x: 0.7,

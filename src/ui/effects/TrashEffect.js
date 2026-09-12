@@ -21,20 +21,93 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { isActorAlive } from '../../core/Utils.js';
+
+
+const CONFETTI_COLORS = ['#FF3B30', '#34C759', '#007AFF', '#FFCC00', '#FF2D55', '#AF52DE', '#5AC8FA'];
+const NUM_CONFETTI = 25;
 
 const _activeActors = new Set();
 
 export function cleanupTrashEffects() {
     for (const actor of _activeActors) {
-        if (actor) {
+        if (isActorAlive(actor)) {
             if (actor.remove_all_transitions) actor.remove_all_transitions();
-            if (actor.get_parent && actor.get_parent()) {
-                actor.get_parent().remove_child(actor);
-            }
+            const parent = actor.get_parent();
+            if (parent) parent.remove_child(actor);
             actor.destroy();
         }
     }
     _activeActors.clear();
+}
+
+function _triggerConfettiPop(x, y, iconSize) {
+    const flash = new St.Widget({
+        style: 'background-color: rgba(255,255,255,0.9); border-radius: 100px; box-shadow: 0 0 20px rgba(255,255,255,0.8);'
+    });
+    flash.set_size(iconSize, iconSize);
+    flash.set_position(x - iconSize / 2, y - iconSize / 2);
+    flash.set_pivot_point(0.5, 0.5);
+
+    Main.uiGroup.add_child(flash);
+    _activeActors.add(flash);
+
+    flash.ease({
+        scale_x: 2.5,
+        scale_y: 2.5,
+        opacity: 0,
+        duration: 300,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        onComplete: () => {
+            if (_activeActors.has(flash)) {
+                if (isActorAlive(flash)) {
+                    Main.uiGroup.remove_child(flash);
+                    flash.destroy();
+                }
+                _activeActors.delete(flash);
+            }
+        }
+    });
+
+    for (let i = 0; i < NUM_CONFETTI; i++) {
+        const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+        const size = 6 + Math.random() * 8;
+        const isCircle = Math.random() > 0.5;
+        const radius = isCircle ? '50px' : '2px';
+
+        const confetti = new St.Widget({
+            style: `background-color: ${color}; border-radius: ${radius};`,
+        });
+        confetti.set_size(size, size);
+        confetti.set_position(x - size / 2, y - size / 2);
+        confetti.set_pivot_point(0.5, 0.5);
+
+        Main.uiGroup.add_child(confetti);
+        _activeActors.add(confetti);
+
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 80 + Math.random() * 100;
+        const tx = Math.cos(angle) * distance;
+        const ty = Math.sin(angle) * distance - 40;
+
+        confetti.ease({
+            translation_x: tx,
+            translation_y: ty,
+            rotation_angle_z: Math.random() * 720 - 360,
+            opacity: 0,
+            duration: 600 + Math.random() * 400,
+            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            onComplete: () => {
+                if (_activeActors.has(confetti)) {
+                    if (isActorAlive(confetti)) {
+                        Main.uiGroup.remove_child(confetti);
+                        confetti.destroy();
+                    }
+                    _activeActors.delete(confetti);
+                }
+            }
+        });
+    }
 }
 
 export function playTrashEffect(app, x, y, iconSize) {
@@ -73,8 +146,10 @@ export function playTrashEffect(app, x, y, iconSize) {
                                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                                 onComplete: () => {
                                     if (_activeActors.has(icon)) {
-                                        Main.uiGroup.remove_child(icon);
-                                        icon.destroy();
+                                        if (isActorAlive(icon)) {
+                                            Main.uiGroup.remove_child(icon);
+                                            icon.destroy();
+                                        }
                                         _activeActors.delete(icon);
                                     }
                                 }
@@ -85,72 +160,4 @@ export function playTrashEffect(app, x, y, iconSize) {
             });
         }
     });
-}
-
-function _triggerConfettiPop(x, y, iconSize) {
-    const flash = new St.Widget({
-        style: 'background-color: rgba(255,255,255,0.9); border-radius: 100px; box-shadow: 0 0 20px rgba(255,255,255,0.8);'
-    });
-    flash.set_size(iconSize, iconSize);
-    flash.set_position(x - iconSize / 2, y - iconSize / 2);
-    flash.set_pivot_point(0.5, 0.5);
-
-    Main.uiGroup.add_child(flash);
-    _activeActors.add(flash);
-
-    flash.ease({
-        scale_x: 2.5,
-        scale_y: 2.5,
-        opacity: 0,
-        duration: 300,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => {
-            if (_activeActors.has(flash)) {
-                Main.uiGroup.remove_child(flash);
-                flash.destroy();
-                _activeActors.delete(flash);
-            }
-        }
-    });
-
-    const colors = ['#FF3B30', '#34C759', '#007AFF', '#FFCC00', '#FF2D55', '#AF52DE', '#5AC8FA'];
-    const numConfetti = 25;
-
-    for (let i = 0; i < numConfetti; i++) {
-        const color = colors[i % colors.length];
-        const size = 6 + Math.random() * 8;
-        const isCircle = Math.random() > 0.5;
-        const radius = isCircle ? '50px' : '2px';
-
-        const confetti = new St.Widget({
-            style: `background-color: ${color}; border-radius: ${radius};`,
-        });
-        confetti.set_size(size, size);
-        confetti.set_position(x - size / 2, y - size / 2);
-        confetti.set_pivot_point(0.5, 0.5);
-
-        Main.uiGroup.add_child(confetti);
-        _activeActors.add(confetti);
-
-        const angle = Math.random() * Math.PI * 2;
-        const distance = 80 + Math.random() * 100;
-        const tx = Math.cos(angle) * distance;
-        const ty = Math.sin(angle) * distance - 40;
-
-        confetti.ease({
-            translation_x: tx,
-            translation_y: ty,
-            rotation_angle_z: Math.random() * 720 - 360,
-            opacity: 0,
-            duration: 600 + Math.random() * 400,
-            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-            onComplete: () => {
-                if (_activeActors.has(confetti)) {
-                    Main.uiGroup.remove_child(confetti);
-                    confetti.destroy();
-                    _activeActors.delete(confetti);
-                }
-            }
-        });
-    }
 }

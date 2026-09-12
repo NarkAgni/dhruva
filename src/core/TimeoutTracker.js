@@ -26,46 +26,47 @@ export class TimeoutTracker {
     }
 
     addTimeout(priority, interval, callback) {
-        const id = GLib.timeout_add(priority, interval, () => {
+        let id = 0;
+        id = GLib.timeout_add(priority, interval, () => {
             const result = callback();
-            
             if (result === GLib.SOURCE_REMOVE || result === false) {
                 this._sources.delete(id);
+                return GLib.SOURCE_REMOVE;
             }
-            return result;
+            return GLib.SOURCE_CONTINUE;
         });
-        
+
         this._sources.add(id);
         return id;
     }
 
     addIdle(priority, callback) {
-        const id = GLib.idle_add(priority, () => {
+        let id = 0;
+        id = GLib.idle_add(priority, () => {
             const result = callback();
-            
             if (result === GLib.SOURCE_REMOVE || result === false) {
                 this._sources.delete(id);
+                return GLib.SOURCE_REMOVE;
             }
-            return result;
+            return GLib.SOURCE_CONTINUE;
         });
-        
+
         this._sources.add(id);
         return id;
     }
 
     remove(id) {
-        if (this._sources.has(id)) {
+        if (id && this._sources.has(id)) {
             GLib.source_remove(id);
             this._sources.delete(id);
         }
     }
 
     destroy() {
-        if (this._sources && this._sources.size > 0) {
-            this._sources.forEach(id => {
-                if (id) GLib.source_remove(id);
-            });
-            this._sources.clear();
-        }
+        if (!this._sources) return;
+        this._sources.forEach(id => {
+            if (id) GLib.source_remove(id);
+        });
+        this._sources.clear();
     }
 }

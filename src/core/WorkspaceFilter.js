@@ -18,7 +18,6 @@
 
 
 export default class WorkspaceFilter {
-
     static filterWindows(windows, settings) {
         if (!settings.get_boolean('isolate-workspaces')) return windows;
 

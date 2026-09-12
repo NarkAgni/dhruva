@@ -17,9 +17,11 @@
  */
 
 
-function isActorAlive(actor) {
-    if (!actor) return false;
-    return actor.visible !== undefined;
+import { isActorAlive } from '../../core/Utils.js';
+
+
+export function easeOutCirc(t) {
+    return Math.sqrt(1 - Math.pow(t - 1, 2));
 }
 
 export function getDockButtons(dockActor) {
@@ -98,42 +100,51 @@ export function getFixedSlots(dockActor, isVertical, btns) {
     return model;
 }
 
-export function easeOutCirc(t) {
-    return Math.sqrt(1 - Math.pow(t - 1, 2));
-}
+export function isPointerWithinDockBounds(dockActor, px, py, isVertical, settings) {
+    const [dx, dy] = dockActor.get_transformed_position();
+    const [dw, dh] = dockActor.get_transformed_size();
 
-export class MagnifierMath {
-    static applyMagnification(children, pointerX, pointerY, isVertical, maxZoomFactor, _nowMs) {
-        if (!children || children.length === 0) return;
+    let boundsLeft = dx;
+    let boundsRight = dx + dw;
+    let boundsTop = dy;
+    let boundsBottom = dy + dh;
 
-        const btns = children.filter(c => {
-            if (!isActorAlive(c)) return false;
-            const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
-            return !sClass.includes('dock-separator');
-        });
-
-        if (btns.length === 0) return;
-
-        btns.forEach(btn => {
-            const [x, y] = btn.get_transformed_position();
-            const w = btn.width || 48;
-            const h = btn.height || 48;
-
-            const center = isVertical ? (y + h / 2) : (x + w / 2);
-            const cursor = isVertical ? pointerY : pointerX;
-
-            const dist = Math.abs(cursor - center);
-            const maxDistance = (isVertical ? h : w) * 2.5;
-
-            let scale = 1.0;
-            if (dist < maxDistance) {
-                const norm = 1.0 - (dist / maxDistance);
-                const factor = easeOutCirc(norm);
-                scale = 1.0 + (maxZoomFactor - 1.0) * factor;
-            }
-
-            btn.scale_x = scale;
-            btn.scale_y = scale;
-        });
+    if (dockActor.bgActor) {
+        const [bx, by] = dockActor.bgActor.get_transformed_position();
+        const [bw, bh] = dockActor.bgActor.get_transformed_size();
+        boundsLeft = Math.min(boundsLeft, bx);
+        boundsRight = Math.max(boundsRight, bx + bw);
+        boundsTop = Math.min(boundsTop, by);
+        boundsBottom = Math.max(boundsBottom, by + bh);
     }
+
+    const pos = settings ? (settings.get_string('dock-position') || 'BOTTOM') : 'BOTTOM';
+
+    const padLateral = 18;
+    const padScreenEdge = 25;
+    const padWindowEdge = 6;
+
+    let padLeft = padLateral;
+    let padRight = padLateral;
+    let padTop = padLateral;
+    let padBottom = padLateral;
+
+    if (pos === 'BOTTOM') {
+        padTop = padWindowEdge;
+        padBottom = padScreenEdge;
+    } else if (pos === 'TOP') {
+        padTop = padScreenEdge;
+        padBottom = padWindowEdge;
+    } else if (pos === 'LEFT') {
+        padLeft = padScreenEdge;
+        padRight = padWindowEdge;
+    } else if (pos === 'RIGHT') {
+        padLeft = padWindowEdge;
+        padRight = padScreenEdge;
+    }
+
+    return px >= (boundsLeft - padLeft) &&
+           px <= (boundsRight + padRight) &&
+           py >= (boundsTop - padTop) &&
+           py <= (boundsBottom + padBottom);
 }

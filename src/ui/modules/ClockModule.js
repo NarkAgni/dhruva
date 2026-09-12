@@ -26,7 +26,9 @@ import PangoCairo from 'gi://PangoCairo';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 
 
-export function buildClockModule(dockUI, _iconSize) {
+const CLOCK_TICK_INTERVAL_MS = 1000;
+
+export function buildClockModule(dockUI) {
     const settings = dockUI.settings;
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
 
@@ -90,10 +92,12 @@ export function buildClockModule(dockUI, _iconSize) {
         delete newProps.scale_y;
         Clutter.Actor.prototype.ease.call(this, newProps);
     };
+
     const origScale = clockBtn.set_scale.bind(clockBtn);
     clockBtn.set_scale = (sx, sy) => {
         if (sx === 1 && sy === 1) origScale(sx, sy);
     };
+
     clockBtn._delegate = {
         app: {
             get_name: () => 'Date & Time',
@@ -116,8 +120,7 @@ export function buildClockModule(dockUI, _iconSize) {
     };
     updateClock();
     
-    clockBtn.timers.remove(clockBtn._timeoutId);
-    clockBtn._timeoutId = clockBtn.timers.addTimeout(GLib.PRIORITY_DEFAULT, 1000, updateClock);
+    clockBtn._timeoutId = clockBtn.timers.addTimeout(GLib.PRIORITY_DEFAULT, CLOCK_TICK_INTERVAL_MS, updateClock);
     
     clockBtn.connectObject('destroy', () => {
         clockBtn.timers.destroy();

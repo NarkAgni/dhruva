@@ -17,24 +17,27 @@
  */
 
 
-import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 
+import { updateLayout } from './DockLayoutEngine.js';
 import { buildModules } from '../modules/DockModules.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
-import { applyDynamicStyles, resolveTooltipColors } from './DockThemeResolver.js';
+import { applyDynamicStyles } from './DockThemeResolver.js';
+import { setupMagnification } from '../magnifier/Magnifier.js';
+import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
+import { applyRealtimeFrame } from '../magnifier/MagnifierFrameEngine.js';
+import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
 import { createSeparator, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
-import { isActorAlive, markActorDisposed, updateLayout, captureActorRect } from './DockLayoutEngine.js';
-import { setupMagnification, teardownMagnification, applyRealtimeFrame, resetMagnification } from '../magnifier/Magnifier.js';
+import { resetMagnification, teardownMagnification } from '../magnifier/MagnifierReset.js';
 
 
-export { isActorAlive, captureActorRect, updateLayout, applyDynamicStyles, resolveTooltipColors };
+const CLICK_THROTTLE_MS = 350;
+const POST_CLICK_DELAY_MS = 860;
 
 export function getIndicatorProps(dockUI) {
     const indStyle = dockUI.settings.get_string('indicator-style') || 'dot';
     const indSize = dockUI.settings.get_int('indicator-size') || 4;
-    const indGap = dockUI.settings.get_int('indicator-spacing') || 4;
     const indGlow = dockUI.settings.get_boolean('indicator-glow');
     const isVert = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
     const iconSize = dockUI.settings.get_int('icon-size') || 48;
@@ -45,7 +48,9 @@ export function getIndicatorProps(dockUI) {
         ? dockUI._chameleonAccent
         : (dockUI.settings.get_string('indicator-color') || '#ffffff');
 
-    let dw = indSize, dh = indSize, br = '100px';
+    let dw = indSize;
+    let dh = indSize;
+    let br = '100px';
 
     const heightPad = dockUI.settings.get_int('dock-height') || 6;
     const safeHeightPad = Math.max(heightPad, 4);
@@ -64,19 +69,27 @@ export function getIndicatorProps(dockUI) {
     const edgeMargin = 4;
     const offset = Math.max(1, safeHeightPad - edgeMargin);
 
-    let tx = 0, ty = 0;
+    let tx = 0;
+    let ty = 0;
     if (dockUI.dockPosition === 'BOTTOM') ty = offset;
     else if (dockUI.dockPosition === 'TOP') ty = -offset;
     else if (dockUI.dockPosition === 'LEFT') tx = -offset;
     else if (dockUI.dockPosition === 'RIGHT') tx = offset;
 
-    const iconTx = 0;
-    const iconTy = 0;
-
     const shadowStr = indGlow ? `box-shadow: 0px 0px 8px ${indColor}CC;` : '';
     const style = `width: ${dw}px; height: ${dh}px; background-color: ${indColor}; border-radius: ${br}; ${shadowStr}`;
 
-    return { dw, dh, style, tx, ty, iconTx, iconTy, indColor };
+    return { dw, dh, style, tx, ty, iconTx: 0, iconTy: 0, indColor };
+}
+
+function extractActorId(c) {
+    if (!c) return null;
+    if (c._delegate && c._delegate.app && c._delegate.app.get_id) return c._delegate.app.get_id();
+    if (c._delegate && c._delegate.isFolder) return c._delegate.folderData.id;
+    if (c.has_style_class_name && c.has_style_class_name('clock-module')) return 'dhruva-clock';
+    if (c.get_child && c.get_child() && c.get_child().has_style_class_name && c.get_child().has_style_class_name('dock-grid-icon')) return 'dhruva-grid-button';
+    if (c.has_style_class_name && c.has_style_class_name('dock-separator')) return c._sepId;
+    return null;
 }
 
 export function renderDock(dockUI, forceRender = false) {
@@ -95,19 +108,18 @@ export function renderDock(dockUI, forceRender = false) {
 
     if (!forceRender && dockUI.actor._lastIconClickTime) {
         const elapsed = Date.now() - dockUI.actor._lastIconClickTime;
-        if (elapsed < 350) {
+        if (elapsed < CLICK_THROTTLE_MS) {
             dockUI._pendingRender = false;
             
             if (dockUI._delayedRenderId) {
                 dockUI.registry.remove(dockUI._delayedRenderId);
                 dockUI._delayedRenderId = null;
             }
-            dockUI._delayedRenderId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 850 - elapsed + 10, () => {
+            dockUI._delayedRenderId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, POST_CLICK_DELAY_MS - elapsed, () => {
                 dockUI._delayedRenderId = null;
                 if (dockUI.queueRender) dockUI.queueRender();
                 return GLib.SOURCE_REMOVE;
             });
-
             return;
         }
     }
@@ -116,14 +128,7 @@ export function renderDock(dockUI, forceRender = false) {
 
     const oldVisuals = new Map();
     const cacheActor = (c) => {
-        if (!c) return;
-        let id = null;
-        if (c._delegate && c._delegate.app && c._delegate.app.get_id) id = c._delegate.app.get_id();
-        else if (c._delegate && c._delegate.isFolder) id = c._delegate.folderData.id;
-        else if (c.has_style_class_name && c.has_style_class_name('clock-module')) id = 'dhruva-clock';
-        else if (c.get_child && c.get_child() && c.get_child().has_style_class_name && c.get_child().has_style_class_name('dock-grid-icon')) id = 'dhruva-grid-button';
-        else if (c.has_style_class_name && c.has_style_class_name('dock-separator')) id = c._sepId;
-
+        const id = extractActorId(c);
         if (id) {
             oldVisuals.set(id, {
                 sx: c.scale_x,
@@ -138,13 +143,14 @@ export function renderDock(dockUI, forceRender = false) {
     if (dockUI.gridBtn) cacheActor(dockUI.gridBtn);
     if (dockUI.extractedClock) cacheActor(dockUI.extractedClock);
 
-    const gridBtnOnActor = dockUI.gridBtn && dockUI.gridBtn.get_parent() === dockUI.actor;
+    const gridBtnOnActor = Boolean(dockUI.gridBtn && dockUI.gridBtn.get_parent() === dockUI.actor);
     if (isActorAlive(dockUI.boxActor)) {
         const children = dockUI.boxActor.get_children();
         children.forEach(c => {
             if (isActorAlive(c)) {
                 dockUI.boxActor.remove_child(c);
                 if (!c._isModule && !c._isExternal) {
+                    markActorDisposed(c);
                     c.destroy();
                 }
             }
@@ -154,21 +160,30 @@ export function renderDock(dockUI, forceRender = false) {
     if (dockUI.gridBtn) {
         const btn = dockUI.gridBtn;
         dockUI.gridBtn = null;
-        if (gridBtnOnActor) btn.destroy();
+        if (gridBtnOnActor) {
+            markActorDisposed(btn);
+            btn.destroy();
+        }
     }
 
-    const clockBtnOnActor = dockUI.extractedClock && dockUI.extractedClock.get_parent() === dockUI.actor;
+    const clockBtnOnActor = Boolean(dockUI.extractedClock && dockUI.extractedClock.get_parent() === dockUI.actor);
     if (dockUI.extractedClock) {
         const btn = dockUI.extractedClock;
         dockUI.extractedClock = null;
-        if (clockBtnOnActor) btn.destroy();
+        if (clockBtnOnActor) {
+            markActorDisposed(btn);
+            btn.destroy();
+        }
     }
 
-    const desktopBtnOnActor = dockUI.extractedDesktop && dockUI.extractedDesktop.get_parent() === dockUI.actor;
+    const desktopBtnOnActor = Boolean(dockUI.extractedDesktop && dockUI.extractedDesktop.get_parent() === dockUI.actor);
     if (dockUI.extractedDesktop) {
         const btn = dockUI.extractedDesktop;
         dockUI.extractedDesktop = null;
-        if (desktopBtnOnActor) btn.destroy();
+        if (desktopBtnOnActor) {
+            markActorDisposed(btn);
+            btn.destroy();
+        }
     }
 
     const displayAppsRaw = dockUI.appManager.getDisplayApps();
@@ -242,9 +257,7 @@ export function renderDock(dockUI, forceRender = false) {
         }
     });
 
-    pinnedButtonsMap.forEach(btn => {
-        pinnedButtons.push(btn);
-    });
+    pinnedButtonsMap.forEach(btn => pinnedButtons.push(btn));
 
     const mods = buildModules(dockUI, iconSize);
     const systemModules = mods.systemModules || [];
@@ -264,10 +277,8 @@ export function renderDock(dockUI, forceRender = false) {
     const clockPos = (rawClockPos === 'RIGHT_END' && !isFullWidth) ? 'END' : rawClockPos;
 
     const showClock = !dockUI._isOverviewActive;
-
     const extractClock = isFullWidth && clockPos === 'RIGHT_END';
     dockUI.extractedClock = (extractClock && showClock) ? clockModule : null;
-
     dockUI.extractedDesktop = isFullWidth ? desktopModule : null;
 
     const extractGrid = isFullWidth && gridPos === 'LEFT_EDGE';
@@ -286,11 +297,7 @@ export function renderDock(dockUI, forceRender = false) {
     }
 
     const actualEndItems = [];
-    
-    if (!isFullWidth && desktopModule) {
-        actualEndItems.push(desktopModule);
-    }
-    
+    if (!isFullWidth && desktopModule) actualEndItems.push(desktopModule);
     actualEndItems.push(...systemModules);
     
     if (gridPos === 'END' && gridBtn && !extractGrid) {
@@ -312,13 +319,7 @@ export function renderDock(dockUI, forceRender = false) {
     }
 
     const applyOldVisuals = (c) => {
-        let cid = null;
-        if (c._delegate && c._delegate.app && c._delegate.app.get_id) cid = c._delegate.app.get_id();
-        else if (c._isFolder) cid = c._folderData.id;
-        else if (c.has_style_class_name && c.has_style_class_name('clock-module')) cid = 'dhruva-clock';
-        else if (c.get_child && c.get_child() && c.get_child().has_style_class_name && c.get_child().has_style_class_name('dock-grid-icon')) cid = 'dhruva-grid-button';
-        else if (c.has_style_class_name && c.has_style_class_name('dock-separator')) cid = c._sepId;
-
+        const cid = extractActorId(c);
         if (cid && oldVisuals.has(cid)) {
             const v = oldVisuals.get(cid);
             c.scale_x = v.sx !== undefined ? v.sx : 1.0;
@@ -331,7 +332,8 @@ export function renderDock(dockUI, forceRender = false) {
                 appBox.get_children().forEach(child => {
                     const antiScale = 1.0 / Math.max(0.01, c.scale_x);
                     if (child._isIndicator) {
-                        let px = 0.5, py = 0.5;
+                        let px = 0.5;
+                        let py = 0.5;
                         if (dockUI.dockPosition === 'BOTTOM') py = 1.0;
                         else if (dockUI.dockPosition === 'TOP') py = 0.0;
                         else if (dockUI.dockPosition === 'LEFT') px = 0.0;
@@ -350,10 +352,8 @@ export function renderDock(dockUI, forceRender = false) {
     startComponents.forEach(c => { applyOldVisuals(c); dockUI.boxActor.add_child(c); });
     pinnedButtons.forEach(c => { applyOldVisuals(c); dockUI.boxActor.add_child(c); });
 
-    if (pinnedButtons.length > 0 && unpinnedButtons.length > 0) {
-        if (dockUI.settings.get_boolean('show-app-separator')) {
-            dockUI.boxActor.add_child(createSeparator(dockUI, iconSize, isVerticalDock, 'running', 'dhruva-sep-running'));
-        }
+    if (pinnedButtons.length > 0 && unpinnedButtons.length > 0 && dockUI.settings.get_boolean('show-app-separator')) {
+        dockUI.boxActor.add_child(createSeparator(dockUI, iconSize, isVerticalDock, 'running', 'dhruva-sep-running'));
     }
 
     unpinnedButtons.forEach(c => { applyOldVisuals(c); dockUI.boxActor.add_child(c); });
@@ -364,7 +364,6 @@ export function renderDock(dockUI, forceRender = false) {
             if (isActorAlive(extActor)) {
                 try {
                     applyOldVisuals(extActor);
-
                     const currentParent = extActor.get_parent();
                     if (currentParent !== dockUI.boxActor) {
                         if (currentParent) currentParent.remove_child(extActor);
@@ -377,12 +376,10 @@ export function renderDock(dockUI, forceRender = false) {
                     if (shouldShow) {
                         if (!extActor.visible) extActor.show();
                         if (extActor.opacity !== 255) extActor.opacity = 255;
-                    } else {
-                        if (extActor.visible) extActor.hide();
+                    } else if (extActor.visible) {
+                        extActor.hide();
                     }
-                } catch (e) {
-                    // safe swallow
-                }
+                } catch (_e) { }
             }
         });
     }
@@ -391,20 +388,16 @@ export function renderDock(dockUI, forceRender = false) {
         applyOldVisuals(dockUI.gridBtn);
         dockUI.actor.add_child(dockUI.gridBtn);
     }
-
     if (isFullWidth && dockUI.extractedClock) {
         applyOldVisuals(dockUI.extractedClock);
         dockUI.actor.add_child(dockUI.extractedClock);
     }
-
     if (isFullWidth && dockUI.extractedDesktop) {
         applyOldVisuals(dockUI.extractedDesktop);
         dockUI.actor.add_child(dockUI.extractedDesktop);
     }
 
-    const hasAnyModuleIndicator = systemModules.some(m => m && m._hasRunningIndicator);
-    dockUI._applyIndicatorBaselineAlignment(hasAnyModuleIndicator);
-
+    dockUI._applyIndicatorBaselineAlignment();
     dockUI.actor._fixedSlots = null;
     dockUI.actor._tooltipHoveredIndex = -1;
     dockUI.actor._magTooltipAppId = null;
@@ -429,51 +422,32 @@ export function renderDock(dockUI, forceRender = false) {
                 dockUI.registry.remove(dockUI._magnifierSetupIdleId);
                 dockUI._magnifierSetupIdleId = null;
             }
+
             dockUI._magnifierSetupIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 dockUI._magnifierSetupIdleId = null;
-                if (!dockUI.actor || !dockUI.boxActor) return GLib.SOURCE_REMOVE;
-
-                if (setupMagnification) {
-                    setupMagnification(dockUI.actor, dockUI.settings, () => dockUI.dockPosition);
+                if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) {
+                    return GLib.SOURCE_REMOVE;
                 }
 
-                global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
-                    if (!dockUI.actor || !dockUI.boxActor || !dockUI.actor.is_mapped()) return false;
+                setupMagnification(dockUI.actor, dockUI.settings, () => dockUI.dockPosition);
+                dockUI.actor._isMagSetup = true;
 
-                    const focusWin = global.display.get_focus_window();
-                    if (focusWin && focusWin.is_fullscreen && focusWin.is_fullscreen()) {
-                        resetMagnification(dockUI.actor);
-                        return false;
-                    }
+                const focusWin = global.display.get_focus_window();
+                if (focusWin && focusWin.is_fullscreen && focusWin.is_fullscreen()) {
+                    resetMagnification(dockUI.actor);
+                    return GLib.SOURCE_REMOVE;
+                }
 
-                    dockUI.actor._fixedSlots = null;
-                    const [cx, cy] = global.get_pointer();
-                    const [ax, ay] = dockUI.actor.get_transformed_position();
+                dockUI.actor._fixedSlots = null;
+                const [cx, cy] = global.get_pointer();
+                const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
 
-                    const aw = dockUI.actor._cachedW || dockUI.actor.width || 0;
-                    const ah = dockUI.actor._cachedH || dockUI.actor.height || 0;
+                if (isPointerWithinDockBounds(dockUI.actor, cx, cy, isVertical, dockUI.settings)) {
+                    applyRealtimeFrame(dockUI.actor, cx, cy, isVertical, dockUI.settings, Date.now());
+                } else {
+                    resetMagnification(dockUI.actor);
+                }
 
-                    const basePadX = isVerticalDock ? 15 : 20;
-                    const basePadY = isVerticalDock ? 20 : 15;
-                    const inBaseBounds = cx >= ax - basePadX && cx <= ax + aw + basePadX && cy >= ay - basePadY && cy <= ay + ah + basePadY;
-
-                    let inZoomedBounds = false;
-                    if (!inBaseBounds && dockUI.boxActor) {
-                        const iconSize = dockUI.settings.get_int('icon-size') || 48;
-                        const zoomFactor = dockUI.settings.get_double('hover-zoom-factor') || 1.0;
-                        const maxPadding = (iconSize * zoomFactor) + 20;
-                        
-                        inZoomedBounds = cx >= ax - maxPadding && cx <= ax + aw + maxPadding && cy >= ay - maxPadding && cy <= ay + ah + maxPadding;
-                    }
-                    
-                    if (inBaseBounds || inZoomedBounds) {
-                        applyRealtimeFrame(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings, Date.now());
-                    } else {
-                        resetMagnification(dockUI.actor);
-                    }
-
-                    return false;
-                });
                 return GLib.SOURCE_REMOVE;
             });
         } else {
@@ -487,6 +461,7 @@ export function renderDock(dockUI, forceRender = false) {
         }
     } else {
         teardownMagnification(dockUI.actor);
+        dockUI.actor._isMagSetup = false;
     }
 
     applyDynamicStyles(dockUI);

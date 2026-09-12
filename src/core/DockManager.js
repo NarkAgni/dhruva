@@ -21,9 +21,12 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { isActorAlive } from './Utils.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
-import { isActorAlive } from '../ui/dock/DockLayoutEngine.js';
 
+
+const CHECKER_INTERVAL_MS = 400;
+const FALLBACK_PANEL_HEIGHT = 27;
 
 export default class DockManager {
     constructor(dockUI, settings) {
@@ -49,8 +52,7 @@ export default class DockManager {
     }
 
     _takeoverGnomeDash() {
-        if (!this._originalDash) return;
-        if (this._hijackedOrigBox) return;
+        if (!this._originalDash || this._hijackedOrigBox) return;
 
         if (!this._origAdjustIconSize && this._originalDash._adjustIconSize) {
             this._origAdjustIconSize = this._originalDash._adjustIconSize.bind(this._originalDash);
@@ -62,9 +64,7 @@ export default class DockManager {
                 if (!firstIcon) return;
                 try {
                     this._origAdjustIconSize();
-                } catch (_e) {
-                    // Safe swallow
-                }
+                } catch (_e) { }
             };
         }
 
@@ -90,9 +90,7 @@ export default class DockManager {
                 child._isModule;
 
             if (!isGnomeOrDhruva) {
-                if (!isActorAlive(child)) {
-                    return false;
-                }
+                if (!isActorAlive(child)) return false;
 
                 if (this._externalActors.has(child)) {
                     if (this.dockUI && this.dockUI.boxActor && child.get_parent() !== this.dockUI.boxActor) {
@@ -104,9 +102,7 @@ export default class DockManager {
                 }
 
                 const parent = child.get_parent();
-                if (parent) {
-                    parent.remove_child(child);
-                }
+                if (parent) parent.remove_child(child);
 
                 child._isExternal = true;
                 child._dhruvaExternalOwner = this;
@@ -163,7 +159,7 @@ export default class DockManager {
                                     actor.get_children().forEach(sub => {
                                         const t = (sub.get_text ? sub.get_text() : sub.text) || '';
                                         if (typeof t === 'string' && t.trim().length > 0) {
-                                            fullText += ' ' + t.toLowerCase();
+                                            fullText += ` ${t.toLowerCase()}`;
                                         }
                                         collectText(sub);
                                     });
@@ -192,7 +188,7 @@ export default class DockManager {
                         return GLib.SOURCE_CONTINUE;
                     };
 
-                    this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 400, globalChecker);
+                    this.timers.addTimeout(GLib.PRIORITY_DEFAULT, CHECKER_INTERVAL_MS, globalChecker);
                 }
 
                 return true;
@@ -290,15 +286,12 @@ export default class DockManager {
 
         if (originalBox && this._externalActors && this._externalActors.size > 0) {
             Array.from(this._externalActors).forEach(child => {
-                if (!isActorAlive(child)) return;
-                if (child._dhruvaExternalOwner !== this) return;
+                if (!isActorAlive(child) || child._dhruvaExternalOwner !== this) return;
 
                 child.disconnectObject(this);
 
                 const parent = child.get_parent();
-                if (parent) {
-                    parent.remove_child(child);
-                }
+                if (parent) parent.remove_child(child);
 
                 child._isExternal = false;
                 child._dhruvaExternalOwner = null;
@@ -346,7 +339,7 @@ export default class DockManager {
         const actualMonitor = monitorResult.monitor;
         let topOffset = 0;
         if (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) {
-            topOffset = Main.panel.height || 27;
+            topOffset = Main.panel.height || FALLBACK_PANEL_HEIGHT;
         }
 
         const workArea = {
@@ -363,7 +356,8 @@ export default class DockManager {
 
         const margin = (hideMode === 'none') ? 0 : rawMargin;
 
-        let xPos = 0, yPos = 0;
+        let xPos = 0;
+        let yPos = 0;
         const aw = this.dockUI.actor.width;
         const ah = this.dockUI.actor.height;
 
@@ -385,13 +379,6 @@ export default class DockManager {
     }
 
     destroy() {
-        if (this._folderSpyId) {
-            if (Main.layoutManager && Main.layoutManager.overviewGroup) {
-                Main.layoutManager.overviewGroup.disconnect(this._folderSpyId);
-            }
-            this._folderSpyId = null;
-        }
-
         this.timers.destroy();
 
         if (this.settings) {

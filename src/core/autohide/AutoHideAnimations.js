@@ -19,6 +19,11 @@
 
 import Clutter from 'gi://Clutter';
 
+import { isActorAlive } from '../Utils.js';
+
+
+const HIDE_OFFSET_BUFFER = 20;
+const ANIM_DURATION_MS = 250;
 
 export function getHideOffsets(dockUI) {
     const pos = dockUI.dockPosition;
@@ -26,23 +31,23 @@ export function getHideOffsets(dockUI) {
     let hideY = 0;
 
     const margin = dockUI.settings.get_int('dock-margin');
-    const hideOffset = 20;
+    const totalExtra = margin + HIDE_OFFSET_BUFFER;
 
     if (pos === 'BOTTOM') {
-        hideY = dockUI.actor.height + margin + hideOffset;
+        hideY = dockUI.actor.height + totalExtra;
     } else if (pos === 'TOP') {
-        hideY = -(dockUI.actor.height + margin + hideOffset);
+        hideY = -(dockUI.actor.height + totalExtra);
     } else if (pos === 'LEFT') {
-        hideX = -(dockUI.actor.width + margin + hideOffset);
+        hideX = -(dockUI.actor.width + totalExtra);
     } else if (pos === 'RIGHT') {
-        hideX = dockUI.actor.width + margin + hideOffset;
+        hideX = dockUI.actor.width + totalExtra;
     }
 
     return { hideX, hideY };
 }
 
 export function animateShow(dockUI, onComplete) {
-    if (!dockUI || !dockUI.actor) return;
+    if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
     dockUI.actor.remove_all_transitions();
     dockUI.actor.show();
@@ -50,7 +55,7 @@ export function animateShow(dockUI, onComplete) {
         translation_x: 0,
         translation_y: 0,
         opacity: 255,
-        duration: 250,
+        duration: ANIM_DURATION_MS,
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         onStopped: (_isFinished) => {
             if (onComplete) onComplete();
@@ -59,7 +64,7 @@ export function animateShow(dockUI, onComplete) {
 }
 
 export function animateHide(dockUI, onComplete) {
-    if (!dockUI || !dockUI.actor) return;
+    if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
     const { hideX, hideY } = getHideOffsets(dockUI);
 
@@ -68,7 +73,7 @@ export function animateHide(dockUI, onComplete) {
         translation_x: hideX,
         translation_y: hideY,
         opacity: 0,
-        duration: 250,
+        duration: ANIM_DURATION_MS,
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
         onStopped: (_isFinished) => {
             if (onComplete) onComplete();

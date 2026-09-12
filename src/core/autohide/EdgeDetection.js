@@ -24,8 +24,13 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 
+import { isActorAlive } from '../Utils.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 
+
+const TRIGGER_DEPTH_PX = 4;
+const DEFAULT_BARRIER_DWELL_MS = 150;
+const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
 
 export class EdgeDetection {
     constructor(dockUI, onEdgeTrigger, onEdgeLeave) {
@@ -39,12 +44,14 @@ export class EdgeDetection {
         this._createTrigger();
         this._setupBarriers();
 
-        this.dockUI.actor.connectObject(
-            'notify::allocation', () => this.updateGeometry(),
-            'notify::x', () => this.updateGeometry(),
-            'notify::y', () => this.updateGeometry(),
-            this
-        );
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
+            this.dockUI.actor.connectObject(
+                'notify::allocation', () => this.updateGeometry(),
+                'notify::x', () => this.updateGeometry(),
+                'notify::y', () => this.updateGeometry(),
+                this
+            );
+        }
     }
 
     _createTrigger() {
@@ -92,7 +99,7 @@ export class EdgeDetection {
     }
 
     updateGeometry() {
-        if (!this.dockUI || !this.dockUI.actor || !this.triggerActor) return;
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor) || !isActorAlive(this.triggerActor)) return;
 
         const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorResult || !monitorResult.monitor) return;
@@ -100,7 +107,6 @@ export class EdgeDetection {
         const monitor = monitorResult.monitor;
         const pos = this.dockUI.dockPosition;
         const isFullWidth = this.dockUI.settings.get_boolean('full-width');
-        const triggerDepth = 4;
 
         let x = 0;
         let y = 0;
@@ -110,23 +116,23 @@ export class EdgeDetection {
         if (isFullWidth) {
             if (pos === 'BOTTOM') {
                 x = monitor.x;
-                y = monitor.y + monitor.height - triggerDepth;
+                y = monitor.y + monitor.height - TRIGGER_DEPTH_PX;
                 w = monitor.width;
-                h = triggerDepth;
+                h = TRIGGER_DEPTH_PX;
             } else if (pos === 'TOP') {
                 x = monitor.x;
                 y = monitor.y;
                 w = monitor.width;
-                h = triggerDepth;
+                h = TRIGGER_DEPTH_PX;
             } else if (pos === 'LEFT') {
                 x = monitor.x;
                 y = monitor.y;
-                w = triggerDepth;
+                w = TRIGGER_DEPTH_PX;
                 h = monitor.height;
             } else if (pos === 'RIGHT') {
-                x = monitor.x + monitor.width - triggerDepth;
+                x = monitor.x + monitor.width - TRIGGER_DEPTH_PX;
                 y = monitor.y;
-                w = triggerDepth;
+                w = TRIGGER_DEPTH_PX;
                 h = monitor.height;
             }
         } else {
@@ -137,23 +143,23 @@ export class EdgeDetection {
 
             if (pos === 'BOTTOM') {
                 x = dockX;
-                y = monitor.y + monitor.height - triggerDepth;
+                y = monitor.y + monitor.height - TRIGGER_DEPTH_PX;
                 w = dockW;
-                h = triggerDepth;
+                h = TRIGGER_DEPTH_PX;
             } else if (pos === 'TOP') {
                 x = dockX;
                 y = monitor.y;
                 w = dockW;
-                h = triggerDepth;
+                h = TRIGGER_DEPTH_PX;
             } else if (pos === 'LEFT') {
                 x = monitor.x;
                 y = dockY;
-                w = triggerDepth;
+                w = TRIGGER_DEPTH_PX;
                 h = dockH;
             } else if (pos === 'RIGHT') {
-                x = monitor.x + monitor.width - triggerDepth;
+                x = monitor.x + monitor.width - TRIGGER_DEPTH_PX;
                 y = dockY;
-                w = triggerDepth;
+                w = TRIGGER_DEPTH_PX;
                 h = dockH;
             }
         }
@@ -217,11 +223,11 @@ export class EdgeDetection {
                 ...props,
             });
 
-            const dwellDelay = this.dockUI.settings.get_int('edge-dwell-delay') || 150;
+            const dwellDelay = this.dockUI.settings.get_int('edge-dwell-delay') || DEFAULT_BARRIER_DWELL_MS;
 
             this._pressure = new Layout.PressureBarrier(
                 dwellDelay,
-                1000,
+                PRESSURE_BARRIER_TIMEOUT_MS,
                 Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW
             );
 
@@ -243,15 +249,15 @@ export class EdgeDetection {
     }
 
     show() {
-        if (this.triggerActor) this.triggerActor.show();
+        if (isActorAlive(this.triggerActor)) this.triggerActor.show();
     }
 
     hide() {
-        if (this.triggerActor) this.triggerActor.hide();
+        if (isActorAlive(this.triggerActor)) this.triggerActor.hide();
     }
 
     destroy() {
-        if (this.dockUI && this.dockUI.actor) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.disconnectObject(this);
         }
         if (this._pressure) {

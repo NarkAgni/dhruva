@@ -18,74 +18,21 @@
 
 
 import GObject from 'gi://GObject';
-import Clutter from 'gi://Clutter';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { finishMinimizeEffect, finishRestoreEffect } from './WindowEffects.js';
+
+import { BaseDeformEffect } from './BaseDeformEffect.js';
 
 
-class MagicLampBase extends Clutter.DeformEffect {
+class MagicLampBase extends BaseDeformEffect {
     static {
         GObject.registerClass(this);
     }
 
-    _init(iconScreenPos, dockPos) {
-        super._init();
-        this._iconScreenPos = {
-            ...iconScreenPos
-        };
-        this._dockPos = dockPos || 'BOTTOM';
-        this.progress = 0;
-        this._ready = false;
-        this._finished = false;
+    _getDuration() {
+        return 480;
     }
 
-    vfunc_set_actor(actor) {
-        super.vfunc_set_actor(actor);
-        if (!actor || this._ready) return;
-
-        this._ready = true;
-        const monitor = Main.layoutManager.monitors[actor.meta_window.get_monitor()];
-        this._monitor = monitor;
-
-        this._win = {
-            x: actor.get_x() - monitor.x,
-            y: actor.get_y() - monitor.y,
-            w: actor.get_width(),
-            h: actor.get_height(),
-        };
-
-        this._icon = {
-            x: this._iconScreenPos.x - monitor.x,
-            y: this._iconScreenPos.y - monitor.y,
-            w: this._iconScreenPos.w,
-            h: this._iconScreenPos.h,
-        };
-
-        this._buildTarget();
-        this.set_n_tiles(42, 42);
-
-        this._timeline = new Clutter.Timeline({
-            actor,
-            duration: 480
-        });
-
-        this._timeline.connectObject(
-            'new-frame', (tl) => {
-                if (!this.get_actor()) {
-                    this._finish();
-                    return;
-                }
-                this._setProgress(tl.get_progress());
-                const parent = actor.get_parent();
-                if (parent) parent.queue_redraw();
-                this.invalidate();
-            },
-            'completed', () => this._finish(),
-            this
-        );
-
-        actor.connectObject('destroy', () => this._finish(), this);
-        this._timeline.start();
+    _getTiles() {
+        return [42, 42];
     }
 
     _buildTarget() {
@@ -117,34 +64,6 @@ class MagicLampBase extends Clutter.DeformEffect {
             this._icon.h = tailPx;
         }
     }
-
-    _finish() {
-        if (this._finished) return;
-        this._finished = true;
-
-        if (this._timeline) {
-            this._timeline.stop();
-            this._timeline.disconnectObject(this);
-            this._timeline = null;
-        }
-
-        const actor = this.get_actor();
-        if (actor) {
-            actor.disconnectObject(this);
-            actor.remove_effect(this);
-            this._onDone(actor);
-        }
-    }
-
-    destroy() {
-        this._finish();
-    }
-
-    _setProgress(p) {
-        this.progress = p;
-    }
-
-    _onDone(_actor) {}
 
     vfunc_deform_vertex(w, h, v) {
         if (!this._ready || this.progress <= 0) return;
@@ -186,27 +105,11 @@ class MagicLampBase extends Clutter.DeformEffect {
         v.x = newX;
         v.y = newY;
     }
-
-    vfunc_modify_paint_volume(_pv) {
-        return false;
-    }
 }
 
 export class MagicLampMinimize extends MagicLampBase {
     static {
         GObject.registerClass(this);
-    }
-
-    _setProgress(p) {
-        this.progress = p;
-    }
-
-    _onDone(actor) {
-        if (actor) {
-            actor.hide();
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            finishMinimizeEffect(actor);
-        }
     }
 }
 
@@ -216,19 +119,6 @@ export class MagicLampRestore extends MagicLampBase {
     }
 
     _init(iconPos, dockPos) {
-        super._init(iconPos, dockPos);
-        this.progress = 1;
-    }
-
-    _setProgress(p) {
-        this.progress = 1 - p;
-    }
-
-    _onDone(actor) {
-        if (actor) {
-            actor.show();
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            finishRestoreEffect(actor);
-        }
+        super._init(iconPos, dockPos, true);
     }
 }

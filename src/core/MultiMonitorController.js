@@ -18,6 +18,7 @@
 
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
 import DockUI from '../ui/dock/DockUI.js';
 
 
@@ -37,6 +38,8 @@ export default class MultiMonitorController {
         const focusedMonitor = this.getFocusedMonitorIndex();
         this.destroyDocks();
 
+        if (!this.settings) return;
+
         const showOnAll = this.settings.get_boolean('show-on-all-monitors');
 
         if (showOnAll) {
@@ -50,7 +53,8 @@ export default class MultiMonitorController {
                 ];
             }
 
-            for (const i of monitorOrder) {
+            for (let idx = 0; idx < monitorOrder.length; idx++) {
+                const i = monitorOrder[idx];
                 const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, i);
                 dock.show();
                 this.docks.push(dock);
@@ -104,7 +108,9 @@ export default class MultiMonitorController {
     }
 
     destroy() {
-        this.settings.disconnectObject(this);
+        if (this.settings) {
+            this.settings.disconnectObject(this);
+        }
         this.destroyDocks();
         this.settings = null;
         this.openPrefsCallback = null;
