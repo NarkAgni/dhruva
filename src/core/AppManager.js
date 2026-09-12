@@ -37,8 +37,8 @@ export default class AppManager {
         this.settings = settings;
         this.uuid = uuid;
 
-        this.pinnedApps = [];
-        this.dockOrder = [];
+        this.pinnedApps = [...DEFAULT_PINNED_APPS];
+        this.dockOrder = [...DEFAULT_PINNED_APPS];
         this.folders = [];
 
         this.extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), this.uuid]);
@@ -46,11 +46,11 @@ export default class AppManager {
 
         this.favManager = AppFavorites.getAppFavorites();
 
-        this.loadDockStateSync();
+        this.loadDockStateAsync();
 
         this.settings.connectObject('changed::independent-dock', () => {
             if (this.isIndependent()) {
-                this.loadDockStateSync();
+                this.loadDockStateAsync();
             } else if (this._onStateChangedCallback) {
                 this._onStateChangedCallback();
             }
@@ -73,41 +73,46 @@ export default class AppManager {
         return favorites.map(a => (a.get_id ? a.get_id() : '')).filter(Boolean);
     }
 
-    loadDockStateSync() {
+    loadDockStateAsync() {
         const file = Gio.File.new_for_path(this.dbPath);
-        if (!file.query_exists(null)) {
+
+        file.load_contents_async(null, (sourceFile, res) => {
+            try {
+                const [success, contents] = sourceFile.load_contents_finish(res);
+                if (success && contents) {
+                    const decoder = new TextDecoder('utf-8');
+                    const parsed = JSON.parse(decoder.decode(contents));
+
+                    if (Array.isArray(parsed)) {
+                        this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
+                        this.dockOrder = [...parsed];
+                        this.folders = [];
+                    } else if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        this.pinnedApps = Array.isArray(parsed.apps) ? parsed.apps : [];
+                        this.dockOrder = Array.isArray(parsed.order) ? parsed.order : [];
+                        this.folders = Array.isArray(parsed.folders) ? parsed.folders : [];
+                    }
+
+                    if (this._onStateChangedCallback) {
+                        this._onStateChangedCallback();
+                    }
+                    return;
+                }
+            } catch (e) {
+                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
+                    console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
+                }
+            }
+
             this.pinnedApps = [...DEFAULT_PINNED_APPS];
             this.dockOrder = [...this.pinnedApps];
             this.folders = [];
             this.saveDockState();
-            return;
-        }
 
-        try {
-            const [success, contents] = file.load_contents(null);
-            if (success && contents) {
-                const decoder = new TextDecoder('utf-8');
-                const parsed = JSON.parse(decoder.decode(contents));
-
-                if (Array.isArray(parsed)) {
-                    this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
-                    this.dockOrder = [...parsed];
-                    this.folders = [];
-                } else if (parsed && Boolean(parsed) && !Array.isArray(parsed)) {
-                    this.pinnedApps = Array.isArray(parsed.apps) ? parsed.apps : [];
-                    this.dockOrder = Array.isArray(parsed.order) ? parsed.order : [];
-                    this.folders = Array.isArray(parsed.folders) ? parsed.folders : [];
-                }
-                return;
+            if (this._onStateChangedCallback) {
+                this._onStateChangedCallback();
             }
-        } catch (e) {
-            console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
-        }
-
-        this.pinnedApps = [...DEFAULT_PINNED_APPS];
-        this.dockOrder = [...this.pinnedApps];
-        this.folders = [];
-        this.saveDockState();
+        });
     }
 
     saveDockState() {
