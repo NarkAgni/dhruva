@@ -354,7 +354,7 @@ export default class DockManager {
         const pos = this.settings.get_string('dock-position');
         const isFullWidth = this.settings.get_boolean('full-width');
 
-        const margin = (hideMode === 'none') ? 0 : rawMargin;
+        const margin = rawMargin;
 
         let xPos = 0;
         let yPos = 0;

@@ -49,7 +49,7 @@ const LAUNCH_EXPIRY_MS = 8000;
 const CURSOR_BURST_DELAYS = [50, 150, 300, 600, 1000, 1500, 2000];
 
 const WATCHED_SETTINGS = [
-    'icon-size', 'show-grid-button', 'show-running-indicators', 'hover-zoom', 'hover-zoom-factor',
+    'dock-margin', 'icon-size', 'show-grid-button', 'show-running-indicators', 'hover-zoom', 'hover-zoom-factor',
     'lock-icons', 'show-apps-preview', 'click-effect', 'show-trash', 'show-clock', 'use-24h-clock',
     'clock-position', 'clock-font-size', 'show-desktop-button', 'show-home', 'show-downloads',
     'show-documents', 'show-pictures', 'show-videos', 'show-music', 'context-menu-size',
@@ -356,6 +356,7 @@ export default class DockUI {
         }, this);
 
         this.settings.connectObject('changed::dock-margin', () => {
+            this._updateLayout();
             if (this.dockManager) this.dockManager.updatePosition();
             if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
             this._updateStruts();
