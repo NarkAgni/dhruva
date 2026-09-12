@@ -567,10 +567,12 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
                 if (!dockActor._magDestroyHandlerId) {
                     dockActor._magDestroyHandlerId = dockActor.connectObject('destroy', () => {
-                        if (dockActor._magTooltip) {
+                        if (isActorAlive(dockActor._magTooltip)) {
                             dockActor._magTooltip.destroy();
-                            dockActor._magTooltip = null;
                         }
+                        dockActor._magTooltip = null;
+                        dockActor._magTooltipBg = null;
+                        dockActor._magTooltipBox = null;
                         if (dockActor._magPeekManager) {
                             dockActor._magPeekManager.destroy();
                             dockActor._magPeekManager = null;
@@ -599,97 +601,103 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 populateTooltipContent(dockActor, btn, appName, settings);
             }
 
-            if (dockActor._tooltipReady && (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0)) {
-                if (!isActorAlive(btn)) return;
+            if (!isActorAlive(btn) || !isActorAlive(dockActor._magTooltip) || !isActorAlive(dockActor._magTooltipBox)) {
+                return;
+            }
 
-                dockActor._magTooltipBox.queue_relayout();
-                let [, tw] = dockActor._magTooltipBox.get_preferred_width(-1);
-                let [, th] = dockActor._magTooltipBox.get_preferred_height(-1);
+            try {
+                if (dockActor._tooltipReady && (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0)) {
+                    dockActor._magTooltipBox.queue_relayout();
+                    let [, tw] = dockActor._magTooltipBox.get_preferred_width(-1);
+                    let [, th] = dockActor._magTooltipBox.get_preferred_height(-1);
 
-                if (tw < 48 || th < 28) {
-                    tw = dockActor._lastTooltipW || Math.max(120, settings.get_int('icon-size') * 2);
-                    th = dockActor._lastTooltipH || 56;
-                }
-                dockActor._lastTooltipW = tw;
-                dockActor._lastTooltipH = th;
+                    if (tw < 48 || th < 28) {
+                        tw = dockActor._lastTooltipW || Math.max(120, settings.get_int('icon-size') * 2);
+                        th = dockActor._lastTooltipH || 56;
+                    }
+                    dockActor._lastTooltipW = tw;
+                    dockActor._lastTooltipH = th;
 
-                const [bx, by] = btn.get_transformed_position();
-                const [bw, bh] = btn.get_transformed_size();
+                    const [bx, by] = btn.get_transformed_position();
+                    const [bw, bh] = btn.get_transformed_size();
 
-                let tx = 0;
-                let ty = 0;
-                const gap = 24;
-                const iconCenterX = bx + bw / 2;
-                const iconCenterY = by + bh / 2;
+                    let tx = 0;
+                    let ty = 0;
+                    const gap = 24;
+                    const iconCenterX = bx + bw / 2;
+                    const iconCenterY = by + bh / 2;
 
-                const dockPos = settings.get_string('dock-position') || 'BOTTOM';
-                if (dockPos === 'BOTTOM') {
-                    tx = iconCenterX - tw / 2;
-                    ty = by - th - gap;
-                    dockActor._magTooltip.set_pivot_point(0.5, 1.0);
-                } else if (dockPos === 'TOP') {
-                    tx = iconCenterX - tw / 2;
-                    ty = by + bh + gap;
-                    dockActor._magTooltip.set_pivot_point(0.5, 0.0);
-                } else if (dockPos === 'LEFT') {
-                    tx = bx + bw + gap;
-                    ty = iconCenterY - th / 2;
-                    dockActor._magTooltip.set_pivot_point(0.0, 0.5);
-                } else if (dockPos === 'RIGHT') {
-                    tx = bx - tw - gap;
-                    ty = iconCenterY - th / 2;
-                    dockActor._magTooltip.set_pivot_point(1.0, 0.5);
-                }
+                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+                    if (dockPos === 'BOTTOM') {
+                        tx = iconCenterX - tw / 2;
+                        ty = by - th - gap;
+                        dockActor._magTooltip.set_pivot_point(0.5, 1.0);
+                    } else if (dockPos === 'TOP') {
+                        tx = iconCenterX - tw / 2;
+                        ty = by + bh + gap;
+                        dockActor._magTooltip.set_pivot_point(0.5, 0.0);
+                    } else if (dockPos === 'LEFT') {
+                        tx = bx + bw + gap;
+                        ty = iconCenterY - th / 2;
+                        dockActor._magTooltip.set_pivot_point(0.0, 0.5);
+                    } else if (dockPos === 'RIGHT') {
+                        tx = bx - tw - gap;
+                        ty = iconCenterY - th / 2;
+                        dockActor._magTooltip.set_pivot_point(1.0, 0.5);
+                    }
 
-                if (tx < 10) tx = 10;
-                if (tx + tw > global.stage.width - 10) tx = global.stage.width - tw - 10;
-                if (ty < 10) ty = 10;
-                if (ty + th > global.stage.height - 10) ty = global.stage.height - th - 10;
+                    if (tx < 10) tx = 10;
+                    if (tx + tw > global.stage.width - 10) tx = global.stage.width - tw - 10;
+                    if (ty < 10) ty = 10;
+                    if (ty + th > global.stage.height - 10) ty = global.stage.height - th - 10;
 
-                if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
-                    dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
-                } else {
-                    dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
-                }
+                    if (isActorAlive(dockActor._magTooltipBg)) {
+                        if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
+                            dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
+                        } else {
+                            dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
+                        }
+                        dockActor._magTooltipBg.queue_repaint();
+                    }
 
-                dockActor._magTooltip.set_size(tw, th);
-                dockActor._magTooltipBg.queue_repaint();
-                dockActor._magTooltip.set_position(tx, ty);
-                dockActor._magTooltip.show();
+                    dockActor._magTooltip.set_size(tw, th);
+                    dockActor._magTooltip.set_position(tx, ty);
+                    dockActor._magTooltip.show();
 
-                const parent = dockActor._magTooltip.get_parent();
-                if (parent && dockActor._dockUI && dockActor._dockUI.actor) {
-                    const sibling = dockActor._dockUI.actor;
-                    if (sibling && sibling.get_parent && sibling.get_parent() === parent) {
-                        parent.set_child_below_sibling(dockActor._magTooltip, sibling);
+                    const parent = dockActor._magTooltip.get_parent();
+                    if (parent && dockActor._dockUI && dockActor._dockUI.actor) {
+                        const sibling = dockActor._dockUI.actor;
+                        if (sibling && sibling.get_parent && sibling.get_parent() === parent) {
+                            parent.set_child_below_sibling(dockActor._magTooltip, sibling);
+                        }
+                    }
+
+                    dockActor._magTooltip.remove_all_transitions();
+                    dockActor._magTooltip.ease({
+                        opacity: 255,
+                        duration: 220,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                    });
+                } else if (dockActor._tooltipReady && dockActor._magTooltip.visible && isActorAlive(dockActor._magTooltipBg)) {
+                    const [bx, by] = btn.get_transformed_position();
+                    const [bw, bh] = btn.get_transformed_size();
+                    const [tx, ty] = dockActor._magTooltip.get_transformed_position();
+                    const [tw, th] = dockActor._magTooltip.get_transformed_size();
+                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+
+                    if (tw > 0 && th > 0) {
+                        if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
+                            const iconCenterX = bx + bw / 2;
+                            dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
+                        } else {
+                            const iconCenterY = by + bh / 2;
+                            dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
+                        }
+                        dockActor._magTooltipBg.queue_repaint();
                     }
                 }
-
-                dockActor._magTooltip.remove_all_transitions();
-                dockActor._magTooltip.ease({
-                    opacity: 255,
-                    duration: 220,
-                    mode: Clutter.AnimationMode.EASE_OUT_QUAD
-                });
-            } else if (dockActor._tooltipReady && dockActor._magTooltip && isActorAlive(dockActor._magTooltip) && dockActor._magTooltip.visible && dockActor._magTooltipBg) {
-                if (!isActorAlive(btn)) return;
-
-                const [bx, by] = btn.get_transformed_position();
-                const [bw, bh] = btn.get_transformed_size();
-                const [tx, ty] = dockActor._magTooltip.get_transformed_position();
-                const [tw, th] = dockActor._magTooltip.get_transformed_size();
-                const dockPos = settings.get_string('dock-position') || 'BOTTOM';
-
-                if (tw > 0 && th > 0) {
-                    if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
-                        const iconCenterX = bx + bw / 2;
-                        dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
-                    } else {
-                        const iconCenterY = by + bh / 2;
-                        dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
-                    }
-                    dockActor._magTooltipBg.queue_repaint();
-                }
+            } catch {
+                hideTooltip(dockActor);
             }
         }
     } else {
