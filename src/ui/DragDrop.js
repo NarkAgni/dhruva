@@ -1,28 +1,31 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
 import { isActorAlive } from '../core/Utils.js';
+import { Settings } from '../core/SettingsManager.js';
 import { playTrashEffect } from './effects/TrashEffect.js';
 import { resetMagnification } from './magnifier/MagnifierReset.js';
 import { applyRealtimeFrame } from './magnifier/MagnifierFrameEngine.js';
@@ -30,7 +33,7 @@ import { getDockButtons, getFixedSlots } from './magnifier/MagnifierMath.js';
 import { stopDragLoop, startDragLoop } from './magnifier/MagnifierDragLoop.js';
 
 
-const DRAG_SWAP_THROTTLE_MS = 80;
+const DRAG_SWAP_THROTTLE_MS = 60;
 let lastSwapTime = 0;
 
 function _sourceDelegate(source) {
@@ -101,7 +104,7 @@ export function applyIconFilter(btn) {
 }
 
 export function setupDragAndDrop(btn, app, dockUI) {
-    if (dockUI.settings.get_boolean('lock-icons')) return;
+    if (Settings.lockIcons) return;
     if (app && app.is_module) return;
 
     const clearHintsOnLeave = () => {
@@ -117,6 +120,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             actor._delegate.acceptDrop = () => true;
             actor._delegate.handleDragDrop = () => true;
             actor._delegate.handleDragOver = clearHintsOnLeave;
+            actor._delegate.get_parent = () => (actor.get_parent ? actor.get_parent() : null);
         }
     };
 
@@ -134,6 +138,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         isFolder: btn._isFolder || false,
         folderData: btn._folderData || null,
         button: btn,
+        get_parent: () => (btn.get_parent ? btn.get_parent() : null),
 
         getDragActor: () => {
             const icon = btn.get_child();
@@ -156,7 +161,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
                     } else {
                         const targetAppId = (app && app.get_id) ? app.get_id() : null;
                         if (targetAppId && targetAppId !== draggedId) {
-                            const folderId = dockUI.folderManager.createFolder('New Folder');
+                            const folderId = dockUI.folderManager.createFolder(_('New Folder'));
                             dockUI.folderManager.addAppToFolder(folderId, targetAppId);
                             dockUI.folderManager.addAppToFolder(folderId, draggedId);
                         }
@@ -165,7 +170,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
                 _clearMergeHint(btn, dockUI);
                 sourceBtn._wasMerged = true;
-                dockUI.queueRender();
+                dockUI.queueRender('incremental');
                 return true;
             }
             _clearMergeHint(btn, dockUI);
@@ -193,7 +198,6 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
             const [, , mods] = global.get_pointer();
             const isCtrlPressed = (mods & Clutter.ModifierType.CONTROL_MASK) !== 0;
-
             const canMerge = (!isDraggedFolder && targetId && draggedId && draggedId !== targetId);
 
             if (isCtrlPressed) {
@@ -212,7 +216,11 @@ export function setupDragAndDrop(btn, app, dockUI) {
                 }
             }
 
-            const allBtns = getDockButtons(mainActor);
+            const allBtns = getDockButtons(mainActor).filter(b => {
+                const sClass = b.get_style_class_name ? b.get_style_class_name() : (b.style_class || '');
+                return !b._isStatic && !sClass.includes('dock-separator') && !sClass.includes('clock-module') && !b._isGridBtn && !b._isMusicPill;
+            });
+
             const draggedIndex = allBtns.indexOf(draggedBtn);
             if (draggedIndex === -1) return DND.DragMotionResult.MOVE_DROP;
 
@@ -227,11 +235,6 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
             for (let i = 0; i < allBtns.length; i++) {
                 const targetBtn = allBtns[i];
-                const targetBtnDelegate = targetBtn._delegate;
-                if (!targetBtnDelegate) continue;
-
-                if (!targetBtnDelegate.isFolder && (!targetBtnDelegate.app || targetBtnDelegate.app.is_module)) continue;
-
                 const [bx, by] = targetBtn.get_transformed_position();
                 const [bw, bh] = targetBtn.get_transformed_size();
 
@@ -254,32 +257,18 @@ export function setupDragAndDrop(btn, app, dockUI) {
             if (realTargetIndex !== -1) {
                 dockUI.boxActor.set_child_at_index(draggedBtn, realTargetIndex);
                 mainActor._fixedSlots = null;
+                mainActor._structureChanged = true;
             }
             lastSwapTime = now;
-
-            const avgSlotWidth = dockUI.settings.get_int('icon-size') + 8;
-            const displaced = [];
-            if (closestIndex > draggedIndex) {
-                for (let k = draggedIndex + 1; k <= closestIndex; k++) {
-                    displaced.push({ b: allBtns[k], offset: avgSlotWidth });
-                }
-            } else {
-                for (let k = closestIndex; k < draggedIndex; k++) {
-                    displaced.push({ b: allBtns[k], offset: -avgSlotWidth });
-                }
-            }
-
-            displaced.forEach(({ b: dispBtn, offset }) => {
-                if (dispBtn.remove_all_transitions) dispBtn.remove_all_transitions();
-                dispBtn._flipOffset = (dispBtn._flipOffset || 0) + offset;
-                dispBtn._flipStartTime = now;
-            });
 
             return DND.DragMotionResult.MOVE_DROP;
         }
     };
 
-    const draggable = DND.makeDraggable(btn, { restoreOnSuccess: false });
+    const draggable = DND.makeDraggable(btn, {
+        restoreOnSuccess: false,
+        manualMode: false
+    });
 
     draggable.connect('drag-cancelled', () => {
         if (dockUI.actor._mergeTargetButton) {
@@ -290,14 +279,18 @@ export function setupDragAndDrop(btn, app, dockUI) {
             draggable._dragActor.opacity = 0;
         }
 
-        const [px, py] = global.get_pointer();
-        const [bx, by] = dockUI.boxActor.get_transformed_position();
-        const [bw, bh] = dockUI.boxActor.get_transformed_size();
-        const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
-
-        if (!isOutside && isActorAlive(btn)) {
+        if (isActorAlive(btn)) {
             btn.opacity = 255;
+            btn.scale_x = 1.0;
+            btn.scale_y = 1.0;
+            btn.translation_x = 0;
+            btn.translation_y = 0;
+            btn.rotation_angle_z = 0;
+            btn.rotation_angle_y = 0;
+            btn.rotation_angle_x = 0;
         }
+
+        resetMagnification(dockUI.actor, 150, false);
     });
 
     draggable.connect('drag-begin', () => {
@@ -326,6 +319,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const mainActor = dockUI.actor;
         mainActor._isDragging = false;
         mainActor._lastIconClickTime = Date.now();
+
         if (mainActor._mergeTargetButton) {
             _clearMergeHint(mainActor._mergeTargetButton, dockUI);
         }
@@ -335,13 +329,6 @@ export function setupDragAndDrop(btn, app, dockUI) {
         if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
             draggable._dragActor.opacity = 0;
             draggable._dragActor.destroy();
-        }
-
-        if (btn._wasMerged) {
-            btn._wasMerged = false;
-            btn.opacity = 255;
-            mainActor._fixedSlots = null;
-            return;
         }
 
         const [px, py] = global.get_pointer();
@@ -355,13 +342,22 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [dw, dh] = mainActor.get_transformed_size();
         const isInsideMain = px >= dx - 20 && px <= dx + dw + 20 && py >= dy - 20 && py <= dy + dh + 20;
 
+        if (btn._wasMerged) {
+            btn._wasMerged = false;
+            btn.opacity = 255;
+            resetMagnification(mainActor, 180, false);
+            return;
+        }
+
         if (isOutside && !isInsideMain && entityId) {
+            dockUI._draggedOutKey = entityId;
+
             if (btn._isFolder) {
                 dockUI.folderManager.deleteFolder(entityId);
             } else {
                 dockUI.appManager.removeApp(app);
 
-                const isIndependent = dockUI.settings.get_boolean('independent-dock');
+                const isIndependent = Settings.independentDock;
                 if (!isIndependent && app && app.get_id) {
                     try {
                         const appId = app.get_id();
@@ -372,38 +368,48 @@ export function setupDragAndDrop(btn, app, dockUI) {
                             shellSettings.set_strv('favorite-apps', newFavs);
                         }
                     } catch (e) {
-                        console.error(`[Dhruva] Failed to unpin from GNOME Dash: ${e.message}`);
+                        console.error(`[Dhruva] Failed to unpin: ${e.message}`);
                     }
                 }
             }
 
             btn.opacity = 0;
             if (btn._isFolder || (app && app.get_state() !== Shell.AppState.RUNNING)) {
-                playTrashEffect(app, px, py, dockUI.settings.get_int('icon-size'));
+                playTrashEffect(app, px, py, Settings.iconSize);
             }
 
             mainActor._lastIconClickTime = 0;
-            dockUI._renderDock();
-            resetMagnification(mainActor);
+            mainActor._structureChanged = true;
             mainActor._fixedSlots = null;
+
+            resetMagnification(mainActor, 150, true);
+
+            dockUI.queueRender('incremental');
             return;
         }
 
         btn.opacity = 255;
+        btn.scale_x = 1.0;
+        btn.scale_y = 1.0;
+        btn.translation_x = 0;
+        btn.translation_y = 0;
+        btn.rotation_angle_z = 0;
+        btn.rotation_angle_y = 0;
+        btn.rotation_angle_x = 0;
         btn._wasDragged = false;
 
         if (isInsideMain && entityId && !btn._isFolder && !dockUI.appManager.hasApp(app)) {
             dockUI.appManager.addApp(app);
         }
 
-        const currentBtns = getDockButtons(mainActor);
+        const actualChildren = dockUI.boxActor.get_children();
         const newOrderKeys = [];
-        currentBtns.forEach(b => {
-            if (b._delegate) {
-                if (b._delegate.isFolder && b._delegate.folderData) {
-                    newOrderKeys.push(`folder:${b._delegate.folderData.id}`);
-                } else if (b._delegate.app && !b._delegate.app.is_module && b._delegate.app.get_id) {
-                    newOrderKeys.push(b._delegate.app.get_id());
+        actualChildren.forEach(child => {
+            if (child._delegate) {
+                if (child._delegate.isFolder && child._delegate.folderData) {
+                    newOrderKeys.push(`folder:${child._delegate.folderData.id}`);
+                } else if (child._delegate.app && !child._delegate.app.is_module && child._delegate.app.get_id) {
+                    newOrderKeys.push(child._delegate.app.get_id());
                 }
             }
         });
@@ -412,8 +418,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             dockUI.appManager.saveDockOrder(newOrderKeys);
         }
 
-        const isIndependent = dockUI.settings.get_boolean('independent-dock');
-
+        const isIndependent = Settings.independentDock;
         if (isIndependent) {
             const currentPinnedIds = dockUI.appManager.pinnedApps || [];
             const onlyAppIds = newOrderKeys.filter(id => !id.startsWith('folder:'));
@@ -424,13 +429,11 @@ export function setupDragAndDrop(btn, app, dockUI) {
                     finalPinnedOrder.push(id);
                 }
             });
-
             dockUI.appManager.savePinnedApps(finalPinnedOrder);
         } else {
             const favManager = dockUI.appManager.favManager;
             const currentFavIds = favManager.getFavorites().map(a => a.get_id());
             const onlyAppIds = newOrderKeys.filter(id => !id.startsWith('folder:'));
-
             const finalFavOrder = onlyAppIds.filter(id => currentFavIds.includes(id) || id === entityId);
 
             currentFavIds.forEach(id => {
@@ -443,21 +446,16 @@ export function setupDragAndDrop(btn, app, dockUI) {
             shellSettings.set_strv('favorite-apps', finalFavOrder);
         }
 
+        mainActor._fixedSlots = null;
+        mainActor._structureChanged = true;
+
         if (!isInsideMain) {
-            currentBtns.forEach(b => {
-                b._flipOffset = 0;
-                b._flipStartTime = null;
-            });
-            resetMagnification(mainActor);
+            resetMagnification(mainActor, 180, false);
         } else {
-            currentBtns.forEach(b => {
-                b._flipOffset = 0;
-                b._flipStartTime = null;
-            });
             const isVert = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
             applyRealtimeFrame(mainActor, px, py, isVert, dockUI.settings, Date.now());
         }
 
-        mainActor._fixedSlots = null;
+        dockUI.queueRender('incremental');
     });
 }

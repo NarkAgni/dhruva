@@ -1,27 +1,29 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { hexToRgba } from '../../core/Utils.js';
+import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { fadeMinimize, fadeRestore } from '../effects/WindowEffects.js';
 
@@ -91,9 +93,19 @@ export function buildDesktopButtonModule(dockUI) {
         track_hover: true
     });
 
+    btn._delegate = {
+        app: {
+            is_module: true,
+            get_id: () => 'dhruva-module-desktop-button',
+            get_name: () => _('Show Desktop'),
+            get_state: () => 0,
+            get_windows: () => []
+        }
+    };
+
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const colorHex = dockUI.settings.get_string('desktop-btn-color') || '#ffffff';
-    const opacity = dockUI.settings.get_int('desktop-btn-opacity');
+    const colorHex = Settings.desktopBtnColor || '#ffffff';
+    const opacity = Settings.desktopBtnOpacity;
 
     const baseRgba = hexToRgba(colorHex, opacity / 100.0);
     const hoverRgba = hexToRgba(colorHex, Math.min(1.0, (opacity + 15) / 100.0));

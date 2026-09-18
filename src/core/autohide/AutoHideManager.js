@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import Meta from 'gi://Meta';
@@ -23,6 +23,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { Settings } from '../SettingsManager.js';
 import { EdgeDetection } from './EdgeDetection.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { WindowOverlapDetection } from './WindowOverlapDetection.js';
@@ -169,7 +170,7 @@ export default class AutoHideManager {
     syncMode() {
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
 
-        const mode = this.settings ? (this.settings.get_string('hide-mode') || 'none') : 'none';
+        const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
         this._clearTimers();
 
         if (mode === 'none') {
@@ -282,7 +283,7 @@ export default class AutoHideManager {
             }
         }
 
-        const mode = this.settings ? (this.settings.get_string('hide-mode') || 'none') : 'none';
+        const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
         if (mode !== 'none' && this.edgeDetection) {
             this.edgeDetection.show();
         }
@@ -305,7 +306,7 @@ export default class AutoHideManager {
         const shouldHide = this.overlapDetection.shouldHide(mode);
 
         if (shouldHide) {
-            const userHideDelay = this.settings.get_int('hide-delay');
+            const userHideDelay = Settings.hideDelay;
             const finalDelay = Math.max(MIN_HIDE_DELAY_MS, userHideDelay);
 
             this._hideTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, finalDelay, () => {
@@ -343,7 +344,7 @@ export default class AutoHideManager {
             this._hideTimeoutId = 0;
         }
 
-        const unhideDelay = this.settings.get_int('unhide-delay');
+        const unhideDelay = Settings.unhideDelay;
         if (unhideDelay <= 0) {
             this.show();
             return;
@@ -396,7 +397,7 @@ export default class AutoHideManager {
             this._showTimeoutId = 0;
         }
 
-        const mode = this.settings ? (this.settings.get_string('hide-mode') || 'none') : 'none';
+        const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
         if (mode === 'none') {
             this.show();
             return;

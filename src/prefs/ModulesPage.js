@@ -1,26 +1,27 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import { makeResetBtn } from './ResetButtons.js';
 import { addSwitchRow, addSegmentedRow, addColorRow, addCustomSpinRow } from './PrefsWidgets.js';
@@ -38,33 +39,33 @@ function getGraphemeCount(str) {
 
 export function buildModulesPage(prefs, window, settings) {
     const page = new Adw.PreferencesPage({
-        title: 'Modules',
+        title: _('Modules'),
         icon_name: 'application-x-addon-symbolic'
     });
     window.add(page);
 
     const modGroup = new Adw.PreferencesGroup({
-        title: 'Dock Modules',
-        description: 'Enable extra shortcuts on your dock'
+        title: _('Dock Modules'),
+        description: _('Enable extra shortcuts on your dock')
     });
     page.add(modGroup);
 
-    addSwitchRow(modGroup, settings, 'show-trash', 'Recycle Bin (Trash)', 'Show a shortcut to the trash folder', 'user-trash-symbolic', null);
-    addSwitchRow(modGroup, settings, 'show-desktop-button', 'Show Desktop Button', 'Quickly minimize all windows', 'computer-symbolic', null);
-    addSwitchRow(modGroup, settings, 'show-grid-button', 'Show Applications Button', 'App drawer launcher', 'view-app-grid-symbolic', null);
-    const gridPosRow = addSegmentedRow(modGroup, settings, 'grid-button-position', 'Application Button Position', 'Where to place the launcher', 'go-next-symbolic', [
-        { name: 'Left Edge', value: 'LEFT_EDGE' },
-        { name: 'Start', value: 'START' },
-        { name: 'End', value: 'END' }
+    addSwitchRow(modGroup, settings, 'show-trash', _('Recycle Bin (Trash)'), _('Show a shortcut to the trash folder'), 'user-trash-symbolic', null);
+    addSwitchRow(modGroup, settings, 'show-desktop-button', _('Show Desktop Button'), _('Quickly minimize all windows'), 'computer-symbolic', null);
+    addSwitchRow(modGroup, settings, 'show-grid-button', _('Show Applications Button'), _('App drawer launcher'), 'view-app-grid-symbolic', null);
+    const gridPosRow = addSegmentedRow(modGroup, settings, 'grid-button-position', _('Application Button Position'), _('Where to place the launcher'), 'go-next-symbolic', [
+        { name: _('Left Edge'), value: 'LEFT_EDGE' },
+        { name: _('Start'), value: 'START' },
+        { name: _('End'), value: 'END' }
     ]);
 
-    const gridColorRow = addColorRow(modGroup, settings, 'grid-icon-color', 'App Grid Button Color', 'preferences-desktop-appearance-symbolic');
+    const gridColorRow = addColorRow(modGroup, settings, 'grid-icon-color', _('App Grid Button Color'), 'preferences-desktop-appearance-symbolic');
 
-    const oldGridIconRow = addSwitchRow(modGroup, settings, 'use-old-grid-icon', 'Use Old App Grid Icon', 'Show default dotted grid icon instead of Dhruva logo', 'view-app-grid-symbolic', null);
+    const oldGridIconRow = addSwitchRow(modGroup, settings, 'use-old-grid-icon', _('Use Old App Grid Icon'), _('Show default dotted grid icon instead of Dhruva logo'), 'view-app-grid-symbolic', null);
 
     const customIconRow = new Adw.ActionRow({
-        title: 'Custom App Grid Icon',
-        subtitle: 'Size: 256x256 or 512x512 (.png, .svg, .ico)',
+        title: _('Custom App Grid Icon'),
+        subtitle: _('Size: 256x256 or 512x512 (.png, .svg, .ico)'),
         icon_name: 'image-x-generic-symbolic'
     });
 
@@ -74,15 +75,15 @@ export function buildModulesPage(prefs, window, settings) {
         valign: Gtk.Align.CENTER
     });
     const chooseBtn = new Gtk.Button({
-        label: 'Browse...'
+        label: _('Browse...')
     });
 
     chooseBtn.connect('clicked', () => {
         const dialog = new Gtk.FileDialog({
-            title: 'Select App Custom Grid Icon'
+            title: _('Select App Custom Grid Icon')
         });
         const filter = new Gtk.FileFilter();
-        filter.set_name('Images (.png, .svg, .ico)');
+        filter.set_name(_('Images (.png, .svg, .ico)'));
         filter.add_mime_type('image/png');
         filter.add_mime_type('image/svg+xml');
         filter.add_mime_type('image/x-icon');
@@ -129,7 +130,7 @@ export function buildModulesPage(prefs, window, settings) {
     const resetIconBtn = new Gtk.Button({
         icon_name: 'edit-undo-symbolic',
         css_classes: ['flat', 'circular'],
-        tooltip_text: 'Reset to default icon'
+        tooltip_text: _('Reset to default icon')
     });
     resetIconBtn.connect('clicked', () => {
         settings.set_string('custom-grid-icon', '');
@@ -144,8 +145,8 @@ export function buildModulesPage(prefs, window, settings) {
         modGroup,
         settings,
         'custom-grid-icon-scale',
-        'Custom Icon Scale (%)',
-        'Adjust size multiplier (Default: 125)',
+        _('Custom Icon Scale (%)'),
+        _('Adjust size multiplier (Default: 125)'),
         'zoom-in-symbolic', {
         lower: 50,
         upper: 300,
@@ -156,7 +157,8 @@ export function buildModulesPage(prefs, window, settings) {
 
     const syncGridSettingsVisibility = () => {
         const showGrid = settings.get_boolean('show-grid-button');
-        const hasCustomIcon = settings.get_string('custom-grid-icon') !== '';
+        const customIcon = settings.get_string('custom-grid-icon');
+        const hasCustomIcon = customIcon !== '';
         const useOldIcon = settings.get_boolean('use-old-grid-icon');
 
         gridPosRow.set_visible(showGrid);
@@ -174,32 +176,24 @@ export function buildModulesPage(prefs, window, settings) {
     settings.connect('changed::show-grid-button', syncGridSettingsVisibility);
     settings.connect('changed::use-old-grid-icon', syncGridSettingsVisibility);
     settings.connect('changed::full-width', syncGridSettingsVisibility);
-
     syncGridSettingsVisibility();
 
-    const syncGridBtn = () => {
-        gridPosRow.set_visible(settings.get_boolean('show-grid-button'));
-    };
-    settings.connect('changed::show-grid-button', syncGridBtn);
-    settings.connect('changed::full-width', syncGridBtn);
-    syncGridBtn();
-
     const defaultFolderGroup = new Adw.PreferencesGroup({
-        title: 'Standard Folders',
-        description: 'Add quick access folders to the dock'
+        title: _('Standard Folders'),
+        description: _('Add quick access folders to the dock')
     });
     page.add(defaultFolderGroup);
 
-    addSwitchRow(defaultFolderGroup, settings, 'show-home', 'Home', 'Shortcut to Home directory', 'user-home', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-downloads', 'Downloads', 'Shortcut to Downloads', 'folder-download', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-documents', 'Documents', 'Shortcut to Documents', 'folder-documents', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-pictures', 'Pictures', 'Shortcut to Pictures', 'folder-pictures', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-videos', 'Videos', 'Shortcut to Videos', 'folder-videos', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-music', 'Music', 'Shortcut to Music', 'folder-music', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-home', _('Home'), _('Shortcut to Home directory'), 'user-home', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-downloads', _('Downloads'), _('Shortcut to Downloads'), 'folder-download', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-documents', _('Documents'), _('Shortcut to Documents'), 'folder-documents', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-pictures', _('Pictures'), _('Shortcut to Pictures'), 'folder-pictures', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-videos', _('Videos'), _('Shortcut to Videos'), 'folder-videos', null);
+    addSwitchRow(defaultFolderGroup, settings, 'show-music', _('Music'), _('Shortcut to Music'), 'folder-music', null);
 
     const mountRow = new Adw.ActionRow({
-        title: 'Show USB &amp; Mounted Drives',
-        subtitle: 'Automatically show connected drives and partitions on the dock',
+        title: _('Show USB &amp; Mounted Drives'),
+        subtitle: _('Automatically show connected drives and partitions on the dock'),
         icon_name: 'drive-harddisk'
     });
 
@@ -219,8 +213,8 @@ export function buildModulesPage(prefs, window, settings) {
     defaultFolderGroup.add(mountRow);
 
     const customFoldersGroup = new Adw.PreferencesGroup({
-        title: 'Custom Quick Folders',
-        description: 'Add your own directory shortcuts to the dock'
+        title: _('Custom Quick Folders'),
+        description: _('Add your own directory shortcuts to the dock')
     });
     page.add(customFoldersGroup);
 
@@ -236,18 +230,18 @@ export function buildModulesPage(prefs, window, settings) {
     } catch (e) { }
 
     const iconOptions = [
-        { name: 'System Folder (Default)', value: 'folder' },
-        { name: 'Home', value: 'user-home' },
-        { name: 'Downloads', value: 'folder-download' },
-        { name: 'Documents', value: 'folder-documents' },
-        { name: 'Pictures', value: 'folder-pictures' },
-        { name: 'Videos', value: 'folder-videos' },
-        { name: 'Music', value: 'folder-music' },
-        { name: 'Public Share', value: 'folder-publicshare' },
-        { name: 'Templates', value: 'folder-templates' },
-        { name: 'Desktop', value: 'user-desktop' },
-        { name: 'Projects / Code', value: 'folder-development' },
-        { name: 'Cloud / Remote', value: 'folder-remote' }
+        { name: _('System Folder (Default)'), value: 'folder' },
+        { name: _('Home'), value: 'user-home' },
+        { name: _('Downloads'), value: 'folder-download' },
+        { name: _('Documents'), value: 'folder-documents' },
+        { name: _('Pictures'), value: 'folder-pictures' },
+        { name: _('Videos'), value: 'folder-videos' },
+        { name: _('Music'), value: 'folder-music' },
+        { name: _('Public Share'), value: 'folder-publicshare' },
+        { name: _('Templates'), value: 'folder-templates' },
+        { name: _('Desktop'), value: 'user-desktop' },
+        { name: _('Projects / Code'), value: 'folder-development' },
+        { name: _('Cloud / Remote'), value: 'folder-remote' }
     ];
 
     const openFolderDialog = (editIndex) => {
@@ -257,8 +251,8 @@ export function buildModulesPage(prefs, window, settings) {
         const isGnome45 = !Adw.AlertDialog;
         let dialog;
 
-        const headingTitle = isEditing ? 'Edit Quick Folder' : 'Add Quick Folder';
-        const actionLabel = isEditing ? 'Update' : 'Add';
+        const headingTitle = isEditing ? _('Edit Quick Folder') : _('Add Quick Folder');
+        const actionLabel = isEditing ? _('Update') : _('Add');
 
         if (isGnome45) {
             dialog = new Adw.MessageDialog({
@@ -272,7 +266,7 @@ export function buildModulesPage(prefs, window, settings) {
             });
         }
 
-        dialog.add_response('cancel', 'Cancel');
+        dialog.add_response('cancel', _('Cancel'));
         dialog.add_response('confirm', actionLabel);
         dialog.set_response_appearance('confirm', Adw.ResponseAppearance.SUGGESTED);
 
@@ -283,14 +277,14 @@ export function buildModulesPage(prefs, window, settings) {
         const inputGrp = new Adw.PreferencesGroup();
 
         const nameInput = new Adw.EntryRow({
-            title: 'Folder Name (e.g. Workspace)'
+            title: _('Folder Name (e.g. Workspace)')
         });
         if (folderToEdit && folderToEdit.name) {
             nameInput.set_text(folderToEdit.name);
         }
 
         const pathInput = new Adw.EntryRow({
-            title: 'Folder Path'
+            title: _('Folder Path')
         });
         if (folderToEdit && folderToEdit.path) {
             pathInput.set_text(folderToEdit.path);
@@ -300,12 +294,12 @@ export function buildModulesPage(prefs, window, settings) {
             icon_name: 'folder-open-symbolic',
             valign: Gtk.Align.CENTER,
             css_classes: ['flat'],
-            tooltip_text: 'Browse folder...'
+            tooltip_text: _('Browse folder...')
         });
 
         browseFolderBtn.connect('clicked', () => {
             const fileDialog = new Gtk.FileDialog({
-                title: 'Select Folder'
+                title: _('Select Folder')
             });
             fileDialog.select_folder(window, null, (dlg, res) => {
                 let folder;
@@ -328,25 +322,25 @@ export function buildModulesPage(prefs, window, settings) {
         pathInput.add_suffix(browseFolderBtn);
 
         const modeModel = Gtk.StringList.new([
-            'Preset System Icon',
-            'Custom Image File',
-            'Custom Emoji'
+            _('Preset System Icon'),
+            _('Custom Image File'),
+            _('Custom Emoji')
         ]);
 
         const modeRow = new Adw.ComboRow({
-            title: 'Icon Type',
+            title: _('Icon Type'),
             model: modeModel
         });
 
         const iconModel = Gtk.StringList.new(iconOptions.map(opt => opt.name));
         const iconInput = new Adw.ComboRow({
-            title: 'Select Preset Icon',
+            title: _('Select Preset Icon'),
             model: iconModel
         });
 
         const customImageRow = new Adw.ActionRow({
-            title: 'Select Image File',
-            subtitle: 'PNG, SVG, ICO format'
+            title: _('Select Image File'),
+            subtitle: _('PNG, SVG, ICO format')
         });
 
         let customPickedImagePath = (folderToEdit && folderToEdit.icon && folderToEdit.icon.startsWith('/')) ? folderToEdit.icon : '';
@@ -357,7 +351,7 @@ export function buildModulesPage(prefs, window, settings) {
             valign: Gtk.Align.CENTER
         });
 
-        const initialImgLabel = customPickedImagePath ? customPickedImagePath.split('/').pop() : 'None';
+        const initialImgLabel = customPickedImagePath ? customPickedImagePath.split('/').pop() : _('None');
         const customImgLabel = new Gtk.Label({
             label: initialImgLabel,
             css_classes: ['dim-label'],
@@ -366,15 +360,15 @@ export function buildModulesPage(prefs, window, settings) {
         });
 
         const browseImgBtn = new Gtk.Button({
-            label: 'Browse...'
+            label: _('Browse...')
         });
 
         browseImgBtn.connect('clicked', () => {
             const imgDialog = new Gtk.FileDialog({
-                title: 'Select Custom Folder Icon Image'
+                title: _('Select Custom Folder Icon Image')
             });
             const filter = new Gtk.FileFilter();
-            filter.set_name('Images (.png, .svg, .ico)');
+            filter.set_name(_('Images (.png, .svg, .ico)'));
             filter.add_mime_type('image/png');
             filter.add_mime_type('image/svg+xml');
             filter.add_mime_type('image/x-icon');
@@ -419,11 +413,11 @@ export function buildModulesPage(prefs, window, settings) {
         customImageRow.add_suffix(customImgBox);
 
         const emojiInput = new Adw.EntryRow({
-            title: 'Enter Emoji (Only 1 emoji allowed)'
+            title: _('Enter Emoji (Only 1 emoji allowed)')
         });
 
         const errorLabel = new Gtk.Label({
-            label: 'Only 1 emoji is allowed. Multiple emojis are not supported.',
+            label: _('Only 1 emoji is allowed. Multiple emojis are not supported.'),
             css_classes: ['error'],
             visible: false,
             halign: Gtk.Align.START,
@@ -510,7 +504,7 @@ export function buildModulesPage(prefs, window, settings) {
                 }
 
                 const folderPath = pathInput.get_text().trim() || GLib.get_home_dir();
-                const folderName = nameInput.get_text().trim() || 'Custom Folder';
+                const folderName = nameInput.get_text().trim() || _('Custom Folder');
 
                 let finalIcon = 'folder';
 
@@ -601,7 +595,7 @@ export function buildModulesPage(prefs, window, settings) {
                 icon_name: 'document-edit-symbolic',
                 valign: Gtk.Align.CENTER,
                 css_classes: ['flat', 'circular'],
-                tooltip_text: 'Edit folder'
+                tooltip_text: _('Edit folder')
             });
 
             editBtn.connect('clicked', () => {
@@ -612,7 +606,7 @@ export function buildModulesPage(prefs, window, settings) {
                 icon_name: 'user-trash-symbolic',
                 valign: Gtk.Align.CENTER,
                 css_classes: ['flat', 'circular', 'destructive-action'],
-                tooltip_text: 'Remove folder'
+                tooltip_text: _('Remove folder')
             });
 
             delBtn.connect('clicked', () => {
@@ -631,7 +625,7 @@ export function buildModulesPage(prefs, window, settings) {
         const addRow = new Adw.ActionRow();
         addRow.set_activatable(true);
         const centerLabel = new Gtk.Label({
-            label: '<b>+ Add Quick Folder</b>',
+            label: `<b>+ ${_('Add Quick Folder')}</b>`,
             use_markup: true,
             halign: Gtk.Align.CENTER,
             margin_top: 14,
@@ -647,16 +641,16 @@ export function buildModulesPage(prefs, window, settings) {
     buildFolderList();
 
     const clockGroup = new Adw.PreferencesGroup({
-        title: 'Clock &amp; Date',
-        description: 'Display time on horizontal docks'
+        title: _('Clock &amp; Date'),
+        description: _('Display time on horizontal docks')
     });
     page.add(clockGroup);
 
-    addSwitchRow(clockGroup, settings, 'show-clock', 'Show Clock', 'Hidden automatically on left/right docks', 'document-open-recent-symbolic', null);
+    addSwitchRow(clockGroup, settings, 'show-clock', _('Show Clock'), _('Hidden automatically on left/right docks'), 'document-open-recent-symbolic', null);
 
-    const use24hRow = addSwitchRow(clockGroup, settings, 'use-24h-clock', 'Use 24-Hour Clock', 'Display time in 24-hour format', 'preferences-system-time-symbolic', null);
+    const use24hRow = addSwitchRow(clockGroup, settings, 'use-24h-clock', _('Use 24-Hour Clock'), _('Display time in 24-hour format'), 'preferences-system-time-symbolic', null);
 
-    const clockSizeRow = addCustomSpinRow(clockGroup, settings, 'clock-font-size', 'Clock Text Size', 'Adjust font size', 'format-text-direction-symbolic', {
+    const clockSizeRow = addCustomSpinRow(clockGroup, settings, 'clock-font-size', _('Clock Text Size'), _('Adjust font size'), 'format-text-direction-symbolic', {
         lower: 10,
         upper: 36,
         step_increment: 1
@@ -680,15 +674,15 @@ export function buildModulesPage(prefs, window, settings) {
         }
 
         const clockOptions = [
-            { name: 'Start', value: 'START' },
-            { name: 'End', value: 'END' }
+            { name: _('Start'), value: 'START' },
+            { name: _('End'), value: 'END' }
         ];
 
         if (isFullWidth) {
-            clockOptions.push({ name: 'Right Edge', value: 'RIGHT_END' });
+            clockOptions.push({ name: _('Right Edge'), value: 'RIGHT_END' });
         }
 
-        clockPosRow = addSegmentedRow(clockGroup, settings, 'clock-position', 'Clock Position', 'Separate from App Grid', 'format-justify-right-symbolic', clockOptions);
+        clockPosRow = addSegmentedRow(clockGroup, settings, 'clock-position', _('Clock Position'), _('Separate from App Grid'), 'format-justify-right-symbolic', clockOptions);
 
         clockPosRow.set_visible(showClock);
         clockSizeRow.set_visible(showClock);
@@ -700,25 +694,25 @@ export function buildModulesPage(prefs, window, settings) {
     syncClockVisibility();
 
     const dangerGroup = new Adw.PreferencesGroup({
-        title: 'Danger Zone',
-        description: 'Master controls for your settings'
+        title: _('Danger Zone'),
+        description: _('Master controls for your settings')
     });
     page.add(dangerGroup);
 
     const backupGroup = new Adw.PreferencesGroup({
-        title: 'Backup &amp; Restore',
-        description: 'Import or export your dock layout, themes, custom folders, and pinned apps'
+        title: _('Backup &amp; Restore'),
+        description: _('Import or export your dock layout, themes, custom folders, and pinned apps')
     });
     page.add(backupGroup);
 
     const exportRow = new Adw.ActionRow({
-        title: 'Export Configuration',
-        subtitle: 'Save your current settings and apps to a file',
+        title: _('Export Configuration'),
+        subtitle: _('Save your current settings and apps to a file'),
         icon_name: 'document-export-symbolic'
     });
 
     const exportBtn = new Gtk.Button({
-        label: 'Export',
+        label: _('Export'),
         valign: Gtk.Align.CENTER,
         css_classes: ['suggested-action'],
         width_request: 100
@@ -726,7 +720,7 @@ export function buildModulesPage(prefs, window, settings) {
     exportRow.add_suffix(exportBtn);
 
     exportBtn.connect('clicked', () => {
-        const dialog = new Gtk.FileDialog({ title: 'Export Dock Configuration' });
+        const dialog = new Gtk.FileDialog({ title: _('Export Dock Configuration') });
         dialog.set_initial_name('dhruva_config.json');
 
         dialog.save(window, null, (dlg, res) => {
@@ -772,22 +766,22 @@ export function buildModulesPage(prefs, window, settings) {
     backupGroup.add(exportRow);
 
     const importRow = new Adw.ActionRow({
-        title: 'Import Configuration',
-        subtitle: 'Load a previously saved configuration file',
+        title: _('Import Configuration'),
+        subtitle: _('Load a previously saved configuration file'),
         icon_name: 'document-import-symbolic'
     });
 
     const importBtn = new Gtk.Button({
-        label: 'Import',
+        label: _('Import'),
         valign: Gtk.Align.CENTER,
         width_request: 100
     });
     importRow.add_suffix(importBtn);
 
     importBtn.connect('clicked', () => {
-        const dialog = new Gtk.FileDialog({ title: 'Import Dock Configuration' });
+        const dialog = new Gtk.FileDialog({ title: _('Import Dock Configuration') });
         const filter = new Gtk.FileFilter();
-        filter.set_name('JSON Files');
+        filter.set_name(_('JSON Files'));
         filter.add_mime_type('application/json');
 
         const filterList = Gio.ListStore.new(Gtk.FileFilter);
@@ -848,13 +842,13 @@ export function buildModulesPage(prefs, window, settings) {
     backupGroup.add(importRow);
 
     const resetAllRow = new Adw.ActionRow({
-        title: 'Reset All Settings',
-        subtitle: 'Restore all Dhruva Dock settings to their default values',
+        title: _('Reset All Settings'),
+        subtitle: _('Restore all Dhruva Dock settings to their default values'),
         icon_name: 'edit-delete-symbolic'
     });
 
     const resetAllBtn = new Gtk.Button({
-        label: 'Reset Defaults',
+        label: _('Reset Defaults'),
         valign: Gtk.Align.CENTER,
         css_classes: ['destructive-action']
     });
@@ -865,20 +859,20 @@ export function buildModulesPage(prefs, window, settings) {
 
         if (isGnome45) {
             dialog = new Adw.MessageDialog({
-                heading: 'Reset All Settings?',
-                body: 'Are you sure you want to reset all settings to default? This action cannot be undone.',
+                heading: _('Reset All Settings?'),
+                body: _('Are you sure you want to reset all settings to default? This action cannot be undone.'),
                 transient_for: window,
                 modal: true
             });
         } else {
             dialog = new Adw.AlertDialog({
-                heading: 'Reset All Settings?',
-                body: 'Are you sure you want to reset all settings to default? This action cannot be undone.'
+                heading: _('Reset All Settings?'),
+                body: _('Are you sure you want to reset all settings to default? This action cannot be undone.')
             });
         }
 
-        dialog.add_response('cancel', 'Cancel');
-        dialog.add_response('reset', 'Reset Settings');
+        dialog.add_response('cancel', _('Cancel'));
+        dialog.add_response('reset', _('Reset Settings'));
         dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
 
         dialog.connect('response', (dlg, response) => {

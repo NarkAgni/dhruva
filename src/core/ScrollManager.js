@@ -1,24 +1,26 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+import { Settings } from './SettingsManager.js';
 
 
 function cycleAppWindows(windows, dir) {
@@ -50,7 +52,7 @@ function cycleAppWindows(windows, dir) {
 }
 
 export default class ScrollManager {
-    static setupDockScroll(dockActor, settings) {
+    static setupDockScroll(dockActor) {
         dockActor.connectObject('scroll-event', (actor, event) => {
             actor._lastIconClickTime = Date.now();
 
@@ -58,13 +60,13 @@ export default class ScrollManager {
             const hoveredBtn = dockUI ? dockUI._hoveredAppButton : null;
             const hoveredApp = hoveredBtn && hoveredBtn._delegate ? hoveredBtn._delegate.app : null;
 
-            if (hoveredApp && settings.get_boolean('scroll-action-app')) {
+            if (hoveredApp && Settings.scrollActionApp) {
                 const windows = hoveredApp.get_windows();
                 cycleAppWindows(windows, event.get_scroll_direction());
                 return Clutter.EVENT_STOP;
             }
 
-            if (!settings.get_boolean('scroll-action-dock')) return Clutter.EVENT_PROPAGATE;
+            if (!Settings.scrollActionDock) return Clutter.EVENT_PROPAGATE;
 
             const dir = event.get_scroll_direction();
             const wm = global.workspace_manager;
@@ -85,13 +87,13 @@ export default class ScrollManager {
         }, dockActor);
     }
 
-    static setupAppScroll(appButton, getWindowsFn, settings) {
+    static setupAppScroll(appButton, getWindowsFn) {
         appButton.connectObject('scroll-event', (actor, event) => {
             const parent = actor.get_parent();
             const mainDockActor = parent ? parent.get_parent() : null;
             if (mainDockActor) mainDockActor._lastIconClickTime = Date.now();
 
-            if (!settings.get_boolean('scroll-action-app')) return Clutter.EVENT_STOP;
+            if (!Settings.scrollActionApp) return Clutter.EVENT_STOP;
 
             cycleAppWindows(getWindowsFn(), event.get_scroll_direction());
             return Clutter.EVENT_STOP;

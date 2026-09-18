@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import St from 'gi://St';
@@ -22,6 +22,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { setBoxVertical } from '../../core/Utils.js';
 import { addSeparator } from './ContextMenuItems.js';
@@ -69,12 +70,12 @@ function confirmEmptyTrash() {
     setBoxVertical(content, true);
 
     content.add_child(new St.Label({
-        text: 'Empty Trash?',
+        text: _('Empty Trash?'),
         style: 'font-weight: 800; font-size: 22px; color: #ffffff; text-align: center;'
     }));
 
     const descLabel = new St.Label({
-        text: 'Are you sure you want to permanently delete all items from the Trash?\nThis action cannot be undone.',
+        text: _('Are you sure you want to permanently delete all items from the Trash?\nThis action cannot be undone.'),
         style: 'font-size: 15px; color: rgba(255, 255, 255, 0.75); text-align: center; margin-top: 4px;'
     });
     descLabel.clutter_text.line_wrap = true;
@@ -82,8 +83,8 @@ function confirmEmptyTrash() {
     content.add_child(descLabel);
 
     dialog.contentLayout.add_child(content);
-    dialog.addButton({ label: 'Cancel', action: () => dialog.close(), key: Clutter.KEY_Escape });
-    dialog.addButton({ label: 'Empty Trash', action: () => { dialog.close(); emptyTrashAsync(); }, isDefault: true });
+    dialog.addButton({ label: _('Cancel'), action: () => dialog.close(), key: Clutter.KEY_Escape });
+    dialog.addButton({ label: _('Empty Trash'), action: () => { dialog.close(); emptyTrashAsync(); }, isDefault: true });
     dialog.open();
 }
 
@@ -94,7 +95,7 @@ export function attachTrashActions(contextMenu) {
         style_class: 'context-menu-action-btn'
     });
     const label = new St.Label({
-        text: 'Checking Trash...',
+        text: _('Checking Trash...'),
         style_class: 'context-menu-action-label',
         style: 'color: rgba(255,255,255,0.4);'
     });
@@ -134,7 +135,7 @@ export function attachTrashActions(contextMenu) {
             if (hasItems) {
                 emptyBtn.reactive = true;
                 emptyBtn.style_class = 'context-menu-action-btn-destructive';
-                label.set_text('Empty Trash');
+                label.set_text(_('Empty Trash'));
                 label.style_class = 'context-menu-action-label-destructive';
                 label.set_style('');
                 emptyBtn.connectObject('clicked', () => {
@@ -144,7 +145,7 @@ export function attachTrashActions(contextMenu) {
             } else {
                 emptyBtn.reactive = false;
                 emptyBtn.set_opacity(100);
-                label.set_text('Trash is Empty');
+                label.set_text(_('Trash is Empty'));
                 label.set_style('color: rgba(255,255,255,0.25);');
             }
         }

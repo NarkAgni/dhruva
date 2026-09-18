@@ -1,28 +1,31 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import PeekManager from '../../core/PeekManager.js';
 import { isActorAlive } from '../../core/Utils.js';
+import PeekManager from '../../core/PeekManager.js';
+import { Settings } from '../../core/SettingsManager.js';
 import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
@@ -68,6 +71,40 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         return;
     }
 
+    if (dockActor._flipAnimating) return;
+
+    if (dockActor._structureChanged) {
+        dockActor._fixedSlots = null;
+        dockActor._scalesCache = null;
+        dockActor._scalesYCache = null;
+        dockActor._scaledCentersCache = null;
+        dockActor._riseOffsetsCache = null;
+        dockActor._orderedScalesCache = null;
+        dockActor._orderedCentersCache = null;
+        dockActor._angleZCache = null;
+        dockActor._angleYCache = null;
+        dockActor._angleXCache = null;
+        dockActor._magOffsetsCache = null;
+        dockActor._structureChanged = false;
+    }
+
+    const pill = dockActor._dockUI && dockActor._dockUI._musicPill;
+    if (pill && isActorAlive(pill) && pill.visible) {
+        const [px, py] = pill.get_transformed_position();
+        const [pw, ph] = pill.get_transformed_size();
+
+        const onPill = (cx >= px && cx <= px + pw && cy >= py && cy <= py + ph) || Boolean(pill.hover || pill._isHovered);
+
+        if (onPill) {
+            hideTooltip(dockActor);
+            if (!dockActor._isResetting) {
+                resetMagnification(dockActor, 160, false);
+                dockActor._isResetting = true;
+            }
+            return;
+        }
+    }
+
     const btns = getDockButtons(dockActor);
     const n = btns.length;
     if (!n || btns[0].width === 0) return;
@@ -81,27 +118,27 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         if (isAppGrid) return;
     }
 
-    const hoverZoom = settings.get_boolean('hover-zoom') && !isAppGrid;
-    const maxZoom = hoverZoom ? settings.get_double('hover-zoom-factor') : 1.0;
+    const hoverZoom = Settings.hoverZoom && !isAppGrid;
+    const maxZoom = hoverZoom ? Settings.hoverZoomFactor : 1.0;
     const actualMaxZoom = 1.0 + (maxZoom - 1.0) * 2.0;
-    const iconSize = settings.get_int('icon-size');
+    const iconSize = Settings.iconSize;
 
-    let zoomStyle = settings.get_string('hover-zoom-style') || 'fluid';
+    let zoomStyle = Settings.hoverZoomStyle || 'fluid';
     if (zoomStyle === 'macos') zoomStyle = 'fluid';
     if (zoomStyle === 'jelly-hover') zoomStyle = 'jelly';
 
-    const maxRisePx = settings.get_int('hover-zoom-rise');
-    const widthPushEnabled = settings.get_boolean('hover-zoom-width');
-    const radiusMultiplier = settings.get_double('hover-zoom-radius') || 3.5;
-    const gapFactorSetting = settings.get_double('hover-zoom-gap-factor') || 2.0;
-    const smoothnessSetting = settings.get_double('hover-zoom-smoothness') || 0.26;
+    const maxRisePx = Settings.hoverZoomRise;
+    const widthPushEnabled = Settings.hoverZoomWidth;
+    const radiusMultiplier = Settings.hoverZoomRadius || 3.5;
+    const gapFactorSetting = Settings.hoverZoomGapFactor || 2.0;
+    const smoothnessSetting = Settings.hoverZoomSmoothness || 0.26;
 
-    const dominoTilt = settings.get_int('hover-zoom-domino-tilt') || 14;
-    const cylinderAngle = settings.get_int('hover-zoom-cylinder-angle') || 32;
-    const magneticStrength = settings.get_int('hover-zoom-magnetic-strength') || 12;
-    const jellyStretchSetting = settings.get_double('hover-zoom-jelly-stretch') || 0.75;
-    const jellySquishSetting = settings.get_double('hover-zoom-jelly-squish') || 0.50;
-    const coverflowAngle = settings.get_int('hover-zoom-coverflow-angle') || 38;
+    const dominoTilt = Settings.hoverZoomDominoTilt || 14;
+    const cylinderAngle = Settings.hoverZoomCylinderAngle || 32;
+    const magneticStrength = Settings.hoverZoomMagneticStrength || 12;
+    const jellyStretchSetting = Settings.hoverZoomJellyStretch || 0.75;
+    const jellySquishSetting = Settings.hoverZoomJellySquish || 0.50;
+    const coverflowAngle = Settings.hoverZoomCoverflowAngle || 38;
 
     const RADIUS = iconSize * radiusMultiplier;
     const zoomRange = actualMaxZoom - 1.0;
@@ -114,9 +151,9 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     const dockThickness = isVertical ? (dockActor._cachedW || dockActor.width || 64) : (dockActor._cachedH || dockActor.height || 64);
     const crossCursor = isVertical ? cx - dx : cy - dy;
 
-    if (crossCursor < -25 || crossCursor > dockThickness + 25) {
+    if (crossCursor < -10 || crossCursor > dockThickness + 10) {
         if (!dockActor._isDragging && !isContextMenuOpen() && !dockActor._isResetting) {
-            resetMagnification(dockActor);
+            resetMagnification(dockActor, 180, false);
             dockActor._isResetting = true;
         }
         return;
@@ -179,7 +216,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         const btnIndex = orderToBtn[orderIndex];
         const b = btns[btnIndex];
         const sClass = b.get_style_class_name ? b.get_style_class_name() : (b.style_class || '');
-        const isStaticEdge = b._isStatic || sClass.includes('dock-separator') || sClass.includes('clock-module') || sClass.includes('dock-drag-handle');
+        const isStaticEdge = b._isStatic || sClass.includes('dock-separator') || sClass.includes('clock-module') || sClass.includes('dock-drag-handle') || sClass.includes('dhruva-music-pill');
 
         if (!zoomEnabled || isStaticEdge) {
             orderedScales[orderIndex] = 1.0;
@@ -218,7 +255,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] + originalGap + prevExtra + currExtra;
     }
 
-    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+    const dockPos = Settings.dockPosition || 'BOTTOM';
 
     for (let i = 0; i < n; i++) {
         const orderIndex = btnToOrder[i];
@@ -245,7 +282,10 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         anglesX[i] = 0;
         magOffsets[i] = 0;
 
-        if (zoomEnabled) {
+        const sClassBtn = btns[i].get_style_class_name ? btns[i].get_style_class_name() : (btns[i].style_class || '');
+        const isStaticBtn = btns[i]._isStatic || sClassBtn.includes('dock-separator') || sClassBtn.includes('clock-module') || sClassBtn.includes('dhruva-music-pill');
+
+        if (zoomEnabled && !isStaticBtn) {
             const delta = localCursor - orderedSlots[orderIndex];
             const dist = Math.abs(delta);
             const ratio = dist / RADIUS;
@@ -351,7 +391,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         let origMax = -Infinity;
 
         for (let i = 0; i < n; i++) {
-            if (btns[i].style_class && (btns[i].style_class.includes('clock-module') || btns[i].style_class.includes('dock-drag-handle'))) continue;
+            if (btns[i].style_class && (btns[i].style_class.includes('clock-module') || btns[i].style_class.includes('dock-drag-handle') || btns[i].style_class.includes('dhruva-music-pill'))) continue;
             const c = scaledCenters[i] + zoomOffset;
             const half = (isVertical ? btns[i].height : btns[i].width) * scales[i] / 2;
             if (c - half < minVis) minVis = c - half;
@@ -469,7 +509,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
-    if (dockActor.bgActor && dockActor.boxActor && !settings.get_boolean('full-width') && zoomEnabled && widthPushEnabled) {
+    if (dockActor.bgActor && dockActor.boxActor && !Settings.fullWidth && zoomEnabled && widthPushEnabled) {
         const baseW = dockActor.bgActor.width || dockActor.bgActor._baseW || dockActor.boxActor.width;
         const baseH = dockActor.bgActor.height || dockActor.bgActor._baseH || dockActor.boxActor.height;
         const BUFFER = 16;
@@ -500,7 +540,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
-    if (isAppGrid || isMenu || !settings.get_boolean('show-apps-preview')) {
+    if (isAppGrid || isMenu || !Settings.showAppsPreview) {
         hideTooltip(dockActor);
         return;
     }
@@ -528,7 +568,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
         if (btn._delegate && btn._delegate.isFolder) appName = btn._delegate.folderData.name;
         else if (btn._delegate && btn._delegate.app) appName = btn._delegate.app.get_name();
-        else if (btn.get_child && btn.get_child() && btn.get_child().has_style_class_name && btn.get_child().has_style_class_name('dock-grid-icon')) appName = 'Applications';
+        else if (btn.get_child && btn.get_child() && btn.get_child().has_style_class_name && btn.get_child().has_style_class_name('dock-grid-icon')) appName = _('Applications');
 
         if (appName) {
             if (dockActor._tooltipHoveredIndex !== closestIndex) {
@@ -612,7 +652,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     let [, th] = dockActor._magTooltipBox.get_preferred_height(-1);
 
                     if (tw < 48 || th < 28) {
-                        tw = dockActor._lastTooltipW || Math.max(120, settings.get_int('icon-size') * 2);
+                        tw = dockActor._lastTooltipW || Math.max(120, Settings.iconSize * 2);
                         th = dockActor._lastTooltipH || 56;
                     }
                     dockActor._lastTooltipW = tw;
@@ -627,7 +667,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     const iconCenterX = bx + bw / 2;
                     const iconCenterY = by + bh / 2;
 
-                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+                    const dockPos = Settings.dockPosition || 'BOTTOM';
                     if (dockPos === 'BOTTOM') {
                         tx = iconCenterX - tw / 2;
                         ty = by - th - gap;
@@ -683,7 +723,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     const [bw, bh] = btn.get_transformed_size();
                     const [tx, ty] = dockActor._magTooltip.get_transformed_position();
                     const [tw, th] = dockActor._magTooltip.get_transformed_size();
-                    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+                    const dockPos = Settings.dockPosition || 'BOTTOM';
 
                     if (tw > 0 && th > 0) {
                         if (dockPos === 'BOTTOM' || dockPos === 'TOP') {

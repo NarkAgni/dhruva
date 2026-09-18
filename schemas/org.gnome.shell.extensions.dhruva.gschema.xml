@@ -145,8 +145,25 @@
     </key>
 
     <key name="indicator-style" type="s">
+      <choices>
+        <choice value='dot'/>
+        <choice value='dash'/>
+        <choice value='line'/>
+        <choice value='square'/>
+        <choice value='windows'/>
+      </choices>
       <default>'line'</default>
       <summary>Running Indicator Style</summary>
+    </key>
+
+    <key name="indicator-color-mode" type="s">
+      <choices>
+        <choice value='custom'/>
+        <choice value='dominant'/>
+      </choices>
+      <default>'dominant'</default>
+      <summary>Running App Indicator Color Source</summary>
+      <description>Use custom static color or match with icon dominant color.</description>
     </key>
 
     <key name="indicator-color" type="s">
@@ -557,6 +574,22 @@
     <key name="edge-dwell-delay" type="i">
       <default>150</default>
       <summary>Edge Reveal Delay (Pressure) in ms</summary>
+    </key>
+
+    <key name="show-music-pill" type="b">
+      <default>true</default>
+      <summary>Show Music Pill</summary>
+      <description>Display MPRIS media controller pill on the dock.</description>
+    </key>
+
+    <key name="music-pill-position" type="s">
+      <choices>
+        <choice value='START'/>
+        <choice value='END'/>
+      </choices>
+      <default>'START'</default>
+      <summary>Music Pill Position</summary>
+      <description>Placement of the music pill: Start or End.</description>
     </key>
 
   </schema>

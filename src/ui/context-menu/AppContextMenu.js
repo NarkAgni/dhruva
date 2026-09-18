@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import St from 'gi://St';
@@ -23,16 +23,17 @@ import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import PeekManager from '../../core/PeekManager.js';
-import { setBoxVertical } from '../../core/Utils.js';
 import { applyThemeStyle } from './ContextMenuStyle.js';
+import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { attachTrashActions } from './TrashActionsHandler.js';
+import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 import { createThumbnailScroll } from './WindowThumbnailBuilder.js';
 import { resetMagnification } from '../magnifier/MagnifierReset.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
-import { applyRealtimeFrame } from '../magnifier/MagnifierFrameEngine.js';
 import { createIconMenuItem, createMenuItem, addSeparator } from './ContextMenuItems.js';
 
 
@@ -47,7 +48,7 @@ export default class AppContextMenu {
         this.app = app;
         this.buttonActor = buttonActor;
 
-        if (this.buttonActor) {
+        if (this.buttonActor && isActorAlive(this.buttonActor)) {
             this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
         }
 
@@ -76,6 +77,10 @@ export default class AppContextMenu {
             'destroy', () => this._cleanup(),
             this
         );
+
+        Main.sessionMode.connectObject('updated', () => {
+            this.hide();
+        }, this);
 
         if (!disablePeek) this.peekManager = new PeekManager(this.dockUI, this.actor);
 
@@ -107,9 +112,10 @@ export default class AppContextMenu {
     }
 
     _cleanup() {
+        Main.sessionMode.disconnectObject(this);
         this.timers.destroy();
 
-        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
         }
         if (this.dockUI && this.dockUI._activeContextMenu === this) {
@@ -120,32 +126,33 @@ export default class AppContextMenu {
             this.peekManager = null;
         }
 
-        this.actor.disconnectObject(this);
-        this.panel.disconnectObject(this);
+        if (this.actor) this.actor.disconnectObject(this);
+        if (this.panel) this.panel.disconnectObject(this);
         if (this.buttonActor) this.buttonActor.disconnectObject(this);
     }
 
     _buildMenu() {
         if (!this.app && this.buttonActor && this.buttonActor._isFolder) {
             const fData = this.buttonActor._folderData;
+            const folderDisplayName = (fData.name === 'New Folder' || fData.name === 'Новая папка') ? _('New Folder') : fData.name;
             const titleBox = new St.BoxLayout({
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 style_class: 'context-menu-header-box'
             });
             setBoxVertical(titleBox, false);
-            titleBox.add_child(new St.Label({ text: fData.name, style_class: 'context-menu-header-title' }));
+            titleBox.add_child(new St.Label({ text: folderDisplayName, style_class: 'context-menu-header-title' }));
             this.panel.add_child(titleBox);
             addSeparator(this.panel);
 
-            this.panel.add_child(createIconMenuItem('Unpack Stack', () => {
+            this.panel.add_child(createIconMenuItem(_('Unpack Stack'), () => {
                 fData.apps.forEach(appId => this.dockUI.appManager.favManager.addFavorite(appId));
                 this.dockUI.folderManager.deleteFolder(fData.id);
-                this.dockUI.queueRender();
+                this.dockUI.queueRender('incremental');
                 this.hide();
             }, false, this));
 
-            this.panel.add_child(createIconMenuItem('Close All Apps', () => {
+            this.panel.add_child(createIconMenuItem(_('Close All Apps'), () => {
                 fData.apps.forEach(appId => {
                     const a = this.dockUI.appManager.appSystem.lookup_app(appId);
                     if (a) a.request_quit();
@@ -154,9 +161,10 @@ export default class AppContextMenu {
             }, false, this));
 
             addSeparator(this.panel);
-            this.panel.add_child(createIconMenuItem(`Delete ${fData.name}`, () => {
+            const deleteLabel = _('Delete %s').format(folderDisplayName);
+            this.panel.add_child(createIconMenuItem(deleteLabel, () => {
                 this.dockUI.folderManager.deleteFolder(fData.id);
-                this.dockUI.queueRender();
+                this.dockUI.queueRender('incremental');
                 this.hide();
             }, true, this));
             return;
@@ -176,7 +184,7 @@ export default class AppContextMenu {
 
         const windows = this.app.get_windows();
         if (windows.length > 0) {
-            const customSize = this.dockUI.settings.get_int('context-menu-size');
+            const customSize = Settings.contextMenuSize;
             this._dynamicPanelWidth = Math.max(200, (windows.length === 1 ? customSize : (customSize * 2) + 12) + 24 + 16);
             const thumbScroll = createThumbnailScroll(this, this.app, windows, customSize);
             this.panel.add_child(thumbScroll);
@@ -190,22 +198,54 @@ export default class AppContextMenu {
             let addedFolder = false;
             folders.forEach(f => {
                 if (!f.apps.includes(this.app.get_id())) {
-                    const btn = createIconMenuItem(`Add to ${f.name}`, () => {
-                        this.dockUI.folderManager.addAppToFolder(f.id, this.app.get_id());
+                    const targetFolderName = (f.name === 'New Folder' || f.name === 'Новая папка') ? _('New Folder') : f.name;
+                    const addLabel = _('Add to %s').format(targetFolderName);
+                    const btn = createIconMenuItem(addLabel, () => {
+                        const appId = this.app.get_id();
+                        const targetBtn = this.buttonActor;
 
+                        if (targetBtn && isActorAlive(targetBtn)) {
+                            targetBtn.remove_all_transitions();
+                            targetBtn.set_pivot_point(0.5, 0.5);
+                            targetBtn.ease({
+                                opacity: 0,
+                                scale_x: 0.1,
+                                scale_y: 0.1,
+                                duration: 150,
+                                mode: Clutter.AnimationMode.EASE_IN_CUBIC
+                            });
+                        }
+
+                        const activeFMenu = this.dockUI._activeFolderMenu;
+                        const isFolderMenuOpen = Boolean(activeFMenu && activeFMenu.folderData && activeFMenu.folderData.id === f.id);
+
+                        if (isFolderMenuOpen) {
+                            activeFMenu._suppressSync = true;
+                        }
+
+                        this.dockUI.folderManager.addAppToFolder(f.id, appId);
                         if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
                         else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
                         else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
 
-                        if (this.dockUI._activeFolderMenu && this.dockUI._activeFolderMenu.folderData.id === f.id) {
-                            if (!this.dockUI._activeFolderMenu.folderData.apps.includes(this.app.get_id())) {
-                                this.dockUI._activeFolderMenu.folderData.apps.push(this.app.get_id());
-                            }
-                            if (this.dockUI._activeFolderMenu.forceRefresh) this.dockUI._activeFolderMenu.forceRefresh();
+                        this.dockUI.queueRender('incremental');
+
+                        if (isFolderMenuOpen) {
+                            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 160, () => {
+                                if (activeFMenu && isActorAlive(activeFMenu.actor) && activeFMenu.folderData && activeFMenu.folderData.id === f.id) {
+                                    activeFMenu._suppressSync = false;
+                                    if (!activeFMenu.folderData.apps.includes(appId)) {
+                                        activeFMenu.folderData.apps.push(appId);
+                                    }
+                                    activeFMenu.forceRefresh(false, appId);
+                                }
+                                return GLib.SOURCE_REMOVE;
+                            });
                         }
-                        this.dockUI.queueRender();
+
                         this.hide();
                     }, false, this);
+
                     btn.set_style('transition-duration: 150ms; border-radius: 6px;');
                     const label = btn.get_child().get_first_child();
                     if (label) label.set_style('color: #0fb55e; font-weight: 700;');
@@ -222,7 +262,8 @@ export default class AppContextMenu {
         }
 
         if (this.app.is_module && this.app.open) {
-            this.panel.add_child(createMenuItem(`Open ${this.app.get_name()}`, () => {
+            const openModuleLabel = _('Open %s').format(this.app.get_name());
+            this.panel.add_child(createMenuItem(openModuleLabel, () => {
                 this.app.open();
                 this.hide();
             }, false, this));
@@ -239,7 +280,7 @@ export default class AppContextMenu {
         const quietContext = new Gio.AppLaunchContext();
 
         if (this.app.can_open_new_window && this.app.can_open_new_window()) {
-            this.panel.add_child(createMenuItem('New Window', () => {
+            this.panel.add_child(createMenuItem(_('New Window'), () => {
                 if (appInfo) appInfo.launch([], quietContext);
                 else this.app.open_new_window(-1);
                 this.hide();
@@ -261,35 +302,65 @@ export default class AppContextMenu {
 
         if (!this.app.is_module && this.app.get_id && (!this.buttonActor || !this.buttonActor._inFolder)) {
             const isPinned = this.appManager.hasApp(this.app);
-            this.panel.add_child(createMenuItem(isPinned ? 'Unpin from Dhruva' : 'Pin to Dhruva', () => {
+            this.panel.add_child(createMenuItem(isPinned ? _('Unpin from Dhruva') : _('Pin to Dhruva'), () => {
                 if (isPinned) this.appManager.removeApp(this.app);
                 else this.appManager.addApp(this.app);
-                this.dockUI._renderDock();
+                this.dockUI.queueRender('incremental');
                 this.hide();
             }, false, this));
         }
 
         if (this.buttonActor && this.buttonActor._inFolder) {
-            this.panel.add_child(createIconMenuItem(`Remove from ${this.buttonActor._folderName || 'Stack'}`, () => {
-                this.dockUI.folderManager.removeAppFromFolder(this.buttonActor._folderId, this.app.get_id());
+            const folderId = this.buttonActor._folderId;
+            const rawName = this.buttonActor._folderName || 'Stack';
+            const folderDisplayName = (rawName === 'New Folder' || rawName === 'Новая папка') ? _('New Folder') : (rawName === 'Stack' ? _('Stack') : rawName);
+            const targetBtn = this.buttonActor;
+
+            const removeLabel = _('Remove from %s').format(folderDisplayName);
+            this.panel.add_child(createIconMenuItem(removeLabel, () => {
+                const appId = this.app.get_id();
+
+                this.dockUI.folderManager.removeAppFromFolder(folderId, appId);
 
                 if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
                 else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
                 else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
 
-                if (this.buttonActor.get_parent()) this.buttonActor.destroy();
-                this.dockUI.queueRender();
+                if (targetBtn && isActorAlive(targetBtn)) {
+                    targetBtn.remove_all_transitions();
+                    targetBtn.set_pivot_point(0.5, 0.5);
+                    targetBtn.ease({
+                        opacity: 0,
+                        scale_x: 0.1,
+                        scale_y: 0.1,
+                        duration: 180,
+                        mode: Clutter.AnimationMode.EASE_IN_CUBIC,
+                        onComplete: () => {
+                            if (isActorAlive(targetBtn)) {
+                                const parent = targetBtn.get_parent ? targetBtn.get_parent() : null;
+                                if (parent) parent.remove_child(targetBtn);
+                                targetBtn.destroy();
+                            }
+                            if (this.dockUI._activeFolderMenu && this.dockUI._activeFolderMenu.folderData && this.dockUI._activeFolderMenu.folderData.id === folderId) {
+                                this.dockUI._activeFolderMenu.forceRefresh(true);
+                            }
+                        }
+                    });
+                }
+                this.buttonActor = null;
+
+                this.dockUI.queueRender('incremental');
                 this.hide();
             }, true, this));
         }
 
         if (this.app.get_state() === Shell.AppState.RUNNING) {
             addSeparator(this.panel);
-            this.panel.add_child(createMenuItem(windows.length > 1 ? 'Close All Windows' : (this.app.is_module ? 'Close Folder' : 'Quit'), () => {
+            this.panel.add_child(createMenuItem(windows.length > 1 ? _('Close All Windows') : (this.app.is_module ? _('Close Folder') : _('Quit')), () => {
                 this._addAppToIgnoreList(this.app);
                 if (this.app.request_quit) this.app.request_quit();
                 if (this.dockUI.actor) this.dockUI.actor._lastIconClickTime = 0;
-                this.dockUI._renderDock();
+                this.dockUI.queueRender('incremental');
                 this.hide();
             }, true, this));
         }
@@ -299,7 +370,7 @@ export default class AppContextMenu {
 
         if (shouldShowSettings) {
             if (!isAppGrid) addSeparator(this.panel);
-            this.panel.add_child(createMenuItem('Dhruva Settings', () => {
+            this.panel.add_child(createMenuItem(_('Dhruva Settings'), () => {
                 this.hide();
                 const res = this.openPrefsCallback();
                 if (res instanceof Promise) res.catch(e => console.warn('[Dhruva]', e.message));
@@ -320,12 +391,12 @@ export default class AppContextMenu {
     }
 
     _updatePosition() {
-        if (this._isHiding || !this.actor || !this.menuContainer) return;
+        if (this._isHiding || !this.actor || !isActorAlive(this.actor) || !this.menuContainer || !isActorAlive(this.menuContainer)) return;
 
-        if (!this.buttonActor || !this.buttonActor.get_parent()) {
-            if (this.dockUI && this.dockUI.boxActor && this.app) {
+        if (!this.buttonActor || !isActorAlive(this.buttonActor) || !this.buttonActor.get_parent()) {
+            if (this.dockUI && this.dockUI.boxActor && isActorAlive(this.dockUI.boxActor) && this.app) {
                 const newBtn = this.dockUI.boxActor.get_children().find(c => c._delegate && c._delegate.app && c._delegate.app.get_id() === this.app.get_id());
-                if (newBtn) {
+                if (newBtn && isActorAlive(newBtn)) {
                     if (this.buttonActor) this.buttonActor.disconnectObject(this);
                     this.buttonActor = newBtn;
                     this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
@@ -346,7 +417,16 @@ export default class AppContextMenu {
         let [, panelW] = this.menuContainer.get_preferred_width(-1);
         let [, panelH] = this.menuContainer.get_preferred_height(-1);
 
-        const { monitor } = this.dockUI.monitorManager.getCurrentMonitor();
+        const currentMonData = this.dockUI.monitorManager ? this.dockUI.monitorManager.getCurrentMonitor() : null;
+        const monitor = (currentMonData && currentMonData.monitor) 
+            ? currentMonData.monitor 
+            : Main.layoutManager.primaryMonitor || { x: 0, y: 0, width: global.stage.width, height: global.stage.height };
+
+        if (!monitor) {
+            this.hide();
+            return;
+        }
+
         const maxPanelHeight = monitor.height * 0.85;
         if (panelH > maxPanelHeight) panelH = maxPanelHeight;
 
@@ -403,7 +483,7 @@ export default class AppContextMenu {
         this._dockPos = dockPosition;
         this._isFirstPosition = true;
 
-        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', true);
         }
 
@@ -414,7 +494,7 @@ export default class AppContextMenu {
             if (this._isHiding || !this.actor) return GLib.SOURCE_REMOVE;
 
             if (this.dockUI && this.dockUI._activeContextMenu && this.dockUI._activeContextMenu !== this) {
-                this.dockUI._activeContextMenu.actor.destroy();
+                this.dockUI._activeContextMenu.hide();
             }
             this.dockUI._activeContextMenu = this;
 
@@ -422,7 +502,7 @@ export default class AppContextMenu {
             global.stage.set_key_focus(this.actor);
             this.actor.grab_key_focus();
 
-            if (this.dockUI && this.dockUI.actor) {
+            if (this.dockUI && isActorAlive(this.dockUI.actor)) {
                 const parent = this.actor.get_parent();
                 if (!this.peekManager) {
                     if (parent) parent.set_child_above_sibling(this.actor, null);
@@ -451,7 +531,7 @@ export default class AppContextMenu {
 
             this.timers.remove(this._posTrackerId);
             this._posTrackerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, POS_TRACKER_INTERVAL_MS, () => {
-                if (this._isHiding || !this.actor) {
+                if (this._isHiding || !this.actor || !isActorAlive(this.actor)) {
                     this._posTrackerId = null;
                     return GLib.SOURCE_REMOVE;
                 }
@@ -475,7 +555,7 @@ export default class AppContextMenu {
         this.timers.remove(this._posTrackerId);
         this._posTrackerId = null;
 
-        if (this.dockUI && this.dockUI.actor && setMagnifierPauseState) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
         }
         if (this.dockUI && this.dockUI._activeContextMenu === this) {
@@ -483,7 +563,7 @@ export default class AppContextMenu {
         }
         if (this.peekManager) this.peekManager.stopPeek();
 
-        if (this.dockUI && this.dockUI.actor) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             const [px, py] = global.get_pointer();
             const [dx, dy] = this.dockUI.actor.get_transformed_position();
             const [dw, dh] = this.dockUI.actor.get_transformed_size();
@@ -491,14 +571,15 @@ export default class AppContextMenu {
             const isInside = px >= dx - pad && px <= dx + dw + pad && py >= dy - pad && py <= dy + dh + pad;
 
             if (!isInside) {
-                resetMagnification(this.dockUI.actor);
-            } else {
-                const isVertical = this.dockUI.dockPosition === 'LEFT' || this.dockUI.dockPosition === 'RIGHT';
-                applyRealtimeFrame(this.dockUI.actor, px, py, isVertical, this.dockUI.settings, Date.now());
+                resetMagnification(this.dockUI.actor, 180, false);
             }
         }
 
-        if (this.menuContainer) {
+        if (this.actor && isActorAlive(this.actor) && this.actor.get_parent()) {
+            Main.layoutManager.removeChrome(this.actor);
+        }
+
+        if (this.menuContainer && isActorAlive(this.menuContainer)) {
             this.menuContainer.ease({
                 opacity: 0,
                 scale_x: 0.95,
@@ -506,11 +587,12 @@ export default class AppContextMenu {
                 duration: 120,
                 mode: Clutter.AnimationMode.EASE_IN_QUAD,
                 onComplete: () => {
-                    if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
                     if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null);
-                    if (this.actor) this.actor.destroy();
+                    if (this.actor && isActorAlive(this.actor)) this.actor.destroy();
                 }
             });
+        } else if (this.actor && isActorAlive(this.actor)) {
+            this.actor.destroy();
         }
     }
 }

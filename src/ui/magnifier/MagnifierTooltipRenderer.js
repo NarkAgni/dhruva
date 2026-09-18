@@ -1,22 +1,24 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import cairo from 'gi://cairo';
@@ -25,6 +27,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { hideTooltip } from './MagnifierTooltip.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
+import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isActorAlive, setBoxVertical } from '../../core/Utils.js';
@@ -91,7 +94,7 @@ export function applyTooltipCairoDrawing(tooltipBg, settings) {
     tooltipBg._repaintConnected = true;
 
     tooltipBg.connectObject('repaint', (area) => {
-        const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+        const dockPos = Settings.dockPosition || 'BOTTOM';
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
         const sw = area._sWidth || 0;
@@ -133,8 +136,8 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
     const tFg = dockActor._tooltipFg || '#ffffff';
     
-    const sWidth = settings.get_int('stroke-width') || 1;
-    const sOpacity = (settings.get_int('stroke-opacity') || 20) / 100.0;
+    const sWidth = Settings.strokeWidth || 1;
+    const sOpacity = (Settings.strokeOpacity || 20) / 100.0;
 
     let borderRgba = 'rgba(255,255,255,0.2)';
     if (tFg.startsWith('#')) {
@@ -170,7 +173,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     let padTop = 12;
     let padLeft = 12;
     let padRight = 12;
-    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+    const dockPos = Settings.dockPosition || 'BOTTOM';
     if (dockPos === 'BOTTOM') padBottom += ARROW_HEIGHT;
     else if (dockPos === 'TOP') padTop += ARROW_HEIGHT;
     else if (dockPos === 'LEFT') padLeft += ARROW_HEIGHT;
@@ -189,18 +192,18 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         }
 
         if (windows.length > 0) {
-            if (settings.get_boolean('isolate-monitors') && dockActor._dockUI) {
+            if (Settings.isolateMonitors && dockActor._dockUI) {
                 const currentMonitorIndex = dockActor._dockUI.monitorManager.getCurrentMonitor().index;
                 windows = windows.filter(w => w && w.get_monitor && w.get_monitor() === currentMonitorIndex);
             }
-            windows = WorkspaceFilter.filterWindows(windows, settings);
+            windows = WorkspaceFilter.filterWindows(windows);
         }
     }
 
     if (windows.length > 0) {
         const thumbBox = new St.BoxLayout({ style: 'spacing: 12px; margin-top: 10px;' });
         setBoxVertical(thumbBox, false);
-        const customSize = settings.get_int('context-menu-size') || 200;
+        const customSize = Settings.contextMenuSize || 200;
 
         windows.forEach(win => {
             const thumbContainer = new St.Widget({ layout_manager: new Clutter.BinLayout(), reactive: true });
@@ -230,7 +233,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 thumbBtn.set_size(customSize, customSize * 0.6);
             }
 
-            let winTitleText = win.get_title() || 'Window';
+            let winTitleText = win.get_title() || _('Window');
             if (winTitleText.length > 20) winTitleText = `${winTitleText.substring(0, 18)}...`;
             const winTitleLbl = new St.Label({ text: winTitleText, style_class: 'context-menu-thumb-title', reactive: false });
             const labelBin = new St.Bin({
@@ -253,7 +256,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
             if (!win.minimized) {
                 controlsBox.add_child(createWindowControl('window-minimize-symbolic', '255, 189, 46', () => {
                     hideTooltip(dockActor);
-                    animateMinimize(win, btn, settings.get_string('dock-position') || 'BOTTOM');
+                    animateMinimize(win, btn, Settings.dockPosition || 'BOTTOM');
                 }, thumbContainer));
             }
 
@@ -262,7 +265,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
             controlsBox.add_child(createWindowControl(maxIcon, '40, 201, 64', () => {
                 Main.activateWindow(win);
                 hideTooltip(dockActor);
-                if (win.minimized) animateRestore(win, btn, settings.get_string('dock-position') || 'BOTTOM');
+                if (win.minimized) animateRestore(win, btn, Settings.dockPosition || 'BOTTOM');
                 else if (isMaximized && win.unmaximize) win.unmaximize();
                 else if (win.maximize) win.maximize();
             }, thumbContainer));
@@ -317,7 +320,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
             }, thumbContainer);
 
             thumbBtn.connectObject('clicked', () => {
-                if (win.minimized) animateRestore(win, btn, settings.get_string('dock-position') || 'BOTTOM');
+                if (win.minimized) animateRestore(win, btn, Settings.dockPosition || 'BOTTOM');
                 Main.activateWindow(win);
                 hideTooltip(dockActor);
             }, thumbBtn);
@@ -423,7 +426,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         if (dockActor._lastTooltipStateStr === stateStr) return GLib.SOURCE_CONTINUE;
         dockActor._lastTooltipStateStr = stateStr;
 
-        const dockPosStr = settings.get_string('dock-position') || 'BOTTOM';
+        const dockPosStr = Settings.dockPosition || 'BOTTOM';
         const btnClassStr = btn.get_style_class_name ? btn.get_style_class_name() : (btn.style_class || '');
         const gapAmt = (btnClassStr.includes('clock-module') || appName === 'Date & Time') ? 24 : 22;
 

@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import GLib from 'gi://GLib';
@@ -25,6 +25,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 
 import { isActorAlive } from '../Utils.js';
+import { Settings } from '../SettingsManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 
 
@@ -68,7 +69,7 @@ export class EdgeDetection {
 
         this.triggerActor.connectObject(
             'enter-event', () => {
-                const dwellDelay = this.dockUI.settings.get_int('edge-dwell-delay');
+                const dwellDelay = Settings.edgeDwellDelay;
                 
                 if (this._dwellTimeoutId) {
                     this.timers.remove(this._dwellTimeoutId);
@@ -106,7 +107,7 @@ export class EdgeDetection {
 
         const monitor = monitorResult.monitor;
         const pos = this.dockUI.dockPosition;
-        const isFullWidth = this.dockUI.settings.get_boolean('full-width');
+        const isFullWidth = Settings.fullWidth;
 
         let x = 0;
         let y = 0;
@@ -223,7 +224,7 @@ export class EdgeDetection {
                 ...props,
             });
 
-            const dwellDelay = this.dockUI.settings.get_int('edge-dwell-delay') || DEFAULT_BARRIER_DWELL_MS;
+            const dwellDelay = Settings.edgeDwellDelay || DEFAULT_BARRIER_DWELL_MS;
 
             this._pressure = new Layout.PressureBarrier(
                 dwellDelay,

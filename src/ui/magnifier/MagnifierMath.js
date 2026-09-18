@@ -1,23 +1,24 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import { isActorAlive } from '../../core/Utils.js';
+import { Settings } from '../../core/SettingsManager.js';
 
 
 export function easeOutCirc(t) {
@@ -30,18 +31,35 @@ export function getDockButtons(dockActor) {
     const box = dockActor.boxActor || dockActor;
     if (!isActorAlive(box)) return [];
 
-    return box.get_children().filter(c => {
-        if (!isActorAlive(c)) return false;
-        if (c.get_parent && c.get_parent() === null) return false;
+    const buttons = [];
 
-        if (c._isExternal || c._isModule) return true;
+    if (dockActor.gridBtn && isActorAlive(dockActor.gridBtn) && dockActor.gridBtn.get_parent() === dockActor) {
+        buttons.push(dockActor.gridBtn);
+    }
+
+    box.get_children().forEach(c => {
+        if (!isActorAlive(c) || !c.visible) return;
         const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
-        return sClass.includes('dock-app-button') || 
-               sClass.includes('dock-module') || 
-               sClass.includes('trash-module') || 
-               sClass.includes('clock-module') || 
-               sClass.includes('dock-separator');
+        if (
+            sClass.includes('dock-app-button') ||
+            sClass.includes('dock-module') ||
+            sClass.includes('trash-module') ||
+            sClass.includes('clock-module') ||
+            sClass.includes('dock-separator') ||
+            c._isFolder || c._isGridBtn || c._isMusicPill || c._delegate
+        ) {
+            buttons.push(c);
+        }
     });
+
+    if (dockActor.extractedClock && isActorAlive(dockActor.extractedClock) && dockActor.extractedClock.get_parent() === dockActor) {
+        buttons.push(dockActor.extractedClock);
+    }
+    if (dockActor.extractedDesktop && isActorAlive(dockActor.extractedDesktop) && dockActor.extractedDesktop.get_parent() === dockActor) {
+        buttons.push(dockActor.extractedDesktop);
+    }
+
+    return buttons;
 }
 
 export function getFixedSlots(dockActor, isVertical, btns) {
@@ -118,7 +136,7 @@ export function isPointerWithinDockBounds(dockActor, px, py, isVertical, setting
         boundsBottom = Math.max(boundsBottom, by + bh);
     }
 
-    const pos = settings ? (settings.get_string('dock-position') || 'BOTTOM') : 'BOTTOM';
+    const pos = settings ? (Settings.dockPosition || 'BOTTOM') : 'BOTTOM';
 
     const padLateral = 18;
     const padScreenEdge = 25;

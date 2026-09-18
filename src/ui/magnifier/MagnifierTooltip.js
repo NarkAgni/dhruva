@@ -1,24 +1,26 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+
+import { Settings } from '../../core/SettingsManager.js';
 
 
 const HIDE_ANIMATION_MS = 180;
@@ -73,11 +75,11 @@ export function isInsideTooltip(dockActor, px, py, pad = DEFAULT_TOOLTIP_PADDING
 export function isPointerInDockTooltipBridge(dockActor, px, py, settings) {
     if (!dockActor || !dockActor._magTooltip || !dockActor._magTooltip.visible) return false;
 
-    const iconSize = settings.get_int('icon-size') || 48;
+    const iconSize = Settings.iconSize || 48;
     const lateralPad = Math.max(14, Math.min(26, Math.round(iconSize * 0.28)));
     const bridgePad = Math.max(8, Math.min(18, Math.round(iconSize * 0.18)));
 
-    const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+    const dockPos = Settings.dockPosition || 'BOTTOM';
     const [dax, day] = dockActor.get_transformed_position();
     const [daw, dah] = dockActor.get_transformed_size();
     const [tx, ty] = dockActor._magTooltip.get_transformed_position();

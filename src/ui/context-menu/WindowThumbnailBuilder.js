@@ -1,28 +1,31 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { setBoxVertical } from '../../core/Utils.js';
+import { Settings } from '../../core/SettingsManager.js';
 import { createWindowControl } from './ContextMenuItems.js';
+import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 
 
@@ -54,7 +57,7 @@ function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed)
         thumbBtn.set_child(new St.Bin({ child: clone, style: 'border-radius: 6px; overflow: hidden;' }));
     }
 
-    let winTitleText = win.get_title() || 'Window';
+    let winTitleText = win.get_title() || _('Window');
     if (winTitleText.length > MAX_TITLE_LEN) {
         winTitleText = `${winTitleText.substring(0, 18)}...`;
     }
@@ -107,15 +110,15 @@ function createThumbnailCard(menu, win, customSize, thumbScroll, onWindowClosed)
             opacity: 0,
             duration: 150,
             onComplete: () => {
-                if (card) card.destroy();
+                if (isActorAlive(card)) card.destroy();
                 
-                if (remaining > 0 && menu && menu.panel) {
+                if (remaining > 0 && menu && menu.panel && isActorAlive(menu.panel)) {
                     if (remaining <= 2 && thumbScroll) {
                         thumbScroll.set_style(''); 
                         thumbScroll.hscrollbar_policy = St.PolicyType.NEVER;
                     }
 
-                    const size = menu.dockUI.settings.get_int('context-menu-size') || 200;
+                    const size = Settings.contextMenuSize || 200;
                     const newWidth = Math.max(200, (remaining === 1 ? size : (size * 2) + 12) + 24 + 16);
                     menu._dynamicPanelWidth = newWidth;
                     menu.panel.set_width(newWidth);

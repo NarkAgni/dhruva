@@ -1,26 +1,27 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import cairo from 'gi://cairo';
 
 import { hexToRgba } from '../../core/Utils.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
+import { Settings } from '../../core/SettingsManager.js';
 
 
 const CORNER_RADIUS = 18;
@@ -36,13 +37,13 @@ export function applyThemeStyle(contextMenu, panel) {
     if (!contextMenu || !contextMenu.dockUI || !contextMenu.dockUI.settings) return;
 
     const settings = contextMenu.dockUI.settings;
-    const themeId = settings.get_string('dock-theme') || 'default';
-    const opacity = settings.get_int('background-opacity') / 100.0;
-    const sWidth = settings.get_int('stroke-width');
-    const sColor = settings.get_string('stroke-color') || '#ffffff';
-    const sOpacity = settings.get_int('stroke-opacity') / 100.0;
+    const themeId = Settings.dockTheme || 'default';
+    const opacity = Settings.backgroundOpacity / 100.0;
+    const sWidth = Settings.strokeWidth;
+    const sColor = Settings.strokeColor || '#ffffff';
+    const sOpacity = Settings.strokeOpacity / 100.0;
 
-    let bgRgba = hexToRgba(settings.get_string('background-color') || '#000000', opacity);
+    let bgRgba = hexToRgba(Settings.backgroundColor || '#000000', opacity);
 
     if (themeId === 'chameleon') {
         const chameleonColor = contextMenu.dockUI._chameleonColor;

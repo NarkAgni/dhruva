@@ -1,26 +1,28 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import * as AppFavorites from 'resource:///org/gnome/shell/ui/appFavorites.js';
+
+import { Settings } from './SettingsManager.js';
 
 
 const DEFAULT_PINNED_APPS = [
@@ -37,28 +39,36 @@ export default class AppManager {
         this.settings = settings;
         this.uuid = uuid;
 
-        this.pinnedApps = [...DEFAULT_PINNED_APPS];
-        this.dockOrder = [...DEFAULT_PINNED_APPS];
+        this.pinnedApps = [];
+        this.dockOrder = [];
         this.folders = [];
+        this._isLoaded = false;
 
         this.extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), this.uuid]);
         this.dbPath = GLib.build_filenamev([this.extConfigDir, 'dhruva-dock-items.json']);
 
         this.favManager = AppFavorites.getAppFavorites();
 
-        this.loadDockStateAsync();
+        this.loadDockStateSync();
 
         this.settings.connectObject('changed::independent-dock', () => {
             if (this.isIndependent()) {
-                this.loadDockStateAsync();
-            } else if (this._onStateChangedCallback) {
+                this.loadDockStateSync();
+            } else {
+                this.loadNonIndependentFolders();
+            }
+            if (this._onStateChangedCallback) {
                 this._onStateChangedCallback();
             }
         }, this);
     }
 
+    setDockUI(dockUI) {
+        this.dockUI = dockUI;
+    }
+
     isIndependent() {
-        return this.settings.get_boolean('independent-dock');
+        return Settings.independentDock;
     }
 
     onStateChanged(callback) {
@@ -73,12 +83,31 @@ export default class AppManager {
         return favorites.map(a => (a.get_id ? a.get_id() : '')).filter(Boolean);
     }
 
-    loadDockStateAsync() {
+    loadNonIndependentFolders() {
+        if (!this.settings) {
+            this.folders = [];
+            return;
+        }
+        try {
+            const raw = this.settings.get_string('app-folders');
+            this.folders = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(this.folders)) this.folders = [];
+        } catch (_e) {
+            this.folders = [];
+        }
+    }
+
+    loadDockStateSync() {
+        if (!this.isIndependent()) {
+            this.loadNonIndependentFolders();
+            return;
+        }
+
         const file = Gio.File.new_for_path(this.dbPath);
 
-        file.load_contents_async(null, (sourceFile, res) => {
+        if (file.query_exists(null)) {
             try {
-                const [success, contents] = sourceFile.load_contents_finish(res);
+                const [success, contents] = file.load_contents(null);
                 if (success && contents) {
                     const decoder = new TextDecoder('utf-8');
                     const parsed = JSON.parse(decoder.decode(contents));
@@ -93,29 +122,26 @@ export default class AppManager {
                         this.folders = Array.isArray(parsed.folders) ? parsed.folders : [];
                     }
 
-                    if (this._onStateChangedCallback) {
-                        this._onStateChangedCallback();
-                    }
+                    this._isLoaded = true;
                     return;
                 }
             } catch (e) {
-                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
-                    console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
-                }
+                console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
             }
+        }
 
+        if (!this._isLoaded) {
             this.pinnedApps = [...DEFAULT_PINNED_APPS];
             this.dockOrder = [...this.pinnedApps];
             this.folders = [];
             this.saveDockState();
-
-            if (this._onStateChangedCallback) {
-                this._onStateChangedCallback();
-            }
-        });
+            this._isLoaded = true;
+        }
     }
 
     saveDockState() {
+        if (!this.isIndependent()) return;
+
         GLib.mkdir_with_parents(this.extConfigDir, 0o755);
 
         const payload = {
@@ -145,8 +171,10 @@ export default class AppManager {
     }
 
     savePinnedApps(newArray = null) {
-        if (newArray) this.pinnedApps = newArray;
-        this.saveDockState();
+        if (Array.isArray(newArray)) {
+            this.pinnedApps = [...newArray];
+            this.saveDockState();
+        }
     }
 
     getDockOrder() {
@@ -184,7 +212,7 @@ export default class AppManager {
 
     saveDockOrder(newOrderArray = null) {
         if (Array.isArray(newOrderArray)) {
-            this.dockOrder = newOrderArray;
+            this.dockOrder = [...newOrderArray];
             this.saveDockState();
         }
     }
@@ -194,23 +222,32 @@ export default class AppManager {
     }
 
     saveFolders(foldersList) {
-        if (Array.isArray(foldersList)) {
-            this.folders = foldersList;
+        if (!Array.isArray(foldersList)) return;
+        this.folders = foldersList;
+
+        if (this.isIndependent()) {
             this.saveDockState();
+        } else if (this.settings) {
+            try {
+                this.settings.set_string('app-folders', JSON.stringify(this.folders));
+            } catch (e) {
+                console.error(`[Dhruva] Failed to save non-independent folders: ${e.message}`);
+            }
         }
     }
 
     hasApp(app) {
         if (!app) return false;
+        const id = app.get_id ? app.get_id() : app;
         if (this.isIndependent()) {
-            return this.pinnedApps.includes(app.get_id());
+            return (this.pinnedApps || []).includes(id);
         }
-        return this.favManager.isFavorite(app.get_id());
+        return this.favManager.isFavorite(id);
     }
 
     addApp(app) {
         if (!app) return false;
-        const id = app.get_id();
+        const id = app.get_id ? app.get_id() : app;
 
         if (this.isIndependent()) {
             if (!this.pinnedApps.includes(id)) {
@@ -219,7 +256,11 @@ export default class AppManager {
                     this.dockOrder.push(id);
                 }
                 this.saveDockState();
-                if (this._onStateChangedCallback) this._onStateChangedCallback();
+                if (this.dockUI && this.dockUI.queueRender) {
+                    this.dockUI.queueRender('incremental');
+                } else if (this._onStateChangedCallback) {
+                    this._onStateChangedCallback();
+                }
             }
             return true;
         }
@@ -228,7 +269,11 @@ export default class AppManager {
             this.favManager.addFavorite(id);
             if (!this.dockOrder.includes(id)) {
                 this.dockOrder.push(id);
-                this.saveDockState();
+            }
+            if (this.dockUI && this.dockUI.queueRender) {
+                this.dockUI.queueRender('incremental');
+            } else if (this._onStateChangedCallback) {
+                this._onStateChangedCallback();
             }
         }
         return true;
@@ -244,7 +289,11 @@ export default class AppManager {
             if (this.pinnedApps.includes(id)) {
                 this.pinnedApps = this.pinnedApps.filter(pinnedId => pinnedId !== id);
                 this.saveDockState();
-                if (this._onStateChangedCallback) this._onStateChangedCallback();
+                if (this.dockUI && this.dockUI.queueRender) {
+                    this.dockUI.queueRender('incremental');
+                } else if (this._onStateChangedCallback) {
+                    this._onStateChangedCallback();
+                }
                 return true;
             }
             return false;
@@ -265,13 +314,16 @@ export default class AppManager {
             console.error(`[Dhruva] Failed to sync unpin with GNOME Dash: ${e.message}`);
         }
 
-        this.saveDockState();
-        if (this._onStateChangedCallback) this._onStateChangedCallback();
+        if (this.dockUI && this.dockUI.queueRender) {
+            this.dockUI.queueRender('incremental');
+        } else if (this._onStateChangedCallback) {
+            this._onStateChangedCallback();
+        }
         return true;
     }
 
     getDisplayApps() {
-        const showUnpinned = this.settings.get_boolean('show-unpinned-apps');
+        const showUnpinned = Settings.showUnpinnedApps;
 
         if (!this.isIndependent()) {
             const favorites = this.favManager.getFavorites();
@@ -296,20 +348,14 @@ export default class AppManager {
         const runningApps = this.appSystem.get_running();
         const runningIds = new Set(runningApps.map(a => a.get_id()));
         const displayApps = [];
-        let needsSave = false;
 
-        this.pinnedApps = this.pinnedApps.filter(id => {
+        (this.pinnedApps || []).forEach(id => {
             const app = this.appSystem.lookup_app(id);
             if (app) {
                 displayApps.push(app);
                 runningIds.delete(id);
-                return true;
             }
-            needsSave = true;
-            return false;
         });
-
-        if (needsSave) this.saveDockState();
 
         if (showUnpinned) {
             runningApps.forEach(app => {
@@ -334,5 +380,6 @@ export default class AppManager {
         this.folders = [];
         this.appSystem = null;
         this.favManager = null;
+        this.dockUI = null;
     }
 }

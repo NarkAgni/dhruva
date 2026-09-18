@@ -1,23 +1,24 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import Gtk from 'gi://Gtk';
+import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 
 export function makeResetBtn(settings) {
@@ -39,7 +40,7 @@ export function makeResetBtn(settings) {
             icon_name: 'edit-undo-symbolic',
             valign: Gtk.Align.CENTER,
             css_classes: ['flat', 'circular'],
-            tooltip_text: 'Reset to default'
+            tooltip_text: _('Reset to default')
         });
 
         const update = () => {
@@ -76,7 +77,7 @@ export function makeGroupResetBtn(settings) {
             icon_name: 'edit-undo-symbolic',
             valign: Gtk.Align.CENTER,
             css_classes: ['flat', 'circular'],
-            tooltip_text: 'Reset all in this group'
+            tooltip_text: _('Reset all in this group')
         });
 
         const update = () => {

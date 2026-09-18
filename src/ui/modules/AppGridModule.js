@@ -1,22 +1,24 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -24,6 +26,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { applyIconFilter } from '../DragDrop.js';
+import { Settings } from '../../core/SettingsManager.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 
@@ -33,11 +36,11 @@ const OVERVIEW_APPS_EASE_DURATION_MS = 250;
 
 export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     const settings = dockUI.settings;
-    const hoverZoom = settings.get_boolean('hover-zoom');
+    const hoverZoom = Settings.hoverZoom;
 
-    const customIconPath = settings.get_string('custom-grid-icon');
+    const customIconPath = Settings.customGridIcon;
     const hasCustomIcon = customIconPath && GLib.file_test(customIconPath, GLib.FileTest.EXISTS);
-    const useOldIcon = settings.get_boolean('use-old-grid-icon');
+    const useOldIcon = Settings.useOldGridIcon;
 
     const moduleFile = Gio.File.new_for_uri(import.meta.url);
     const rootDir = moduleFile.get_parent().get_parent().get_parent().get_parent();
@@ -46,7 +49,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     let scaleMultiplier;
     if (hasCustomIcon) {
-        scaleMultiplier = settings.get_int('custom-grid-icon-scale') / 100.0;
+        scaleMultiplier = Settings.customGridIconScale / 100.0;
     } else if (useOldIcon || !hasLogo) {
         scaleMultiplier = 1.25;
     } else {
@@ -55,7 +58,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     const gridIconSize = Math.floor(iconSize * scaleMultiplier);
     const gridRenderSize = Math.ceil(gridIconSize * actualMaxZoom);
-    const gridColor = settings.get_string('grid-icon-color') || '#ffffff';
+    const gridColor = Settings.gridIconColor || '#ffffff';
 
     let gridIcon;
     if (hasCustomIcon) {
@@ -111,7 +114,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     appBox.set_pivot_point(0.5, 0.5);
 
     const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const dockHeightPad = settings.get_int('dock-height') || 6;
+    const dockHeightPad = Settings.dockHeight || 6;
     const pad = Math.max(dockHeightPad, 4);
     const expandedDim = iconSize + pad * 2;
     const collapsedDim = iconSize + 2;
@@ -158,7 +161,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     gridModule.set_style('background-color: transparent; border-radius: 0px; transition-duration: 150ms;');
 
     gridModule.connectObject('notify::hover', () => {
-        if (settings.get_boolean('hover-zoom')) return;
+        if (Settings.hoverZoom) return;
 
         const currentDim = gridModule.hover ? expandedDim : collapsedDim;
 
@@ -179,9 +182,9 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     gridModule._activateCallback = (buttonNum, state = 0) => {
         if (buttonNum === 1) {
-            animateIconClick(gridIconBin, settings.get_string('click-effect'));
+            animateIconClick(gridIconBin, Settings.clickEffect);
 
-            if (settings.get_boolean('independent-dock')) {
+            if (Settings.independentDock) {
                 if (dockUI.appGridUI) {
                     dockUI.appGridUI.toggle(dockUI.dockPosition);
                 }
@@ -260,7 +263,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         app: {
             is_module: true,
             get_id: () => 'dhruva-grid-button',
-            get_name: () => 'Applications',
+            get_name: () => _('Applications'),
             get_state: () => 0,
             get_windows: () => []
         }

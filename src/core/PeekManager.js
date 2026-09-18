@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import St from 'gi://St';
@@ -22,6 +22,7 @@ import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
 import { isActorAlive } from './Utils.js';
+import { Settings } from './SettingsManager.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 
@@ -81,7 +82,7 @@ export default class PeekManager {
         this._currentTarget = targetWin;
         this._swapPreview(targetWin);
 
-        const peekEnabled = this.settings.get_boolean('peek-effect');
+        const peekEnabled = Settings.peekEffect;
         if (!peekEnabled) return;
 
         if (this._peekTimer) {
@@ -122,7 +123,7 @@ export default class PeekManager {
     }
 
     _getPeekSpeed() {
-        const val = this.settings.get_int('peek-animation-speed');
+        const val = Settings.peekAnimationSpeed;
         return val > 0 ? val : DEFAULT_PEEK_SPEED;
     }
 
@@ -146,7 +147,7 @@ export default class PeekManager {
         const w = Math.max(1, rect.width || 1);
         const h = Math.max(1, rect.height || 1);
 
-        const scalePercent = this.settings.get_int('big-preview-size');
+        const scalePercent = Settings.bigPreviewSize;
 
         const maxW = monitor.width * (scalePercent / 100);
         const maxH = monitor.height * (scalePercent / 100);
@@ -259,6 +260,15 @@ export default class PeekManager {
     }
 
     destroy() {
+        if (this._hideTimer) {
+            this.timers.remove(this._hideTimer);
+            this._hideTimer = null;
+        }
+        if (this._peekTimer) {
+            this.timers.remove(this._peekTimer);
+            this._peekTimer = null;
+        }
+
         this.timers.destroy();
 
         if (this._isPeeking) {

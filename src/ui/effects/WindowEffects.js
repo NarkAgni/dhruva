@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import GLib from 'gi://GLib';
@@ -22,6 +22,7 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { Settings } from '../../core/SettingsManager.js';
 import { CRTMinimize, CRTRestore } from './CrtEffect.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { SnakeMinimize, SnakeRestore } from './SnakeEffect.js';
@@ -215,7 +216,7 @@ export function setupWindowEffects(settings, dockUI) {
 
     global.window_manager.connectObject(
         'minimize', (_wm, actor) => {
-            const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
+            const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
 
             if (actor === _pendingActor && global._dhruvaIsFade) {
                 global._dhruvaIsFade = false;
@@ -311,7 +312,7 @@ export function setupWindowEffects(settings, dockUI) {
             actor.add_effect_with_name(MIN_EFFECT_NAME, _makeMinimize(iconPos, dockPos, type));
         },
         'unminimize', (_wm, actor) => {
-            const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
+            const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
 
             if (actor === _pendingActor && global._dhruvaIsFade) {
                 global._dhruvaIsFade = false;
@@ -476,7 +477,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     const actor = win.get_compositor_private();
     if (!isActorAlive(actor)) return;
 
-    const type = (_settings && _settings.get_string('minimize-effect')) || 'magic-lamp';
+    const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
     if (type === 'none') {
         if (_origCompletedMap && Main.wm && Main.wm._shellwm) {
             _origCompletedMap.call(Main.wm._shellwm, actor);

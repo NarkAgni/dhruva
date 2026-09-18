@@ -1,0 +1,1667 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-18 22:45+0530\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/core/FolderManager.js:109
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/DragDrop.js:164
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:73
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:137
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:201
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:316
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/folder-menu/FolderMenuBuilder.js:204
+msgid "New Folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:29
+msgid "About"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:62
+msgid "A beautifully crafted, highly customisable dock for GNOME Shell"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:78
+msgid "Links"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:101
+msgid "GitHub Repository"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:106
+msgid "Credits"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:111
+msgid "Author & Maintainer"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:116
+msgid "Features"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:117
+msgid ""
+"Per-app running indicators · Hover zoom magnification · Window minimize "
+"effects (Magic Lamp, Snake, Vortex & more) · Icon click animations (Bounce, "
+"Jelly, Heartbeat & 20+ styles) · Intelligent auto-hide with edge pressure "
+"reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode "
+"· Multi-monitor support · Custom folders, Trash, Desktop button & App Grid · "
+"Workspace isolation · Aero Peek window previews · Lock icons to prevent "
+"accidental reorder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:122
+msgid "Disclaimer"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:123
+msgid "Dhruva Dock is an independent open-source project."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:130
+msgid "Support Development"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:131
+msgid "If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:136
+msgid "Buy Me a Coffee"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:166
+msgid "Copy"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:166
+msgid "address"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AboutPage.js:172
+msgid "address copied!"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:31
+msgid "Layout"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:37
+msgid "Screen Placement"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:38
+msgid "Where to place the dock on your display"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:42
+msgid "Screen Edge"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:42
+msgid "Which edge to attach to"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:43
+msgid "Left"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:44
+msgid "Bottom"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:45
+msgid "Top"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:46
+msgid "Right"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:55
+msgid "Monitor"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:57
+#, javascript-format
+msgid "Primary Monitor (%s)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:65
+msgid "Preferred Monitor"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:66
+msgid "Choose display for the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:85
+msgid "Show on All Monitors"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:85
+msgid "Display the dock on every connected screen"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:86
+msgid "Isolate Monitors"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:86
+msgid "Only show apps running on the current monitor"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:92
+msgid "Independent Dock Mode"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:93
+msgid "Use completely separate pinned apps and custom app launcher"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:102
+msgid "Show Independent Dock in Overview"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:103
+msgid "Shows dock on the left side during overview"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:108
+msgid "Full Screen Width"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:108
+msgid "Extend dock edge to edge"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:110
+msgid "Icon Alignment"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:110
+msgid "Justification when Full Width is active"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:111
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:57
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:58
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:677
+msgid "Start"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:112
+msgid "Center"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:113
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:58
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:59
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:678
+msgid "End"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:116
+msgid "Edge Margin"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:116
+msgid "Distance from screen edge"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:123
+msgid "Sizing & Spacing"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:124
+msgid "Base dimensions for dock and icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:128
+msgid "Base Icon Size"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:128
+msgid "Normal size of app icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:134
+msgid "Icon Gap"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:134
+msgid "Distance between icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:140
+msgid "Side Padding"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:140
+msgid "Extra gap inside dock ends"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:146
+msgid "Dock Height / Thickness"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/LayoutPage.js:146
+msgid "Extra padding on top/bottom (or left/right)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:28
+msgid "Music Pill"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:34
+msgid "General Settings"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:35
+msgid "Configure live media player widget on the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:43
+msgid "Show Music Pill"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:44
+msgid "Display currently playing media and controls"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:53
+msgid "Pill Placement"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/MusicPillPage.js:54
+msgid "Position of the pill on dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:42
+msgid "Modules"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:48
+msgid "Dock Modules"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:49
+msgid "Enable extra shortcuts on your dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:53
+msgid "Recycle Bin (Trash)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:53
+msgid "Show a shortcut to the trash folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:54
+msgid "Show Desktop Button"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:54
+msgid "Quickly minimize all windows"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:55
+msgid "Show Applications Button"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:55
+msgid "App drawer launcher"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:56
+msgid "Application Button Position"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:56
+msgid "Where to place the launcher"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:57
+msgid "Left Edge"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:62
+msgid "App Grid Button Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:64
+msgid "Use Old App Grid Icon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:64
+msgid "Show default dotted grid icon instead of Dhruva logo"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:67
+msgid "Custom App Grid Icon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:68
+msgid "Size: 256x256 or 512x512 (.png, .svg, .ico)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:78
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:363
+msgid "Browse..."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:83
+msgid "Select App Custom Grid Icon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:86
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:371
+msgid "Images (.png, .svg, .ico)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:133
+msgid "Reset to default icon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:148
+msgid "Custom Icon Scale (%)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:149
+msgid "Adjust size multiplier (Default: 125)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:182
+msgid "Standard Folders"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:183
+msgid "Add quick access folders to the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:187
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:234
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:33
+msgid "Home"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:187
+msgid "Shortcut to Home directory"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:188
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:235
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:45
+msgid "Downloads"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:188
+msgid "Shortcut to Downloads"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:189
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:236
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:46
+msgid "Documents"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:189
+msgid "Shortcut to Documents"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:190
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:237
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:47
+msgid "Pictures"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:190
+msgid "Shortcut to Pictures"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:191
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:238
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:48
+msgid "Videos"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:191
+msgid "Shortcut to Videos"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:192
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:239
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:49
+msgid "Music"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:192
+msgid "Shortcut to Music"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:195
+msgid "Show USB &amp; Mounted Drives"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:196
+msgid "Automatically show connected drives and partitions on the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:216
+msgid "Custom Quick Folders"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:217
+msgid "Add your own directory shortcuts to the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:233
+msgid "System Folder (Default)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:240
+msgid "Public Share"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:241
+msgid "Templates"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:242
+msgid "Desktop"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:243
+msgid "Projects / Code"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:244
+msgid "Cloud / Remote"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:254
+msgid "Edit Quick Folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:254
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:628
+msgid "Add Quick Folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:255
+msgid "Update"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:255
+msgid "Add"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:269
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:874
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:86
+msgid "Cancel"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:280
+msgid "Folder Name (e.g. Workspace)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:287
+msgid "Folder Path"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:297
+msgid "Browse folder..."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:302
+msgid "Select Folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:325
+msgid "Preset System Icon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:326
+msgid "Custom Image File"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:327
+msgid "Custom Emoji"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:331
+msgid "Icon Type"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:337
+msgid "Select Preset Icon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:342
+msgid "Select Image File"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:343
+msgid "PNG, SVG, ICO format"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:354
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:83
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:114
+msgid "None"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:368
+msgid "Select Custom Folder Icon Image"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:416
+msgid "Enter Emoji (Only 1 emoji allowed)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:420
+msgid "Only 1 emoji is allowed. Multiple emojis are not supported."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:507
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/SystemFoldersModule.js:71
+msgid "Custom Folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:598
+msgid "Edit folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:609
+msgid "Remove folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:644
+msgid "Clock &amp; Date"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:645
+msgid "Display time on horizontal docks"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:649
+msgid "Show Clock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:649
+msgid "Hidden automatically on left/right docks"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:651
+msgid "Use 24-Hour Clock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:651
+msgid "Display time in 24-hour format"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:653
+msgid "Clock Text Size"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:653
+msgid "Adjust font size"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:682
+msgid "Right Edge"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:685
+msgid "Clock Position"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:685
+msgid "Separate from App Grid"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:697
+msgid "Danger Zone"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:698
+msgid "Master controls for your settings"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:703
+msgid "Backup &amp; Restore"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:704
+msgid ""
+"Import or export your dock layout, themes, custom folders, and pinned apps"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:709
+msgid "Export Configuration"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:710
+msgid "Save your current settings and apps to a file"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:715
+msgid "Export"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:723
+msgid "Export Dock Configuration"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:769
+msgid "Import Configuration"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:770
+msgid "Load a previously saved configuration file"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:775
+msgid "Import"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:782
+msgid "Import Dock Configuration"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:784
+msgid "JSON Files"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:845
+msgid "Reset All Settings"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:846
+msgid "Restore all Dhruva Dock settings to their default values"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:851
+msgid "Reset Defaults"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:862
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:869
+msgid "Reset All Settings?"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:863
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:870
+msgid ""
+"Are you sure you want to reset all settings to default? This action cannot "
+"be undone."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ModulesPage.js:875
+msgid "Reset Settings"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:29
+msgid "Appearance"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:35
+msgid "Panel Style"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:36
+msgid "Background colors and borders"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:41
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:263
+msgid "Custom Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:42
+msgid "Wallpaper Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:43
+msgid "Carbon"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:44
+msgid "Nord"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:45
+msgid "Catppuccin Mocha"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:46
+msgid "Gruvbox Dark"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:47
+msgid "Ash Glass"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:48
+msgid "Dracula"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:49
+msgid "Tokyo Night"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:50
+msgid "Aurora"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:51
+msgid "Sunset"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:52
+msgid "Slate Ocean"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:55
+msgid "Dock Theme"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:55
+msgid "Choose a preset theme or use custom colors"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:58
+msgid "Chameleon Active"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:59
+msgid "Dock color &amp; indicator auto-update from your wallpaper"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:65
+msgid "Primary Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:66
+msgid "Use Gradient"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:66
+msgid "Blend with a second color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:67
+msgid "Secondary Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:68
+msgid "Gradient Direction"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:68
+msgid "Flow of the gradient"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:69
+msgid "Vertical"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:70
+msgid "Horizontal"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:73
+msgid "Background Opacity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:73
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:124
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:147
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:191
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:221
+msgid "0 = Invisible, 100 = Solid"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:79
+msgid "Hover Box Opacity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:79
+msgid "App preview box background opacity (0-100)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:92
+msgid "Border Radius"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:92
+msgid "Corner roundness"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:99
+msgid "Border Outline (Stroke)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:100
+msgid "Draw an outer line around the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:108
+msgid "Show Desktop Button Style"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:109
+msgid "Customize the right-edge desktop button"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:118
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:180
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:210
+msgid "Thickness"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:118
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:180
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:210
+msgid "Width in pixels"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:124
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:191
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:221
+msgid "Opacity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:130
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:190
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:220
+msgid "Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:139
+msgid "Stroke Width"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:139
+msgid "Thickness in pixels (0 to disable)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:145
+msgid "Stroke Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:147
+msgid "Stroke Opacity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:162
+msgid "Separators"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:163
+msgid "Divider lines between dock items"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:168
+msgid "Module Separator"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:169
+msgid "Divides clock, grid, and system icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:178
+msgid "Enable Module Separator"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:178
+msgid "Show a divider for system modules"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:185
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:215
+msgid "Height / Length"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:185
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:215
+msgid "Percentage of dock size (10-100)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:198
+msgid "App Separator"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:199
+msgid "Divides pinned apps from running apps"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:208
+msgid "Enable App Separator"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:208
+msgid "Show a divider between pinned and unpinned apps"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:228
+msgid "App Notifications"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:229
+msgid "Unread message counters"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:232
+msgid "Show Notification Badges"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:232
+msgid "Display unread message counts on app icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:235
+msgid "Indicators"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:236
+msgid "Styles for currently active applications"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:241
+msgid "Running Indicators"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:242
+msgid "Settings for the active app dots/lines"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:251
+msgid "Show Indicators"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:251
+msgid "Display active marks under icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:253
+msgid "Indicator Style"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:253
+msgid "Shape of the indicator"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:254
+msgid "Dot"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:255
+msgid "Dash"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:256
+msgid "Line"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:257
+msgid "Square"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:258
+msgid "Dynamic"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:261
+msgid "Color Mode"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:261
+msgid "Match indicator color with icon or use custom"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:262
+msgid "Match Icon Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:266
+msgid "Indicator Color"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:268
+msgid "Indicator Size"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:268
+msgid "Limit: 2px to 12px"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:273
+msgid "Indicator Spacing"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:273
+msgid "Gap between icon and indicator"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:278
+msgid "Indicator Glow"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/AppearancePage.js:278
+msgid "Add a shining shadow effect"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ResetButtons.js:43
+msgid "Reset to default"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/ResetButtons.js:80
+msgid "Reset all in this group"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:29
+msgid "Behavior"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:35
+msgid "Visibility Rules"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:36
+msgid "Configure dock auto-hide behavior and timings"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:40
+msgid "Hide Mode"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:40
+msgid "Choose when the dock should hide"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:41
+msgid "Intelligent (Dodge Active)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:42
+msgid "Dodge All Windows"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:43
+msgid "Dodge Maximized"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:44
+msgid "Always Hide"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:45
+msgid "Never Hide"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:48
+msgid "Hide Delay"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:48
+msgid "Milliseconds before hiding"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:54
+msgid "Unhide Delay"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:54
+msgid "Milliseconds before showing"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:60
+msgid "Edge Pressure Delay"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:60
+msgid "Hold mouse at screen edge to reveal (ms)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:78
+msgid "Animations &amp; Effects"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:82
+msgid "Icon Click Effect"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:82
+msgid "Animation when an app is clicked"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:84
+msgid "Bounce"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:85
+msgid "Jump"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:86
+msgid "Heartbeat"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:87
+msgid "Spin"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:88
+msgid "Flip"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:89
+msgid "Squeeze"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:90
+msgid "Glow"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:91
+msgid "Shake"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:92
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:129
+msgid "Jelly"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:93
+msgid "Tada"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:94
+msgid "Swing"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:95
+msgid "Dim"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:96
+msgid "Move Up"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:97
+msgid "Move Down"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:98
+msgid "Move Left"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:99
+msgid "Move Right"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:100
+msgid "Enlarge"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:101
+msgid "Shrink"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:102
+msgid "Roll (Wheel)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:103
+msgid "Squish (Drop)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:104
+msgid "Zoom Fade (Ghost)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:105
+msgid "3D Spin (Coin)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:108
+msgid "Window Minimize Effect"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:108
+msgid "Animation when minimizing or restoring"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:109
+msgid "Magic Lamp"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:110
+msgid "Snake"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:111
+msgid "Vortex (Black Hole)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:112
+msgid "Origami (3D Fold)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:113
+msgid "Jelly (Squash & Stretch)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:118
+msgid "Hover Zoom Physics &amp; Motion"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:122
+msgid "Hover Zoom"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:122
+msgid "Magnification effect on hover"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:124
+msgid "Zoom Motion Style"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:124
+msgid "Physics profile for magnification curve"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:125
+msgid "Fluid"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:126
+msgid "Domino"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:127
+msgid "Cylinder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:128
+msgid "Magnetic"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:130
+msgid "Coverflow"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:133
+msgid "Zoom Factor"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:133
+msgid "Maximum size multiplier"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:139
+msgid "Animation Smoothness"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:139
+msgid "Tracking fluidity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:145
+msgid "Influence Spread Radius"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:145
+msgid "How far neighbor icons react"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:151
+msgid "Icon Elevation (Rise)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:151
+msgid "Distance icons lift towards cursor"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:157
+msgid "Dynamic Slot Push"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:157
+msgid "Expand adjacent icon slots smoothly"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:159
+msgid "Slot Spread Strength"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:159
+msgid "Push strength between adjacent icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:166
+msgid "Effect Fine Tuning"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:170
+msgid "Domino Tilt Angle"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:170
+msgid "Cascade tilt angle in degrees"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:176
+msgid "Cylinder Angle"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:176
+msgid "3D rotation arc angle"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:182
+msgid "Magnetic Snap Distance"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:182
+msgid "Cursor attraction force in pixels"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:188
+msgid "Jelly Stretch Intensity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:188
+msgid "How much icons pull/elongate along cursor path"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:194
+msgid "Jelly Shrink Intensity"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:194
+msgid "How much opposite side compresses/squashes"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:200
+msgid "Coverflow Angle"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:200
+msgid "Perspective card angle in degrees"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:239
+msgid "Interaction &amp; Previews"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:243
+msgid "Show App Previews"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:243
+msgid "Display interactive window thumbnails on hover"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:245
+msgid "Thumbnail Width"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:245
+msgid "Max width of window thumbnails"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:251
+msgid "Live Preview Scale (%)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:251
+msgid "Screen percentage for the big center preview"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:261
+msgid "Window Aero Peek"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:262
+msgid "Make other windows transparent when hovering thumbnails"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:271
+msgid "Peek Animation Speed"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:272
+msgid "Higher = slower animation (ms)"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:298
+msgid "Multitasking &amp; Utilities"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:302
+msgid "New Window Action"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:302
+msgid "Shortcut to open a new instance of an app"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:303
+msgid "Ctrl + Left Click"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:304
+msgid "Middle Mouse Click"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:305
+msgid "Both"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:308
+msgid "Lock Icons"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:308
+msgid "Prevent drag and drop reordering"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:309
+msgid "Show Unpinned Apps"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:309
+msgid "Display running apps that are not pinned to the dock"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:312
+msgid "Quick launch"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:313
+msgid ""
+"Super + 1–9 targets the first nine dock apps (registered as keyboard "
+"shortcuts). Change under Settings → Keyboard."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:320
+msgid "Isolate Workspaces"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:320
+msgid "Only show apps running on the current workspace"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:321
+msgid "Dock Scroll Action"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:321
+msgid "Scroll on empty dock area to switch workspaces"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:322
+msgid "App Scroll Action"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/prefs/BehaviorPage.js:322
+msgid "Scroll on app icons to cycle through its windows"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/AppGridUI.js:106
+msgid "All Applications"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/AppGridUI.js:149
+msgid "Search apps..."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/ClockModule.js:106
+msgid "Date & Time"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/AppGridModule.js:266
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/magnifier/MagnifierFrameEngine.js:571
+msgid "Applications"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/TrashModule.js:39
+msgid "Recycle Bin"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/MusicPill.js:622
+msgid "Unknown Artist"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/DockModules.js:455
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/modules/DesktopButtonModule.js:100
+msgid "Show Desktop"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/magnifier/MagnifierTooltipRenderer.js:236
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/WindowThumbnailBuilder.js:60
+msgid "Window"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:148
+msgid "Unpack Stack"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:155
+msgid "Close All Apps"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:164
+#, javascript-format
+msgid "Delete %s"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:202
+#, javascript-format
+msgid "Add to %s"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:265
+#, javascript-format
+msgid "Open %s"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:283
+msgid "New Window"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:305
+msgid "Unpin from Dhruva"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:305
+msgid "Pin to Dhruva"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:316
+msgid "Stack"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:319
+#, javascript-format
+msgid "Remove from %s"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:359
+msgid "Close All Windows"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:359
+msgid "Close Folder"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:359
+msgid "Quit"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/AppContextMenu.js:373
+msgid "Dhruva Settings"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:73
+msgid "Empty Trash?"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:78
+msgid ""
+"Are you sure you want to permanently delete all items from the Trash?\n"
+"This action cannot be undone."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:87
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:138
+msgid "Empty Trash"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:98
+msgid "Checking Trash..."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/context-menu/TrashActionsHandler.js:148
+msgid "Trash is Empty"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/folder-menu/EmojiPicker.js:113
+msgid "Search emojis..."
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/folder-menu/EmojiPicker.js:225
+msgid "Hover an emoji"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/folder-menu/EmojiPicker.js:229
+msgid "Category"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/folder-menu/FolderMenuBuilder.js:137
+msgid "Name"
+msgstr ""
+
+#: /home/narkagni/.local/share/gnome-shell/extensions/dhruva@narkagni/src/ui/folder-menu/FolderMenuBuilder.js:163
+msgid "zenity is required for file selection dialogs."
+msgstr ""

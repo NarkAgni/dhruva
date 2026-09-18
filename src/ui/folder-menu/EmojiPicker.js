@@ -1,22 +1,24 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
@@ -108,7 +110,7 @@ export class EmojiPicker {
         catBtn.set_child(catBox);
 
         const searchEntry = new St.Entry({
-            hint_text: 'Search emojis...',
+            hint_text: _('Search emojis...'),
             x_expand: true,
             style: 'font-size: 15px; font-family: sans-serif; border-radius: 8px; padding: 8px 14px; color: white; background-color: rgba(255,255,255,0.1); border: none; box-shadow: none;'
         });
@@ -220,11 +222,11 @@ export class EmojiPicker {
         });
         setBoxVertical(textDetailBox, true);
         this.emojiNameLabel = new St.Label({
-            text: 'Hover an emoji',
+            text: _('Hover an emoji'),
             style: 'font-size: 14px; font-weight: bold; color: white;'
         });
         this.emojiCatLabel = new St.Label({
-            text: 'Category',
+            text: _('Category'),
             style: 'font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px;'
         });
 

@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import St from 'gi://St';
@@ -42,7 +42,7 @@ export default class FolderMenu {
         this._emojiOverlay = null;
         this.timers = new TimeoutTracker();
 
-        if (this.buttonActor) {
+        if (this.buttonActor && isActorAlive(this.buttonActor)) {
             this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
         }
 
@@ -58,7 +58,12 @@ export default class FolderMenu {
             return Clutter.EVENT_STOP;
         }, this);
 
+        Main.sessionMode.connectObject('updated', () => {
+            this.hide();
+        }, this);
+
         this.actor.connectObject('destroy', () => {
+            Main.sessionMode.disconnectObject(this);
             this.timers.destroy();
             if (this.buttonActor) this.buttonActor.disconnectObject(this);
             if (this.panel) this.panel.disconnectObject(this);
@@ -104,10 +109,10 @@ export default class FolderMenu {
                 if (srcBtn) srcBtn._wasMerged = true;
                 
                 this._saveFolderState();
-                if (this.builder) this.builder.refreshGrid();
+                if (this.builder) this.builder.refreshGrid(false, draggedId);
                 
                 this._lastStateStr = null; 
-                this.dockUI.queueRender();
+                this.dockUI.queueRender('incremental');
                 return true;
             }
 
@@ -131,7 +136,7 @@ export default class FolderMenu {
 
         if (this.dockUI && this.dockUI.folderManager) {
             this._folderChangeHandler = () => {
-                if (this._isInternalSave) return;
+                if (this._isInternalSave || this._suppressSync) return;
                 const updatedFolder = this.dockUI.folderManager.getFolders().find(f => f.id === this.folderData.id);
                 if (updatedFolder) {
                     this.folderData = updatedFolder;
@@ -150,20 +155,20 @@ export default class FolderMenu {
         }
     }
 
-    forceRefresh() {
-        if (this.builder) this.builder.refreshGrid();
+    forceRefresh(skipEntryAnimation = false, animatedAppId = null) {
+        if (this.builder) this.builder.refreshGrid(skipEntryAnimation, animatedAppId);
         this._lastStateStr = null;
     }
 
     _updatePosition() {
-        if (!this.actor || !this.menuContainer) return;
+        if (!this.actor || !isActorAlive(this.actor) || !this.menuContainer || !isActorAlive(this.menuContainer)) return;
 
-        const isDestroyed = !this.buttonActor || !this.buttonActor.get_parent();
+        const isDestroyed = !this.buttonActor || !isActorAlive(this.buttonActor) || !this.buttonActor.get_parent();
 
         if (isDestroyed) {
             if (this.dockUI && this.dockUI.boxActor && isActorAlive(this.dockUI.boxActor)) {
                 const newBtn = this.dockUI.boxActor.get_children().find(c => c._isFolder && c._folderData && c._folderData.id === this.folderData.id);
-                if (newBtn) {
+                if (newBtn && isActorAlive(newBtn)) {
                     if (this.buttonActor) this.buttonActor.disconnectObject(this);
                     this.buttonActor = newBtn;
                     this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
@@ -180,8 +185,7 @@ export default class FolderMenu {
         const [btnX, btnY] = this.buttonActor.get_transformed_position();
         const [btnW, btnH] = this.buttonActor.get_transformed_size();
 
-        if (Number.isNaN(btnX) || Number.isNaN(btnY) || Number.isNaN(btnW) || Number.isNaN(btnH)) return;
-        if (btnW <= 0 || btnH <= 0) return;
+        if (Number.isNaN(btnX) || Number.isNaN(btnY) || btnW <= 0 || btnH <= 0) return;
 
         const [, panelW] = this.menuContainer.get_preferred_width(-1);
         const [, panelH] = this.menuContainer.get_preferred_height(-1);
@@ -241,7 +245,7 @@ export default class FolderMenu {
         if (this.dockUI.folderManager) {
             this.dockUI.folderManager.saveFolders();
         }
-        this.dockUI.queueRender();
+        this.dockUI.queueRender('incremental');
         
         this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 100, () => {
             this._isInternalSave = false;
@@ -297,7 +301,7 @@ export default class FolderMenu {
 
             this.timers.remove(this._posTrackerId);
             this._posTrackerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, POSITION_TRACKER_INTERVAL_MS, () => {
-                if (!this.actor || !this.actor.get_stage()) {
+                if (!this.actor || !isActorAlive(this.actor) || !this.actor.get_stage()) {
                     this._posTrackerId = null;
                     return GLib.SOURCE_REMOVE;
                 }
@@ -319,7 +323,7 @@ export default class FolderMenu {
         this.timers.remove(this._posTrackerId);
         this._posTrackerId = null;
         
-        if (this._emojiOverlay) {
+        if (this._emojiOverlay && isActorAlive(this._emojiOverlay)) {
             this._emojiOverlay.destroy();
             this._emojiOverlay = null;
         }
@@ -332,18 +336,25 @@ export default class FolderMenu {
             this.dockUI._activeFolderMenu = null;
         }
 
-        if (this.menuContainer) {
+        if (this.actor && isActorAlive(this.actor) && this.actor.get_parent()) {
+            Main.layoutManager.removeChrome(this.actor);
+        }
+
+        if (this.menuContainer && isActorAlive(this.menuContainer)) {
             this.menuContainer.ease({
                 opacity: 0,
                 duration: 120,
                 mode: Clutter.AnimationMode.EASE_IN_QUAD,
                 onComplete: () => {
-                    if (this.actor && this.actor.get_parent()) Main.layoutManager.removeChrome(this.actor);
-                    if (this.actor) this.actor.destroy();
+                    if (this.actor && isActorAlive(this.actor)) this.actor.destroy();
                     this.actor = null;
                     this.menuContainer = null;
                 }
             });
+        } else if (this.actor && isActorAlive(this.actor)) {
+            this.actor.destroy();
+            this.actor = null;
+            this.menuContainer = null;
         }
     }
 }

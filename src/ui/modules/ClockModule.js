@@ -1,28 +1,31 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 
+import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 
 
@@ -32,12 +35,12 @@ export function buildClockModule(dockUI) {
     const settings = dockUI.settings;
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
 
-    if (!settings.get_boolean('show-clock') || isVertical) {
+    if (!Settings.showClock || isVertical) {
         return null;
     }
 
-    const fontSize = settings.get_int('clock-font-size') || 15;
-    const is24h = settings.get_boolean('use-24h-clock');
+    const fontSize = Settings.clockFontSize || 15;
+    const is24h = Settings.use24hClock;
     
     const timeFormat = is24h ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
     let currentTimeString = GLib.DateTime.new_now_local().format(timeFormat);
@@ -100,7 +103,7 @@ export function buildClockModule(dockUI) {
 
     clockBtn._delegate = {
         app: {
-            get_name: () => 'Date & Time',
+            get_name: () => _('Date & Time'),
             get_state: () => 0,
             get_windows: () => []
         }
@@ -110,7 +113,7 @@ export function buildClockModule(dockUI) {
     clockBtn._timeoutId = null;
 
     const updateClock = () => {
-        const is24hClock = settings.get_boolean('use-24h-clock');
+        const is24hClock = Settings.use24hClock;
         const fmt = is24hClock ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
 
         currentTimeString = GLib.DateTime.new_now_local().format(fmt);

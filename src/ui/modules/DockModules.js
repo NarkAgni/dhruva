@@ -1,20 +1,20 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import St from 'gi://St';
@@ -26,6 +26,7 @@ import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { hexToRgba } from '../../core/Utils.js';
 import { applyIconFilter } from '../DragDrop.js';
@@ -33,13 +34,16 @@ import { buildClockModule } from './ClockModule.js';
 import { buildTrashModule } from './TrashModule.js';
 import { buildAppGridModule } from './AppGridModule.js';
 import ScrollManager from '../../core/ScrollManager.js';
+import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
+import { getIndicatorProps } from '../dock/DockRenderer.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { buildSystemFoldersModule } from './SystemFoldersModule.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { buildDesktopButtonModule, toggleDesktop } from './DesktopButtonModule.js';
+import { createIndicatorBox, attachHoverBackground } from '../dock/DockButtonBase.js';
 
 
 const EMOJI_TEXTURE_SIZE = 128;
@@ -61,29 +65,21 @@ function isWindowForFolder(w, folderPath, folderName) {
     const winTitle = (w.get_title() || '').toLowerCase().trim();
     if (!winTitle) return false;
 
-    const candidates = [];
-    if (folderName) candidates.push(folderName.toLowerCase().trim());
+    if (folderName && (folderName.toLowerCase().includes('trash') || folderName.toLowerCase().includes('recycle'))) {
+        if (winTitle.includes('trash') || winTitle.includes('rubbish') || winTitle.includes('bin')) return true;
+    }
+
+    if (folderName) {
+        const fn = folderName.toLowerCase().trim();
+        if (winTitle === fn || winTitle.startsWith(`${fn} `) || winTitle.includes(fn)) return true;
+    }
 
     if (folderPath) {
         const cleanPath = folderPath.replace(/\/+$/, '');
         const base = cleanPath.split('/').pop();
-        if (base) candidates.push(base.toLowerCase().trim());
-
-        if (cleanPath === GLib.get_home_dir()) {
-            candidates.push('home');
-            const user = GLib.get_user_name();
-            if (user) candidates.push(user.toLowerCase());
-        }
+        if (base && winTitle.includes(base.toLowerCase())) return true;
     }
 
-    for (let i = 0; i < candidates.length; i++) {
-        const c = candidates[i];
-        if (!c) continue;
-        if (winTitle === c) return true;
-        if (winTitle.startsWith(`${c} —`) || winTitle.startsWith(`${c} -`)) return true;
-        if (winTitle.endsWith(`— ${c}`) || winTitle.endsWith(`- ${c}`)) return true;
-        if (winTitle.includes(c)) return true;
-    }
     return false;
 }
 
@@ -134,8 +130,8 @@ export function buildModules(dockUI, iconSize) {
     let desktopModule = null;
     const settings = dockUI.settings;
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const hoverZoom = settings.get_boolean('hover-zoom');
-    const zoomFactor = settings.get_double('hover-zoom-factor');
+    const hoverZoom = Settings.hoverZoom;
+    const zoomFactor = Settings.hoverZoomFactor;
     const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
 
     const toggleAppWindow = (uri, folderPath, folderName, btnActor) => {
@@ -216,7 +212,8 @@ export function buildModules(dockUI, iconSize) {
         });
         iconBin.set_pivot_point(0.5, 0.5);
 
-        const indProps = dockUI._getIndicatorProps();
+        const colorTarget = (typeof iconOrName === 'string' && iconOrName.startsWith('/')) ? iconOrName : (iconActor || iconOrName);
+        const indProps = getIndicatorProps(dockUI, colorTarget);
         iconBin.translation_x = indProps.iconTx;
         iconBin.translation_y = indProps.iconTy;
         iconBin._baseTx = indProps.iconTx;
@@ -240,9 +237,9 @@ export function buildModules(dockUI, iconSize) {
             }
 
             const filteredWins = wins.filter(w => isWindowForFolder(w, folderPath, tooltipName));
-            let finalWins = WorkspaceFilter.filterWindows(filteredWins, settings);
+            let finalWins = WorkspaceFilter.filterWindows(filteredWins);
 
-            if (settings.get_boolean('isolate-monitors') && dockUI.monitorManager) {
+            if (Settings.isolateMonitors && dockUI.monitorManager) {
                 const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
                 finalWins = finalWins.filter(w => w.get_monitor() === currentMonitorIndex);
             }
@@ -250,42 +247,29 @@ export function buildModules(dockUI, iconSize) {
             return finalWins;
         };
 
+        const dockHeightPad = Settings.dockHeight || 6;
+        const pad = Math.max(dockHeightPad, 4);
+        const expandedDim = iconSize + pad * 2;
+        const collapsedDim = iconSize + 2;
+
         const activeWins = getMatchingWindows();
         const isRunning = activeWins.length > 0;
 
-        if (isRunning && settings.get_boolean('show-running-indicators')) {
-            const numDots = (activeWins.length > 1 && (indProps.indStyle === 'dot' || indProps.indStyle === 'square')) ? 2 : 1;
+        const focusWin = global.display.get_focus_window();
+        const isFocused = Array.isArray(activeWins) && activeWins.some(w => w === focusWin);
 
-            let dotX = Clutter.ActorAlign.CENTER;
-            let dotY = Clutter.ActorAlign.CENTER;
-            if (dockUI.dockPosition === 'BOTTOM') dotY = Clutter.ActorAlign.END;
-            else if (dockUI.dockPosition === 'TOP') dotY = Clutter.ActorAlign.START;
-            else if (dockUI.dockPosition === 'LEFT') dotX = Clutter.ActorAlign.START;
-            else if (dockUI.dockPosition === 'RIGHT') dotX = Clutter.ActorAlign.END;
+        if (isRunning && Settings.showRunningIndicators) {
+            const indStyle = Settings.indicatorStyle || 'dot';
+            const count = (indStyle === 'line' || indStyle === 'windows') ? 1 : (activeWins.length > 1 ? 2 : 1);
 
-            const dotBox = new St.BoxLayout({
-                x_align: dotX,
-                y_align: dotY,
-                x_expand: true,
-                y_expand: true,
-                clip_to_allocation: false
-            });
-            dotBox._isIndicator = true;
-            dotBox._baseTx = indProps.tx;
-            dotBox._baseTy = indProps.ty;
-            dotBox.translation_x = indProps.tx;
-            dotBox.translation_y = indProps.ty;
-            dotBox.set_style('spacing: 4px;');
-
-            for (let i = 0; i < numDots; i++) {
-                const dot = new St.Widget({
-                    x_align: Clutter.ActorAlign.CENTER,
-                    y_align: Clutter.ActorAlign.CENTER
-                });
-                dot.set_size(indProps.dw, indProps.dh);
-                dot.set_style(indProps.style);
-                dotBox.add_child(dot);
-            }
+            const dotBox = createIndicatorBox(
+                dockUI.dockPosition,
+                isVertical,
+                indProps,
+                count,
+                expandedDim,
+                isFocused
+            );
 
             appBox.add_child(iconBin);
             appBox.add_child(dotBox);
@@ -293,12 +277,7 @@ export function buildModules(dockUI, iconSize) {
             appBox.add_child(iconBin);
         }
 
-        const dockHeightPad = settings.get_int('dock-height') || 6;
-        const pad = Math.max(dockHeightPad, 4);
-        const expandedDim = iconSize + pad * 2;
-        const collapsedDim = iconSize + 2;
-
-        const isExpanded = isRunning && settings.get_boolean('show-running-indicators') && !hoverZoom;
+        const isExpanded = isRunning && Settings.showRunningIndicators && !hoverZoom;
         const targetW = isVertical ? iconSize : (isExpanded ? expandedDim : collapsedDim);
         const targetH = isVertical ? (isExpanded ? expandedDim : collapsedDim) : iconSize;
 
@@ -351,7 +330,7 @@ export function buildModules(dockUI, iconSize) {
         btn._baseBg = baseBg;
 
         btn.connectObject('notify::hover', () => {
-            if (settings.get_boolean('hover-zoom')) return;
+            if (Settings.hoverZoom) return;
 
             const expanded = isExpanded || btn.hover;
             const currentDim = expanded ? expandedDim : collapsedDim;
@@ -390,10 +369,18 @@ export function buildModules(dockUI, iconSize) {
                     });
                 },
                 open: () => clickAction(btn)
+            },
+            updateRunningState: () => {
+                const wins = getMatchingWindows();
+                const running = wins.length > 0;
+                const focusWin = global.display.get_focus_window();
+                const isFocused = wins.some(w => w === focusWin);
+                const currentProps = getIndicatorProps(dockUI, colorTarget);
+                attachHoverBackground.updateState(btn, running, wins, currentProps, dockUI, isFocused);
             }
         };
 
-        if (settings.get_boolean('hover-zoom')) applyIconFilter(btn);
+        if (Settings.hoverZoom) applyIconFilter(btn);
 
         btn.connectObject('button-press-event', (_actor, event) => {
             if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
@@ -406,7 +393,7 @@ export function buildModules(dockUI, iconSize) {
         btn._activateCallback = (buttonNum, state = 0) => {
             if (buttonNum === 1) {
                 dockUI.actor._lastIconClickTime = Date.now();
-                animateIconClick(iconBin, settings.get_string('click-effect'));
+                animateIconClick(iconBin, Settings.clickEffect);
                 clickAction(btn);
 
                 if (dockUI.actor) {
@@ -452,20 +439,20 @@ export function buildModules(dockUI, iconSize) {
             return Clutter.EVENT_PROPAGATE;
         }, btn);
 
-        ScrollManager.setupAppScroll(btn, getMatchingWindows, settings);
+        ScrollManager.setupAppScroll(btn, getMatchingWindows);
 
         return btn;
     };
 
-    if (settings.get_boolean('show-grid-button')) {
+    if (Settings.showGridButton) {
         gridModule = buildAppGridModule(dockUI, iconSize, actualMaxZoom);
     }
 
-    if (settings.get_boolean('show-desktop-button')) {
-        if (settings.get_boolean('full-width')) {
+    if (Settings.showDesktopButton) {
+        if (Settings.fullWidth) {
             desktopModule = buildDesktopButtonModule(dockUI);
         } else {
-            desktopModule = createBtn('user-desktop', 'Show Desktop', () => {
+            desktopModule = createBtn('user-desktop', _('Show Desktop'), () => {
                 toggleDesktop(dockUI);
             });
         }
@@ -474,7 +461,7 @@ export function buildModules(dockUI, iconSize) {
     const folders = buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow);
     systemModules.push(...folders);
 
-    if (settings.get_boolean('show-trash')) {
+    if (Settings.showTrash) {
         systemModules.push(buildTrashModule(createBtn, toggleAppWindow));
     }
 

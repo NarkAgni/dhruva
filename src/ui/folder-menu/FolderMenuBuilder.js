@@ -1,22 +1,24 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -28,14 +30,17 @@ import PangoCairo from 'gi://PangoCairo';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-
 import { EmojiPicker } from './EmojiPicker.js';
+import { Settings } from '../../core/SettingsManager.js';
+import { getIndicatorProps } from '../dock/DockRenderer.js';
+import { createIndicatorBox } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 
 const APPS_PER_ROW = 5;
 const EMOJI_TEXTURE_DIM = 128;
+const ENTRY_DURATION_MS = 260;
 
 export class FolderMenuBuilder {
     constructor(folderMenu) {
@@ -129,7 +134,7 @@ export class FolderMenuBuilder {
 
         const nameEntry = new St.Entry({
             text: this.folderData.name,
-            hint_text: 'Name',
+            hint_text: _('Name'),
             style: 'font-size: 14px; border-radius: 6px; padding: 4px 8px; color: white; background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); width: 140px;'
         });
 
@@ -155,7 +160,7 @@ export class FolderMenuBuilder {
             this.folderMenu.hide();
             const zenityPath = GLib.find_program_in_path('zenity');
             if (!zenityPath) {
-                Main.notifyError('Dhruva', 'zenity is required for file selection dialogs.');
+                Main.notifyError('Dhruva', _('zenity is required for file selection dialogs.'));
                 return;
             }
 
@@ -177,7 +182,7 @@ export class FolderMenuBuilder {
                                 f.copy_finish(copyRes);
                                 selectedIcon = destPath;
                                 this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, selectedIcon);
-                                this.dockUI.queueRender();
+                                this.dockUI.queueRender('incremental');
                             } catch (err) {
                                 console.error('[Dhruva]', err);
                             }
@@ -196,13 +201,13 @@ export class FolderMenuBuilder {
         }, this);
 
         const commitSave = () => {
-            const newName = nameEntry.get_text() || 'New Folder';
+            const newName = nameEntry.get_text() || _('New Folder');
             this.folderData.name = newName;
             this.dockUI.folderManager.updateFolder(this.folderData.id, newName, selectedIcon);
             nameLabel.set_text(newName);
             displayBox.visible = true;
             editBox.visible = false;
-            this.dockUI.queueRender();
+            this.dockUI.queueRender('incremental');
         };
 
         saveBtn.connectObject('clicked', commitSave, this);
@@ -229,10 +234,10 @@ export class FolderMenuBuilder {
                     cr.$dispose();
 
                     this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, destPath);
-                    this.dockUI.queueRender();
+                    this.dockUI.queueRender('incremental');
                 } catch (_e) {
                     this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, `emoji:${selectedEmoji}`);
-                    this.dockUI.queueRender();
+                    this.dockUI.queueRender('incremental');
                 } finally {
                     this.folderMenu.hide();
                 }
@@ -245,7 +250,7 @@ export class FolderMenuBuilder {
         });
         setBoxVertical(this.folderMenu.gridMasterBox, true);
         this.panel.add_child(this.folderMenu.gridMasterBox);
-        this.refreshGrid();
+        this.refreshGrid(true);
     }
 
     showEmojiPicker(onSelect) {
@@ -253,9 +258,10 @@ export class FolderMenuBuilder {
         picker.show().catch(() => {});
     }
 
-    refreshGrid() {
+    refreshGrid(skipEntryAnimation = false, animatedAppId = null) {
         this.folderData = this.folderMenu.folderData;
         const oldPositions = new Map();
+
         if (this.folderMenu.gridMasterBox.get_n_children() > 0) {
             this.folderMenu.gridMasterBox.get_children().forEach(row => {
                 row.get_children().forEach(btn => {
@@ -291,13 +297,13 @@ export class FolderMenuBuilder {
                         this.folderData.apps = [...new Set(appsArray)];
                         this.folderMenu._saveFolderState();
                     }
-                    this.folderMenu.forceRefresh();
+                    this.folderMenu.forceRefresh(true);
                     return true;
                 }
             };
         }
 
-        const iconSize = this.dockUI.settings.get_int('icon-size') || 48;
+        const iconSize = Settings.iconSize || 48;
         let currentRow = new St.BoxLayout({ style: 'spacing: 8px;' });
         setBoxVertical(currentRow, false);
         currentRow._delegate = this.folderMenu.gridMasterBox._delegate;
@@ -336,26 +342,24 @@ export class FolderMenuBuilder {
             iconWrapper.add_child(iconBin);
 
             const isRunning = app.get_state() === Shell.AppState.RUNNING || app.get_windows().length > 0;
-            if (isRunning) {
-                const indProps = this.dockUI._getIndicatorProps();
-                const dotContainer = new St.Widget({
-                    x_align: Clutter.ActorAlign.CENTER,
-                    y_align: Clutter.ActorAlign.END,
-                    x_expand: true,
-                    y_expand: true,
-                    layout_manager: new Clutter.BinLayout()
-                });
+            if (isRunning && Settings.showRunningIndicators) {
+                const indProps = getIndicatorProps(this.dockUI, app);
+                const windows = app.get_windows();
+                const focusWin = global.display.get_focus_window();
+                const isFocused = Array.isArray(windows) && windows.some(w => w === focusWin);
 
-                const dot = new St.Widget({
-                    x_align: Clutter.ActorAlign.CENTER,
-                    y_align: Clutter.ActorAlign.END,
-                    x_expand: false,
-                    y_expand: false
-                });
-                dot.set_size(indProps.dw, indProps.dh);
-                dot.set_style(`${indProps.style}`);
-                dotContainer.add_child(dot);
-                iconWrapper.add_child(dotContainer);
+                const indStyle = Settings.indicatorStyle || 'dot';
+                const count = (indStyle === 'line' || indStyle === 'windows') ? 1 : Math.max(1, windows.length);
+                const dotBox = createIndicatorBox(
+                    this.dockUI.dockPosition,
+                    false,
+                    indProps,
+                    count,
+                    iconSize + 12,
+                    isFocused
+                );
+
+                iconWrapper.add_child(dotBox);
             }
 
             const btn = new St.Button({
@@ -369,6 +373,17 @@ export class FolderMenuBuilder {
             btn._folderId = this.folderData.id;
             btn._folderName = this.folderData.name;
             btn.set_pivot_point(0.5, 0.5);
+
+            const isJustAdded = Boolean(animatedAppId && animatedAppId === appId);
+            if (isJustAdded) {
+                btn.opacity = 0;
+                btn.set_scale(0.1, 0.1);
+                btn.translation_y = 12;
+            } else {
+                btn.opacity = 255;
+                btn.set_scale(1.0, 1.0);
+                btn.translation_y = 0;
+            }
 
             btn.connectObject('notify::hover', () => {
                 if (!isActorAlive(btn)) return;
@@ -441,7 +456,7 @@ export class FolderMenuBuilder {
                                     b.ease({
                                         translation_x: targetBtn._startX - b._startX,
                                         translation_y: targetBtn._startY - b._startY,
-                                        duration: 250,
+                                        duration: 220,
                                         mode: Clutter.AnimationMode.EASE_OUT_QUAD
                                     });
                                 }
@@ -471,7 +486,7 @@ export class FolderMenuBuilder {
                         this.folderData.apps = [...new Set(appsArray)];
                         this.folderMenu._saveFolderState();
                     }
-                    this.folderMenu.forceRefresh();
+                    this.folderMenu.forceRefresh(true);
                     return true;
                 }
             };
@@ -504,7 +519,7 @@ export class FolderMenuBuilder {
                     b.ease({
                         translation_x: 0,
                         translation_y: 0,
-                        duration: 250,
+                        duration: 220,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD
                     });
                 });
@@ -522,12 +537,25 @@ export class FolderMenuBuilder {
 
         this.folderMenu.gridMasterBox.queue_relayout();
 
-        if (oldPositions.size > 0) {
-            this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                if (!this.folderMenu.gridMasterBox || !isActorAlive(this.folderMenu.gridMasterBox)) return GLib.SOURCE_REMOVE;
+        this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (!this.folderMenu.gridMasterBox || !isActorAlive(this.folderMenu.gridMasterBox)) return GLib.SOURCE_REMOVE;
 
-                allFolderBtns.forEach(btn => {
-                    if (!btn || !isActorAlive(btn)) return;
+            allFolderBtns.forEach(btn => {
+                if (!btn || !isActorAlive(btn)) return;
+
+                if (animatedAppId === btn._appId) {
+                    btn.opacity = 0;
+                    btn.set_scale(0.1, 0.1);
+                    btn.translation_y = 12;
+                    btn.ease({
+                        scale_x: 1.0,
+                        scale_y: 1.0,
+                        translation_y: 0,
+                        opacity: 255,
+                        duration: ENTRY_DURATION_MS,
+                        mode: Clutter.AnimationMode.EASE_OUT_CUBIC
+                    });
+                } else {
                     const oldPos = oldPositions.get(btn._appId);
                     if (oldPos) {
                         const [newX, newY] = btn.get_transformed_position();
@@ -537,24 +565,23 @@ export class FolderMenuBuilder {
                             btn.ease({
                                 translation_x: 0,
                                 translation_y: 0,
-                                duration: 350,
+                                duration: 240,
                                 mode: Clutter.AnimationMode.EASE_OUT_CUBIC
                             });
                         }
                     } else {
-                        btn.set_scale(0.5, 0.5);
-                        btn.opacity = 0;
-                        btn.ease({
-                            scale_x: 1.0,
-                            scale_y: 1.0,
-                            opacity: 255,
-                            duration: 250,
-                            mode: Clutter.AnimationMode.EASE_OUT_BACK
-                        });
+                        btn.opacity = 255;
+                        btn.set_scale(1.0, 1.0);
+                        btn.translation_y = 0;
                     }
-                });
-                return GLib.SOURCE_REMOVE;
+                }
             });
-        }
+
+            if (this.folderMenu && this.folderMenu._updatePosition) {
+                this.folderMenu._updatePosition();
+            }
+
+            return GLib.SOURCE_REMOVE;
+        });
     }
 }

@@ -1,25 +1,27 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../../core/Utils.js';
+import { Settings } from '../../core/SettingsManager.js';
+import { _flipAnimateDockIcons } from './DockRenderer.js';
 import { calculateScale, calculatePivot, calculateBackgroundBounds } from './DockGeometryCalculator.js';
 
 
@@ -38,12 +40,12 @@ export function updateLayout(dockUI) {
     }
     if (dockUI.actor._isDragging) dockUI._wasDragging = true;
 
-    const isFullWidth = dockUI.settings.get_boolean('full-width');
+    const isFullWidth = Settings.fullWidth;
     const pos = dockUI.dockPosition;
     const isVertical = pos === 'LEFT' || pos === 'RIGHT';
-    const alignment = dockUI.settings.get_string('icon-alignment') || 'CENTER';
+    const alignment = Settings.iconAlignment || 'CENTER';
     const monitorResult = dockUI.monitorManager.getCurrentMonitor();
-    
+
     if (!monitorResult || !monitorResult.monitor) return;
 
     const actualMonitor = monitorResult.monitor;
@@ -76,11 +78,11 @@ export function updateLayout(dockUI) {
         [, clockH] = dockUI.extractedClock.get_preferred_height(-1);
     }
 
-    const sWidth = !isFullWidth ? dockUI.settings.get_int('stroke-width') : 0;
-    const hoverZoom = dockUI.settings.get_boolean('hover-zoom');
-    const maxZoom = hoverZoom ? dockUI.settings.get_double('hover-zoom-factor') : 1.0;
+    const sWidth = !isFullWidth ? Settings.strokeWidth : 0;
+    const hoverZoom = Settings.hoverZoom;
+    const maxZoom = hoverZoom ? Settings.hoverZoomFactor : 1.0;
     const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
-    const iconSize = dockUI.settings.get_int('icon-size');
+    const iconSize = Settings.iconSize;
     const maxExpansion = hoverZoom ? (iconSize * 3.5 * (actualMax - 1.0)) : 0;
 
     const actorW = isFullWidth ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : boxW + (sWidth * 2);
@@ -90,7 +92,7 @@ export function updateLayout(dockUI) {
 
     let contentW = boxW;
     let contentH = boxH;
-    
+
     if (isFullWidth) {
         if (dockUI.gridBtn && dockUI.gridBtn.visible) {
             contentW += gridW + 80;
@@ -127,16 +129,16 @@ export function updateLayout(dockUI) {
     let cy = 0;
     let rightOffset = 0;
     let bottomOffset = 0;
-    
+
     if (isFullWidth && dockUI.extractedDesktop && dockUI.extractedDesktop.visible) {
-        const deskBtnWidth = dockUI.settings.get_int('desktop-btn-width');
+        const deskBtnWidth = Settings.desktopBtnWidth;
         const dWidth = isVertical ? bgW : deskBtnWidth;
         const dHeight = isVertical ? deskBtnWidth : bgH;
-        
+
         dockUI.extractedDesktop.set_size(dWidth, dHeight);
         const dx = isVertical ? bgX : bgX + bgW - dWidth;
         const dy = isVertical ? bgY + bgH - dHeight : bgY;
-        
+
         dockUI.extractedDesktop.set_position(dx, dy);
         rightOffset = isVertical ? 0 : dWidth;
         bottomOffset = isVertical ? dHeight : 0;
@@ -213,4 +215,9 @@ export function updateLayout(dockUI) {
 
     dockUI.actor._cachedW = actorW;
     dockUI.actor._cachedH = actorH;
+
+    if (dockUI._preRenderPositions && dockUI._preRenderPositions.size > 0) {
+        _flipAnimateDockIcons(dockUI, dockUI._preRenderPositions);
+        dockUI._preRenderPositions.clear();
+    }
 }

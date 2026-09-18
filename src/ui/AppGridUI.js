@@ -1,28 +1,31 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { Settings } from '../core/SettingsManager.js';
 import { setBoxVertical, hexToRgba } from '../core/Utils.js';
 import AppContextMenu from './context-menu/AppContextMenu.js';
 
@@ -100,7 +103,7 @@ export default class AppGridUI {
         const leftSpacer = new St.Widget({ x_expand: true });
 
         const title = new St.Label({
-            text: 'All Applications',
+            text: _('All Applications'),
             style_class: 'app-list-title',
             y_align: Clutter.ActorAlign.CENTER,
         });
@@ -143,7 +146,7 @@ export default class AppGridUI {
 
         this.searchEntry = new St.Entry({
             style_class: 'app-list-search',
-            hint_text: 'Search apps...',
+            hint_text: _('Search apps...'),
             can_focus: true,
             x_expand: true,
         });
@@ -448,13 +451,13 @@ export default class AppGridUI {
 
     _applyChameleonStyle() {
         const settings = this.dockUI.settings;
-        const themeId = settings.get_string('dock-theme') || 'default';
-        const opacity = settings.get_int('background-opacity') / 100.0;
-        const sWidth = settings.get_int('stroke-width');
-        const sColor = settings.get_string('stroke-color') || '#ffffff';
-        const sOpacity = settings.get_int('stroke-opacity') / 100.0;
+        const themeId = Settings.dockTheme || 'default';
+        const opacity = Settings.backgroundOpacity / 100.0;
+        const sWidth = Settings.strokeWidth;
+        const sColor = Settings.strokeColor || '#ffffff';
+        const sOpacity = Settings.strokeOpacity / 100.0;
 
-        let bgRgba = hexToRgba(settings.get_string('background-color') || '#241F31', opacity);
+        let bgRgba = hexToRgba(Settings.backgroundColor || '#241F31', opacity);
         let strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'transparent';
 
         if (themeId === 'chameleon') {

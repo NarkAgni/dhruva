@@ -1,31 +1,28 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
-import GLib from 'gi://GLib';
-import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { isActorAlive } from './Utils.js';
+import { Settings } from './SettingsManager.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 
-const CHECKER_INTERVAL_MS = 400;
 const FALLBACK_PANEL_HEIGHT = 27;
 
 export default class DockManager {
@@ -33,7 +30,6 @@ export default class DockManager {
         this.dockUI = dockUI;
         this.settings = settings;
         this._originalDash = Main.overview.dash;
-        this._externalActors = new Set();
         this.timers = new TimeoutTracker();
 
         this._applyDashState();
@@ -44,7 +40,7 @@ export default class DockManager {
     }
 
     _applyDashState() {
-        if (this.settings.get_boolean('independent-dock')) {
+        if (Settings.independentDock) {
             this._restoreGnomeDash();
         } else {
             this._takeoverGnomeDash();
@@ -52,7 +48,7 @@ export default class DockManager {
     }
 
     _takeoverGnomeDash() {
-        if (!this._originalDash || this._hijackedOrigBox) return;
+        if (!this._originalDash) return;
 
         if (!this._origAdjustIconSize && this._originalDash._adjustIconSize) {
             this._origAdjustIconSize = this._originalDash._adjustIconSize.bind(this._originalDash);
@@ -74,236 +70,12 @@ export default class DockManager {
         if (this._originalDash.show) {
             this._originalDash.show();
         }
-
-        const stealExternalWidget = (child) => {
-            if (!child) return false;
-            const sc = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
-
-            const isGnomeOrDhruva = sc.includes('app-well-app') ||
-                sc.includes('show-apps') ||
-                sc.includes('dash-item-container') ||
-                sc.includes('dash-separator') ||
-                sc.includes('placeholder') ||
-                sc.includes('empty-dash-drop-target') ||
-                sc.includes('dock-app-button') ||
-                sc.includes('clock-module') ||
-                child._isModule;
-
-            if (!isGnomeOrDhruva) {
-                if (!isActorAlive(child)) return false;
-
-                if (this._externalActors.has(child)) {
-                    if (this.dockUI && this.dockUI.boxActor && child.get_parent() !== this.dockUI.boxActor) {
-                        const cur = child.get_parent();
-                        if (cur) cur.remove_child(child);
-                        this.dockUI.boxActor.add_child(child);
-                    }
-                    return true;
-                }
-
-                const parent = child.get_parent();
-                if (parent) parent.remove_child(child);
-
-                child._isExternal = true;
-                child._dhruvaExternalOwner = this;
-                child._is3rdParty = true;
-                child._isPillActive = false;
-                this._externalActors.add(child);
-
-                child._isStatic = true;
-                if (child.ease) {
-                    child.ease = function (props) {
-                        const newProps = Object.assign({}, props);
-                        delete newProps.scale_x;
-                        delete newProps.scale_y;
-                        Clutter.Actor.prototype.ease.call(this, newProps);
-                    };
-                }
-                if (child.set_scale) {
-                    const origScale = child.set_scale.bind(child);
-                    child.set_scale = (sx, sy) => {
-                        if (sx === 1 && sy === 1) origScale(sx, sy);
-                    };
-                }
-
-                if (this.dockUI && this.dockUI.boxActor) {
-                    this.dockUI.boxActor.add_child(child);
-                    try {
-                        this.dockUI.boxActor.set_child_above_sibling(child, null);
-                    } catch (_e) { }
-                    if (this.dockUI.queueRender) {
-                        this.dockUI.queueRender();
-                    }
-                }
-
-                if (!this._3rdPartyCheckerRunning) {
-                    this._3rdPartyCheckerRunning = true;
-
-                    const globalChecker = () => {
-                        if (!this._externalActors || !this.dockUI) {
-                            this._3rdPartyCheckerRunning = false;
-                            return GLib.SOURCE_REMOVE;
-                        }
-
-                        this._externalActors.forEach(ext => {
-                            if (ext && ext._is3rdParty && isActorAlive(ext)) {
-                                if (this.dockUI.boxActor && ext.get_parent() !== this.dockUI.boxActor) {
-                                    const curP = ext.get_parent();
-                                    if (curP) curP.remove_child(ext);
-                                    this.dockUI.boxActor.add_child(ext);
-                                }
-
-                                let fullText = '';
-                                const collectText = (actor) => {
-                                    if (!isActorAlive(actor) || !actor.get_children) return;
-                                    actor.get_children().forEach(sub => {
-                                        const t = (sub.get_text ? sub.get_text() : sub.text) || '';
-                                        if (typeof t === 'string' && t.trim().length > 0) {
-                                            fullText += ` ${t.toLowerCase()}`;
-                                        }
-                                        collectText(sub);
-                                    });
-                                };
-                                collectText(ext);
-
-                                const isMediaDead = fullText.includes('no media') ||
-                                    fullText.includes('waiting for playback') ||
-                                    fullText.trim() === '';
-
-                                const isVert = this.dockUI && (this.dockUI.dockPosition === 'LEFT' || this.dockUI.dockPosition === 'RIGHT');
-                                ext._mediaDead = isMediaDead;
-
-                                const shouldBeVisible = !isVert && !isMediaDead;
-                                ext._isPillActive = shouldBeVisible;
-
-                                if (!shouldBeVisible && ext.visible) {
-                                    ext.hide();
-                                } else if (shouldBeVisible && !ext.visible) {
-                                    ext.show();
-                                    ext.opacity = 255;
-                                }
-                            }
-                        });
-
-                        return GLib.SOURCE_CONTINUE;
-                    };
-
-                    this.timers.addTimeout(GLib.PRIORITY_DEFAULT, CHECKER_INTERVAL_MS, globalChecker);
-                }
-
-                return true;
-            }
-            return false;
-        };
-
-        const releaseExternalWidget = (child) => {
-            if (!child) return;
-            const wasTracked = this._externalActors.delete(child);
-            if (!wasTracked && !child._isExternal) return;
-
-            if (isActorAlive(child)) {
-                child.disconnectObject(this);
-                child._isExternal = false;
-                child._dhruvaExternalOwner = null;
-                child._is3rdParty = false;
-
-                if (this.dockUI && this.dockUI.queueRender) {
-                    this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                        if (this.dockUI) this.dockUI.queueRender();
-                        return GLib.SOURCE_REMOVE;
-                    });
-                }
-            }
-        };
-
-        if (this._originalDash._box) {
-            const origBox = this._originalDash._box;
-
-            origBox.get_children().forEach(child => {
-                stealExternalWidget(child);
-            });
-
-            if (!origBox._isHijacked) {
-                const _nativeOrigAdd = origBox.add_child.bind(origBox);
-                const _nativeOrigInsert = origBox.insert_child_at_index.bind(origBox);
-                const _nativeOrigRemove = origBox.remove_child.bind(origBox);
-                const _nativeOrigAddActor = origBox.add_actor ? origBox.add_actor.bind(origBox) : null;
-
-                origBox.add_child = (child) => {
-                    if (!stealExternalWidget(child)) _nativeOrigAdd(child);
-                };
-                origBox.insert_child_at_index = (child, index) => {
-                    if (!stealExternalWidget(child)) _nativeOrigInsert(child, index);
-                };
-                origBox.remove_child = (child) => {
-                    if (!isActorAlive(child)) {
-                        releaseExternalWidget(child);
-                        return;
-                    }
-
-                    const realParent = child.get_parent();
-                    if (realParent === origBox) {
-                        _nativeOrigRemove(child);
-                    } else if (realParent) {
-                        realParent.remove_child(child);
-                    }
-                    releaseExternalWidget(child);
-                };
-
-                if (_nativeOrigAddActor) {
-                    origBox.add_actor = (child) => {
-                        if (!stealExternalWidget(child)) _nativeOrigAddActor(child);
-                    };
-                    this._nativeOrigAddActor = _nativeOrigAddActor;
-                }
-
-                origBox._isHijacked = true;
-                this._hijackedOrigBox = origBox;
-                this._nativeOrigAdd = _nativeOrigAdd;
-                this._nativeOrigInsert = _nativeOrigInsert;
-                this._nativeOrigRemove = _nativeOrigRemove;
-            }
-        }
     }
 
     _restoreGnomeDash() {
         if (this._originalDash && this._origAdjustIconSize) {
             this._originalDash._adjustIconSize = this._origAdjustIconSize;
             this._origAdjustIconSize = null;
-        }
-
-        const originalBox = this._originalDash._box;
-
-        if (this._hijackedOrigBox && this._nativeOrigAdd && this._nativeOrigInsert && this._nativeOrigRemove) {
-            this._hijackedOrigBox.add_child = this._nativeOrigAdd;
-            this._hijackedOrigBox.insert_child_at_index = this._nativeOrigInsert;
-            this._hijackedOrigBox.remove_child = this._nativeOrigRemove;
-            if (this._nativeOrigAddActor) {
-                this._hijackedOrigBox.add_actor = this._nativeOrigAddActor;
-            }
-            this._hijackedOrigBox._isHijacked = false;
-        }
-
-        if (originalBox && this._externalActors && this._externalActors.size > 0) {
-            Array.from(this._externalActors).forEach(child => {
-                if (!isActorAlive(child) || child._dhruvaExternalOwner !== this) return;
-
-                child.disconnectObject(this);
-
-                const parent = child.get_parent();
-                if (parent) parent.remove_child(child);
-
-                child._isExternal = false;
-                child._dhruvaExternalOwner = null;
-                child._is3rdParty = false;
-
-                if (this._nativeOrigAdd && originalBox === this._hijackedOrigBox) {
-                    this._nativeOrigAdd(child);
-                } else {
-                    originalBox.add_child(child);
-                }
-            });
-            this._externalActors.clear();
         }
 
         if (this._originalDash) {
@@ -315,11 +87,6 @@ export default class DockManager {
                 this._originalDash.show();
             }
         }
-
-        this._hijackedOrigBox = null;
-        this._nativeOrigAdd = null;
-        this._nativeOrigInsert = null;
-        this._nativeOrigAddActor = null;
     }
 
     updatePosition() {
@@ -349,10 +116,9 @@ export default class DockManager {
             height: actualMonitor.height - topOffset
         };
 
-        const hideMode = this.settings.get_string('hide-mode');
-        const rawMargin = this.settings.get_int('dock-margin');
-        const pos = this.settings.get_string('dock-position');
-        const isFullWidth = this.settings.get_boolean('full-width');
+        const rawMargin = Settings.dockMargin;
+        const pos = Settings.dockPosition;
+        const isFullWidth = Settings.fullWidth;
 
         const margin = rawMargin;
 

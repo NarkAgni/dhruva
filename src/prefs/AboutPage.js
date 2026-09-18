@@ -1,22 +1,23 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
@@ -25,7 +26,7 @@ import Gio from 'gi://Gio';
 
 export function buildAboutPage(prefs, window) {
     const page = new Adw.PreferencesPage({
-        title: 'About',
+        title: _('About'),
         icon_name: 'help-about-symbolic'
     });
     window.add(page);
@@ -58,7 +59,7 @@ export function buildAboutHero(prefs, page) {
         margin_top: 8
     }));
     heroBox.append(new Gtk.Label({
-        label: 'A beautifully crafted, highly customisable dock for GNOME Shell',
+        label: _('A beautifully crafted, highly customisable dock for GNOME Shell'),
         css_classes: ['dim-label'],
         margin_bottom: 4
     }));
@@ -74,7 +75,7 @@ export function buildAboutHero(prefs, page) {
 
 export function buildAboutLinks(page, window) {
     const group = new Adw.PreferencesGroup({
-        title: 'Links'
+        title: _('Links')
     });
     page.add(group);
 
@@ -97,50 +98,42 @@ export function buildAboutLinks(page, window) {
         group.add(row);
     };
 
-    addLink('GitHub Repository', 'github.com/narkagni/dhruva', 'system-software-install-symbolic', 'https://github.com/narkagni/dhruva');
+    addLink(_('GitHub Repository'), 'github.com/narkagni/dhruva', 'system-software-install-symbolic', 'https://github.com/narkagni/dhruva');
 }
 
 export function buildAboutAuthor(prefs, page) {
     const group = new Adw.PreferencesGroup({
-        title: 'Credits'
+        title: _('Credits')
     });
     page.add(group);
     group.add(new Adw.ActionRow({
         title: 'Narkagni',
-        subtitle: 'Author &amp; Maintainer',
+        subtitle: _('Author & Maintainer'),
         icon_name: 'avatar-default-symbolic'
     }));
 
     group.add(new Adw.ActionRow({
-        title: 'Features',
-        subtitle: 'Per-app running indicators · ' +
-            'Hover zoom magnification · Window minimize effects (Magic Lamp, Snake, Vortex &amp; more) · ' +
-            'Icon click animations (Bounce, Jelly, Heartbeat &amp; 20+ styles) · ' +
-            'Intelligent auto-hide with edge pressure reveal · ' +
-            'Chameleon theme (wallpaper colour matching) · ' +
-            'Full-width dock mode · Multi-monitor support · ' +
-            'Custom folders, Trash, Desktop button &amp; App Grid · ' +
-            'Workspace isolation · Aero Peek window previews · ' +
-            'Lock icons to prevent accidental reorder',
+        title: _('Features'),
+        subtitle: _('Per-app running indicators · Hover zoom magnification · Window minimize effects (Magic Lamp, Snake, Vortex & more) · Icon click animations (Bounce, Jelly, Heartbeat & 20+ styles) · Intelligent auto-hide with edge pressure reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode · Multi-monitor support · Custom folders, Trash, Desktop button & App Grid · Workspace isolation · Aero Peek window previews · Lock icons to prevent accidental reorder'),
         icon_name: 'starred-symbolic'
     }));
 
     group.add(new Adw.ActionRow({
-        title: 'Disclaimer',
-        subtitle: 'Dhruva Dock is an independent open-source project.',
+        title: _('Disclaimer'),
+        subtitle: _('Dhruva Dock is an independent open-source project.'),
         icon_name: 'dialog-information-symbolic'
     }));
 }
 
 export function buildAboutDonations(page, window) {
     const group = new Adw.PreferencesGroup({
-        title: 'Support Development',
-        description: 'If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!'
+        title: _('Support Development'),
+        description: _('If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!')
     });
     page.add(group);
 
     const coffeeRow = new Adw.ActionRow({
-        title: 'Buy Me a Coffee',
+        title: _('Buy Me a Coffee'),
         subtitle: 'buymeacoffee.com/narkagni',
         icon_name: 'emoji-food-symbolic',
         activatable: true
@@ -170,13 +163,13 @@ export function buildAboutDonations(page, window) {
             icon_name: 'edit-copy-symbolic',
             valign: Gtk.Align.CENTER,
             css_classes: ['flat', 'circular'],
-            tooltip_text: `Copy ${coin} address`
+            tooltip_text: `${_('Copy')} ${coin} ${_('address')}`
         });
 
         copyBtn.connect('clicked', () => {
             window.get_display().get_clipboard().set_content(Gdk.ContentProvider.new_for_value(address));
             window.add_toast(new Adw.Toast({
-                title: `${coin} address copied!`,
+                title: `${coin} ${_('address copied!')}`,
                 timeout: 2
             }));
         });

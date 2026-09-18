@@ -1,22 +1,23 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
+import { Settings } from '../../core/SettingsManager.js';
 import { hexToRgba, isActorAlive } from '../../core/Utils.js';
 import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from '../Themes.js';
 
@@ -26,8 +27,8 @@ const DEFAULT_CHAMELEON_RAW = { r: 80, g: 90, b: 120 };
 
 export function resolveTooltipColors(dockUI, themeId) {
     const settings = dockUI.settings;
-    const opacity = Math.min(1.0, (settings.get_int('background-opacity') / 100.0) + 0.05);
-    const sColor = settings.get_string('stroke-color') || '#ffffff';
+    const opacity = Math.min(1.0, (Settings.backgroundOpacity / 100.0) + 0.05);
+    const sColor = Settings.strokeColor || '#ffffff';
 
     if (themeId === 'chameleon') {
         const bg = (dockUI._chameleonColor && dockUI._chameleonColor.bg) ? dockUI._chameleonColor.bg : DEFAULT_CHAMELEON_BG;
@@ -39,10 +40,10 @@ export function resolveTooltipColors(dockUI, themeId) {
 
     const config = {
         opacity,
-        color1: hexToRgba(settings.get_string('background-color') || '#000000', opacity),
-        color2: hexToRgba(settings.get_string('background-gradient-color') || '#000000', opacity),
-        useGradient: settings.get_boolean('use-gradient'),
-        direction: settings.get_string('gradient-direction') || 'vertical',
+        color1: hexToRgba(Settings.backgroundColor || '#000000', opacity),
+        color2: hexToRgba(Settings.backgroundGradientColor || '#000000', opacity),
+        useGradient: Settings.useGradient,
+        direction: Settings.gradientDirection || 'vertical',
     };
 
     const tooltipCss = (DockThemes && DockThemes[themeId]) 
@@ -55,16 +56,16 @@ export function resolveTooltipColors(dockUI, themeId) {
 export function applyDynamicStyles(dockUI) {
     if (!isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
 
-    const isFullWidth = dockUI.settings.get_boolean('full-width');
-    const radius = isFullWidth ? 0 : dockUI.settings.get_int('border-radius');
-    const sWidth = dockUI.settings.get_int('stroke-width');
+    const isFullWidth = Settings.fullWidth;
+    const radius = isFullWidth ? 0 : Settings.borderRadius;
+    const sWidth = Settings.strokeWidth;
     const borderStyle = sWidth > 0 && !isFullWidth 
-        ? `border: ${sWidth}px solid ${hexToRgba(dockUI.settings.get_string('stroke-color'), dockUI.settings.get_int('stroke-opacity') / 100.0)};` 
+        ? `border: ${sWidth}px solid ${hexToRgba(Settings.strokeColor, Settings.strokeOpacity / 100.0)};` 
         : '';
 
     const baseLayoutCss = `border-radius: ${radius}px; ${borderStyle}`;
-    const opacity = dockUI.settings.get_int('background-opacity') / 100.0;
-    const currentTheme = dockUI.settings.get_string('dock-theme') || 'default';
+    const opacity = Settings.backgroundOpacity / 100.0;
+    const currentTheme = Settings.dockTheme || 'default';
 
     if (currentTheme === 'chameleon' && !dockUI._chameleonColor) {
         const extracted = extractWallpaperDominantColor();
@@ -79,18 +80,18 @@ export function applyDynamicStyles(dockUI) {
 
     const customConfig = {
         opacity,
-        color1: hexToRgba(dockUI.settings.get_string('background-color'), opacity),
-        color2: hexToRgba(dockUI.settings.get_string('background-gradient-color'), opacity),
-        useGradient: dockUI.settings.get_boolean('use-gradient'),
-        direction: dockUI.settings.get_string('gradient-direction'),
+        color1: hexToRgba(Settings.backgroundColor, opacity),
+        color2: hexToRgba(Settings.backgroundGradientColor, opacity),
+        useGradient: Settings.useGradient,
+        direction: Settings.gradientDirection,
         chameleonColor: dockUI._chameleonColor,
     };
 
     applyDockTheme(dockUI.bgActor, currentTheme, baseLayoutCss, customConfig);
 
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const sidePad = dockUI.settings.get_int('dock-padding');
-    const heightPad = dockUI.settings.get_int('dock-height') || 6;
+    const sidePad = Settings.dockPadding;
+    const heightPad = Settings.dockHeight || 6;
     const safeSidePad = isFullWidth ? sidePad : Math.max(sidePad, Math.ceil(radius * 0.45));
     const safeHeightPad = Math.max(heightPad, 4);
 
@@ -98,7 +99,7 @@ export function applyDynamicStyles(dockUI) {
         ? (isVertical ? `4px ${safeHeightPad}px` : `${safeHeightPad}px 4px`)
         : (isVertical ? `${safeSidePad}px ${safeHeightPad}px` : `${safeHeightPad}px ${safeSidePad}px`);
 
-    const gap = dockUI.settings.get_int('icon-spacing');
+    const gap = Settings.iconSpacing;
     dockUI.boxActor.set_style(`background-color: transparent; padding: ${boxPad}; spacing: ${gap}px;`);
 
     const tooltipColors = resolveTooltipColors(dockUI, currentTheme);
@@ -112,7 +113,7 @@ export function applyDynamicStyles(dockUI) {
             if (c.has_style_class_name && c.has_style_class_name('clock-module')) {
                 const label = c.get_child ? c.get_child() : null;
                 if (isActorAlive(label)) {
-                    const fontSize = dockUI.settings.get_int('clock-font-size') || 15;
+                    const fontSize = Settings.clockFontSize || 15;
                     label.set_style(`color: ${dockUI.actor._clockFg}; font-size: ${fontSize}px; font-weight: 700; text-shadow: 0px 1px 3px rgba(0,0,0,0.7); padding: 0 2px;`);
                 }
             }

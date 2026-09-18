@@ -1,25 +1,26 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
+import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { applyRealtimeFrame } from './MagnifierFrameEngine.js';
 import { isActorAlive, getBoxVertical } from '../../core/Utils.js';
@@ -32,32 +33,51 @@ import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltip
 function _checkPointerLeave(dockActor, settings) {
     if (dockActor._leaveCheckId && dockActor._magTimers) {
         dockActor._magTimers.remove(dockActor._leaveCheckId);
+        dockActor._leaveCheckId = null;
+    }
+
+    if (dockActor._isResetting) return;
+
+    const isVertical = getBoxVertical(dockActor.boxActor);
+    const [px, py] = global.get_pointer();
+    const onDock = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings);
+    const insideTooltip = isInsideTooltip(dockActor, px, py, 16);
+    const insideBridge = isPointerInDockTooltipBridge(dockActor, px, py, settings);
+
+    if (!onDock && !insideTooltip && !insideBridge) {
+        dockActor._isResetting = true;
+        resetMagnification(dockActor, 180);
+        return;
     }
 
     let attempts = 0;
     const checkLeave = () => {
-        if (!isActorAlive(dockActor)) return GLib.SOURCE_REMOVE;
+        if (!isActorAlive(dockActor)) {
+            dockActor._leaveCheckId = null;
+            return GLib.SOURCE_REMOVE;
+        }
 
         if (isContextMenuOpen() || dockActor._isDragging || dockActor._launchingApp) {
             dockActor._leaveCheckId = null;
             return GLib.SOURCE_REMOVE;
         }
 
-        const [px, py] = global.get_pointer();
-        const isVertical = getBoxVertical(dockActor.boxActor);
-        const inside = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings);
-        const insideTooltip = isInsideTooltip(dockActor, px, py, 20);
-        const insideBridge = isPointerInDockTooltipBridge(dockActor, px, py, settings);
+        const [cx, cy] = global.get_pointer();
+        const stillInside = isPointerWithinDockBounds(dockActor, cx, cy, isVertical, settings);
+        const stillInsideTooltip = isInsideTooltip(dockActor, cx, cy, 16);
+        const stillInsideBridge = isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
 
-        if (!inside && !insideTooltip && !insideBridge) {
-            resetMagnification(dockActor);
+        if (!stillInside && !stillInsideTooltip && !stillInsideBridge) {
             dockActor._leaveCheckId = null;
+            if (!dockActor._isResetting) {
+                dockActor._isResetting = true;
+                resetMagnification(dockActor, 180);
+            }
             return GLib.SOURCE_REMOVE;
         }
 
         attempts++;
-        if (attempts > 30) {
-            if (!inside) resetMagnification(dockActor);
+        if (attempts > 12) {
             dockActor._leaveCheckId = null;
             return GLib.SOURCE_REMOVE;
         }
@@ -66,7 +86,7 @@ function _checkPointerLeave(dockActor, settings) {
     };
 
     if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
-    dockActor._leaveCheckId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 25, checkLeave);
+    dockActor._leaveCheckId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, checkLeave);
 }
 
 export function setupMagnification(dockActor, settings, dockPositionGetter) {
@@ -125,7 +145,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
             const insideTooltip = isInsideTooltip(dockActor, ex, ey, 20);
             const insideBridge = isPointerInDockTooltipBridge(dockActor, ex, ey, settings);
-            const pos = settings.get_string('dock-position') || 'BOTTOM';
+            const pos = Settings.dockPosition || 'BOTTOM';
 
             if (!onDock && !insideTooltip && !insideBridge) {
                 _checkPointerLeave(dockActor, settings);
@@ -177,14 +197,14 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
         if (evType !== Clutter.EventType.BUTTON_RELEASE) return Clutter.EVENT_PROPAGATE;
         if (dockActor._isDragging || isAppGridOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
-        if (!settings.get_boolean('hover-zoom')) return Clutter.EVENT_PROPAGATE;
+        if (!Settings.hoverZoom) return Clutter.EVENT_PROPAGATE;
 
         const [ex, ey] = event.get_coords();
         const buttonNum = event.get_button();
         const [dax, day] = dockActor.get_transformed_position();
 
         const isVertical = getBoxVertical(dockActor.boxActor);
-        const actualMaxZoom = 1.0 + (settings.get_double('hover-zoom-factor') - 1.0) * 2.0;
+        const actualMaxZoom = 1.0 + (Settings.hoverZoomFactor - 1.0) * 2.0;
 
         if (!isPointerWithinDockBounds(dockActor, ex, ey, isVertical, settings)) {
             return Clutter.EVENT_PROPAGATE;
@@ -198,7 +218,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 return true;
             }
 
-            if (settings.get_boolean('lock-icons')) {
+            if (Settings.lockIcons) {
                 const dx = Math.abs(ex - (dockActor._globalPressX || ex));
                 const dy = Math.abs(ey - (dockActor._globalPressY || ey));
                 if (dx > 15 || dy > 15) return true;
@@ -261,7 +281,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
         if (!n || actualMaxZoom <= 1.0) return Clutter.EVENT_PROPAGATE;
 
-        const RADIUS = settings.get_int('icon-size') * 3.5;
+        const RADIUS = Settings.iconSize * 3.5;
         const scaleFactor = isVertical ? dockActor.scale_y : dockActor.scale_x;
         const localEx = (isVertical ? ey - day : ex - dax) / scaleFactor;
         const boxX = dockActor.boxActor ? dockActor.boxActor.x : 0;
@@ -344,7 +364,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         }
 
         const zoomOffset = localEx - mappedCursor;
-        const dockPos = settings.get_string('dock-position') || 'BOTTOM';
+        const dockPos = Settings.dockPosition || 'BOTTOM';
 
         for (let i = 0; i < n; i++) {
             const btn = btns[i];

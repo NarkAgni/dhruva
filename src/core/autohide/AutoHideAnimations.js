@@ -1,25 +1,26 @@
 /*
- * Dhruva GNOME Extension
- * Copyright (C) 2026 NarkAgni
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
+* Dhruva GNOME Extension
+* Copyright (C) 2026 NarkAgni
+*
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
 
 
 import Clutter from 'gi://Clutter';
 
 import { isActorAlive } from '../Utils.js';
+import { Settings } from '../SettingsManager.js';
 
 
 const HIDE_OFFSET_BUFFER = 20;
@@ -30,7 +31,7 @@ export function getHideOffsets(dockUI) {
     let hideX = 0;
     let hideY = 0;
 
-    const margin = dockUI.settings.get_int('dock-margin');
+    const margin = Settings.dockMargin;
     const totalExtra = margin + HIDE_OFFSET_BUFFER;
 
     if (pos === 'BOTTOM') {
