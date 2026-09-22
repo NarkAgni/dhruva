@@ -165,7 +165,7 @@ export function _computeDesiredState(dockUI) {
     const displayAppsRaw = dockUI.appManager.getDisplayApps();
     let displayApps = displayAppsRaw;
 
-    const folders = (dockUI.folderManager && dockUI.folderManager.getFolders()) || [];
+    const folders = (dockUI.folderManager && dockUI.folderManager.getFolders && dockUI.folderManager.getFolders()) || [];
     const appsInFolders = new Set();
     folders.forEach(f => {
         if (Array.isArray(f.apps)) {
@@ -316,7 +316,7 @@ export function _computeDesiredState(dockUI) {
     }
 
     let customFolders = [];
-    if (Settings.independentDock && dockUI && dockUI.folderManager && typeof dockUI.folderManager.getCustomFolders === 'function') {
+    if (Settings.independentDock && dockUI && dockUI.folderManager && dockUI.folderManager.getCustomFolders) {
         customFolders = dockUI.folderManager.getCustomFolders() || [];
     } else {
         customFolders = Array.isArray(Settings.customFolders) ? Settings.customFolders : [];
@@ -885,7 +885,9 @@ export function _renderDockIncremental(dockUI, _forceRender = false) {
                 } else {
                     for (let i = 0; i < mods.systemModules.length; i++) {
                         const btn = mods.systemModules[i];
-                        const id = btn._delegate && btn._delegate.app && btn._delegate.app.get_id ? btn._delegate.app.get_id() : '';
+                        const id = (btn._delegate && btn._delegate.app && btn._delegate.app.get_id) 
+                            ? btn._delegate.app.get_id() 
+                            : '';
                         if (id.includes(item.entity) || item.key.includes(id.replace('dhruva-module-', ''))) {
                             newActor = btn;
                             break;

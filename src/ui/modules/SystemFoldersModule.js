@@ -64,7 +64,7 @@ export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
     }
 
     let customFolders = [];
-    if (Settings.independentDock && dockUI && dockUI.folderManager && typeof dockUI.folderManager.getCustomFolders === 'function') {
+    if (Settings.independentDock && dockUI && dockUI.folderManager && dockUI.folderManager.getCustomFolders) {
         customFolders = dockUI.folderManager.getCustomFolders() || [];
     } else {
         customFolders = Array.isArray(Settings.customFolders) ? Settings.customFolders : [];
