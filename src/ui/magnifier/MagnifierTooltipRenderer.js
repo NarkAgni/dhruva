@@ -17,13 +17,12 @@
 */
 
 
-
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import cairo from 'gi://cairo';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { hideTooltip } from './MagnifierTooltip.js';
 import { traceMenuPath } from '../shared/MenuShape.js';

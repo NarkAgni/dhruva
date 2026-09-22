@@ -72,6 +72,12 @@ export default class DhruvaExtension extends Extension {
                     }
                 }
             },
+            'changed::independent-dock',
+            () => {
+                if (this._monitorController) {
+                    this._monitorController.reloadDocks();
+                }
+            },
             this
         );
 

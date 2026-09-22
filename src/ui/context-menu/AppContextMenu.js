@@ -146,7 +146,7 @@ export default class AppContextMenu {
             addSeparator(this.panel);
 
             this.panel.add_child(createIconMenuItem(_('Unpack Stack'), () => {
-                fData.apps.forEach(appId => this.dockUI.appManager.favManager.addFavorite(appId));
+                fData.apps.forEach(appId => this.dockUI.appManager.addApp(appId));
                 this.dockUI.folderManager.deleteFolder(fData.id);
                 this.dockUI.queueRender('incremental');
                 this.hide();

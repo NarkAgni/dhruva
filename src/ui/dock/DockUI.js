@@ -41,8 +41,8 @@ import NotificationManager from '../../core/NotificationManager.js';
 import AutoHideManager from '../../core/autohide/AutoHideManager.js';
 import { teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { applyOverviewDockMargin, clearOverviewDockMargin } from './OverviewMargin.js';
-import { debounce, setBoxVertical, isActorAlive, captureActorRect } from '../../core/Utils.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
+import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
 
 
 const RENDER_DEBOUNCE_MS = 5;
@@ -62,7 +62,7 @@ const WATCHED_SETTINGS = [
     'running-separator-color', 'running-separator-opacity', 'grid-icon-color', 'custom-grid-icon',
     'custom-grid-icon-scale', 'use-old-grid-icon', 'app-folders', 'show-unpinned-apps',
     'desktop-btn-width', 'desktop-btn-opacity', 'desktop-btn-color', 'show-independent-in-overview',
-    'independent-dock', 'show-music-pill', 'music-pill-position', 'indicator-color-mode'
+    'show-music-pill', 'music-pill-position', 'indicator-color-mode'
 ];
 
 const STYLE_SETTINGS = [
@@ -352,9 +352,6 @@ export default class DockUI {
 
         WATCHED_SETTINGS.forEach(key => {
             this.settings.connectObject(`changed::${key}`, () => {
-                if (key === 'independent-dock') {
-                    this._syncDashVisibility();
-                }
                 this.queueRender('full', true);
                 this._updateLayout();
             }, this);
@@ -430,6 +427,12 @@ export default class DockUI {
 
         this._setupChameleonWatcher();
         this._setupTrashMonitor();
+
+        this._iconThemeSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
+        this._iconThemeSettings.connectObject('changed::icon-theme', () => {
+            if (clearIconColorCache) clearIconColorCache();
+            this.queueRender('full', true);
+        }, this);
 
         this.registry.addTimeout(GLib.PRIORITY_LOW, 2500, () => {
             const controls = Main.overview._overview && Main.overview._overview._controls;
@@ -758,6 +761,7 @@ export default class DockUI {
         if (this.settings) this.settings.disconnectObject(this);
         if (this.volumeMonitor) this.volumeMonitor.disconnectObject(this);
         if (this._bgSettings) this._bgSettings.disconnectObject(this);
+        if (this._iconThemeSettings) this._iconThemeSettings.disconnectObject(this);
         if (this._trashMonitor) {
             this._trashMonitor.disconnectObject(this);
             this._trashMonitor.cancel();

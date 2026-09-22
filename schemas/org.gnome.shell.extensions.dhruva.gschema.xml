@@ -35,7 +35,7 @@
     </key>
 
     <key name="full-width" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Full Width Dock</summary>
     </key>
 
@@ -60,7 +60,7 @@
     </key>
 
     <key name="dock-padding" type="i">
-      <default>20</default>
+      <default>8</default>
       <summary>Dock Side Padding</summary>
     </key>
 
@@ -95,7 +95,7 @@
     </key>
 
     <key name="background-opacity" type="i">
-      <default>80</default>
+      <default>60</default>
       <summary>Background Opacity</summary>
     </key>
 
@@ -120,7 +120,7 @@
     </key>
     
     <key name="border-radius" type="i">
-      <default>50</default>
+      <default>20</default>
       <summary>Border Radius</summary>
     </key>
 
@@ -435,7 +435,7 @@
     </key>
 
     <key name="show-clock" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Clock</summary>
     </key>
 

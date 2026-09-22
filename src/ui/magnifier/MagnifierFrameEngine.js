@@ -17,11 +17,10 @@
 */
 
 
-
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { isActorAlive } from '../../core/Utils.js';
 import PeekManager from '../../core/PeekManager.js';

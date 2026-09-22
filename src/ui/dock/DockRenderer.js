@@ -315,18 +315,17 @@ export function _computeDesiredState(dockUI) {
         });
     }
 
-    const customFoldersRaw = Settings.customFolders;
-    if (customFoldersRaw) {
-        try {
-            const parsedFolders = JSON.parse(customFoldersRaw);
-            if (Array.isArray(parsedFolders)) {
-                parsedFolders.forEach((f, idx) => {
-                    const cKey = `dhruva-sys-custom-${idx}-${(f.name || 'folder').toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-                    endModuleKeys.push({ key: cKey, type: 'module', entity: 'custom', folderData: f });
-                });
-            }
-        } catch (_e) {}
+    let customFolders = [];
+    if (Settings.independentDock && dockUI && dockUI.folderManager && typeof dockUI.folderManager.getCustomFolders === 'function') {
+        customFolders = dockUI.folderManager.getCustomFolders() || [];
+    } else {
+        customFolders = Array.isArray(Settings.customFolders) ? Settings.customFolders : [];
     }
+
+    customFolders.forEach((f, idx) => {
+        const cKey = `dhruva-sys-custom-${idx}-${(f.name || 'folder').toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        endModuleKeys.push({ key: cKey, type: 'module', entity: 'custom', folderData: f });
+    });
 
     if (showMusicPill && musicPillPos === 'END' && !isVerticalDock) {
         endModuleKeys.push({ key: 'dhruva-music-pill', type: 'music-pill', entity: null });
@@ -651,17 +650,46 @@ export function _renderDockFull(dockUI, _forceRender = false) {
         } else if (item.type === 'desktop') {
             actor = desktopModule;
         } else if (item.type === 'module') {
-            for (const [modId, modBtn] of sysModulesMap.entries()) {
-                if (modId.includes(item.entity) || item.key.includes(modId.replace('dhruva-module-', ''))) {
-                    actor = modBtn;
-                    sysModulesMap.delete(modId);
-                    break;
+            if (item.entity === 'custom' && item.folderData) {
+                const targetName = item.folderData.name || '';
+                const m = item.key ? item.key.match(/custom-(\d+)/) : null;
+                const targetIdx = m ? parseInt(m[1], 10) : -1;
+                for (const [modId, modBtn] of sysModulesMap.entries()) {
+                    const btnName = (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_name)
+                        ? modBtn._delegate.app.get_name()
+                        : '';
+                    if ((targetIdx >= 0 && modBtn._customFolderIndex === targetIdx) ||
+                        (targetName && btnName === targetName)) {
+                        actor = modBtn;
+                        sysModulesMap.delete(modId);
+                        break;
+                    }
                 }
-            }
-            if (!actor && sysModulesMap.size > 0) {
-                const firstKey = sysModulesMap.keys().next().value;
-                actor = sysModulesMap.get(firstKey);
-                sysModulesMap.delete(firstKey);
+            } else if (item.entity === 'mounts' && item.mountRef) {
+                const targetName = item.mountRef.get_name();
+                for (const [modId, modBtn] of sysModulesMap.entries()) {
+                    const btnName = (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_name)
+                        ? modBtn._delegate.app.get_name()
+                        : '';
+                    if (btnName === targetName) {
+                        actor = modBtn;
+                        sysModulesMap.delete(modId);
+                        break;
+                    }
+                }
+            } else {
+                for (const [modId, modBtn] of sysModulesMap.entries()) {
+                    if (modId.includes(item.entity) || item.key.includes(modId.replace('dhruva-module-', ''))) {
+                        actor = modBtn;
+                        sysModulesMap.delete(modId);
+                        break;
+                    }
+                }
+                if (!actor && sysModulesMap.size > 0) {
+                    const firstKey = sysModulesMap.keys().next().value;
+                    actor = sysModulesMap.get(firstKey);
+                    sysModulesMap.delete(firstKey);
+                }
             }
         } else if (item.type === 'music-pill') {
             if (!dockUI._musicPill) {
@@ -827,14 +855,44 @@ export function _renderDockIncremental(dockUI, _forceRender = false) {
         } else if (item.type === 'module') {
             const mods = buildModules(dockUI, iconSize);
             if (Array.isArray(mods.systemModules)) {
-                for (let i = 0; i < mods.systemModules.length; i++) {
-                    const btn = mods.systemModules[i];
-                    const id = btn._delegate && btn._delegate.app && btn._delegate.app.get_id ? btn._delegate.app.get_id() : '';
-                    if (id.includes(item.entity) || item.key.includes(id.replace('dhruva-module-', ''))) {
-                        newActor = btn;
-                        break;
+                if (item.entity === 'custom' && item.folderData) {
+                    const targetName = item.folderData.name || '';
+                    const m = item.key ? item.key.match(/custom-(\d+)/) : null;
+                    const targetIdx = m ? parseInt(m[1], 10) : -1;
+                    for (let i = 0; i < mods.systemModules.length; i++) {
+                        const btn = mods.systemModules[i];
+                        const btnName = (btn._delegate && btn._delegate.app && btn._delegate.app.get_name)
+                            ? btn._delegate.app.get_name()
+                            : '';
+                        if ((targetIdx >= 0 && btn._customFolderIndex === targetIdx) ||
+                            (targetName && btnName === targetName)) {
+                            newActor = btn;
+                            break;
+                        }
+                    }
+                } else if (item.entity === 'mounts' && item.mountRef) {
+                    const targetName = item.mountRef.get_name();
+                    for (let i = 0; i < mods.systemModules.length; i++) {
+                        const btn = mods.systemModules[i];
+                        const btnName = (btn._delegate && btn._delegate.app && btn._delegate.app.get_name)
+                            ? btn._delegate.app.get_name()
+                            : '';
+                        if (btnName === targetName) {
+                            newActor = btn;
+                            break;
+                        }
+                    }
+                } else {
+                    for (let i = 0; i < mods.systemModules.length; i++) {
+                        const btn = mods.systemModules[i];
+                        const id = btn._delegate && btn._delegate.app && btn._delegate.app.get_id ? btn._delegate.app.get_id() : '';
+                        if (id.includes(item.entity) || item.key.includes(id.replace('dhruva-module-', ''))) {
+                            newActor = btn;
+                            break;
+                        }
                     }
                 }
+
                 if (!newActor && mods.systemModules.length > 0) {
                     newActor = mods.systemModules[0];
                 }

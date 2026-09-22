@@ -109,7 +109,7 @@ export function createSeparator(dockUI, iconSize, isVerticalDock, type = 'module
         sep.set_x_expand(fill);
         if (!fill) sep.set_width(lengthPx);
     } else {
-        sep.set_style(`width: ${width}px; background-color: ${rgba}; border-radius: ${width}px; margin: 0 8px;`);
+        sep.set_style(`width: ${width}px; background-color: ${rgba}; border-radius: ${width}px; margin: 0 4px;`);
         const fill = heightPercent >= 100;
         sep.set_y_align(fill ? Clutter.ActorAlign.FILL : Clutter.ActorAlign.CENTER);
         sep.set_y_expand(fill);
@@ -327,10 +327,15 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows) {
 }
 
 export function buildFolderButton(dockUI, folder) {
-    const iconName = folder.icon || 'folder-symbolic';
+    let iconName = folder.icon || 'folder';
+    if (iconName === 'folder-symbolic') {
+        iconName = 'folder';
+    }
+
     const iconSize = Settings.iconSize;
     const showIndicators = Settings.showRunningIndicators;
     const hoverZoom = Settings.hoverZoom;
+    const zoomFactor = Settings.hoverZoomFactor;
     const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
 
     const appBox = new St.Widget({
@@ -343,6 +348,9 @@ export function buildFolderButton(dockUI, folder) {
 
     const isEmoji = iconName.startsWith('emoji:');
     const isCustomFile = !isEmoji && (iconName.startsWith('/') || iconName.startsWith('file://'));
+
+    const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
+    const renderSize = Math.ceil(iconSize * actualMaxZoom);
 
     let folderIcon;
 
@@ -376,33 +384,38 @@ export function buildFolderButton(dockUI, folder) {
             reactive: false
         });
     } else {
-        const baseRes = isCustomFile ? 256 : iconSize;
-        const folderIconParams = { icon_size: baseRes };
-
+        let gicon;
         if (isCustomFile) {
             const iconFile = Gio.File.new_for_path(iconName.replace('file://', ''));
             if (iconFile.query_exists(null)) {
-                folderIconParams.gicon = new Gio.FileIcon({ file: iconFile });
+                gicon = new Gio.FileIcon({ file: iconFile });
             } else {
-                folderIconParams.icon_name = 'folder-symbolic';
+                gicon = Gio.ThemedIcon.new_with_default_fallbacks('folder');
             }
         } else {
-            folderIconParams.icon_name = iconName;
+            gicon = Gio.ThemedIcon.new_with_default_fallbacks(iconName);
         }
 
-        folderIcon = new St.Icon(folderIconParams);
+        const textureCache = St.TextureCache.get_default();
+        const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor || 1;
+        folderIcon = textureCache.load_gicon(null, gicon, renderSize, scaleFactor, 1.0);
+
+        if (!folderIcon) {
+            folderIcon = new St.Icon({
+                gicon,
+                icon_size: renderSize
+            });
+        }
+
+        folderIcon.set_size(iconSize, iconSize);
         folderIcon.reactive = false;
 
-        const applySmoothFilter = () => {
-            if (folderIcon.set_content_scaling_filters) folderIcon.set_content_scaling_filters(2, 2);
-            const content = folderIcon.get_content();
-            if (content && content.set_min_filter) {
-                content.set_min_filter(2);
-                content.set_mag_filter(2);
-            }
-        };
-        folderIcon.connectObject('notify::content', applySmoothFilter, folderIcon);
-        applySmoothFilter();
+        if (folderIcon.set_content_scaling_filters) {
+            folderIcon.set_content_scaling_filters(
+                Clutter.ScalingFilter.TRILINEAR,
+                Clutter.ScalingFilter.LINEAR
+            );
+        }
     }
 
     const iconBin = new St.Bin({

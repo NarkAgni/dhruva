@@ -20,11 +20,11 @@
 import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
-
 const WALLPAPER_SAMPLE_SIZE = 80;
 const WALLPAPER_PIXEL_STEP = 4;
 const DEFAULT_THEME_BG = { r: 30, g: 30, b: 40 };
 const DEFAULT_THEME_RAW = { r: 90, g: 100, b: 130 };
+
 
 export const DockThemes = {
     default: {

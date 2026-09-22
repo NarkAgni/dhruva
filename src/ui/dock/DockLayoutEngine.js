@@ -205,6 +205,10 @@ export function updateLayout(dockUI) {
     dockUI.bgActor.set_position(bgX, bgY);
     dockUI.bgActor.set_size(bgW, bgH);
 
+    if (dockUI._syncGlassGeometry) {
+        dockUI._syncGlassGeometry();
+    }
+
     if (dockUI.dockManager) {
         dockUI.dockManager.updatePosition();
     }

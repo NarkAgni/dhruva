@@ -17,8 +17,6 @@
 */
 
 
-
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -29,6 +27,7 @@ import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { EmojiPicker } from './EmojiPicker.js';
 import { Settings } from '../../core/SettingsManager.js';
@@ -182,7 +181,7 @@ export class FolderMenuBuilder {
                                 f.copy_finish(copyRes);
                                 selectedIcon = destPath;
                                 this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, selectedIcon);
-                                this.dockUI.queueRender('incremental');
+                                this.dockUI.queueRender('full', true);
                             } catch (err) {
                                 console.error('[Dhruva]', err);
                             }
@@ -234,10 +233,10 @@ export class FolderMenuBuilder {
                     cr.$dispose();
 
                     this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, destPath);
-                    this.dockUI.queueRender('incremental');
+                    this.dockUI.queueRender('full', true);
                 } catch (_e) {
                     this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, `emoji:${selectedEmoji}`);
-                    this.dockUI.queueRender('incremental');
+                    this.dockUI.queueRender('full', true);
                 } finally {
                     this.folderMenu.hide();
                 }

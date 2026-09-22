@@ -17,13 +17,12 @@
 */
 
 
-
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { Settings } from '../core/SettingsManager.js';
 import { setBoxVertical, hexToRgba } from '../core/Utils.js';

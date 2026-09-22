@@ -2,1061 +2,715 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Dhruva Dock 1.0\n"
-"Report-Msgid-Bugs-To: narkagni\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-19 22:46+0530\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: /home/narkagni/Public/github/dhruva/src/core/FolderManager.js:109
+#: /home/narkagni/Public/github/dhruva/src/ui/DragDrop.js:164
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:73
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:137
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:201
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:316
+#: /home/narkagni/Public/github/dhruva/src/ui/folder-menu/FolderMenuBuilder.js:204
+msgid "New Folder"
+msgstr "Новая папка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:29
+msgid "About"
+msgstr "О расширении"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:62
+msgid "A beautifully crafted, highly customisable dock for GNOME Shell"
+msgstr "Красивая и функциональная док-панель для GNOME Shell"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:78
+msgid "Links"
+msgstr "Ссылки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:101
+msgid "GitHub Repository"
+msgstr "Репозиторий GitHub"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:106
+msgid "Credits"
+msgstr "Благодарности"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:111
+msgid "Author & Maintainer"
+msgstr "Автор и разработчик"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:116
+msgid "Features"
+msgstr "Возможности"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:117
+msgid ""
+"Per-app running indicators · Hover zoom magnification · Window minimize "
+"effects (Magic Lamp, Snake, Vortex & more) · Icon click animations (Bounce, "
+"Jelly, Heartbeat & 20+ styles) · Intelligent auto-hide with edge pressure "
+"reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode "
+"· Multi-monitor support · Custom folders, Trash, Desktop button & App Grid · "
+"Workspace isolation · Aero Peek window previews · Lock icons to prevent "
+"accidental reorder"
+msgstr ""
+"Индикаторы для каждого приложения · Увеличение при наведении · Эффекты "
+"сворачивания (Волшебная лампа, Змейка, Черная дыра и др.) · Анимации нажатия "
+"(Подпрыгивание, Желе, Пульс и 20+ стилей) · Умное скрытие с вызовом по "
+"нажатию на край · Тема «Хамелеон» (под цвет обоев) · Полноразмерный режим · "
+"Поддержка нескольких мониторов · Пользовательские папки, Корзина, Кнопка "
+"рабочего стола и Список приложений · Изоляция рабочих мест · Aero Peek "
+"предпросмотр окон · Закрепление значков"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:122
+msgid "Disclaimer"
+msgstr "Отказ от ответственности"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:123
+msgid "Dhruva Dock is an independent open-source project."
+msgstr "Dhruva Dock — независимый проект с открытым исходным кодом."
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:130
+msgid "Support Development"
+msgstr "Поддержка разработки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:131
+msgid "If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!"
+msgstr "Если вам нравится проект, вы можете поддержать разработчика!"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:136
+msgid "Buy Me a Coffee"
+msgstr "Угостить кофе"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:166
+msgid "Copy"
+msgstr "Скопировать"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:166
+msgid "address"
+msgstr "адрес"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AboutPage.js:172
+msgid "address copied!"
+msgstr "адрес скопирован!"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:31
 msgid "Layout"
 msgstr "Макет"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:37
 msgid "Screen Placement"
 msgstr "Расположение на экране"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:38
 msgid "Where to place the dock on your display"
 msgstr "Где разместить панель на вашем дисплее"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:42
 msgid "Screen Edge"
 msgstr "Край экрана"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:42
 msgid "Which edge to attach to"
 msgstr "К какому краю прикрепить"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:43
 msgid "Left"
 msgstr "Слева"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:44
 msgid "Bottom"
 msgstr "Снизу"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:45
 msgid "Top"
 msgstr "Сверху"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:46
 msgid "Right"
 msgstr "Справа"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:55
 msgid "Monitor"
 msgstr "Монитор"
 
-msgid "Primary Monitor"
-msgstr "Основной монитор"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:57
+#, javascript-format
 msgid "Primary Monitor (%s)"
 msgstr "Основной монитор (%s)"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:65
 msgid "Preferred Monitor"
 msgstr "Основной монитор"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:66
 msgid "Choose display for the dock"
 msgstr "Выберите дисплей для панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:85
 msgid "Show on All Monitors"
 msgstr "Показывать на всех мониторах"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:85
 msgid "Display the dock on every connected screen"
 msgstr "Отображать панель на каждом подключенном экране"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:86
 msgid "Isolate Monitors"
 msgstr "Изолировать мониторы"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:86
 msgid "Only show apps running on the current monitor"
 msgstr "Показывать приложения только текущего монитора"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:92
 msgid "Independent Dock Mode"
 msgstr "Независимый режим панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:93
 msgid "Use completely separate pinned apps and custom app launcher"
 msgstr "Использовать отдельные закрепленные приложения"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:102
 msgid "Show Independent Dock in Overview"
 msgstr "Показывать панель в обзоре"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:103
 msgid "Shows dock on the left side during overview"
 msgstr "Отображает панель слева во время обзора"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:108
 msgid "Full Screen Width"
 msgstr "Во всю ширину экрана"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:108
 msgid "Extend dock edge to edge"
 msgstr "Растянуть панель от края до края"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:110
 msgid "Icon Alignment"
 msgstr "Выравнивание значков"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:110
 msgid "Justification when Full Width is active"
 msgstr "Выравнивание при активном режиме на всю ширину"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:111
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:57
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:58
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:677
 msgid "Start"
 msgstr "По началу"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:112
 msgid "Center"
 msgstr "По центру"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:113
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:58
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:59
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:678
 msgid "End"
 msgstr "По концу"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:116
 msgid "Edge Margin"
 msgstr "Отступ от края"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:116
 msgid "Distance from screen edge"
 msgstr "Расстояние от края экрана"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:123
 msgid "Sizing & Spacing"
 msgstr "Размеры и отступы"
 
-msgid "Sizing &amp; Spacing"
-msgstr "Размеры и отступы"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:124
 msgid "Base dimensions for dock and icons"
 msgstr "Основные параметры размеров панели и значков"
 
-msgid "Base Dimensions for dock and icons"
-msgstr "Основные параметры размеров панели и значков"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:128
 msgid "Base Icon Size"
 msgstr "Базовый размер значков"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:128
 msgid "Normal size of app icons"
 msgstr "Стандартный размер значков приложений"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:134
 msgid "Icon Gap"
 msgstr "Расстояние между значками"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:134
 msgid "Distance between icons"
 msgstr "Расстояние между соседними значками"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:140
 msgid "Side Padding"
 msgstr "Боковые поля"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:140
 msgid "Extra gap inside dock ends"
 msgstr "Дополнительный отступ на краях панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:146
 msgid "Dock Height / Thickness"
 msgstr "Высота / толщина панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/LayoutPage.js:146
 msgid "Extra padding on top/bottom (or left/right)"
 msgstr "Дополнительный отступ сверху/снизу (или слева/справа)"
 
-msgid "Appearance"
-msgstr "Внешний вид"
-
-msgid "Panel Style"
-msgstr "Стиль панели"
-
-msgid "Background colors and borders"
-msgstr "Цвета фона и рамки"
-
-msgid "Dock Theme"
-msgstr "Тема панели"
-
-msgid "Choose a preset theme or use custom colors"
-msgstr "Выберите готовую тему или настройте свои цвета"
-
-msgid "Custom Color"
-msgstr "Свой цвет"
-
-msgid "Wallpaper Color"
-msgstr "Цвет обоев"
-
-msgid "Carbon"
-msgstr "Карбон"
-
-msgid "Nord"
-msgstr "Норд"
-
-msgid "Catppuccin Mocha"
-msgstr "Каппучино Мокко"
-
-msgid "Gruvbox Dark"
-msgstr "Грувбокс Темный"
-
-msgid "Ash Glass"
-msgstr "Пепельное стекло"
-
-msgid "Dracula"
-msgstr "Дракула"
-
-msgid "Tokyo Night"
-msgstr "Токио Ночь"
-
-msgid "Aurora"
-msgstr "Аврора"
-
-msgid "Sunset"
-msgstr "Закат"
-
-msgid "Slate Ocean"
-msgstr "Морской сланец"
-
-msgid "Chameleon Active"
-msgstr "Режим «Хамелеон» активен"
-
-msgid "Dock color & indicator auto-update from your wallpaper"
-msgstr "Цвет панели и индикаторов берется из обоев"
-
-msgid "Dock color &amp; indicator auto-update from your wallpaper"
-msgstr "Цвет панели и индикаторов берется из обоев"
-
-msgid "Primary Color"
-msgstr "Основной цвет"
-
-msgid "Use Gradient"
-msgstr "Использовать градиент"
-
-msgid "Blend with a second color"
-msgstr "Плавный переход во второй цвет"
-
-msgid "Secondary Color"
-msgstr "Дополнительный цвет"
-
-msgid "Gradient Direction"
-msgstr "Направление градиента"
-
-msgid "Flow of the gradient"
-msgstr "Направление перетекания цветов"
-
-msgid "Vertical"
-msgstr "Вертикально"
-
-msgid "Horizontal"
-msgstr "Горизонтально"
-
-msgid "Background Opacity"
-msgstr "Прозрачность фона"
-
-msgid "0 = Invisible, 100 = Solid"
-msgstr "0 = Невидимый, 100 = Непрозрачный"
-
-msgid "Hover Box Opacity"
-msgstr "Прозрачность всплывающей панели"
-
-msgid "App preview box background opacity (0-100)"
-msgstr "Прозрачность фона окна предпросмотра (0-100)"
-
-msgid "Border Radius"
-msgstr "Радиус скругления"
-
-msgid "Corner roundness"
-msgstr "Степень скругления углов"
-
-msgid "Border Outline (Stroke)"
-msgstr "Внешняя рамка (Обводка)"
-
-msgid "Draw an outer line around the dock"
-msgstr "Рисовать контур вокруг панели"
-
-msgid "Show Desktop Button Style"
-msgstr "Стиль кнопки рабочего стола"
-
-msgid "Customize the right-edge desktop button"
-msgstr "Настройка кнопки в правом краю"
-
-msgid "Thickness"
-msgstr "Толщина"
-
-msgid "Width in pixels"
-msgstr "Ширина в пикселях"
-
-msgid "Opacity"
-msgstr "Прозрачность"
-
-msgid "Color"
-msgstr "Цвет"
-
-msgid "Stroke Width"
-msgstr "Толщина обводки"
-
-msgid "Thickness in pixels (0 to disable)"
-msgstr "Толщина в пикселях (0 чтобы отключить)"
-
-msgid "Stroke Color"
-msgstr "Цвет обводки"
-
-msgid "Stroke Opacity"
-msgstr "Прозрачность обводки"
-
-msgid "Separators"
-msgstr "Разделители"
-
-msgid "Divider lines between dock items"
-msgstr "Линии разделения элементов панели"
-
-msgid "Module Separator"
-msgstr "Разделитель модулей"
-
-msgid "Divides clock, grid, and system icons"
-msgstr "Отделяет часы, приложения и папки"
-
-msgid "Enable Module Separator"
-msgstr "Включить разделитель модулей"
-
-msgid "Show a divider for system modules"
-msgstr "Отображать разделитель системных модулей"
-
-msgid "Height / Length"
-msgstr "Высота / Длина"
-
-msgid "Percentage of dock size (10-100)"
-msgstr "Процент от размера панели (10-100)"
-
-msgid "App Separator"
-msgstr "Разделитель приложений"
-
-msgid "Divides pinned apps from running apps"
-msgstr "Отделяет закрепленные приложения от запущенных"
-
-msgid "Enable App Separator"
-msgstr "Включить разделитель приложений"
-
-msgid "Show a divider between pinned and unpinned apps"
-msgstr "Отображать разделитель закрепленных приложений"
-
-msgid "App Notifications"
-msgstr "Уведомления приложений"
-
-msgid "Unread message counters"
-msgstr "Счетчик непрочитанных сообщений"
-
-msgid "Show Notification Badges"
-msgstr "Значки уведомлений"
-
-msgid "Display unread message counts on app icons"
-msgstr "Отображать количество сообщений на значке"
-
-msgid "Indicators"
-msgstr "Индикаторы"
-
-msgid "Styles for currently active applications"
-msgstr "Стили для запущенных программ"
-
-msgid "Running Indicators"
-msgstr "Индикаторы запуска"
-
-msgid "Settings for the active app dots/lines"
-msgstr "Настройка точек и линий запущенных приложений"
-
-msgid "Show Indicators"
-msgstr "Показывать индикаторы"
-
-msgid "Display active marks under icons"
-msgstr "Отображать отметки под активными приложениями"
-
-msgid "Indicator Style"
-msgstr "Стиль индикатора"
-
-msgid "Shape of the indicator"
-msgstr "Форма индикатора"
-
-msgid "Dot"
-msgstr "Точка"
-
-msgid "Dash"
-msgstr "Тире"
-
-msgid "Line"
-msgstr "Линия"
-
-msgid "Square"
-msgstr "Квадрат"
-
-msgid "Dynamic"
-msgstr "Динамический"
-
-msgid "Windows 11"
-msgstr "Динамический"
-
-msgid "Color Mode"
-msgstr "Цветовой режим"
-
-msgid "Match indicator color with icon or use custom"
-msgstr "Подбирать цвет значка или использовать свой"
-
-msgid "Match Icon Color"
-msgstr "Под цвет значка"
-
-msgid "Indicator Color"
-msgstr "Цвет индикатора"
-
-msgid "Indicator Size"
-msgstr "Размер индикатора"
-
-msgid "Limit: 2px to 12px"
-msgstr "Предел: от 2px до 12px"
-
-msgid "Indicator Spacing"
-msgstr "Отступ индикатора"
-
-msgid "Gap between icon and indicator"
-msgstr "Расстояние между значком и индикатором"
-
-msgid "Indicator Glow"
-msgstr "Свечение индикатора"
-
-msgid "Add a shining shadow effect"
-msgstr "Добавить мягкое свечение вокруг индикатора"
-
-msgid "Behavior"
-msgstr "Поведение"
-
-msgid "Visibility Rules"
-msgstr "Правила видимости"
-
-msgid "Configure dock auto-hide behavior and timings"
-msgstr "Настройка автоматического скрытия и задержек"
-
-msgid "Hide Mode"
-msgstr "Режим скрытия"
-
-msgid "Choose when the dock should hide"
-msgstr "Выберите, когда панель должна скрываться"
-
-msgid "Intelligent (Dodge Active)"
-msgstr "Умный (избегать активного окна)"
-
-msgid "Dodge All Windows"
-msgstr "Избегать всех окон"
-
-msgid "Dodge Maximized"
-msgstr "Избегать распахнутых окон"
-
-msgid "Always Hide"
-msgstr "Всегда скрывать"
-
-msgid "Never Hide"
-msgstr "Никогда не скрывать"
-
-msgid "Hide Delay"
-msgstr "Задержка скрытия"
-
-msgid "Milliseconds before hiding"
-msgstr "Миллисекунды перед скрытием"
-
-msgid "Unhide Delay"
-msgstr "Задержка появления"
-
-msgid "Milliseconds before showing"
-msgstr "Миллисекунды перед появлением"
-
-msgid "Edge Pressure Delay"
-msgstr "Задержка нажатия на край"
-
-msgid "Hold mouse at screen edge to reveal (ms)"
-msgstr "Удержание мыши у края для появления (мс)"
-
-msgid "Animations & Effects"
-msgstr "Анимации и эффекты"
-
-msgid "Animations &amp; Effects"
-msgstr "Анимации и эффекты"
-
-msgid "Icon Click Effect"
-msgstr "Эффект нажатия значка"
-
-msgid "Animation when an app is clicked"
-msgstr "Анимация при клике по приложению"
-
-msgid "None"
-msgstr "Нет"
-
-msgid "Bounce"
-msgstr "Подпрыгивание"
-
-msgid "Jump"
-msgstr "Прыжок"
-
-msgid "Heartbeat"
-msgstr "Пульс"
-
-msgid "Spin"
-msgstr "Вращение"
-
-msgid "Flip"
-msgstr "Переворот"
-
-msgid "Squeeze"
-msgstr "Сжатие"
-
-msgid "Glow"
-msgstr "Вспышка"
-
-msgid "Shake"
-msgstr "Тряска"
-
-msgid "Jelly"
-msgstr "Желе"
-
-msgid "Tada"
-msgstr "Та-да"
-
-msgid "Swing"
-msgstr "Качели"
-
-msgid "Dim"
-msgstr "Затемнение"
-
-msgid "Move Up"
-msgstr "Сдвиг вверх"
-
-msgid "Move Down"
-msgstr "Сдвиг вниз"
-
-msgid "Move Left"
-msgstr "Сдвиг влево"
-
-msgid "Move Right"
-msgstr "Сдвиг вправо"
-
-msgid "Enlarge"
-msgstr "Увеличение"
-
-msgid "Shrink"
-msgstr "Уменьшение"
-
-msgid "Roll (Wheel)"
-msgstr "Колесо"
-
-msgid "Squish (Drop)"
-msgstr "Капля"
-
-msgid "Zoom Fade (Ghost)"
-msgstr "Призрак"
-
-msgid "3D Spin (Coin)"
-msgstr "3D-монета"
-
-msgid "Window Minimize Effect"
-msgstr "Эффект сворачивания окон"
-
-msgid "Animation when minimizing or restoring"
-msgstr "Анимация сворачивания или разворачивания"
-
-msgid "Magic Lamp"
-msgstr "Волшебная лампа"
-
-msgid "Snake"
-msgstr "Змейка"
-
-msgid "Vortex (Black Hole)"
-msgstr "Черная дыра"
-
-msgid "Origami (3D Fold)"
-msgstr "Оригами (3D-складывание)"
-
-msgid "Jelly (Squash & Stretch)"
-msgstr "Желе (Сжатие и растяжение)"
-
-msgid "Hover Zoom Physics & Motion"
-msgstr "Физика приближения и движения"
-
-msgid "Hover Zoom Physics &amp; Motion"
-msgstr "Физика приближения и движения"
-
-msgid "Hover Zoom"
-msgstr "Увеличение при наведении"
-
-msgid "Magnification effect on hover"
-msgstr "Эффект лупы при движении курсора"
-
-msgid "Zoom Motion Style"
-msgstr "Стиль анимации приближения"
-
-msgid "Physics profile for magnification curve"
-msgstr "Профиль физики кривой приближения"
-
-msgid "Fluid"
-msgstr "Плавный"
-
-msgid "Domino"
-msgstr "Домино"
-
-msgid "Cylinder"
-msgstr "Цилиндр"
-
-msgid "Magnetic"
-msgstr "Магнит"
-
-msgid "Coverflow"
-msgstr "Coverflow"
-
-msgid "Zoom Factor"
-msgstr "Коэффициент увеличения"
-
-msgid "Maximum size multiplier"
-msgstr "Максимальный множитель размера"
-
-msgid "Animation Smoothness"
-msgstr "Плавность анимации"
-
-msgid "Tracking fluidity"
-msgstr "Плавность отслеживания"
-
-msgid "Influence Spread Radius"
-msgstr "Радиус охвата соседних значков"
-
-msgid "How far neighbor icons react"
-msgstr "Насколько далеко реагируют соседние значки"
-
-msgid "Icon Elevation (Rise)"
-msgstr "Подъем значков (Высота)"
-
-msgid "Distance icons lift towards cursor"
-msgstr "Высота подъема значка к курсору"
-
-msgid "Dynamic Slot Push"
-msgstr "Динамическое расталкивание"
-
-msgid "Expand adjacent icon slots smoothly"
-msgstr "Плавное расширение места для соседних значков"
-
-msgid "Slot Spread Strength"
-msgstr "Сила расталкивания значков"
-
-msgid "Push strength between adjacent icons"
-msgstr "Сила отталкивания соседних элементов"
-
-msgid "Effect Fine Tuning"
-msgstr "Тонкая настройка эффектов"
-
-msgid "Domino Tilt Angle"
-msgstr "Угол наклона домино"
-
-msgid "Cascade tilt angle in degrees"
-msgstr "Угол каскадного наклона в градусах"
-
-msgid "Cylinder Angle"
-msgstr "Угол цилиндра"
-
-msgid "3D rotation arc angle"
-msgstr "Угол дуги трехмерного вращения"
-
-msgid "Magnetic Snap Distance"
-msgstr "Дистанция магнитного притяжения"
-
-msgid "Cursor attraction force in pixels"
-msgstr "Сила притяжения к курсору в пикселях"
-
-msgid "Jelly Stretch Intensity"
-msgstr "Интенсивность растяжения желе"
-
-msgid "How much icons pull/elongate along cursor path"
-msgstr "Степень растяжения значков по траектории курсора"
-
-msgid "Jelly Shrink Intensity"
-msgstr "Интенсивность сжатия желе"
-
-msgid "How much opposite side compresses/squashes"
-msgstr "Степень сжатия противоположной стороны"
-
-msgid "Coverflow Angle"
-msgstr "Угол Coverflow"
-
-msgid "Perspective card angle in degrees"
-msgstr "Угол наклона карточек в градусах"
-
-msgid "Interaction & Previews"
-msgstr "Взаимодействие и предпросмотр"
-
-msgid "Interaction &amp; Previews"
-msgstr "Взаимодействие и предпросмотр"
-
-msgid "Show App Previews"
-msgstr "Показывать предпросмотр окон"
-
-msgid "Display interactive window thumbnails on hover"
-msgstr "Отображать миниатюры окон при наведении"
-
-msgid "Thumbnail Width"
-msgstr "Ширина миниатюры"
-
-msgid "Max width of window thumbnails"
-msgstr "Максимальная ширина миниатюры"
-
-msgid "Live Preview Scale (%)"
-msgstr "Масштаб живого предпросмотра (%)"
-
-msgid "Screen percentage for the big center preview"
-msgstr "Процент экрана для главного предпросмотра"
-
-msgid "Window Aero Peek"
-msgstr "Aero Peek для окон"
-
-msgid "Make other windows transparent when hovering thumbnails"
-msgstr "Делать другие окна прозрачными при наведении"
-
-msgid "Peek Animation Speed"
-msgstr "Скорость анимации Peek"
-
-msgid "Higher = slower animation (ms)"
-msgstr "Больше = медленнее анимация (мс)"
-
-msgid "Multitasking & Utilities"
-msgstr "Многозадачность и утилиты"
-
-msgid "Multitasking &amp; Utilities"
-msgstr "Многозадачность и утилиты"
-
-msgid "New Window Action"
-msgstr "Действие для нового окна"
-
-msgid "Shortcut to open a new instance of an app"
-msgstr "Сочетание для открытия нового окна"
-
-msgid "Ctrl + Left Click"
-msgstr "Ctrl + Левый клик"
-
-msgid "Middle Mouse Click"
-msgstr "Средняя кнопка мыши"
-
-msgid "Both"
-msgstr "Оба варианта"
-
-msgid "Lock Icons"
-msgstr "Закрепить значки"
-
-msgid "Prevent drag and drop reordering"
-msgstr "Запретить перемещение значков перетаскиванием"
-
-msgid "Show Unpinned Apps"
-msgstr "Показывать незакрепленные приложения"
-
-msgid "Display running apps that are not pinned to the dock"
-msgstr "Отображать запущенные программы, не добавленные в панель"
-
-msgid "Quick launch"
-msgstr "Быстрый запуск"
-
-msgid ""
-"Super + 1–9 targets the first nine dock apps (registered as keyboard "
-"shortcuts). Change under Settings → Keyboard."
-msgstr ""
-"Super + 1–9 открывает первые 9 приложений панели. Можно изменить в Настройки"
-" → Клавиатура."
-
-msgid "Isolate Workspaces"
-msgstr "Изолировать рабочие места"
-
-msgid "Only show apps running on the current workspace"
-msgstr "Показывать приложения только текущего рабочего места"
-
-msgid "Dock Scroll Action"
-msgstr "Действие прокрутки на панели"
-
-msgid "Scroll on empty dock area to switch workspaces"
-msgstr "Прокрутка по пустой панели переключает рабочие места"
-
-msgid "App Scroll Action"
-msgstr "Действие прокрутки по значку"
-
-msgid "Scroll on app icons to cycle through its windows"
-msgstr "Прокрутка по значку переключает его окна"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:28
 msgid "Music Pill"
 msgstr "Музыкальный виджет"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:34
 msgid "General Settings"
 msgstr "Основные настройки"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:35
 msgid "Configure live media player widget on the dock"
 msgstr "Настройка активного медиаплеера на панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:43
 msgid "Show Music Pill"
 msgstr "Показывать музыкальный виджет"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:44
 msgid "Display currently playing media and controls"
 msgstr "Отображать текущий трек и кнопки управления"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:53
 msgid "Pill Placement"
 msgstr "Расположение виджета"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/MusicPillPage.js:54
 msgid "Position of the pill on dock"
 msgstr "Положение виджета на панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:42
 msgid "Modules"
 msgstr "Модули"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:48
 msgid "Dock Modules"
 msgstr "Модули панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:49
 msgid "Enable extra shortcuts on your dock"
 msgstr "Включение дополнительных виджетов в панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:53
 msgid "Recycle Bin (Trash)"
 msgstr "Корзина"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:53
 msgid "Show a shortcut to the trash folder"
 msgstr "Показывать ярлык корзины"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:54
 msgid "Show Desktop Button"
 msgstr "Кнопка рабочего стола"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:54
 msgid "Quickly minimize all windows"
 msgstr "Быстро свернуть все окна"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:55
 msgid "Show Applications Button"
 msgstr "Кнопка меню приложений"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:55
 msgid "App drawer launcher"
 msgstr "Кнопка открытия списка программ"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:56
 msgid "Application Button Position"
 msgstr "Позиция кнопки приложений"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:56
 msgid "Where to place the launcher"
 msgstr "Где разместить кнопку запуска"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:57
 msgid "Left Edge"
 msgstr "Левый край"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:62
 msgid "App Grid Button Color"
 msgstr "Цвет кнопки меню приложений"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:64
 msgid "Use Old App Grid Icon"
 msgstr "Использовать классический значок сетки"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:64
 msgid "Show default dotted grid icon instead of Dhruva logo"
 msgstr "Отображать значок точек вместо логотипа Dhruva"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:67
 msgid "Custom App Grid Icon"
 msgstr "Свой значок меню приложений"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:68
 msgid "Size: 256x256 or 512x512 (.png, .svg, .ico)"
 msgstr "Размер: 256x256 или 512x512 (.png, .svg, .ico)"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:78
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:363
 msgid "Browse..."
 msgstr "Обзор..."
 
-msgid "Reset to default icon"
-msgstr "Сбросить на значок по умолчанию"
-
-msgid "Custom Icon Scale (%)"
-msgstr "Масштаб своего значка (%)"
-
-msgid "Adjust size multiplier (Default: 125)"
-msgstr "Множитель размера (по умолчанию: 125)"
-
-msgid "Standard Folders"
-msgstr "Стандартные папки"
-
-msgid "Add quick access folders to the dock"
-msgstr "Добавить быстрый доступ к каталогам"
-
-msgid "Home"
-msgstr "Домашняя папка"
-
-msgid "Downloads"
-msgstr "Загрузки"
-
-msgid "Documents"
-msgstr "Документы"
-
-msgid "Pictures"
-msgstr "Изображения"
-
-msgid "Videos"
-msgstr "Видео"
-
-msgid "Music"
-msgstr "Музыка"
-
-msgid "Shortcut to Home directory"
-msgstr "Ярлык на домашнюю папку"
-
-msgid "Shortcut to Downloads"
-msgstr "Ярлык на загрузки"
-
-msgid "Shortcut to Documents"
-msgstr "Ярлык на документы"
-
-msgid "Shortcut to Pictures"
-msgstr "Ярлык на изображения"
-
-msgid "Shortcut to Videos"
-msgstr "Ярлык на видео"
-
-msgid "Shortcut to Music"
-msgstr "Ярлык на музыку"
-
-msgid "Show USB & Mounted Drives"
-msgstr "Показывать USB и подключенные диски"
-
-msgid "Show USB &amp; Mounted Drives"
-msgstr "Показывать USB и подключенные диски"
-
-msgid "Automatically show connected drives and partitions on the dock"
-msgstr "Автоматически добавлять внешние накопители"
-
-msgid "Custom Quick Folders"
-msgstr "Пользовательские папки"
-
-msgid "Add your own directory shortcuts to the dock"
-msgstr "Добавление своих путей в панель"
-
-msgid "System Folder (Default)"
-msgstr "Системная папка (по умолчанию)"
-
-msgid "Public Share"
-msgstr "Общедоступные файлы"
-
-msgid "Templates"
-msgstr "Шаблоны"
-
-msgid "Desktop"
-msgstr "Рабочий стол"
-
-msgid "Projects / Code"
-msgstr "Проекты / Исходный код"
-
-msgid "Cloud / Remote"
-msgstr "Облако / Удаленные ресурсы"
-
-msgid "Edit Quick Folder"
-msgstr "Изменить папку"
-
-msgid "Add Quick Folder"
-msgstr "Добавить папку"
-
-msgid "Update"
-msgstr "Обновить"
-
-msgid "Add"
-msgstr "Добавить"
-
-msgid "Folder Name (e.g. Workspace)"
-msgstr "Имя папки (напр. Рабочая)"
-
-msgid "Folder Path"
-msgstr "Путь к папке"
-
-msgid "Browse folder..."
-msgstr "Выбрать каталог..."
-
-msgid "Select Folder"
-msgstr "Выберите папку"
-
-msgid "Preset System Icon"
-msgstr "Встроенный значок"
-
-msgid "Custom Image File"
-msgstr "Свой файл изображения"
-
-msgid "Custom Emoji"
-msgstr "Свой эмодзи"
-
-msgid "Icon Type"
-msgstr "Тип значка"
-
-msgid "Select Preset Icon"
-msgstr "Выберите системный значок"
-
-msgid "Select Image File"
-msgstr "Выберите файл изображения"
-
-msgid "PNG, SVG, ICO format"
-msgstr "Формат PNG, SVG, ICO"
-
-msgid "Select Custom Folder Icon Image"
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:83
+#, fuzzy
+msgid "Select App Custom Grid Icon"
 msgstr "Выберите изображение значка папки"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:86
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:371
 msgid "Images (.png, .svg, .ico)"
 msgstr "Изображения (.png, .svg, .ico)"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:133
+msgid "Reset to default icon"
+msgstr "Сбросить на значок по умолчанию"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:148
+msgid "Custom Icon Scale (%)"
+msgstr "Масштаб своего значка (%)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:149
+msgid "Adjust size multiplier (Default: 125)"
+msgstr "Множитель размера (по умолчанию: 125)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:182
+msgid "Standard Folders"
+msgstr "Стандартные папки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:183
+msgid "Add quick access folders to the dock"
+msgstr "Добавить быстрый доступ к каталогам"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:187
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:234
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:33
+msgid "Home"
+msgstr "Домашняя папка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:187
+msgid "Shortcut to Home directory"
+msgstr "Ярлык на домашнюю папку"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:188
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:235
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:45
+msgid "Downloads"
+msgstr "Загрузки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:188
+msgid "Shortcut to Downloads"
+msgstr "Ярлык на загрузки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:189
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:236
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:46
+msgid "Documents"
+msgstr "Документы"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:189
+msgid "Shortcut to Documents"
+msgstr "Ярлык на документы"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:190
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:237
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:47
+msgid "Pictures"
+msgstr "Изображения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:190
+msgid "Shortcut to Pictures"
+msgstr "Ярлык на изображения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:191
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:238
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:48
+msgid "Videos"
+msgstr "Видео"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:191
+msgid "Shortcut to Videos"
+msgstr "Ярлык на видео"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:192
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:239
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:49
+msgid "Music"
+msgstr "Музыка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:192
+msgid "Shortcut to Music"
+msgstr "Ярлык на музыку"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:195
+msgid "Show USB &amp; Mounted Drives"
+msgstr "Показывать USB и подключенные диски"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:196
+msgid "Automatically show connected drives and partitions on the dock"
+msgstr "Автоматически добавлять внешние накопители"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:216
+msgid "Custom Quick Folders"
+msgstr "Пользовательские папки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:217
+msgid "Add your own directory shortcuts to the dock"
+msgstr "Добавление своих путей в панель"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:233
+msgid "System Folder (Default)"
+msgstr "Системная папка (по умолчанию)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:240
+msgid "Public Share"
+msgstr "Общедоступные файлы"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:241
+msgid "Templates"
+msgstr "Шаблоны"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:242
+msgid "Desktop"
+msgstr "Рабочий стол"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:243
+msgid "Projects / Code"
+msgstr "Проекты / Исходный код"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:244
+msgid "Cloud / Remote"
+msgstr "Облако / Удаленные ресурсы"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:254
+msgid "Edit Quick Folder"
+msgstr "Изменить папку"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:254
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:628
+msgid "Add Quick Folder"
+msgstr "Добавить папку"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:255
+msgid "Update"
+msgstr "Обновить"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:255
+msgid "Add"
+msgstr "Добавить"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:269
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:874
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:86
+msgid "Cancel"
+msgstr "Отмена"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:280
+msgid "Folder Name (e.g. Workspace)"
+msgstr "Имя папки (напр. Рабочая)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:287
+msgid "Folder Path"
+msgstr "Путь к папке"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:297
+msgid "Browse folder..."
+msgstr "Выбрать каталог..."
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:302
+msgid "Select Folder"
+msgstr "Выберите папку"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:325
+msgid "Preset System Icon"
+msgstr "Встроенный значок"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:326
+msgid "Custom Image File"
+msgstr "Свой файл изображения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:327
+msgid "Custom Emoji"
+msgstr "Свой эмодзи"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:331
+msgid "Icon Type"
+msgstr "Тип значка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:337
+msgid "Select Preset Icon"
+msgstr "Выберите системный значок"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:342
+msgid "Select Image File"
+msgstr "Выберите файл изображения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:343
+msgid "PNG, SVG, ICO format"
+msgstr "Формат PNG, SVG, ICO"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:354
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:83
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:114
+msgid "None"
+msgstr "Нет"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:368
+msgid "Select Custom Folder Icon Image"
+msgstr "Выберите изображение значка папки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:416
 msgid "Enter Emoji (Only 1 emoji allowed)"
 msgstr "Введите эмодзи (только 1 символ)"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:420
 msgid "Only 1 emoji is allowed. Multiple emojis are not supported."
 msgstr "Разрешен только 1 эмодзи. Несколько символов не поддерживаются."
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:507
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/SystemFoldersModule.js:71
+msgid "Custom Folder"
+msgstr "Пользовательская папка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:598
 msgid "Edit folder"
 msgstr "Изменить папку"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:609
 msgid "Remove folder"
 msgstr "Удалить папку"
 
-msgid "+ Add Quick Folder"
-msgstr "+ Добавить папку"
-
-msgid "Clock & Date"
-msgstr "Часы и дата"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:644
 msgid "Clock &amp; Date"
 msgstr "Часы и дата"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:645
 msgid "Display time on horizontal docks"
 msgstr "Отображение времени на горизонтальной панели"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:649
 msgid "Show Clock"
 msgstr "Показывать часы"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:649
 msgid "Hidden automatically on left/right docks"
 msgstr "Автоматически скрываются на вертикальных панелях"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:651
 msgid "Use 24-Hour Clock"
 msgstr "24-часовой формат"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:651
 msgid "Display time in 24-hour format"
 msgstr "Отображать время в формате 24 часов"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:653
 msgid "Clock Text Size"
 msgstr "Размер шрифта часов"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:653
 msgid "Adjust font size"
 msgstr "Настройка размера текста"
 
-msgid "Clock Position"
-msgstr "Позиция часов"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:682
 msgid "Right Edge"
 msgstr "Правый край"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:685
+msgid "Clock Position"
+msgstr "Позиция часов"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:685
+msgid "Separate from App Grid"
+msgstr ""
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:697
 msgid "Danger Zone"
 msgstr "Опасная зона"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:698
 msgid "Master controls for your settings"
 msgstr "Основные действия с параметрами"
 
-msgid "Backup & Restore"
-msgstr "Резервное копирование и восстановление"
-
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:703
 msgid "Backup &amp; Restore"
 msgstr "Резервное копирование и восстановление"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:704
 msgid ""
 "Import or export your dock layout, themes, custom folders, and pinned apps"
 msgstr "Импорт или экспорт раскладки, темы и папок"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:709
 msgid "Export Configuration"
 msgstr "Экспорт настроек"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:710
 msgid "Save your current settings and apps to a file"
 msgstr "Сохранить конфигурацию в файл"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:715
 msgid "Export"
 msgstr "Экспортировать"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:723
+#, fuzzy
+msgid "Export Dock Configuration"
+msgstr "Экспорт настроек"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:769
 msgid "Import Configuration"
 msgstr "Импорт настроек"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:770
 msgid "Load a previously saved configuration file"
 msgstr "Загрузить сохраненную конфигурацию"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:775
 msgid "Import"
 msgstr "Импортировать"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:782
+#, fuzzy
+msgid "Import Dock Configuration"
+msgstr "Импорт настроек"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:784
 msgid "JSON Files"
 msgstr "Файлы JSON"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:845
 msgid "Reset All Settings"
 msgstr "Сбросить все настройки"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:846
 msgid "Restore all Dhruva Dock settings to their default values"
 msgstr "Вернуть все параметры по умолчанию"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:851
 msgid "Reset Defaults"
 msgstr "Сбросить"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:862
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:869
 msgid "Reset All Settings?"
 msgstr "Сбросить все настройки?"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:863
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:870
 msgid ""
 "Are you sure you want to reset all settings to default? This action cannot "
 "be undone."
@@ -1064,104 +718,922 @@ msgstr ""
 "Вы уверены, что хотите вернуть все настройки по умолчанию? Это действие "
 "нельзя отменить."
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ModulesPage.js:875
 msgid "Reset Settings"
 msgstr "Сбросить настройки"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:29
+msgid "Appearance"
+msgstr "Внешний вид"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:35
+msgid "Panel Style"
+msgstr "Стиль панели"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:36
+msgid "Background colors and borders"
+msgstr "Цвета фона и рамки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:41
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:263
+msgid "Custom Color"
+msgstr "Свой цвет"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:42
+msgid "Wallpaper Color"
+msgstr "Цвет обоев"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:43
+msgid "Carbon"
+msgstr "Карбон"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:44
+msgid "Nord"
+msgstr "Норд"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:45
+msgid "Catppuccin Mocha"
+msgstr "Каппучино Мокко"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:46
+msgid "Gruvbox Dark"
+msgstr "Грувбокс Темный"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:47
+msgid "Ash Glass"
+msgstr "Пепельное стекло"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:48
+msgid "Dracula"
+msgstr "Дракула"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:49
+msgid "Tokyo Night"
+msgstr "Токио Ночь"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:50
+msgid "Aurora"
+msgstr "Аврора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:51
+msgid "Sunset"
+msgstr "Закат"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:52
+msgid "Slate Ocean"
+msgstr "Морской сланец"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:55
+msgid "Dock Theme"
+msgstr "Тема панели"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:55
+msgid "Choose a preset theme or use custom colors"
+msgstr "Выберите готовую тему или настройте свои цвета"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:58
+msgid "Chameleon Active"
+msgstr "Режим «Хамелеон» активен"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:59
+msgid "Dock color &amp; indicator auto-update from your wallpaper"
+msgstr "Цвет панели и индикаторов берется из обоев"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:65
+msgid "Primary Color"
+msgstr "Основной цвет"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:66
+msgid "Use Gradient"
+msgstr "Использовать градиент"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:66
+msgid "Blend with a second color"
+msgstr "Плавный переход во второй цвет"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:67
+msgid "Secondary Color"
+msgstr "Дополнительный цвет"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:68
+msgid "Gradient Direction"
+msgstr "Направление градиента"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:68
+msgid "Flow of the gradient"
+msgstr "Направление перетекания цветов"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:69
+msgid "Vertical"
+msgstr "Вертикально"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:70
+msgid "Horizontal"
+msgstr "Горизонтально"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:73
+msgid "Background Opacity"
+msgstr "Прозрачность фона"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:73
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:124
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:147
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:191
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:221
+msgid "0 = Invisible, 100 = Solid"
+msgstr "0 = Невидимый, 100 = Непрозрачный"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:79
+msgid "Hover Box Opacity"
+msgstr "Прозрачность всплывающей панели"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:79
+msgid "App preview box background opacity (0-100)"
+msgstr "Прозрачность фона окна предпросмотра (0-100)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:92
+msgid "Border Radius"
+msgstr "Радиус скругления"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:92
+msgid "Corner roundness"
+msgstr "Степень скругления углов"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:99
+msgid "Border Outline (Stroke)"
+msgstr "Внешняя рамка (Обводка)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:100
+msgid "Draw an outer line around the dock"
+msgstr "Рисовать контур вокруг панели"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:108
+msgid "Show Desktop Button Style"
+msgstr "Стиль кнопки рабочего стола"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:109
+msgid "Customize the right-edge desktop button"
+msgstr "Настройка кнопки в правом краю"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:118
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:180
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:210
+msgid "Thickness"
+msgstr "Толщина"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:118
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:180
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:210
+msgid "Width in pixels"
+msgstr "Ширина в пикселях"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:124
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:191
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:221
+msgid "Opacity"
+msgstr "Прозрачность"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:130
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:190
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:220
+msgid "Color"
+msgstr "Цвет"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:139
+msgid "Stroke Width"
+msgstr "Толщина обводки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:139
+msgid "Thickness in pixels (0 to disable)"
+msgstr "Толщина в пикселях (0 чтобы отключить)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:145
+msgid "Stroke Color"
+msgstr "Цвет обводки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:147
+msgid "Stroke Opacity"
+msgstr "Прозрачность обводки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:162
+msgid "Separators"
+msgstr "Разделители"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:163
+msgid "Divider lines between dock items"
+msgstr "Линии разделения элементов панели"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:168
+msgid "Module Separator"
+msgstr "Разделитель модулей"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:169
+msgid "Divides clock, grid, and system icons"
+msgstr "Отделяет часы, приложения и папки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:178
+msgid "Enable Module Separator"
+msgstr "Включить разделитель модулей"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:178
+msgid "Show a divider for system modules"
+msgstr "Отображать разделитель системных модулей"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:185
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:215
+msgid "Height / Length"
+msgstr "Высота / Длина"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:185
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:215
+msgid "Percentage of dock size (10-100)"
+msgstr "Процент от размера панели (10-100)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:198
+msgid "App Separator"
+msgstr "Разделитель приложений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:199
+msgid "Divides pinned apps from running apps"
+msgstr "Отделяет закрепленные приложения от запущенных"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:208
+msgid "Enable App Separator"
+msgstr "Включить разделитель приложений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:208
+msgid "Show a divider between pinned and unpinned apps"
+msgstr "Отображать разделитель закрепленных приложений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:228
+msgid "App Notifications"
+msgstr "Уведомления приложений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:229
+msgid "Unread message counters"
+msgstr "Счетчик непрочитанных сообщений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:232
+msgid "Show Notification Badges"
+msgstr "Значки уведомлений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:232
+msgid "Display unread message counts on app icons"
+msgstr "Отображать количество сообщений на значке"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:235
+msgid "Indicators"
+msgstr "Индикаторы"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:236
+msgid "Styles for currently active applications"
+msgstr "Стили для запущенных программ"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:241
+msgid "Running Indicators"
+msgstr "Индикаторы запуска"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:242
+msgid "Settings for the active app dots/lines"
+msgstr "Настройка точек и линий запущенных приложений"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:251
+msgid "Show Indicators"
+msgstr "Показывать индикаторы"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:251
+msgid "Display active marks under icons"
+msgstr "Отображать отметки под активными приложениями"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:253
+msgid "Indicator Style"
+msgstr "Стиль индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:253
+msgid "Shape of the indicator"
+msgstr "Форма индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:254
+msgid "Dot"
+msgstr "Точка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:255
+msgid "Dash"
+msgstr "Тире"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:256
+msgid "Line"
+msgstr "Линия"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:257
+msgid "Square"
+msgstr "Квадрат"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:258
+msgid "Dynamic"
+msgstr "Динамический"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:261
+msgid "Color Mode"
+msgstr "Цветовой режим"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:261
+msgid "Match indicator color with icon or use custom"
+msgstr "Подбирать цвет значка или использовать свой"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:262
+msgid "Match Icon Color"
+msgstr "Под цвет значка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:266
+msgid "Indicator Color"
+msgstr "Цвет индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:268
+msgid "Indicator Size"
+msgstr "Размер индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:268
+msgid "Limit: 2px to 12px"
+msgstr "Предел: от 2px до 12px"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:273
+msgid "Indicator Spacing"
+msgstr "Отступ индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:273
+msgid "Gap between icon and indicator"
+msgstr "Расстояние между значком и индикатором"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:278
+msgid "Indicator Glow"
+msgstr "Свечение индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/AppearancePage.js:278
+msgid "Add a shining shadow effect"
+msgstr "Добавить мягкое свечение вокруг индикатора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/ResetButtons.js:43
 msgid "Reset to default"
 msgstr "Сбросить по умолчанию"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/ResetButtons.js:80
 msgid "Reset all in this group"
 msgstr "Сбросить всю группу"
 
-msgid "About"
-msgstr "О расширении"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:29
+msgid "Behavior"
+msgstr "Поведение"
 
-msgid "A beautifully crafted, highly customisable dock for GNOME Shell"
-msgstr "Красивая и функциональная док-панель для GNOME Shell"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:35
+msgid "Visibility Rules"
+msgstr "Правила видимости"
 
-msgid "Links"
-msgstr "Ссылки"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:36
+msgid "Configure dock auto-hide behavior and timings"
+msgstr "Настройка автоматического скрытия и задержек"
 
-msgid "GitHub Repository"
-msgstr "Репозиторий GitHub"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:40
+msgid "Hide Mode"
+msgstr "Режим скрытия"
 
-msgid "Credits"
-msgstr "Благодарности"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:40
+msgid "Choose when the dock should hide"
+msgstr "Выберите, когда панель должна скрываться"
 
-msgid "Author & Maintainer"
-msgstr "Автор и разработчик"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:41
+msgid "Intelligent (Dodge Active)"
+msgstr "Умный (избегать активного окна)"
 
-msgid "Author &amp; Maintainer"
-msgstr "Автор и разработчик"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:42
+msgid "Dodge All Windows"
+msgstr "Избегать всех окон"
 
-msgid "Features"
-msgstr "Возможности"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:43
+msgid "Dodge Maximized"
+msgstr "Избегать распахнутых окон"
 
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:44
+msgid "Always Hide"
+msgstr "Всегда скрывать"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:45
+msgid "Never Hide"
+msgstr "Никогда не скрывать"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:48
+msgid "Hide Delay"
+msgstr "Задержка скрытия"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:48
+msgid "Milliseconds before hiding"
+msgstr "Миллисекунды перед скрытием"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:54
+msgid "Unhide Delay"
+msgstr "Задержка появления"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:54
+msgid "Milliseconds before showing"
+msgstr "Миллисекунды перед появлением"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:60
+msgid "Edge Pressure Delay"
+msgstr "Задержка нажатия на край"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:60
+msgid "Hold mouse at screen edge to reveal (ms)"
+msgstr "Удержание мыши у края для появления (мс)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:78
+msgid "Animations &amp; Effects"
+msgstr "Анимации и эффекты"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:82
+msgid "Icon Click Effect"
+msgstr "Эффект нажатия значка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:82
+msgid "Animation when an app is clicked"
+msgstr "Анимация при клике по приложению"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:84
+msgid "Bounce"
+msgstr "Подпрыгивание"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:85
+msgid "Jump"
+msgstr "Прыжок"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:86
+msgid "Heartbeat"
+msgstr "Пульс"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:87
+msgid "Spin"
+msgstr "Вращение"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:88
+msgid "Flip"
+msgstr "Переворот"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:89
+msgid "Squeeze"
+msgstr "Сжатие"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:90
+msgid "Glow"
+msgstr "Вспышка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:91
+msgid "Shake"
+msgstr "Тряска"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:92
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:129
+msgid "Jelly"
+msgstr "Желе"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:93
+msgid "Tada"
+msgstr "Та-да"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:94
+msgid "Swing"
+msgstr "Качели"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:95
+msgid "Dim"
+msgstr "Затемнение"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:96
+msgid "Move Up"
+msgstr "Сдвиг вверх"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:97
+msgid "Move Down"
+msgstr "Сдвиг вниз"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:98
+msgid "Move Left"
+msgstr "Сдвиг влево"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:99
+msgid "Move Right"
+msgstr "Сдвиг вправо"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:100
+msgid "Enlarge"
+msgstr "Увеличение"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:101
+msgid "Shrink"
+msgstr "Уменьшение"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:102
+msgid "Roll (Wheel)"
+msgstr "Колесо"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:103
+msgid "Squish (Drop)"
+msgstr "Капля"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:104
+msgid "Zoom Fade (Ghost)"
+msgstr "Призрак"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:105
+msgid "3D Spin (Coin)"
+msgstr "3D-монета"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:108
+msgid "Window Minimize Effect"
+msgstr "Эффект сворачивания окон"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:108
+msgid "Animation when minimizing or restoring"
+msgstr "Анимация сворачивания или разворачивания"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:109
+msgid "Magic Lamp"
+msgstr "Волшебная лампа"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:110
+msgid "Snake"
+msgstr "Змейка"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:111
+msgid "Vortex (Black Hole)"
+msgstr "Черная дыра"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:112
+msgid "Origami (3D Fold)"
+msgstr "Оригами (3D-складывание)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:113
+msgid "Jelly (Squash & Stretch)"
+msgstr "Желе (Сжатие и растяжение)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:118
+msgid "Hover Zoom Physics &amp; Motion"
+msgstr "Физика приближения и движения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:122
+msgid "Hover Zoom"
+msgstr "Увеличение при наведении"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:122
+msgid "Magnification effect on hover"
+msgstr "Эффект лупы при движении курсора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:124
+msgid "Zoom Motion Style"
+msgstr "Стиль анимации приближения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:124
+msgid "Physics profile for magnification curve"
+msgstr "Профиль физики кривой приближения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:125
+msgid "Fluid"
+msgstr "Плавный"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:126
+msgid "Domino"
+msgstr "Домино"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:127
+msgid "Cylinder"
+msgstr "Цилиндр"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:128
+msgid "Magnetic"
+msgstr "Магнит"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:130
+msgid "Coverflow"
+msgstr "Coverflow"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:133
+msgid "Zoom Factor"
+msgstr "Коэффициент увеличения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:133
+msgid "Maximum size multiplier"
+msgstr "Максимальный множитель размера"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:139
+msgid "Animation Smoothness"
+msgstr "Плавность анимации"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:139
+msgid "Tracking fluidity"
+msgstr "Плавность отслеживания"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:145
+msgid "Influence Spread Radius"
+msgstr "Радиус охвата соседних значков"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:145
+msgid "How far neighbor icons react"
+msgstr "Насколько далеко реагируют соседние значки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:151
+msgid "Icon Elevation (Rise)"
+msgstr "Подъем значков (Высота)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:151
+msgid "Distance icons lift towards cursor"
+msgstr "Высота подъема значка к курсору"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:157
+msgid "Dynamic Slot Push"
+msgstr "Динамическое расталкивание"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:157
+msgid "Expand adjacent icon slots smoothly"
+msgstr "Плавное расширение места для соседних значков"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:159
+msgid "Slot Spread Strength"
+msgstr "Сила расталкивания значков"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:159
+msgid "Push strength between adjacent icons"
+msgstr "Сила отталкивания соседних элементов"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:166
+msgid "Effect Fine Tuning"
+msgstr "Тонкая настройка эффектов"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:170
+msgid "Domino Tilt Angle"
+msgstr "Угол наклона домино"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:170
+msgid "Cascade tilt angle in degrees"
+msgstr "Угол каскадного наклона в градусах"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:176
+msgid "Cylinder Angle"
+msgstr "Угол цилиндра"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:176
+msgid "3D rotation arc angle"
+msgstr "Угол дуги трехмерного вращения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:182
+msgid "Magnetic Snap Distance"
+msgstr "Дистанция магнитного притяжения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:182
+msgid "Cursor attraction force in pixels"
+msgstr "Сила притяжения к курсору в пикселях"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:188
+msgid "Jelly Stretch Intensity"
+msgstr "Интенсивность растяжения желе"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:188
+msgid "How much icons pull/elongate along cursor path"
+msgstr "Степень растяжения значков по траектории курсора"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:194
+msgid "Jelly Shrink Intensity"
+msgstr "Интенсивность сжатия желе"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:194
+msgid "How much opposite side compresses/squashes"
+msgstr "Степень сжатия противоположной стороны"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:200
+msgid "Coverflow Angle"
+msgstr "Угол Coverflow"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:200
+msgid "Perspective card angle in degrees"
+msgstr "Угол наклона карточек в градусах"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:239
+msgid "Interaction &amp; Previews"
+msgstr "Взаимодействие и предпросмотр"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:243
+msgid "Show App Previews"
+msgstr "Показывать предпросмотр окон"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:243
+msgid "Display interactive window thumbnails on hover"
+msgstr "Отображать миниатюры окон при наведении"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:245
+msgid "Thumbnail Width"
+msgstr "Ширина миниатюры"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:245
+msgid "Max width of window thumbnails"
+msgstr "Максимальная ширина миниатюры"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:251
+msgid "Live Preview Scale (%)"
+msgstr "Масштаб живого предпросмотра (%)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:251
+msgid "Screen percentage for the big center preview"
+msgstr "Процент экрана для главного предпросмотра"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:261
+msgid "Window Aero Peek"
+msgstr "Aero Peek для окон"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:262
+msgid "Make other windows transparent when hovering thumbnails"
+msgstr "Делать другие окна прозрачными при наведении"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:271
+msgid "Peek Animation Speed"
+msgstr "Скорость анимации Peek"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:272
+msgid "Higher = slower animation (ms)"
+msgstr "Больше = медленнее анимация (мс)"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:298
+msgid "Multitasking &amp; Utilities"
+msgstr "Многозадачность и утилиты"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:302
+msgid "New Window Action"
+msgstr "Действие для нового окна"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:302
+msgid "Shortcut to open a new instance of an app"
+msgstr "Сочетание для открытия нового окна"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:303
+msgid "Ctrl + Left Click"
+msgstr "Ctrl + Левый клик"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:304
+msgid "Middle Mouse Click"
+msgstr "Средняя кнопка мыши"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:305
+msgid "Both"
+msgstr "Оба варианта"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:308
+msgid "Lock Icons"
+msgstr "Закрепить значки"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:308
+msgid "Prevent drag and drop reordering"
+msgstr "Запретить перемещение значков перетаскиванием"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:309
+msgid "Show Unpinned Apps"
+msgstr "Показывать незакрепленные приложения"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:309
+msgid "Display running apps that are not pinned to the dock"
+msgstr "Отображать запущенные программы, не добавленные в панель"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:312
+msgid "Quick launch"
+msgstr "Быстрый запуск"
+
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:313
 msgid ""
-"Per-app running indicators · Hover zoom magnification · Window minimize "
-"effects (Magic Lamp, Snake, Vortex & more) · Icon click animations (Bounce, "
-"Jelly, Heartbeat & 20+ styles) · Intelligent auto-hide with edge pressure "
-"reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode "
-"· Multi-monitor support · Custom folders, Trash, Desktop button & App Grid ·"
-" Workspace isolation · Aero Peek window previews · Lock icons to prevent "
-"accidental reorder"
+"Super + 1–9 targets the first nine dock apps (registered as keyboard "
+"shortcuts). Change under Settings → Keyboard."
 msgstr ""
-"Индикаторы для каждого приложения · Увеличение при наведении · Эффекты "
-"сворачивания (Волшебная лампа, Змейка, Черная дыра и др.) · Анимации нажатия"
-" (Подпрыгивание, Желе, Пульс и 20+ стилей) · Умное скрытие с вызовом по "
-"нажатию на край · Тема «Хамелеон» (под цвет обоев) · Полноразмерный режим · "
-"Поддержка нескольких мониторов · Пользовательские папки, Корзина, Кнопка "
-"рабочего стола и Список приложений · Изоляция рабочих мест · Aero Peek "
-"предпросмотр окон · Закрепление значков"
+"Super + 1–9 открывает первые 9 приложений панели. Можно изменить в Настройки "
+"→ Клавиатура."
 
-msgid "Disclaimer"
-msgstr "Отказ от ответственности"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:320
+msgid "Isolate Workspaces"
+msgstr "Изолировать рабочие места"
 
-msgid "Dhruva Dock is an independent open-source project."
-msgstr "Dhruva Dock — независимый проект с открытым исходным кодом."
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:320
+msgid "Only show apps running on the current workspace"
+msgstr "Показывать приложения только текущего рабочего места"
 
-msgid "Support Development"
-msgstr "Поддержка разработки"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:321
+msgid "Dock Scroll Action"
+msgstr "Действие прокрутки на панели"
 
-msgid "If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!"
-msgstr "Если вам нравится проект, вы можете поддержать разработчика!"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:321
+msgid "Scroll on empty dock area to switch workspaces"
+msgstr "Прокрутка по пустой панели переключает рабочие места"
 
-msgid "Buy Me a Coffee"
-msgstr "Угостить кофе"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:322
+msgid "App Scroll Action"
+msgstr "Действие прокрутки по значку"
 
-msgid "Copy"
-msgstr "Скопировать"
+#: /home/narkagni/Public/github/dhruva/src/prefs/BehaviorPage.js:322
+msgid "Scroll on app icons to cycle through its windows"
+msgstr "Прокрутка по значку переключает его окна"
 
-msgid "address"
-msgstr "адрес"
+#: /home/narkagni/Public/github/dhruva/src/ui/AppGridUI.js:106
+msgid "All Applications"
+msgstr "Все приложения"
 
-msgid "address copied!"
-msgstr "адрес скопирован!"
+#: /home/narkagni/Public/github/dhruva/src/ui/AppGridUI.js:149
+msgid "Search apps..."
+msgstr "Поиск приложений..."
 
-msgid "Applications"
-msgstr "Приложения"
-
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/ClockModule.js:106
 msgid "Date & Time"
 msgstr "Дата и время"
 
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/AppGridModule.js:266
+#: /home/narkagni/Public/github/dhruva/src/ui/magnifier/MagnifierFrameEngine.js:571
+msgid "Applications"
+msgstr "Приложения"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/TrashModule.js:39
 msgid "Recycle Bin"
 msgstr "Корзина"
 
-msgid "Open Recycle Bin"
-msgstr "Открыть корзину"
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/MusicPill.js:622
+msgid "Unknown Artist"
+msgstr "Неизвестный исполнитель"
 
-msgid "Checking Trash..."
-msgstr "Проверка корзины..."
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/DockModules.js:455
+#: /home/narkagni/Public/github/dhruva/src/ui/modules/DesktopButtonModule.js:100
+msgid "Show Desktop"
+msgstr "Показать рабочий стол"
 
-msgid "Empty Trash"
-msgstr "Очистить корзину"
+#: /home/narkagni/Public/github/dhruva/src/ui/magnifier/MagnifierTooltipRenderer.js:236
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/WindowThumbnailBuilder.js:60
+msgid "Window"
+msgstr "Окно"
 
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:148
+msgid "Unpack Stack"
+msgstr "Распаковать стопку"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:155
+msgid "Close All Apps"
+msgstr "Закрыть все приложения"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:164
+#, javascript-format
+msgid "Delete %s"
+msgstr "Удалить %s"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:202
+#, javascript-format
+msgid "Add to %s"
+msgstr "Добавить в %s"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:265
+#, javascript-format
+msgid "Open %s"
+msgstr "Открыть %s"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:283
+msgid "New Window"
+msgstr "Новое окно"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:305
+msgid "Unpin from Dhruva"
+msgstr "Открепить от Dhruva"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:305
+msgid "Pin to Dhruva"
+msgstr "Закрепить в Dhruva"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:316
+msgid "Stack"
+msgstr "Стопка"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:319
+#, javascript-format
+msgid "Remove from %s"
+msgstr "Убрать из %s"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:359
+msgid "Close All Windows"
+msgstr "Закрыть все окна"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:359
+msgid "Close Folder"
+msgstr "Закрыть папку"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:359
+msgid "Quit"
+msgstr "Завершить"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/AppContextMenu.js:373
+msgid "Dhruva Settings"
+msgstr "Настройки Dhruva"
+
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:73
 msgid "Empty Trash?"
 msgstr "Очистить корзину?"
 
-msgid "Trash is Empty"
-msgstr "Корзина пуста"
-
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:78
 msgid ""
 "Are you sure you want to permanently delete all items from the Trash?\n"
 "This action cannot be undone."
@@ -1169,101 +1641,98 @@ msgstr ""
 "Вы уверены, что хотите окончательно удалить все объекты из корзины?\n"
 "Это действие нельзя отменить."
 
-msgid "Cancel"
-msgstr "Отмена"
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:87
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:138
+msgid "Empty Trash"
+msgstr "Очистить корзину"
 
-msgid "Custom Folder"
-msgstr "Пользовательская папка"
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:98
+msgid "Checking Trash..."
+msgstr "Проверка корзины..."
 
-msgid "Show Desktop"
-msgstr "Показать рабочий стол"
+#: /home/narkagni/Public/github/dhruva/src/ui/context-menu/TrashActionsHandler.js:148
+msgid "Trash is Empty"
+msgstr "Корзина пуста"
 
-msgid "Folder"
-msgstr "Папка"
-
-msgid "Unpack Stack"
-msgstr "Распаковать стопку"
-
-msgid "Close All Apps"
-msgstr "Закрыть все приложения"
-
-msgid "Delete %s"
-msgstr "Удалить %s"
-
-msgid "Add to %s"
-msgstr "Добавить в %s"
-
-msgid "Add to New Folder"
-msgstr "Добавить в Новую папку"
-
-msgid "Remove from New Folder"
-msgstr "Убрать из Новой папки"
-
-msgid "Open %s"
-msgstr "Открыть %s"
-
-msgid "Remove from %s"
-msgstr "Убрать из %s"
-
-msgid "Stack"
-msgstr "Стопка"
-
-msgid "New Window"
-msgstr "Новое окно"
-
-msgid "Unpin from Dhruva"
-msgstr "Открепить от Dhruva"
-
-msgid "Pin to Dhruva"
-msgstr "Закрепить в Dhruva"
-
-msgid "Unpin from %s"
-msgstr "Открепить от %s"
-
-msgid "Pin to %s"
-msgstr "Закрепить в %s"
-
-msgid "Close All Windows"
-msgstr "Закрыть все окна"
-
-msgid "Close Folder"
-msgstr "Закрыть папку"
-
-msgid "Quit"
-msgstr "Завершить"
-
-msgid "Dhruva Settings"
-msgstr "Настройки Dhruva"
-
-msgid "Window"
-msgstr "Окно"
-
-msgid "Name"
-msgstr "Имя"
-
-msgid "New Folder"
-msgstr "Новая папка"
-
-msgid "zenity is required for file selection dialogs."
-msgstr "Для диалогов выбора файлов требуется zenity."
-
+#: /home/narkagni/Public/github/dhruva/src/ui/folder-menu/EmojiPicker.js:113
 msgid "Search emojis..."
 msgstr "Поиск эмодзи..."
 
+#: /home/narkagni/Public/github/dhruva/src/ui/folder-menu/EmojiPicker.js:225
 msgid "Hover an emoji"
 msgstr "Наведите на эмодзи"
 
+#: /home/narkagni/Public/github/dhruva/src/ui/folder-menu/EmojiPicker.js:229
 msgid "Category"
 msgstr "Категория"
 
-msgid "All Applications"
-msgstr "Все приложения"
+#: /home/narkagni/Public/github/dhruva/src/ui/folder-menu/FolderMenuBuilder.js:137
+msgid "Name"
+msgstr "Имя"
 
-msgid "Search apps..."
-msgstr "Поиск приложений..."
+#: /home/narkagni/Public/github/dhruva/src/ui/folder-menu/FolderMenuBuilder.js:163
+msgid "zenity is required for file selection dialogs."
+msgstr "Для диалогов выбора файлов требуется zenity."
 
-msgid "Unknown Title"
-msgstr "Неизвестное название"
+#~ msgid "Primary Monitor"
+#~ msgstr "Основной монитор"
 
-msgid "Unknown Artist"
-msgstr "Неизвестный исполнитель"
+#~ msgid "Sizing &amp; Spacing"
+#~ msgstr "Размеры и отступы"
+
+#~ msgid "Base Dimensions for dock and icons"
+#~ msgstr "Основные параметры размеров панели и значков"
+
+#~ msgid "Dock color & indicator auto-update from your wallpaper"
+#~ msgstr "Цвет панели и индикаторов берется из обоев"
+
+#~ msgid "Windows 11"
+#~ msgstr "Динамический"
+
+#~ msgid "Animations & Effects"
+#~ msgstr "Анимации и эффекты"
+
+#~ msgid "Hover Zoom Physics & Motion"
+#~ msgstr "Физика приближения и движения"
+
+#~ msgid "Interaction & Previews"
+#~ msgstr "Взаимодействие и предпросмотр"
+
+#~ msgid "Multitasking & Utilities"
+#~ msgstr "Многозадачность и утилиты"
+
+#~ msgid "Show USB & Mounted Drives"
+#~ msgstr "Показывать USB и подключенные диски"
+
+#~ msgid "+ Add Quick Folder"
+#~ msgstr "+ Добавить папку"
+
+#~ msgid "Clock & Date"
+#~ msgstr "Часы и дата"
+
+#~ msgid "Backup & Restore"
+#~ msgstr "Резервное копирование и восстановление"
+
+#~ msgid "Author &amp; Maintainer"
+#~ msgstr "Автор и разработчик"
+
+#~ msgid "Open Recycle Bin"
+#~ msgstr "Открыть корзину"
+
+#~ msgid "Folder"
+#~ msgstr "Папка"
+
+#~ msgid "Add to New Folder"
+#~ msgstr "Добавить в Новую папку"
+
+#~ msgid "Remove from New Folder"
+#~ msgstr "Убрать из Новой папки"
+
+#~ msgid "Unpin from %s"
+#~ msgstr "Открепить от %s"
+
+#~ msgid "Pin to %s"
+#~ msgstr "Закрепить в %s"
+
+#~ msgid "Unknown Title"
+#~ msgstr "Неизвестное название"

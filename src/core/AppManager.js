@@ -41,7 +41,8 @@ export default class AppManager {
 
         this.pinnedApps = [];
         this.dockOrder = [];
-        this.folders = [];
+        this.independentFolders = [];
+        this.nonIndependentFolders = [];
         this._isLoaded = false;
 
         this.extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), this.uuid]);
@@ -49,18 +50,11 @@ export default class AppManager {
 
         this.favManager = AppFavorites.getAppFavorites();
 
-        this.loadDockStateSync();
-
-        this.settings.connectObject('changed::independent-dock', () => {
-            if (this.isIndependent()) {
-                this.loadDockStateSync();
-            } else {
-                this.loadNonIndependentFolders();
-            }
-            if (this._onStateChangedCallback) {
-                this._onStateChangedCallback();
-            }
-        }, this);
+        if (this.isIndependent()) {
+            this.loadDockStateSync();
+        } else {
+            this.loadNonIndependentFolders();
+        }
     }
 
     setDockUI(dockUI) {
@@ -68,7 +62,7 @@ export default class AppManager {
     }
 
     isIndependent() {
-        return Settings.independentDock;
+        return this.settings ? this.settings.get_boolean('independent-dock') : false;
     }
 
     onStateChanged(callback) {
@@ -85,15 +79,15 @@ export default class AppManager {
 
     loadNonIndependentFolders() {
         if (!this.settings) {
-            this.folders = [];
+            this.nonIndependentFolders = [];
             return;
         }
         try {
             const raw = this.settings.get_string('app-folders');
-            this.folders = raw ? JSON.parse(raw) : [];
-            if (!Array.isArray(this.folders)) this.folders = [];
+            this.nonIndependentFolders = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(this.nonIndependentFolders)) this.nonIndependentFolders = [];
         } catch (_e) {
-            this.folders = [];
+            this.nonIndependentFolders = [];
         }
     }
 
@@ -115,11 +109,11 @@ export default class AppManager {
                     if (Array.isArray(parsed)) {
                         this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
                         this.dockOrder = [...parsed];
-                        this.folders = [];
-                    } else if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                        this.independentFolders = [];
+                    } else if (parsed && Boolean(parsed) && !Array.isArray(parsed)) {
                         this.pinnedApps = Array.isArray(parsed.apps) ? parsed.apps : [];
                         this.dockOrder = Array.isArray(parsed.order) ? parsed.order : [];
-                        this.folders = Array.isArray(parsed.folders) ? parsed.folders : [];
+                        this.independentFolders = Array.isArray(parsed.folders) ? parsed.folders : [];
                     }
 
                     this._isLoaded = true;
@@ -133,7 +127,7 @@ export default class AppManager {
         if (!this._isLoaded) {
             this.pinnedApps = [...DEFAULT_PINNED_APPS];
             this.dockOrder = [...this.pinnedApps];
-            this.folders = [];
+            this.independentFolders = [];
             this.saveDockState();
             this._isLoaded = true;
         }
@@ -147,7 +141,7 @@ export default class AppManager {
         const payload = {
             apps: this.pinnedApps || [],
             order: this.dockOrder || [],
-            folders: this.folders || []
+            folders: this.independentFolders || []
         };
 
         const dataStr = JSON.stringify(payload, null, 2);
@@ -179,7 +173,8 @@ export default class AppManager {
 
     getDockOrder() {
         const currentPinned = this.getCurrentPinnedList();
-        const currentFolderKeys = (this.folders || []).map(f => `folder:${f.id}`);
+        const currentFolders = this.getFolders();
+        const currentFolderKeys = (currentFolders || []).map(f => `folder:${f.id}`);
         const existingOrder = [...(this.dockOrder || [])];
 
         const finalOrder = [];
@@ -213,25 +208,32 @@ export default class AppManager {
     saveDockOrder(newOrderArray = null) {
         if (Array.isArray(newOrderArray)) {
             this.dockOrder = [...newOrderArray];
-            this.saveDockState();
+            if (this.isIndependent()) {
+                this.saveDockState();
+            }
         }
     }
 
     getFolders() {
-        return this.folders || [];
+        return this.isIndependent()
+            ? (this.independentFolders || [])
+            : (this.nonIndependentFolders || []);
     }
 
     saveFolders(foldersList) {
         if (!Array.isArray(foldersList)) return;
-        this.folders = foldersList;
 
         if (this.isIndependent()) {
+            this.independentFolders = foldersList;
             this.saveDockState();
-        } else if (this.settings) {
-            try {
-                this.settings.set_string('app-folders', JSON.stringify(this.folders));
-            } catch (e) {
-                console.error(`[Dhruva] Failed to save non-independent folders: ${e.message}`);
+        } else {
+            this.nonIndependentFolders = foldersList;
+            if (this.settings) {
+                try {
+                    this.settings.set_string('app-folders', JSON.stringify(foldersList));
+                } catch (e) {
+                    console.error(`[Dhruva] Failed to save non-independent folders: ${e.message}`);
+                }
             }
         }
     }
@@ -377,7 +379,8 @@ export default class AppManager {
         }
         this.pinnedApps = [];
         this.dockOrder = [];
-        this.folders = [];
+        this.independentFolders = [];
+        this.nonIndependentFolders = [];
         this.appSystem = null;
         this.favManager = null;
         this.dockUI = null;

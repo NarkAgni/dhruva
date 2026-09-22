@@ -17,13 +17,11 @@
 */
 
 
-
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import emojisData from '../emojis.js';
 import { isActorAlive, setBoxVertical } from '../../core/Utils.js';

@@ -32,8 +32,14 @@ class SettingsManager {
 
     get customFolders() {
         if (!this._settings) return [];
-        const val = this._settings.get_string('custom-folders');
-        return val ? JSON.parse(val) : [];
+        try {
+            const val = this._settings.get_string('custom-folders');
+            if (!val) return [];
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+            return [];
+        }
     }
     set customFolders(arr) {
         if (this._settings) {
@@ -43,8 +49,14 @@ class SettingsManager {
 
     get appFolders() {
         if (!this._settings) return [];
-        const val = this._settings.get_string('app-folders');
-        return val ? JSON.parse(val) : [];
+        try {
+            const val = this._settings.get_string('app-folders');
+            if (!val) return [];
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+            return [];
+        }
     }
     set appFolders(arr) {
         if (this._settings) {

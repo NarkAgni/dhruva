@@ -19,8 +19,6 @@
 
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import { Settings } from './SettingsManager.js';
-
 
 export default class FolderManager {
     constructor(settings, uuid, appManager = null, dockUI = null) {
@@ -31,12 +29,8 @@ export default class FolderManager {
 
         this.folders = [];
         this._stateListeners = new Set();
-        this._loadFolders();
-
-        if (this.settings) {
-            this.settings.connectObject('changed::independent-dock', () => {
-                this._loadFolders();
-            }, this);
+        if (this.appManager) {
+            this._loadFolders();
         }
     }
 
@@ -58,7 +52,7 @@ export default class FolderManager {
     }
 
     removeStateListener(callback) {
-        if (callback) this._stateListeners.delete(callback);
+        this._stateListeners.delete(callback);
     }
 
     _notifyStateChanged() {
@@ -68,8 +62,10 @@ export default class FolderManager {
     }
 
     _loadFolders() {
+        this.folders = [];
+
         if (this.appManager) {
-            this.folders = [...this.appManager.getFolders()];
+            this.folders = [...(this.appManager.getFolders() || [])];
         } else if (this.settings) {
             try {
                 const raw = this.settings.get_string('app-folders');
@@ -77,12 +73,22 @@ export default class FolderManager {
             } catch (_e) {
                 this.folders = [];
             }
-        } else {
-            this.folders = [];
         }
 
         if (!Array.isArray(this.folders)) {
             this.folders = [];
+        }
+
+        let updated = false;
+        this.folders.forEach(f => {
+            if (!f.icon || f.icon === 'folder-symbolic') {
+                f.icon = 'folder';
+                updated = true;
+            }
+        });
+
+        if (updated) {
+            this._saveFolders();
         }
 
         this._notifyStateChanged();
@@ -93,10 +99,6 @@ export default class FolderManager {
 
         if (this.appManager) {
             this.appManager.saveFolders(this.folders);
-        } else if (this.settings && !Settings.independentDock) {
-            try {
-                this.settings.set_string('app-folders', JSON.stringify(this.folders));
-            } catch (_e) {}
         }
 
         this._notifyStateChanged();
@@ -106,7 +108,7 @@ export default class FolderManager {
         this._saveFolders();
     }
 
-    createFolder(name = _('New Folder'), icon = 'folder-symbolic') {
+    createFolder(name = _('New Folder'), icon = 'folder') {
         const id = `dhruva-folder-${Date.now()}`;
         const newFolder = {
             id,
@@ -161,6 +163,10 @@ export default class FolderManager {
             if (this.appManager) {
                 if (this.appManager.isIndependent()) {
                     this.appManager.pinnedApps = (this.appManager.pinnedApps || []).filter(id => id !== appId);
+                } else {
+                    if (this.appManager.favManager.isFavorite(appId)) {
+                        this.appManager.favManager.removeFavorite(appId);
+                    }
                 }
                 this.appManager.dockOrder = (this.appManager.dockOrder || []).filter(id => id !== appId);
             }
@@ -193,13 +199,20 @@ export default class FolderManager {
     }
 
     updateFolder(folderId, newName, newIcon) {
-        const folder = this.folders.find(f => f.id === folderId);
+        const folderList = this.appManager ? this.appManager.getFolders() : this.folders;
+        const folder = (folderList || []).find(f => f.id === folderId);
+
         if (folder) {
             if (newName !== undefined) folder.name = newName;
-            if (newIcon !== undefined) folder.icon = newIcon;
+            if (newIcon !== undefined) {
+                folder.icon = (newIcon === 'folder-symbolic') ? 'folder' : newIcon;
+            }
+
+            this.folders = folderList;
             this._saveFolders();
+
             if (this.dockUI && this.dockUI.queueRender) {
-                this.dockUI.queueRender('incremental');
+                this.dockUI.queueRender('full', true);
             }
             return true;
         }
@@ -207,20 +220,49 @@ export default class FolderManager {
     }
 
     deleteFolder(folderId) {
-        this.folders = this.folders.filter(f => f.id !== folderId);
+        const targetFolder = (this.getFolders() || []).find(f => f.id === folderId);
+        const appsToRestore = targetFolder && Array.isArray(targetFolder.apps) ? [...targetFolder.apps] : [];
+
+        this.folders = (this.getFolders() || []).filter(f => f.id !== folderId);
 
         if (this.appManager) {
-            const order = this.appManager.getDockOrder().filter(k => k !== `folder:${folderId}`);
-            this.appManager.saveDockOrder(order);
+            let currentOrder = (this.appManager.dockOrder || []).filter(k => k !== `folder:${folderId}`);
+
+            if (this.appManager.isIndependent()) {
+                if (!Array.isArray(this.appManager.pinnedApps)) this.appManager.pinnedApps = [];
+                
+                appsToRestore.forEach(appId => {
+                    if (!this.appManager.pinnedApps.includes(appId)) {
+                        this.appManager.pinnedApps.push(appId);
+                    }
+                    if (!currentOrder.includes(appId)) {
+                        currentOrder.push(appId);
+                    }
+                });
+
+                this.appManager.dockOrder = currentOrder;
+                this.appManager.independentFolders = [...this.folders];
+                this.appManager.saveDockState();
+            } else {
+                appsToRestore.forEach(appId => {
+                    this.appManager.addApp(appId);
+                });
+                this.appManager.dockOrder = currentOrder;
+                this._saveFolders();
+            }
+        } else {
+            this._saveFolders();
         }
 
-        this._saveFolders();
         if (this.dockUI && this.dockUI.queueRender) {
             this.dockUI.queueRender('incremental');
         }
     }
 
     getFolders() {
+        if (this.appManager) {
+            return this.appManager.getFolders() || [];
+        }
         return this.folders || [];
     }
 

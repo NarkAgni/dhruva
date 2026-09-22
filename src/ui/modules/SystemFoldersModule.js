@@ -57,29 +57,44 @@ export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
             const gicon = mount.get_icon() || Gio.ThemedIcon.new('drive-harddisk-symbolic');
             const rootPath = mount.get_root().get_path() || '';
 
-            systemModules.push(createBtn(gicon, name, (btn) => toggleAppWindow(uri, rootPath, name, btn), rootPath));
+            const btn = createBtn(gicon, name, (b) => toggleAppWindow(uri, rootPath, name, b), rootPath);
+            btn._modType = 'mounts';
+            systemModules.push(btn);
         });
     }
 
-    const customFoldersRaw = Settings.customFolders;
-    if (customFoldersRaw) {
-        try {
-            const parsedData = JSON.parse(customFoldersRaw);
-            if (Array.isArray(parsedData)) {
-                parsedData.forEach(f => {
-                    const fPath = f.path || '/';
-                    let fName = f.name || _('Custom Folder');
-                    if (fName === 'New Folder' || fName === 'Новая папка') {
-                        fName = _('New Folder');
-                    }
-                    const fIcon = f.icon || 'folder';
-                    const uri = fPath.startsWith('file://') || fPath.includes('://') ? fPath : Gio.File.new_for_path(fPath).get_uri();
-
-                    systemModules.push(createBtn(fIcon, fName, (btn) => toggleAppWindow(uri, fPath, fName, btn), fPath));
-                });
-            }
-        } catch (_e) { }
+    let customFolders = [];
+    if (Settings.independentDock && dockUI && dockUI.folderManager && typeof dockUI.folderManager.getCustomFolders === 'function') {
+        customFolders = dockUI.folderManager.getCustomFolders() || [];
+    } else {
+        customFolders = Array.isArray(Settings.customFolders) ? Settings.customFolders : [];
     }
+
+    customFolders.forEach((f, idx) => {
+        const fPath = f.path || '/';
+        let fName = f.name || _('Custom Folder');
+        if (fName === 'New Folder' || fName === 'Новая папка') {
+            fName = _('New Folder');
+        }
+        const fIcon = f.icon || 'folder';
+        const uri = fPath.startsWith('file://') || fPath.includes('://')
+            ? fPath
+            : Gio.File.new_for_path(fPath).get_uri();
+
+        const btn = createBtn(fIcon, fName, (b) => toggleAppWindow(uri, fPath, fName, b), fPath);
+        btn._customFolderIndex = idx;
+        btn._modType = `custom-${idx}`;
+
+        const cleanName = fName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const customAppId = `dhruva-sys-custom-${idx}-${cleanName}`;
+
+        if (btn._delegate && btn._delegate.app) {
+            btn._delegate.app.get_id = () => customAppId;
+            btn._delegate.app.get_name = () => fName;
+        }
+
+        systemModules.push(btn);
+    });
 
     return systemModules;
 }
