@@ -33,18 +33,34 @@ const SAMPLE_ICON_SIZE = 32;
 const _disposedActors = new WeakSet();
 const _iconColorCache = new Map();
 
-const _ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
-_ifaceSettings.connect('changed::icon-theme', () => {
+let _ifaceSettings = null;
+let _ifaceSettingsChangedId = 0;
+
+function _getIfaceSettings() {
+    if (!_ifaceSettings) {
+        _ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
+        _ifaceSettingsChangedId = _ifaceSettings.connect('changed::icon-theme', () => {
+            _iconColorCache.clear();
+        });
+    }
+    return _ifaceSettings;
+}
+
+export function destroyUtils() {
+    if (_ifaceSettings) {
+        if (_ifaceSettingsChangedId) _ifaceSettings.disconnect(_ifaceSettingsChangedId);
+        _ifaceSettings = null;
+        _ifaceSettingsChangedId = 0;
+    }
     _iconColorCache.clear();
-});
+}
 
 function _getActiveIconTheme() {
-    return _ifaceSettings.get_string('icon-theme') || 'hicolor';
-
+    return _getIfaceSettings().get_string('icon-theme') || 'hicolor';
 }
 
 function _isFile(path) {
-    return !!path && GLib.file_test(path, GLib.FileTest.EXISTS);
+    return Boolean(path) && GLib.file_test(path, GLib.FileTest.EXISTS);
 }
 
 function _clampByte(v) {
@@ -98,7 +114,7 @@ export function isActorAlive(actor) {
         }
 
         const stage = Clutter.Actor.prototype.get_stage.call(actor);
-        return !!stage;
+        return Boolean(stage);
     } catch (_e) {
         _disposedActors.add(actor);
         return false;
@@ -163,7 +179,9 @@ export function hexToRgba(colorStr, alpha) {
     let g = DEFAULT_RGB_CHANNEL;
     let b = DEFAULT_RGB_CHANNEL;
 
-    if (typeof colorStr === 'string' && colorStr.startsWith('#')) {
+    const isString = Boolean(colorStr && colorStr.substring && colorStr.startsWith);
+
+    if (isString && colorStr.startsWith('#')) {
         let hex = colorStr.slice(1).trim();
         if (hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('');
 
@@ -172,7 +190,7 @@ export function hexToRgba(colorStr, alpha) {
             g = parseInt(hex.substring(2, 4), 16);
             b = parseInt(hex.substring(4, 6), 16);
         }
-    } else if (typeof colorStr === 'string' && colorStr.startsWith('rgb')) {
+    } else if (isString && colorStr.startsWith('rgb')) {
         const parts = colorStr.match(/[\d.]+/g);
         if (parts && parts.length >= 3) {
             r = _clampByte(parseFloat(parts[0]));
@@ -270,7 +288,9 @@ export function extractIconDominantColor(iconSource, fallbackColor = DEFAULT_FAL
     let resolvedPath = null;
     let giconTarget = null;
 
-    if (typeof iconSource === 'string') {
+    const isIconStr = Boolean(iconSource && iconSource.charCodeAt && iconSource.startsWith);
+
+    if (isIconStr) {
         cacheKey = `${activeTheme}::${iconSource}`;
         resolvedPath = iconSource.startsWith('/') ? iconSource : _findIconFilePath(iconSource);
     } else if (iconSource.get_app_info) {
@@ -293,8 +313,7 @@ export function extractIconDominantColor(iconSource, fallbackColor = DEFAULT_FAL
         resolvedPath = _resolvePathFromGicon(giconTarget);
 
         const giconString = (() => {
-            return giconTarget?.to_string ? giconTarget.to_string() : 'gicon';
-
+            return (giconTarget && giconTarget.to_string) ? giconTarget.to_string() : 'gicon';
         })();
 
         cacheKey = `${activeTheme}::${resolvedPath || giconString}`;
@@ -357,7 +376,6 @@ export function extractIconDominantColor(iconSource, fallbackColor = DEFAULT_FAL
                 const delta = max - min;
                 const lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-                // Skip near-black and near-white pixels that usually carry less brand color signal.
                 if (lum < 20 || lum > 245) continue;
 
                 const qr = Math.round(r / 16) * 16;

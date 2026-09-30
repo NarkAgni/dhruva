@@ -33,22 +33,24 @@ export class LyricsClient {
         this._cacheFilePath = GLib.build_filenamev([this._cacheDir, 'lyrics_cache.json']);
 
         this._cache = new Map();
-        this._loadDiskCache();
+        this._loadDiskCache().catch(() => { });
     }
 
-    _loadDiskCache() {
+    async _loadDiskCache() {
         try {
             const file = Gio.File.new_for_path(this._cacheFilePath);
             if (file.query_exists(null)) {
-                const [, contents] = file.load_contents(null);
-                const data = JSON.parse(new TextDecoder().decode(contents));
-                if (data && typeof data === 'object') {
-                    for (const [k, v] of Object.entries(data)) {
-                        this._cache.set(k, v);
+                const [bytes] = await file.load_bytes_async(null);
+                if (bytes) {
+                    const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
+                    if (data && Boolean(data) && !Array.isArray(data)) {
+                        for (const [k, v] of Object.entries(data)) {
+                            this._cache.set(k, v);
+                        }
                     }
                 }
             }
-        } catch (_e) {}
+        } catch (_e) { }
     }
 
     _saveDiskCache() {
@@ -65,7 +67,7 @@ export class LyricsClient {
                 Gio.FileCreateFlags.REPLACE_DESTINATION,
                 null
             );
-        } catch (_e) {}
+        } catch (_e) { }
     }
 
     async getLyrics(title, artist, durationSec) {

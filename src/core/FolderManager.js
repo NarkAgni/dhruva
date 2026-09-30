@@ -164,7 +164,7 @@ export default class FolderManager {
                 if (this.appManager.isIndependent()) {
                     this.appManager.pinnedApps = (this.appManager.pinnedApps || []).filter(id => id !== appId);
                 } else {
-                    if (this.appManager.favManager.isFavorite(appId)) {
+                    if (this.appManager.favManager && this.appManager.favManager.isFavorite(appId)) {
                         this.appManager.favManager.removeFavorite(appId);
                     }
                 }
@@ -182,20 +182,61 @@ export default class FolderManager {
 
     removeAppFromFolder(folderId, appId) {
         const folder = this.folders.find(f => f.id === folderId);
-        if (folder) {
-            folder.apps = folder.apps.filter(id => id !== appId);
+        if (!folder) return false;
 
-            if (folder.apps.length === 0) {
-                this.deleteFolder(folderId);
-            } else {
-                this._saveFolders();
-                if (this.dockUI && this.dockUI.queueRender) {
-                    this.dockUI.queueRender('incremental');
+        folder.apps = folder.apps.filter(id => id !== appId);
+
+        if (this.appManager) {
+            this.appManager.addApp(appId);
+
+            if (Array.isArray(this.appManager.dockOrder)) {
+                const folderKey = `folder:${folderId}`;
+                const order = this.appManager.dockOrder.filter(k => k !== appId);
+                const folderIdx = order.indexOf(folderKey);
+
+                if (folderIdx !== -1) {
+                    order.splice(folderIdx, 0, appId);
+                } else {
+                    order.unshift(appId);
+                }
+
+                order.sort((a, b) => {
+                    const isFA = Boolean(a && a.startsWith && a.startsWith('folder:'));
+                    const isFB = Boolean(b && b.startsWith && b.startsWith('folder:'));
+                    if (isFA && !isFB) return 1;
+                    if (!isFA && isFB) return -1;
+                    return 0;
+                });
+
+                this.appManager.dockOrder = order;
+                if (this.appManager.saveDockOrder) {
+                    this.appManager.saveDockOrder(order);
                 }
             }
-            return true;
         }
-        return false;
+
+        if (folder.apps.length <= 1) {
+            const lastApp = folder.apps[0];
+            this.folders = this.folders.filter(f => f.id !== folderId);
+
+            if (this.appManager) {
+                this.appManager.dockOrder = (this.appManager.dockOrder || []).filter(k => k !== `folder:${folderId}`);
+
+                if (lastApp) {
+                    this.appManager.addApp(lastApp);
+                }
+                this.appManager.saveDockState ? this.appManager.saveDockState() : this._saveFolders();
+            } else {
+                this._saveFolders();
+            }
+        } else {
+            this._saveFolders();
+        }
+
+        if (this.dockUI && this.dockUI.queueRender) {
+            this.dockUI.queueRender('full', true);
+        }
+        return true;
     }
 
     updateFolder(folderId, newName, newIcon) {

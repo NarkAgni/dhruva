@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
+* along with this program. If not, see .
 */
 
 
@@ -31,8 +31,22 @@ const SPOTIFY_BUS_NAME = 'org.mpris.MediaPlayer2.spotify';
 
 export const MusicPlayerService = GObject.registerClass({
     Signals: {
-        'playback-state-changed': { param_types: [GObject.TYPE_BOOLEAN, GObject.TYPE_STRING, GObject.TYPE_STRING, GObject.TYPE_STRING, GObject.TYPE_DOUBLE, GObject.TYPE_BOOLEAN] },
-        'position-changed': { param_types: [GObject.TYPE_INT, GObject.TYPE_INT64] },
+        'playback-state-changed': { 
+            param_types: [
+                GObject.TYPE_BOOLEAN, 
+                GObject.TYPE_STRING, 
+                GObject.TYPE_STRING, 
+                GObject.TYPE_STRING, 
+                GObject.TYPE_DOUBLE, 
+                GObject.TYPE_BOOLEAN
+            ] 
+        },
+        'position-changed': { 
+            param_types: [
+                GObject.TYPE_INT, 
+                GObject.TYPE_INT64
+            ] 
+        },
     },
 },
 class MusicPlayerService extends GObject.Object {
@@ -117,23 +131,26 @@ class MusicPlayerService extends GObject.Object {
 
     _verifyPlayerAlive() {
         if (!this._dbusProxy || !this._activePlayerBus) return;
-        try {
-            const res = this._dbusProxy.call_sync(
-                'GetNameOwner',
-                new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
-                Gio.DBusCallFlags.NONE,
-                -1,
-                null
-            );
-            const unpacked = res ? res.recursiveUnpack() : null;
-            if (!unpacked || !unpacked[0]) {
-                this._handlePlayerClosed();
-            } else {
-                this._syncState();
+        this._dbusProxy.call(
+            'GetNameOwner',
+            new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
+            Gio.DBusCallFlags.NONE,
+            1000,
+            null,
+            (proxy, res) => {
+                try {
+                    const reply = proxy.call_finish(res);
+                    const unpacked = reply ? reply.recursiveUnpack() : null;
+                    if (!unpacked || !unpacked[0]) {
+                        this._handlePlayerClosed();
+                    } else {
+                        this._syncState();
+                    }
+                } catch (_e) {
+                    this._handlePlayerClosed();
+                }
             }
-        } catch (_e) {
-            this._handlePlayerClosed();
-        }
+        );
     }
 
     _startPositionTracker() {
@@ -167,25 +184,28 @@ class MusicPlayerService extends GObject.Object {
 
     _findActivePlayer() {
         if (!this._dbusProxy) return;
-        try {
-            const res = this._dbusProxy.call_sync(
-                'GetNameOwner',
-                new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
-                Gio.DBusCallFlags.NONE,
-                -1,
-                null
-            );
-            const unpacked = res ? res.recursiveUnpack() : null;
-            if (unpacked && unpacked[0]) {
-                if (this._activePlayerBus !== SPOTIFY_BUS_NAME) {
-                    this._bindPlayer(SPOTIFY_BUS_NAME);
+        this._dbusProxy.call(
+            'GetNameOwner',
+            new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
+            Gio.DBusCallFlags.NONE,
+            1000,
+            null,
+            (proxy, res) => {
+                try {
+                    const reply = proxy.call_finish(res);
+                    const unpacked = reply ? reply.recursiveUnpack() : null;
+                    if (unpacked && unpacked[0]) {
+                        if (this._activePlayerBus !== SPOTIFY_BUS_NAME) {
+                            this._bindPlayer(SPOTIFY_BUS_NAME);
+                        }
+                    } else {
+                        this._handlePlayerClosed();
+                    }
+                } catch (_e) {
+                    this._handlePlayerClosed();
                 }
-            } else {
-                this._handlePlayerClosed();
             }
-        } catch (_e) {
-            this._handlePlayerClosed();
-        }
+        );
     }
 
     _bindPlayer(busName) {

@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
+* along with this program. If not, see .
 */
 
 
@@ -51,7 +51,9 @@ export default class AppManager {
         this.favManager = AppFavorites.getAppFavorites();
 
         if (this.isIndependent()) {
-            this.loadDockStateSync();
+            this.loadDockState().catch(err => {
+                console.error('[Dhruva] Error loading dock state:', err.message);
+            });
         } else {
             this.loadNonIndependentFolders();
         }
@@ -91,7 +93,7 @@ export default class AppManager {
         }
     }
 
-    loadDockStateSync() {
+    async loadDockState() {
         if (!this.isIndependent()) {
             this.loadNonIndependentFolders();
             return;
@@ -101,10 +103,10 @@ export default class AppManager {
 
         if (file.query_exists(null)) {
             try {
-                const [success, contents] = file.load_contents(null);
-                if (success && contents) {
+                const [bytes] = await file.load_bytes_async(null);
+                if (bytes) {
                     const decoder = new TextDecoder('utf-8');
-                    const parsed = JSON.parse(decoder.decode(contents));
+                    const parsed = JSON.parse(decoder.decode(bytes.get_data()));
 
                     if (Array.isArray(parsed)) {
                         this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
@@ -117,6 +119,11 @@ export default class AppManager {
                     }
 
                     this._isLoaded = true;
+                    if (this.dockUI && this.dockUI.queueRender) {
+                        this.dockUI.queueRender('full');
+                    } else if (this._onStateChangedCallback) {
+                        this._onStateChangedCallback();
+                    }
                     return;
                 }
             } catch (e) {

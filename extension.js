@@ -21,6 +21,7 @@ import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import { destroyUtils } from './src/core/Utils.js';
 import { Settings } from './src/core/SettingsManager.js';
 import { TimeoutTracker } from './src/core/TimeoutTracker.js';
 import QuickLaunchManager from './src/core/QuickLaunchManager.js';
@@ -117,6 +118,7 @@ export default class DhruvaExtension extends Extension {
         }
 
         this._currentAxis = null;
+        destroyUtils();
         Settings.destroy();
         this._settings = null;
     }

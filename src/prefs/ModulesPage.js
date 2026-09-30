@@ -245,7 +245,7 @@ export function buildModulesPage(prefs, window, settings) {
     ];
 
     const openFolderDialog = (editIndex) => {
-        const isEditing = (typeof editIndex === 'number' && editIndex >= 0);
+        const isEditing = (Number.isFinite(editIndex) && editIndex >= 0);
         const folderToEdit = isEditing ? customFolders[editIndex] : null;
 
         const isGnome45 = !Adw.AlertDialog;

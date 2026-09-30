@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
+* along with this program. If not, see .
 */
 
 
@@ -128,7 +128,6 @@ export function buildModules(dockUI, iconSize) {
     let clockModule = null;
     let gridModule = null;
     let desktopModule = null;
-    const settings = dockUI.settings;
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
     const hoverZoom = Settings.hoverZoom;
     const zoomFactor = Settings.hoverZoomFactor;
@@ -161,7 +160,7 @@ export function buildModules(dockUI, iconSize) {
     };
 
     const createBtn = (iconOrName, tooltipName, clickAction, folderPath = null) => {
-        const isString = typeof iconOrName === 'string';
+        const isString = Boolean(iconOrName && iconOrName.charCodeAt && iconOrName.startsWith);
         const isEmoji = isString && iconOrName.startsWith('emoji:');
         const isCustomFile = isString && !isEmoji && (iconOrName.startsWith('/') || iconOrName.startsWith('file://'));
 
@@ -212,7 +211,7 @@ export function buildModules(dockUI, iconSize) {
         });
         iconBin.set_pivot_point(0.5, 0.5);
 
-        const colorTarget = (typeof iconOrName === 'string' && iconOrName.startsWith('/')) ? iconOrName : (iconActor || iconOrName);
+        const colorTarget = (isString && iconOrName.startsWith('/')) ? iconOrName : (iconActor || iconOrName);
         const indProps = getIndicatorProps(dockUI, colorTarget);
         iconBin.translation_x = indProps.iconTx;
         iconBin.translation_y = indProps.iconTy;
@@ -258,11 +257,14 @@ export function buildModules(dockUI, iconSize) {
         const focusWin = global.display.get_focus_window();
         const isFocused = Array.isArray(activeWins) && activeWins.some(w => w === focusWin);
 
+        appBox.add_child(iconBin);
+
+        let dotBox = null;
         if (isRunning && Settings.showRunningIndicators) {
             const indStyle = Settings.indicatorStyle || 'dot';
             const count = (indStyle === 'line' || indStyle === 'windows') ? 1 : (activeWins.length > 1 ? 2 : 1);
 
-            const dotBox = createIndicatorBox(
+            dotBox = createIndicatorBox(
                 dockUI.dockPosition,
                 isVertical,
                 indProps,
@@ -270,44 +272,8 @@ export function buildModules(dockUI, iconSize) {
                 expandedDim,
                 isFocused
             );
-
-            appBox.add_child(iconBin);
             appBox.add_child(dotBox);
-        } else {
-            appBox.add_child(iconBin);
         }
-
-        const isExpanded = isRunning && Settings.showRunningIndicators && !hoverZoom;
-        const targetW = isVertical ? iconSize : (isExpanded ? expandedDim : collapsedDim);
-        const targetH = isVertical ? (isExpanded ? expandedDim : collapsedDim) : iconSize;
-
-        let baseBg = 'transparent';
-        if (isExpanded && !hoverZoom) {
-            baseBg = hexToRgba(indProps.indColor, 0.25);
-        }
-
-        const hoverBg = new St.Widget({
-            reactive: false,
-            style: `background-color: ${baseBg}; border-radius: 0px; transition-duration: 150ms;`
-        });
-
-        hoverBg.set_pivot_point(0.5, 0.5);
-        hoverBg.scale_x = isVertical ? (iconSize + pad * 2) / iconSize : 1.0;
-        hoverBg.scale_y = isVertical ? 1.0 : (iconSize + pad * 2) / iconSize;
-
-        if (isVertical) {
-            hoverBg.set_x_expand(true);
-            hoverBg.set_x_align(Clutter.ActorAlign.FILL);
-            hoverBg.set_y_align(Clutter.ActorAlign.CENTER);
-            hoverBg.height = targetH;
-        } else {
-            hoverBg.set_y_expand(true);
-            hoverBg.set_y_align(Clutter.ActorAlign.FILL);
-            hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
-            hoverBg.width = targetW;
-        }
-
-        appBox.insert_child_at_index(hoverBg, 0);
 
         const btnStyleClass = `dock-app-button ${isVertical ? 'dock-module-btn-vertical' : 'dock-module-btn-horizontal'}`;
         const btn = new St.Bin({
@@ -325,32 +291,14 @@ export function buildModules(dockUI, iconSize) {
 
         btn._isModule = true;
         btn.set_pivot_point(0.5, 0.5);
-        btn._hasRunningIndicator = isExpanded;
         btn.set_style('background-color: transparent;');
-        btn._baseBg = baseBg;
+        btn._appBox = appBox;
+        btn._indicatorActor = dotBox;
 
-        btn.connectObject('notify::hover', () => {
-            if (Settings.hoverZoom) return;
+        const dims = { iconSize, pad, expandedDim, collapsedDim, isVerticalDock: isVertical };
+        btn._dims = dims;
 
-            const expanded = isExpanded || btn.hover;
-            const currentDim = expanded ? expandedDim : collapsedDim;
-
-            if (isVertical) {
-                hoverBg.ease({ height: currentDim, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-            } else {
-                hoverBg.ease({ width: currentDim, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-            }
-
-            if (btn.hover) {
-                if (isExpanded) {
-                    hoverBg.set_style(`background-color: ${hexToRgba(indProps.indColor, 0.35)}; border-radius: 0px; transition-duration: 150ms;`);
-                } else {
-                    hoverBg.set_style(`background-color: rgba(255, 255, 255, 0.15); border-radius: 0px; transition-duration: 150ms;`);
-                }
-            } else {
-                hoverBg.set_style(`background-color: ${btn._baseBg}; border-radius: 0px; transition-duration: 150ms;`);
-            }
-        }, btn);
+        attachHoverBackground(dockUI, btn, appBox, isRunning && Settings.showRunningIndicators, indProps, dims);
 
         const safeId = `dhruva-module-${tooltipName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
 
@@ -373,10 +321,10 @@ export function buildModules(dockUI, iconSize) {
             updateRunningState: () => {
                 const wins = getMatchingWindows();
                 const running = wins.length > 0;
-                const focusWin = global.display.get_focus_window();
-                const isFocused = wins.some(w => w === focusWin);
+                const fWin = global.display.get_focus_window();
+                const foc = wins.some(w => w === fWin);
                 const currentProps = getIndicatorProps(dockUI, colorTarget);
-                attachHoverBackground.updateState(btn, running, wins, currentProps, dockUI, isFocused);
+                attachHoverBackground.updateState(btn, running, wins, currentProps, dockUI, foc);
             }
         };
 

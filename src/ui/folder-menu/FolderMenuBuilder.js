@@ -27,6 +27,7 @@ import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { Slider } from 'resource:///org/gnome/shell/ui/slider.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { EmojiPicker } from './EmojiPicker.js';
@@ -37,8 +38,8 @@ import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 
-const APPS_PER_ROW = 5;
-const EMOJI_TEXTURE_DIM = 128;
+const APPS_PER_ROW = 4;
+const EMOJI_TEXTURE_DIM = 256;
 const ENTRY_DURATION_MS = 260;
 
 export class FolderMenuBuilder {
@@ -75,8 +76,35 @@ export class FolderMenuBuilder {
             y_align: Clutter.ActorAlign.CENTER
         });
 
+        const GNOME_ACCENTS = [
+            { name: 'Default', hex: 'rgba(255, 255, 255, 0.65)' },
+            { name: 'Blue', hex: '#3584e4' },
+            { name: 'Green', hex: '#3a944a' },
+            { name: 'Yellow', hex: '#e5a50a' },
+            { name: 'Orange', hex: '#ed5b00' },
+            { name: 'Red', hex: '#e01b24' },
+            { name: 'Pink', hex: '#d56199' },
+            { name: 'Teal', hex: '#2190a4' },
+            { name: 'Purple', hex: '#9141ac' },
+            { name: 'Slate', hex: '#627889' }
+        ];
+
         const editBtn = new St.Button({
             child: new St.Icon({ icon_name: 'document-edit-symbolic', icon_size: 14 }),
+            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
+            y_align: Clutter.ActorAlign.CENTER,
+            reactive: true
+        });
+
+        const colorPickerBtn = new St.Button({
+            child: new St.Icon({ icon_name: 'color-select-symbolic', icon_size: 14 }),
+            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
+            y_align: Clutter.ActorAlign.CENTER,
+            reactive: true
+        });
+
+        const folderToggleBtn = new St.Button({
+            child: new St.Icon({ icon_name: 'folder-symbolic', icon_size: 14 }),
             style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
             y_align: Clutter.ActorAlign.CENTER,
             reactive: true
@@ -96,33 +124,37 @@ export class FolderMenuBuilder {
             reactive: true
         });
 
-        editBtn.connectObject('notify::hover', () => {
-            if (!isActorAlive(editBtn)) return;
-            editBtn.set_style(editBtn.hover
-                ? 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.25);'
-                : 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08);');
-        }, this);
+        const resetBtn = new St.Button({
+            child: new St.Icon({ icon_name: 'window-close-symbolic', icon_size: 14 }),
+            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
+            y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,
+            visible: false
+        });
 
-        iconBtn.connectObject('notify::hover', () => {
-            if (!isActorAlive(iconBtn)) return;
-            if (!iconBtn.has_style_class_name('selected-image')) {
-                iconBtn.set_style(iconBtn.hover
+        const setupHover = (btn) => {
+            btn.connectObject('notify::hover', () => {
+                if (!isActorAlive(btn)) return;
+                btn.set_style(btn.hover
                     ? 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.25);'
                     : 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08);');
-            }
-        }, this);
+            }, this);
+        };
 
-        emojiBtn.connectObject('notify::hover', () => {
-            if (!isActorAlive(emojiBtn)) return;
-            emojiBtn.set_style(emojiBtn.hover
-                ? 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.25);'
-                : 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08);');
-        }, this);
+        setupHover(editBtn);
+        setupHover(colorPickerBtn);
+        setupHover(folderToggleBtn);
+        setupHover(iconBtn);
+        setupHover(emojiBtn);
+        setupHover(resetBtn);
 
         displayBox.add_child(nameLabel);
         displayBox.add_child(editBtn);
+        displayBox.add_child(colorPickerBtn);
+        displayBox.add_child(folderToggleBtn);
         displayBox.add_child(iconBtn);
         displayBox.add_child(emojiBtn);
+        displayBox.add_child(resetBtn);
 
         const editBox = new St.BoxLayout({
             style: 'spacing: 8px;',
@@ -151,7 +183,287 @@ export class FolderMenuBuilder {
         titleBox.add_child(titleStack);
         this.panel.add_child(titleBox);
 
-        let selectedIcon = this.folderData.icon;
+        const plateSectionBox = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'margin: 6px 0 14px 0; spacing: 10px;',
+            visible: false
+        });
+        setBoxVertical(plateSectionBox, true);
+
+        const platePaletteBox = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'spacing: 8px; padding: 4px 2px;'
+        });
+        setBoxVertical(platePaletteBox, false);
+
+        GNOME_ACCENTS.forEach(accent => {
+            const isSelected = (this.folderData.plateColor === accent.hex) ||
+                (!this.folderData.plateColor && accent.name === 'Default');
+
+            const circle = new St.Button({
+                style: `
+                    width: ${isSelected ? '24px' : '20px'};
+                    height: ${isSelected ? '24px' : '20px'};
+                    border-radius: ${isSelected ? '12px' : '10px'};
+                    background-color: ${accent.hex};
+                    border: ${isSelected ? '2px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)'};
+                `,
+                y_align: Clutter.ActorAlign.CENTER,
+                reactive: true
+            });
+
+            circle.connectObject('clicked', () => {
+                this.folderData.plateColor = accent.hex;
+                this.folderMenu._saveFolderState();
+
+                platePaletteBox.get_children().forEach((btn, idx) => {
+                    const c = GNOME_ACCENTS[idx].hex;
+                    const sel = (accent.hex === c);
+                    btn.set_style(`
+                        width: ${sel ? '24px' : '20px'};
+                        height: ${sel ? '24px' : '20px'};
+                        border-radius: ${sel ? '12px' : '10px'};
+                        background-color: ${c};
+                        border: 1px solid rgba(255, 255, 255, ${sel ? '0.45' : '0.15'});
+                    `);
+                });
+
+                this.updateUIButtons();
+                this.dockUI.queueRender('incremental');
+            }, this);
+
+            platePaletteBox.add_child(circle);
+        });
+
+        const currentOpacity = this.folderData.plateOpacity !== undefined ? this.folderData.plateOpacity : 130;
+        const plateSliderRow = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.FILL,
+            x_expand: true,
+            style: 'margin-top: 10px; padding: 0 2px;'
+        });
+        setBoxVertical(plateSliderRow, false);
+
+        const plateOpacitySlider = new Slider(currentOpacity / 255.0);
+        plateOpacitySlider.x_expand = true;
+        plateOpacitySlider.x_align = Clutter.ActorAlign.FILL;
+        plateOpacitySlider.y_align = Clutter.ActorAlign.CENTER;
+
+        plateOpacitySlider.connectObject('notify::value', () => {
+            const rawVal = Math.max(0.1, plateOpacitySlider.value);
+            this.folderData.plateOpacity = Math.round(rawVal * 255);
+            this.folderMenu._saveFolderState();
+            this.updateUIButtons();
+            this.dockUI.queueRender('incremental');
+        }, this);
+
+        plateSliderRow.add_child(plateOpacitySlider);
+        plateSectionBox.add_child(platePaletteBox);
+        plateSectionBox.add_child(plateSliderRow);
+        this.panel.add_child(plateSectionBox);
+
+        const letterSectionBox = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'margin: 6px 0 14px 0; spacing: 10px;',
+            visible: false
+        });
+        setBoxVertical(letterSectionBox, true);
+
+        const folderTintPalette = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'spacing: 8px; padding: 4px 2px;'
+        });
+        setBoxVertical(folderTintPalette, false);
+
+        GNOME_ACCENTS.forEach(accent => {
+            const isSelected = (this.folderData.folderTintColor === accent.hex) ||
+                (!this.folderData.folderTintColor && accent.name === 'Default');
+
+            const circle = new St.Button({
+                style: `
+                    width: ${isSelected ? '24px' : '20px'};
+                    height: ${isSelected ? '24px' : '20px'};
+                    border-radius: ${isSelected ? '12px' : '10px'};
+                    background-color: ${accent.hex};
+                    border: 1px solid rgba(255, 255, 255, ${isSelected ? '0.45' : '0.15'});
+                `,
+                y_align: Clutter.ActorAlign.CENTER,
+                reactive: true
+            });
+
+            circle.connectObject('clicked', () => {
+                this.folderData.folderTintColor = accent.hex;
+                this.folderMenu._saveFolderState();
+
+                folderTintPalette.get_children().forEach((btn, idx) => {
+                    const c = GNOME_ACCENTS[idx].hex;
+                    const sel = (accent.hex === c);
+                    btn.set_style(`
+                        width: ${sel ? '24px' : '20px'};
+                        height: ${sel ? '24px' : '20px'};
+                        border-radius: ${sel ? '12px' : '10px'};
+                        background-color: ${c};
+                        border: 1px solid rgba(255, 255, 255, ${sel ? '0.45' : '0.15'});
+                    `);
+                });
+
+                this.updateUIButtons();
+                this.dockUI.queueRender('full', true);
+            }, this);
+
+            folderTintPalette.add_child(circle);
+        });
+
+        const currentScale = this.folderData.letterScale !== undefined ? this.folderData.letterScale : 0.44;
+        const fontSliderRow = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.FILL,
+            x_expand: true,
+            style: 'margin-top: 8px; padding: 0 4px; spacing: 8px;'
+        });
+        setBoxVertical(fontSliderRow, false);
+
+        const zoomHint = new St.Label({
+            text: 'A',
+            style: 'font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.7);',
+            y_align: Clutter.ActorAlign.CENTER
+        });
+
+        const MIN_FONT_SCALE = 0.28;
+        const MAX_FONT_SCALE = 0.54;
+        const fontNormalized = (currentScale - MIN_FONT_SCALE) / (MAX_FONT_SCALE - MIN_FONT_SCALE);
+
+        const fontSlider = new Slider(Math.max(0, Math.min(1.0, fontNormalized)));
+        fontSlider.x_expand = true;
+        fontSlider.x_align = Clutter.ActorAlign.FILL;
+        fontSlider.y_align = Clutter.ActorAlign.CENTER;
+
+        fontSlider.connectObject('notify::value', () => {
+            const scaled = MIN_FONT_SCALE + (fontSlider.value * (MAX_FONT_SCALE - MIN_FONT_SCALE));
+            this.folderData.letterScale = parseFloat(scaled.toFixed(2));
+            this.folderMenu._saveFolderState();
+            this.dockUI.queueRender('incremental');
+        }, this);
+
+        fontSliderRow.add_child(zoomHint);
+        fontSliderRow.add_child(fontSlider);
+
+        const LETTER_COLORS = [
+            { name: 'White', hex: '#ffffff' },
+            { name: 'Black', hex: '#111111' },
+            { name: 'Yellow', hex: '#f6d32d' },
+            { name: 'Green', hex: '#33d17a' },
+            { name: 'Red', hex: '#e01b24' }
+        ];
+
+        const letterColorRow = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'margin-top: 8px; spacing: 10px;'
+        });
+        setBoxVertical(letterColorRow, false);
+
+        LETTER_COLORS.forEach(c => {
+            const isSel = (this.folderData.letterColor === c.hex) || (!this.folderData.letterColor && c.hex === '#ffffff');
+            const cBtn = new St.Button({
+                style: `
+                    width: ${isSel ? '20px' : '18px'};
+                    height: ${isSel ? '20px' : '18px'};
+                    border-radius: ${isSel ? '10px' : '9px'};
+                    background-color: ${c.hex};
+                    border: 1px solid rgba(255, 255, 255, ${isSel ? '0.45' : '0.15'});
+                `,
+                y_align: Clutter.ActorAlign.CENTER,
+                reactive: true
+            });
+
+            cBtn.connectObject('clicked', () => {
+                this.folderData.letterColor = c.hex;
+                this.folderMenu._saveFolderState();
+
+                letterColorRow.get_children().forEach((child, idx) => {
+                    const clr = LETTER_COLORS[idx].hex;
+                    const selected = (clr === c.hex);
+                    child.set_style(`
+                        width: ${selected ? '20px' : '18px'};
+                        height: ${selected ? '20px' : '18px'};
+                        border-radius: ${selected ? '10px' : '9px'};
+                        background-color: ${clr};
+                        border: 1px solid rgba(255, 255, 255, ${selected ? '0.45' : '0.15'});
+                    `);
+                });
+
+                this.dockUI.queueRender('incremental');
+            }, this);
+
+            letterColorRow.add_child(cBtn);
+        });
+
+        letterSectionBox.add_child(folderTintPalette);
+        letterSectionBox.add_child(fontSliderRow);
+        letterSectionBox.add_child(letterColorRow);
+        this.panel.add_child(letterSectionBox);
+
+        const updateGridVisibility = () => {
+            const isAnyPanelOpen = plateSectionBox.visible || letterSectionBox.visible;
+            if (this.folderMenu.gridMasterBox) {
+                this.folderMenu.gridMasterBox.visible = !isAnyPanelOpen;
+            }
+        };
+
+        this.updateUIButtons = () => {
+            const curIcon = this.folderData.icon || 'folder';
+            const isCustomFolder = curIcon === 'system-folder';
+            const isCustomMedia = curIcon.startsWith('/') || curIcon.startsWith('file://');
+            const hasCustomPlate = (this.folderData.plateColor && this.folderData.plateColor !== 'rgba(255, 255, 255, 0.65)') ||
+                (this.folderData.plateOpacity !== undefined && this.folderData.plateOpacity !== 130);
+
+            colorPickerBtn.visible = !isCustomFolder && !isCustomMedia;
+
+            folderToggleBtn.set_style(isCustomFolder
+                ? 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.25);'
+                : 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08);');
+
+            resetBtn.visible = isCustomFolder || isCustomMedia || hasCustomPlate;
+        };
+
+        colorPickerBtn.connectObject('clicked', () => {
+            plateSectionBox.visible = !plateSectionBox.visible;
+            letterSectionBox.visible = false;
+            updateGridVisibility();
+        }, this);
+
+        folderToggleBtn.connectObject('clicked', () => {
+            letterSectionBox.visible = !letterSectionBox.visible;
+            plateSectionBox.visible = false;
+            updateGridVisibility();
+
+            if (letterSectionBox.visible && this.folderData.icon !== 'system-folder') {
+                this.folderData.icon = 'system-folder';
+                this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, 'system-folder');
+                this.folderMenu._saveFolderState();
+                this.dockUI.queueRender('full', true);
+            }
+            this.updateUIButtons();
+        }, this);
+
+        resetBtn.connectObject('clicked', () => {
+            this.folderData.icon = 'folder';
+            delete this.folderData.folderTintColor;
+            delete this.folderData.letterColor;
+            delete this.folderData.letterScale;
+            delete this.folderData.plateColor;
+            delete this.folderData.plateOpacity;
+
+            letterSectionBox.visible = false;
+            plateSectionBox.visible = false;
+            updateGridVisibility();
+
+            this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, 'folder');
+            this.folderMenu._saveFolderState();
+            this.updateUIButtons();
+            this.dockUI.queueRender('full', true);
+        }, this);
+
+        this.updateUIButtons();
+
         const uuid = (this.dockUI.appManager && this.dockUI.appManager.uuid) || 'dhruva@narkagni';
         const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
 
@@ -163,7 +475,7 @@ export class FolderMenuBuilder {
                 return;
             }
 
-            const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico'], Gio.SubprocessFlags.STDOUT_PIPE);
+            const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico *.jpg *.jpeg'], Gio.SubprocessFlags.STDOUT_PIPE);
             proc.communicate_utf8_async(null, null, (p, res) => {
                 try {
                     const [, stdout] = p.communicate_utf8_finish(res);
@@ -171,7 +483,7 @@ export class FolderMenuBuilder {
                         const pickedPath = stdout.trim();
                         const ext = pickedPath.split('.').pop().toLowerCase();
                         GLib.mkdir_with_parents(configDir, 0o755);
-                        const destPath = GLib.build_filenamev([configDir, `folder_icon_${Date.now()}.${ext}`]);
+                        const destPath = GLib.build_filenamev([configDir, `folder_icon_${this.folderData.id}_${Date.now()}.${ext}`]);
 
                         const srcFile = Gio.File.new_for_path(pickedPath);
                         const destFile = Gio.File.new_for_path(destPath);
@@ -179,8 +491,10 @@ export class FolderMenuBuilder {
                         srcFile.copy_async(destFile, Gio.FileCopyFlags.OVERWRITE, GLib.PRIORITY_DEFAULT, null, null, (f, copyRes) => {
                             try {
                                 f.copy_finish(copyRes);
-                                selectedIcon = destPath;
-                                this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, selectedIcon);
+                                this.folderData.icon = destPath;
+                                this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, destPath);
+                                this.folderMenu._saveFolderState();
+                                this.updateUIButtons();
                                 this.dockUI.queueRender('full', true);
                             } catch (err) {
                                 console.error('[Dhruva]', err);
@@ -202,7 +516,8 @@ export class FolderMenuBuilder {
         const commitSave = () => {
             const newName = nameEntry.get_text() || _('New Folder');
             this.folderData.name = newName;
-            this.dockUI.folderManager.updateFolder(this.folderData.id, newName, selectedIcon);
+            this.dockUI.folderManager.updateFolder(this.folderData.id, newName, this.folderData.icon);
+            this.folderMenu._saveFolderState();
             nameLabel.set_text(newName);
             displayBox.visible = true;
             editBox.visible = false;
@@ -216,14 +531,14 @@ export class FolderMenuBuilder {
             this.showEmojiPicker((selectedEmoji) => {
                 try {
                     GLib.mkdir_with_parents(configDir, 0o755);
-                    const destPath = GLib.build_filenamev([configDir, `emoji_${Date.now()}.png`]);
+                    const destPath = GLib.build_filenamev([configDir, `emoji_${this.folderData.id}_${Date.now()}.png`]);
 
                     const surface = new cairo.ImageSurface(cairo.Format.ARGB32, EMOJI_TEXTURE_DIM, EMOJI_TEXTURE_DIM);
                     const cr = new cairo.Context(surface);
 
                     const layout = PangoCairo.create_layout(cr);
                     layout.set_text(selectedEmoji, -1);
-                    layout.set_font_description(Pango.FontDescription.from_string('Noto Color Emoji 83'));
+                    layout.set_font_description(Pango.FontDescription.from_string('Noto Color Emoji 160'));
 
                     const [width, height] = layout.get_pixel_size();
                     cr.moveTo((EMOJI_TEXTURE_DIM - width) / 2, (EMOJI_TEXTURE_DIM - height) / 2);
@@ -232,11 +547,13 @@ export class FolderMenuBuilder {
                     surface.writeToPNG(destPath);
                     cr.$dispose();
 
+                    this.folderData.icon = destPath;
                     this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, destPath);
+                    this.folderMenu._saveFolderState();
+                    this.updateUIButtons();
                     this.dockUI.queueRender('full', true);
-                } catch (_e) {
-                    this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, `emoji:${selectedEmoji}`);
-                    this.dockUI.queueRender('full', true);
+                } catch (e) {
+                    console.error('[Dhruva] Emoji error:', e);
                 } finally {
                     this.folderMenu.hide();
                 }
@@ -254,7 +571,7 @@ export class FolderMenuBuilder {
 
     showEmojiPicker(onSelect) {
         const picker = new EmojiPicker(this.folderMenu, onSelect);
-        picker.show().catch(() => {});
+        picker.show().catch(() => { });
     }
 
     refreshGrid(skipEntryAnimation = false, animatedAppId = null) {
@@ -324,17 +641,21 @@ export class FolderMenuBuilder {
             }
             count++;
 
+            const btnSize = iconSize + 12;
+
             const iconWrapper = new St.Widget({
                 layout_manager: new Clutter.BinLayout(),
                 width: iconSize,
-                height: iconSize + 24
+                height: iconSize,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
             });
 
             const iconBin = new St.Bin({
                 child: app.create_icon_texture(iconSize),
                 reactive: false,
                 x_align: Clutter.ActorAlign.CENTER,
-                y_align: Clutter.ActorAlign.START,
+                y_align: Clutter.ActorAlign.CENTER,
                 width: iconSize,
                 height: iconSize
             });
@@ -354,17 +675,21 @@ export class FolderMenuBuilder {
                     false,
                     indProps,
                     count,
-                    iconSize + 12,
+                    iconSize,
                     isFocused
                 );
-
+                dotBox.y_align = Clutter.ActorAlign.END;
                 iconWrapper.add_child(dotBox);
             }
 
             const btn = new St.Button({
                 child: iconWrapper,
+                width: btnSize,
+                height: btnSize,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
                 reactive: true,
-                style: 'border-radius: 8px; padding: 6px; background-color: transparent;'
+                style: 'border-radius: 10px; background-color: transparent;'
             });
 
             btn._appId = appId;
@@ -388,8 +713,8 @@ export class FolderMenuBuilder {
                 if (!isActorAlive(btn)) return;
                 if (!btn._isTargetHovered) {
                     btn.set_style(btn.hover
-                        ? 'background-color: rgba(255,255,255,0.15); border-radius: 8px; padding: 6px;'
-                        : 'background-color: transparent; border-radius: 8px; padding: 6px;');
+                        ? 'background-color: rgba(255,255,255,0.15); border-radius: 10px;'
+                        : 'background-color: transparent; border-radius: 10px;');
                 }
             }, this);
 
