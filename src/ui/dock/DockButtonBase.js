@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
+* along with this program. If not, see .
 */
 
 
@@ -25,6 +25,21 @@ import { hexToRgba, setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 
 const DEFAULT_HOVER_DURATION_MS = 200;
+
+export function getHoverBgRadius(iconSize) {
+    const baseRadius = (Settings.borderRadius !== undefined && Settings.borderRadius !== null && Settings.borderRadius > 0) ? Settings.borderRadius : 10;
+    return Math.max(6, Math.min(10, Math.round(iconSize * 0.18)));
+}
+
+function safeHexToRgba(color, alpha) {
+    const safeAlpha = (alpha !== undefined && alpha !== null && !Number.isNaN(alpha)) ? Math.max(0.0, Math.min(1.0, alpha)) : 0.25;
+    const safeColor = color || '#ffffff';
+    try {
+        return hexToRgba(safeColor, safeAlpha);
+    } catch (_e) {
+        return 'rgba(255, 255, 255, ' + safeAlpha + ')';
+    }
+}
 
 export function createBaseButtonContainer(appBox) {
     const btn = new St.Bin({
@@ -97,39 +112,55 @@ export function createIndicatorBox(dockPosition, isVerticalDock, indProps, count
 }
 
 export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, indProps, dims) {
-    const { iconSize, pad, expandedDim, collapsedDim, isVerticalDock } = dims;
-    const boxOp = Settings.tooltipOpacity;
-    const baseAlpha = Math.max(0.02, boxOp / 100.0);
-    const hoverAlpha = Math.min(1.0, baseAlpha + 0.15);
-    const hoverZoom = Settings.hoverZoom;
+    const { iconSize, isVerticalDock } = dims;
+
+    const compactExpanded = iconSize + 4;
+    const compactCollapsed = iconSize;
+    const tightCross = iconSize + 4;
+
+    const rawOp = Settings.tooltipOpacity;
+    const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
+    const baseAlpha = Math.max(0.20, Math.min(0.80, boxOp / 100.0));
+    const hoverAlpha = Math.min(1.0, baseAlpha + 0.20);
+    const hoverZoom = Boolean(Settings.hoverZoom);
+    const radius = getHoverBgRadius(iconSize);
 
     let baseBg = 'transparent';
     if (isIndicatorActive && !hoverZoom) {
-        baseBg = hexToRgba(indProps.indColor, baseAlpha);
+        baseBg = safeHexToRgba(indProps ? indProps.indColor : '#ffffff', baseAlpha);
     }
 
     const isExpanded = isIndicatorActive && !hoverZoom;
-    const targetW = isVerticalDock ? iconSize : (isExpanded ? expandedDim : collapsedDim);
-    const targetH = isVerticalDock ? (isExpanded ? expandedDim : collapsedDim) : iconSize;
+    const currentDim = isExpanded ? compactExpanded : compactCollapsed;
+
+    const targetW = isVerticalDock ? tightCross : currentDim;
+    const targetH = isVerticalDock ? currentDim : tightCross;
 
     const hoverBg = new St.Widget({
+        style_class: 'dock-hover-bg',
         reactive: false,
-        style: `background-color: ${baseBg}; border-radius: 0px; transition-duration: 150ms;`,
-        x_expand: true,
-        y_expand: true
+        clip_to_allocation: false
     });
 
+    hoverBg._isHoverBg = true;
     hoverBg.set_pivot_point(0.5, 0.5);
-    hoverBg.scale_x = isVerticalDock ? (iconSize + pad * 2) / iconSize : 1.0;
-    hoverBg.scale_y = isVerticalDock ? 1.0 : (iconSize + pad * 2) / iconSize;
     hoverBg.set_size(targetW, targetH);
     hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
     hoverBg.set_y_align(Clutter.ActorAlign.CENTER);
+    hoverBg.set_style(
+        'background-color: ' + baseBg + '; ' +
+        'border-radius: ' + radius + 'px; ' +
+        'transition-duration: 150ms;'
+    );
 
     appBox.insert_child_at_index(hoverBg, 0);
+
     btn._baseBg = baseBg;
     btn._hoverBg = hoverBg;
     btn._indProps = indProps;
+    btn._compactExpanded = compactExpanded;
+    btn._compactCollapsed = compactCollapsed;
+    btn._tightCross = tightCross;
 
     btn.connectObject('notify::hover', () => {
         if (btn.hover) dockUI._hoveredAppButton = btn;
@@ -138,23 +169,26 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
         if (Settings.hoverZoom) return;
 
         const expanded = btn._hasRunningIndicator || btn.hover;
-        const currentDim = expanded ? expandedDim : collapsedDim;
+        const dim = expanded ? btn._compactExpanded : btn._compactCollapsed;
 
         if (isVerticalDock) {
-            hoverBg.ease({ height: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            hoverBg.ease({ height: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         } else {
-            hoverBg.ease({ width: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            hoverBg.ease({ width: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         }
 
         const activeIndProps = btn._indProps || indProps;
+        const curRadius = getHoverBgRadius(iconSize);
 
         if (btn.hover) {
             const activeColor = btn._hasRunningIndicator
-                ? hexToRgba(activeIndProps.indColor, hoverAlpha)
-                : `rgba(255, 255, 255, ${Math.max(0.05, baseAlpha * 0.4)})`;
-            hoverBg.set_style(`background-color: ${activeColor}; border-radius: 0px; transition-duration: 150ms;`);
+                ? safeHexToRgba(activeIndProps ? activeIndProps.indColor : '#ffffff', hoverAlpha)
+                : 'rgba(255, 255, 255, ' + Math.max(0.18, baseAlpha * 0.70) + ')';
+            const styleStr = 'background-color: ' + activeColor + '; border-radius: ' + curRadius + 'px; transition-duration: 150ms;';
+            hoverBg.set_style(styleStr);
         } else {
-            hoverBg.set_style(`background-color: ${btn._baseBg}; border-radius: 0px; transition-duration: 150ms;`);
+            const styleStr = 'background-color: ' + btn._baseBg + '; border-radius: ' + curRadius + 'px; transition-duration: 150ms;';
+            hoverBg.set_style(styleStr);
         }
     }, btn);
 }
@@ -163,7 +197,7 @@ attachHoverBackground.updateState = function (btn, isRunning, windows = [], indP
     if (!btn || !isActorAlive(btn)) return;
 
     const showIndicators = Settings.showRunningIndicators;
-    const hoverZoom = Settings.hoverZoom;
+    const hoverZoom = Boolean(Settings.hoverZoom);
     const isIndicatorActive = isRunning && showIndicators;
     const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
     const indStyle = Settings.indicatorStyle || 'dot';
@@ -177,13 +211,21 @@ attachHoverBackground.updateState = function (btn, isRunning, windows = [], indP
     const dims = btn._dims || {
         iconSize: Settings.iconSize,
         pad: Math.max(Settings.dockHeight || 6, 4),
-        expandedDim: (Settings.iconSize || 48) + (Math.max(Settings.dockHeight || 6, 4) * 2),
-        collapsedDim: (Settings.iconSize || 48) + 2,
+        expandedDim: (Settings.iconSize || 48) + 4,
+        collapsedDim: Settings.iconSize || 48,
         isVerticalDock
     };
 
+    const compactExpanded = dims.iconSize + 4;
+    const compactCollapsed = dims.iconSize;
+    const tightCross = dims.iconSize + 4;
+
+    btn._compactExpanded = compactExpanded;
+    btn._compactCollapsed = compactCollapsed;
+    btn._tightCross = tightCross;
+
     if (isIndicatorActive && btn._indicatorActor && isActorAlive(btn._indicatorActor) && indStyle === 'windows') {
-        const activeLen = Math.min(dims.expandedDim - 8, Math.max(22, Math.floor((Settings.iconSize || 48) * 0.52)));
+        const activeLen = Math.min(compactExpanded - 6, Math.max(20, Math.floor((Settings.iconSize || 48) * 0.52)));
         const inactiveLen = Math.max(12, Math.floor(activeLen * 0.45));
         const targetLen = isFocused ? activeLen : inactiveLen;
 
@@ -208,26 +250,39 @@ attachHoverBackground.updateState = function (btn, isRunning, windows = [], indP
 
         if (isIndicatorActive) {
             const count = (indStyle === 'line' || indStyle === 'windows') ? 1 : Math.max(1, windows.length);
-            const dotBox = createIndicatorBox(dockUI.dockPosition, isVerticalDock, indProps, count, dims.expandedDim, isFocused);
+            const dotBox = createIndicatorBox(dockUI.dockPosition, isVerticalDock, indProps, count, compactExpanded, isFocused);
             appBox.add_child(dotBox);
             btn._indicatorActor = dotBox;
         }
     }
 
-    const boxOp = Settings.tooltipOpacity;
-    const baseAlpha = Math.max(0.02, boxOp / 100.0);
+    const rawOp = Settings.tooltipOpacity;
+    const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
+    const baseAlpha = Math.max(0.20, Math.min(0.80, boxOp / 100.0));
     let baseBg = 'transparent';
     if (isIndicatorActive && !hoverZoom) {
-        baseBg = hexToRgba(indProps.indColor, baseAlpha);
+        baseBg = safeHexToRgba(indProps ? indProps.indColor : '#ffffff', baseAlpha);
     }
     btn._baseBg = baseBg;
 
     if (btn._hoverBg && isActorAlive(btn._hoverBg)) {
+        const curRadius = getHoverBgRadius(dims.iconSize);
+
+        if (isVerticalDock) {
+            btn._hoverBg.width = tightCross;
+        } else {
+            btn._hoverBg.height = tightCross;
+        }
+
         if (!btn.hover) {
-            btn._hoverBg.set_style(`background-color: ${baseBg}; border-radius: 0px; transition-duration: 150ms;`);
+            btn._hoverBg.set_style(
+                'background-color: ' + baseBg + '; ' +
+                'border-radius: ' + curRadius + 'px; ' +
+                'transition-duration: 150ms;'
+            );
         }
         if (!hoverZoom) {
-            const currentDim = (isIndicatorActive || btn.hover) ? dims.expandedDim : dims.collapsedDim;
+            const currentDim = (isIndicatorActive || btn.hover) ? compactExpanded : compactCollapsed;
             if (isVerticalDock) {
                 btn._hoverBg.ease({ height: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
             } else {

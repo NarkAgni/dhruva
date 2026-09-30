@@ -467,8 +467,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             b.rotation_angle_x = smoothAngleX;
         }
 
-        b[lateralAxis] = smoothLateral;
-        b[riseAxis] = smoothRise;
+        b[lateralAxis] = Math.round(smoothLateral);
+        b[riseAxis] = Math.round(smoothRise);
 
         const appBox = b.get_child ? b.get_child() : null;
         if (appBox && appBox.get_children) {
@@ -500,8 +500,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     c.remove_transition('translation_x');
                     c.remove_transition('translation_y');
                     if (zoomEnabled) {
-                        c.translation_x = (c._baseTx || 0);
-                        c.translation_y = (c._baseTy || 0);
+                        c.translation_x = Math.round(c._baseTx || 0);
+                        c.translation_y = Math.round(c._baseTy || 0);
                     }
                 }
             });

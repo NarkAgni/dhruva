@@ -130,7 +130,7 @@ export default class NotificationManager {
             let sourceId = '';
             if (source.app && source.app.get_id) sourceId = source.app.get_id();
             else if (source.appInfo && source.appInfo.get_id) sourceId = source.appInfo.get_id();
-            else if (typeof source.title === 'string') sourceId = source.title;
+            else if (source.title && source.title.toLowerCase) sourceId = source.title;
             else if (source.id) sourceId = source.id;
 
             if (!sourceId) continue;

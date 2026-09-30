@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
+* along with this program. If not, see .
 */
 
 
@@ -28,13 +28,13 @@ import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
+import { getHoverBgRadius } from '../dock/DockButtonBase.js';
 
 
 const DEFAULT_HOVER_DURATION_MS = 200;
 const OVERVIEW_APPS_EASE_DURATION_MS = 250;
 
 export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
-    const settings = dockUI.settings;
     const hoverZoom = Settings.hoverZoom;
 
     const customIconPath = Settings.customGridIcon;
@@ -83,7 +83,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     }
 
     if (useOldIcon || (!hasCustomIcon && !hasLogo)) {
-        gridIcon.set_style(`color: ${gridColor};`);
+        gridIcon.set_style('color: ' + gridColor + ';');
     }
 
     gridIcon.set_pivot_point(0.5, 0.5);
@@ -113,34 +113,30 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     appBox.set_pivot_point(0.5, 0.5);
 
     const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const dockHeightPad = Settings.dockHeight || 6;
-    const pad = Math.max(dockHeightPad, 4);
-    const expandedDim = iconSize + pad * 2;
-    const collapsedDim = iconSize + 2;
+    const compactExpanded = iconSize + 4;
+    const compactCollapsed = iconSize;
+    const tightCross = iconSize + 4;
+    const radius = getHoverBgRadius(iconSize);
 
-    const targetW = isVerticalDock ? iconSize : collapsedDim;
-    const targetH = isVerticalDock ? collapsedDim : iconSize;
+    const targetW = isVerticalDock ? tightCross : compactCollapsed;
+    const targetH = isVerticalDock ? compactCollapsed : tightCross;
 
     const hoverBg = new St.Widget({
+        style_class: 'dock-hover-bg',
         reactive: false,
-        style: 'background-color: transparent; border-radius: 0px; transition-duration: 150ms;'
+        clip_to_allocation: false
     });
-    
-    hoverBg.set_pivot_point(0.5, 0.5);
-    hoverBg.scale_x = isVerticalDock ? (iconSize + pad * 2) / iconSize : 1.0;
-    hoverBg.scale_y = isVerticalDock ? 1.0 : (iconSize + pad * 2) / iconSize;
 
-    if (isVerticalDock) {
-        hoverBg.set_x_expand(true);
-        hoverBg.set_x_align(Clutter.ActorAlign.FILL);
-        hoverBg.set_y_align(Clutter.ActorAlign.CENTER);
-        hoverBg.height = targetH;
-    } else {
-        hoverBg.set_y_expand(true);
-        hoverBg.set_y_align(Clutter.ActorAlign.FILL);
-        hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
-        hoverBg.width = targetW;
-    }
+    hoverBg._isHoverBg = true;
+    hoverBg.set_pivot_point(0.5, 0.5);
+    hoverBg.set_size(targetW, targetH);
+    hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
+    hoverBg.set_y_align(Clutter.ActorAlign.CENTER);
+    hoverBg.set_style(
+        'background-color: transparent; ' +
+        'border-radius: ' + radius + 'px; ' +
+        'transition-duration: 150ms;'
+    );
 
     appBox.insert_child_at_index(hoverBg, 0);
     appBox.add_child(gridIconBin);
@@ -157,29 +153,58 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     gridModule.set_pivot_point(0.5, 0.5);
     gridModule._hasRunningIndicator = false;
-    gridModule.set_style('background-color: transparent; border-radius: 0px; transition-duration: 150ms;');
+    gridModule.set_style('background-color: transparent;');
 
     gridModule.connectObject('notify::hover', () => {
         if (Settings.hoverZoom) return;
 
-        const currentDim = gridModule.hover ? expandedDim : collapsedDim;
+        const dim = gridModule.hover ? compactExpanded : compactCollapsed;
 
         if (isVerticalDock) {
-            hoverBg.ease({ height: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            hoverBg.ease({ height: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         } else {
-            hoverBg.ease({ width: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+            hoverBg.ease({ width: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         }
 
+        const curRadius = getHoverBgRadius(iconSize);
         if (gridModule.hover) {
-            hoverBg.set_style('background-color: rgba(255, 255, 255, 0.15); border-radius: 0px; transition-duration: 150ms;');
+            const rawOp = Settings.tooltipOpacity;
+            const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
+            const alpha = Math.max(0.18, (boxOp / 100.0) * 0.75);
+            hoverBg.set_style(
+                'background-color: rgba(255, 255, 255, ' + alpha + '); ' +
+                'border-radius: ' + curRadius + 'px; ' +
+                'transition-duration: 150ms;'
+            );
         } else {
-            hoverBg.set_style('background-color: transparent; border-radius: 0px; transition-duration: 150ms;');
+            hoverBg.set_style(
+                'background-color: transparent; ' +
+                'border-radius: ' + curRadius + 'px; ' +
+                'transition-duration: 150ms;'
+            );
         }
     }, gridModule);
 
     if (hoverZoom) applyIconFilter(gridModule);
 
+    const resetGridHoverBg = () => {
+        const curRadius = getHoverBgRadius(iconSize);
+        hoverBg.remove_all_transitions();
+        if (isVerticalDock) {
+            hoverBg.set_height(compactCollapsed);
+        } else {
+            hoverBg.set_width(compactCollapsed);
+        }
+        hoverBg.set_style(
+            'background-color: transparent; ' +
+            'border-radius: ' + curRadius + 'px; ' +
+            'transition-duration: 0ms;'
+        );
+    };
+
     gridModule._activateCallback = (buttonNum, state = 0) => {
+        resetGridHoverBg();
+
         if (buttonNum === 1) {
             animateIconClick(gridIconBin, Settings.clickEffect);
 
@@ -232,11 +257,13 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     };
 
     gridModule.connectObject('button-press-event', () => {
+        resetGridHoverBg();
         if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
         return Clutter.EVENT_PROPAGATE;
     }, gridModule);
 
     gridModule.connectObject('button-release-event', (_actor, event) => {
+        resetGridHoverBg();
         if (dockUI._activeContextMenu) {
             dockUI._activeContextMenu.hide();
             return Clutter.EVENT_STOP;

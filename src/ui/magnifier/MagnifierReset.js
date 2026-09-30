@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see <https://www.gnu.org/licenses/>.
+* along with this program. If not, see .
 */
 
 
@@ -97,6 +97,17 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
                         scale_y: c._baseScaleY || 1.0,
                         translation_x: c._baseTx || 0,
                         translation_y: c._baseTy || 0,
+                        duration,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                    });
+                } else if (c._isHoverBg) {
+                    const targetSx = c._baseScaleX || 1.0;
+                    const targetSy = c._baseScaleY || 1.0;
+                    c.ease({
+                        scale_x: targetSx,
+                        scale_y: targetSy,
+                        translation_x: 0,
+                        translation_y: 0,
                         duration,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD
                     });

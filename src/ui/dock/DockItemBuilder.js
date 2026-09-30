@@ -41,6 +41,24 @@ import { createBaseButtonContainer, createIndicatorBox, attachHoverBackground } 
 const DRAG_CANCEL_DELTA_PX = 15;
 const LAUNCH_PAUSE_TIMEOUT_MS = 150;
 
+let _extRootDir = null;
+
+function _getExtensionDir() {
+    if (!_extRootDir) {
+        _extRootDir = Gio.File.new_for_uri(import.meta.url)
+            .get_parent()
+            .get_parent()
+            .get_parent()
+            .get_parent();
+    }
+    return _extRootDir;
+}
+
+function _getBundledIcon(fileName) {
+    const svgFile = _getExtensionDir().get_child('icons').get_child(fileName);
+    return svgFile.query_exists(null) ? new Gio.FileIcon({ file: svgFile }) : null;
+}
+
 function setupCommonEvents(btn, dockUI) {
     btn.connectObject('button-press-event', (_actor, event) => {
         const [px, py] = event.get_coords();
@@ -346,15 +364,66 @@ export function buildFolderButton(dockUI, folder) {
     });
     appBox.set_pivot_point(0.5, 0.5);
 
-    const isEmoji = iconName.startsWith('emoji:');
-    const isCustomFile = !isEmoji && (iconName.startsWith('/') || iconName.startsWith('file://'));
-
     const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
     const renderSize = Math.ceil(iconSize * actualMaxZoom);
+    const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor || 1;
+
+    const isEmojiText = iconName.startsWith('emoji:');
+    const isCustomFile = iconName.startsWith('/') || iconName.startsWith('file://');
+    const isLetterFolder = iconName === 'system-folder';
+    const hasCustomIcon = isEmojiText || isCustomFile || isLetterFolder;
 
     let folderIcon;
 
-    if (isEmoji) {
+    if (isCustomFile) {
+        const cleanPath = iconName.replace('file://', '');
+        const iconFile = Gio.File.new_for_path(cleanPath);
+        const textureCache = St.TextureCache.get_default();
+        const crispImgSize = Math.max(96, Math.round(renderSize * scaleFactor * 2.0));
+
+        let fileIconActor = null;
+        if (iconFile.query_exists(null)) {
+            const gicon = new Gio.FileIcon({ file: iconFile });
+            try {
+                fileIconActor = textureCache.load_gicon(null, gicon, crispImgSize, scaleFactor, 1.0);
+            } catch (_e) {}
+
+            if (!fileIconActor) {
+                fileIconActor = new St.Icon({
+                    gicon: gicon,
+                    icon_size: iconSize
+                });
+            }
+        }
+
+        if (!fileIconActor) {
+            fileIconActor = new St.Icon({
+                icon_name: 'folder',
+                icon_size: iconSize
+            });
+        }
+
+        fileIconActor.set_size(iconSize, iconSize);
+        fileIconActor.set_pivot_point(0.5, 0.5);
+        fileIconActor.reactive = false;
+
+        if (fileIconActor.set_content_scaling_filters) {
+            fileIconActor.set_content_scaling_filters(
+                Clutter.ScalingFilter.TRILINEAR,
+                Clutter.ScalingFilter.LINEAR
+            );
+        }
+
+        folderIcon = new St.Bin({
+            child: fileIconActor,
+            width: iconSize,
+            height: iconSize,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            clip_to_allocation: false,
+            reactive: false
+        });
+    } else if (isEmojiText) {
         const actualEmoji = iconName.replace('emoji:', '');
         const emojiFontSize = Math.max(18, Math.floor(iconSize * 0.76));
         const emojiLabel = new St.Label({
@@ -383,39 +452,280 @@ export function buildFolderButton(dockUI, folder) {
             clip_to_allocation: true,
             reactive: false
         });
-    } else {
-        let gicon;
-        if (isCustomFile) {
-            const iconFile = Gio.File.new_for_path(iconName.replace('file://', ''));
-            if (iconFile.query_exists(null)) {
-                gicon = new Gio.FileIcon({ file: iconFile });
-            } else {
-                gicon = Gio.ThemedIcon.new_with_default_fallbacks('folder');
-            }
-        } else {
-            gicon = Gio.ThemedIcon.new_with_default_fallbacks(iconName);
+    } else if (isLetterFolder) {
+        const folderStack = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            width: iconSize,
+            height: iconSize,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            clip_to_allocation: false,
+            reactive: false
+        });
+
+        const folderTintColor = folder.folderTintColor || folder.plateColor || '#3584e4';
+        const renderPlateSize = Math.ceil(iconSize * scaleFactor * 2.0);
+
+        let folderGIcon = _getBundledIcon('folder-symbolic.svg');
+
+        if (!folderGIcon) {
+            folderGIcon = Gio.ThemedIcon.new_with_default_fallbacks('folder-symbolic');
         }
 
-        const textureCache = St.TextureCache.get_default();
-        const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor || 1;
-        folderIcon = textureCache.load_gicon(null, gicon, renderSize, scaleFactor, 1.0);
+        const baseFolderIcon = new St.Icon({
+            gicon: folderGIcon,
+            icon_size: renderPlateSize,
+            style: `color: ${folderTintColor};`
+        });
 
-        if (!folderIcon) {
-            folderIcon = new St.Icon({
-                gicon,
-                icon_size: renderSize
-            });
-        }
+        baseFolderIcon.set_size(iconSize, iconSize);
+        baseFolderIcon.set_pivot_point(0.5, 0.5);
+        baseFolderIcon.reactive = false;
 
-        folderIcon.set_size(iconSize, iconSize);
-        folderIcon.reactive = false;
-
-        if (folderIcon.set_content_scaling_filters) {
-            folderIcon.set_content_scaling_filters(
+        if (baseFolderIcon.set_content_scaling_filters) {
+            baseFolderIcon.set_content_scaling_filters(
                 Clutter.ScalingFilter.TRILINEAR,
                 Clutter.ScalingFilter.LINEAR
             );
         }
+
+        folderStack.add_child(baseFolderIcon);
+
+        const folderDisplayName = folder.name || 'Folder';
+        const firstLetter = folderDisplayName.trim().charAt(0).toUpperCase() || 'F';
+        
+        const rawScale = folder.letterScale !== undefined ? folder.letterScale : 0.44;
+        const activeLetterScale = Math.max(0.28, Math.min(0.54, rawScale));
+        const activeLetterColor = folder.letterColor || '#ffffff';
+
+        const baseFontSize = Math.max(14, Math.round(iconSize * activeLetterScale));
+        const renderFontSize = baseFontSize * 2;
+
+        const letterLabel = new St.Label({
+            text: firstLetter,
+            style: `
+                font-size: ${renderFontSize}px;
+                font-weight: 900;
+                color: ${activeLetterColor};
+                text-align: center;
+            `,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            reactive: false
+        });
+
+        letterLabel.set_scale(0.5, 0.5);
+        letterLabel.set_pivot_point(0.5, 0.5);
+
+        if (letterLabel.clutter_text) {
+            letterLabel.clutter_text.ellipsize = 0;
+            letterLabel.clutter_text.line_wrap = false;
+            letterLabel.clutter_text.selectable = false;
+            letterLabel.clutter_text.reactive = false;
+            letterLabel.clutter_text.cursor_visible = false;
+        }
+
+        letterLabel.translation_y = Math.round(iconSize * 0.02);
+        folderStack.add_child(letterLabel);
+
+        folderIcon = folderStack;
+    } else {
+        const renderPlateSize = Math.ceil(iconSize * actualMaxZoom * scaleFactor);
+
+        const folderStack = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            width: iconSize,
+            height: iconSize,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            clip_to_allocation: false,
+            reactive: false
+        });
+
+        let gicon = _getBundledIcon('folder-plate-symbolic.svg');
+
+        if (!gicon) {
+            gicon = Gio.ThemedIcon.new_with_default_fallbacks('folder-symbolic');
+        }
+
+        const activePlateColor = folder.plateColor || 'rgba(255, 255, 255, 0.65)';
+
+        const bgPlateIcon = new St.Icon({
+            gicon: gicon,
+            icon_size: renderPlateSize,
+            style: `color: ${activePlateColor};`
+        });
+
+        bgPlateIcon.set_size(iconSize, iconSize);
+        bgPlateIcon.set_pivot_point(0.5, 0.5);
+        bgPlateIcon.x_align = Clutter.ActorAlign.CENTER;
+        bgPlateIcon.y_align = Clutter.ActorAlign.CENTER;
+        bgPlateIcon.reactive = false;
+
+        const activeOpacity = folder.plateOpacity !== undefined ? folder.plateOpacity : 130;
+        bgPlateIcon.opacity = activeOpacity;
+
+        if (bgPlateIcon.set_content_scaling_filters) {
+            bgPlateIcon.set_content_scaling_filters(
+                Clutter.ScalingFilter.TRILINEAR,
+                Clutter.ScalingFilter.LINEAR
+            );
+        }
+
+        folderStack.add_child(bgPlateIcon);
+
+        const validApps = (folder.apps || []).filter(appId => Boolean(dockUI.appManager.appSystem.lookup_app(appId)));
+        const appCount = validApps.length;
+
+        const createCrispIcon = (app, size) => {
+            const textureCache = St.TextureCache.get_default();
+            const crispTextureSize = Math.max(48, Math.round(size * scaleFactor * 2.0));
+
+            let tex = null;
+            try {
+                tex = textureCache.load_gicon(null, app.get_icon(), crispTextureSize, scaleFactor, 1.0);
+            } catch (_e) {}
+
+            if (!tex) {
+                tex = app.create_icon_texture(crispTextureSize);
+            }
+            if (!tex) {
+                tex = new St.Icon({
+                    gicon: app.get_icon(),
+                    icon_size: size
+                });
+            }
+
+            tex.set_size(size, size);
+            tex.set_pivot_point(0.5, 0.5);
+
+            if (tex.set_content_scaling_filters) {
+                tex.set_content_scaling_filters(
+                    Clutter.ScalingFilter.TRILINEAR,
+                    Clutter.ScalingFilter.LINEAR
+                );
+            }
+            tex.reactive = false;
+            return tex;
+        };
+
+        if (appCount <= 1) {
+            const appId = validApps[0];
+            if (appId) {
+                const app = dockUI.appManager.appSystem.lookup_app(appId);
+                if (app) {
+                    const singleSize = Math.round(iconSize * 0.56);
+                    const ic = createCrispIcon(app, singleSize);
+                    folderStack.add_child(ic);
+                }
+            }
+        } else if (appCount === 2) {
+            const itemSize = Math.round(iconSize * 0.36);
+            const spacing = Math.max(3, Math.round(iconSize * 0.08));
+
+            const hBox = new St.BoxLayout({
+                vertical: false,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: `spacing: ${spacing}px;`
+            });
+
+            validApps.slice(0, 2).forEach(appId => {
+                const app = dockUI.appManager.appSystem.lookup_app(appId);
+                if (app) {
+                    const ic = createCrispIcon(app, itemSize);
+                    hBox.add_child(ic);
+                }
+            });
+
+            folderStack.add_child(hBox);
+        } else if (appCount === 3) {
+            const subSize = Math.round(iconSize * 0.32);
+            const spacing = Math.max(2, Math.round(iconSize * 0.06));
+
+            const pyramidStack = new St.BoxLayout({
+                vertical: true,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: `spacing: ${spacing}px;`
+            });
+
+            const topRow = new St.BoxLayout({
+                vertical: false,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: `spacing: ${spacing}px;`
+            });
+
+            [validApps[0], validApps[1]].forEach(appId => {
+                const app = dockUI.appManager.appSystem.lookup_app(appId);
+                if (app) {
+                    topRow.add_child(createCrispIcon(app, subSize));
+                }
+            });
+
+            const bottomRow = new St.BoxLayout({
+                vertical: false,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER
+            });
+
+            const thirdApp = dockUI.appManager.appSystem.lookup_app(validApps[2]);
+            if (thirdApp) {
+                bottomRow.add_child(createCrispIcon(thirdApp, subSize));
+            }
+
+            pyramidStack.add_child(topRow);
+            pyramidStack.add_child(bottomRow);
+            folderStack.add_child(pyramidStack);
+        } else {
+            const subSize = Math.round(iconSize * 0.32);
+            const spacing = Math.max(2, Math.round(iconSize * 0.06));
+
+            const gridBox = new St.BoxLayout({
+                vertical: true,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: `spacing: ${spacing}px;`
+            });
+
+            const previewApps = validApps.slice(0, 4);
+
+            for (let rowIdx = 0; rowIdx < 2; rowIdx++) {
+                const row = new St.BoxLayout({
+                    vertical: false,
+                    x_align: Clutter.ActorAlign.CENTER,
+                    y_align: Clutter.ActorAlign.CENTER,
+                    style: `spacing: ${spacing}px;`
+                });
+
+                for (let colIdx = 0; colIdx < 2; colIdx++) {
+                    const appIdx = rowIdx * 2 + colIdx;
+                    const appId = previewApps[appIdx];
+
+                    const cellBin = new St.Bin({
+                        width: subSize,
+                        height: subSize,
+                        x_align: Clutter.ActorAlign.CENTER,
+                        y_align: Clutter.ActorAlign.CENTER
+                    });
+
+                    if (appId) {
+                        const app = dockUI.appManager.appSystem.lookup_app(appId);
+                        if (app) {
+                            const ic = createCrispIcon(app, subSize);
+                            cellBin.set_child(ic);
+                        }
+                    }
+                    row.add_child(cellBin);
+                }
+                gridBox.add_child(row);
+            }
+
+            folderStack.add_child(gridBox);
+        }
+
+        folderIcon = folderStack;
     }
 
     const iconBin = new St.Bin({
@@ -528,7 +838,14 @@ export function buildFolderButton(dockUI, folder) {
     const dims = { iconSize, pad, expandedDim, collapsedDim, isVerticalDock };
     btn._dims = dims;
 
-    attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, indProps, dims);
+    if (hasCustomIcon) {
+        attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, indProps, dims);
+    } else {
+        btn._hasRunningIndicator = isIndicatorActive;
+        btn._indProps = indProps;
+        btn._baseBg = 'transparent';
+        btn._hoverBg = null;
+    }
 
     btn._delegate = {
         app: null,
@@ -564,14 +881,16 @@ export function buildFolderButton(dockUI, folder) {
             const activeApp = focused ? (targetFocusedApp || appsList[0]) : (appsList[0] || null);
             const currentProps = activeApp ? getIndicatorProps(dockUI, activeApp) : getIndicatorProps(dockUI, iconName);
 
-            attachHoverBackground.updateState(
-                btn,
-                isRunningNow,
-                appsList,
-                currentProps,
-                dockUI,
-                focused
-            );
+            if (hasCustomIcon && attachHoverBackground && attachHoverBackground.updateState) {
+                attachHoverBackground.updateState(
+                    btn,
+                    isRunningNow,
+                    appsList,
+                    currentProps,
+                    dockUI,
+                    focused
+                );
+            }
 
             if (isRunningNow && btn._indicatorActor && isActorAlive(btn._indicatorActor)) {
                 const dots = btn._indicatorActor.get_children();
@@ -594,7 +913,10 @@ export function buildFolderButton(dockUI, folder) {
     };
 
     setupDragAndDrop(btn, null, dockUI);
-    if (hoverZoom) applyIconFilter(btn);
+
+    if (hoverZoom && hasCustomIcon) {
+        applyIconFilter(btn);
+    }
 
     btn._activateCallback = (buttonNum) => {
         if (buttonNum === 3) {

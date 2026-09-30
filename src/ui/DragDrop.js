@@ -93,12 +93,18 @@ function _clearMergeHint(btn, dockUI) {
     }
 }
 
-export function applyIconFilter(btn) {
-    const appBox = btn.get_child();
-    if (!appBox) return;
-    const icon = appBox.get_first_child();
-    if (icon && icon.set_content_scaling_filters) {
-        icon.set_content_scaling_filters(1, 1);
+export function applyIconFilter(actor) {
+    if (!actor || !isActorAlive(actor)) return;
+
+    if (actor.set_content_scaling_filters) {
+        actor.set_content_scaling_filters(
+            Clutter.ScalingFilter.TRILINEAR,
+            Clutter.ScalingFilter.LINEAR
+        );
+    }
+
+    if (actor.get_children) {
+        actor.get_children().forEach(child => applyIconFilter(child));
     }
 }
 
