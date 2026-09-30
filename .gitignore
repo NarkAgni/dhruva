@@ -1,8 +1,12 @@
-# Compiled Schemas
+# Compiled Schemas & Binary Files
 schemas/gschemas.compiled
 
-# Compressed Builds
+# Local Compiled Translations (Source .po files remain tracked)
+locale/
+
+# Compressed Builds & Extension Packages
 *.zip
+*.shell-extension.zip
 *.tar.gz
 
 # System Files
@@ -13,6 +17,12 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Temporary Files
+# Python & Environment Cache (used in scripts)
+__pycache__/
+*.py[cod]
+
+# Temporary & Swap Files
 *~
 *.bak
+*.swp
+*.swo
