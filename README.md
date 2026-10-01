@@ -107,7 +107,8 @@
 
 <pre><code>git clone https://github.com/narkagni/dhruva.git
 cd dhruva
-make install</code></pre>
+chmod +x manage.sh
+./manage.sh install</code></pre>
 
 <p><b>Restart your GNOME session:</b></p>
 <ul>

@@ -1,3 +1,9 @@
+## [2.6] - 01-10-2026
+
+### Added
+* **Project Tooling:** Added `manage.sh` automation script for build packaging, schema compilation, and release workflows.
+* **Folder Symbolic Assets:** Added dedicated dock folder and plate symbolic icons (`folder-plate-symbolic.svg`, `folder-symbolic.svg`).
+
 ## [2.5] - 30-09-2026
 
 ### New
