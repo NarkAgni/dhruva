@@ -52,11 +52,16 @@ export function updateLayout(dockUI) {
     const hasPanel = monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible;
     const topOffset = hasPanel ? (Main.panel.height || FALLBACK_PANEL_HEIGHT) : 0;
 
+    const stageWidth = global.stage ? global.stage.width : actualMonitor.width;
+    const stageHeight = global.stage ? global.stage.height : actualMonitor.height;
+    const activeMonWidth = Math.min(actualMonitor.width, stageWidth);
+    const activeMonHeight = Math.min(actualMonitor.height, stageHeight);
+
     const monitor = {
         x: actualMonitor.x,
         y: actualMonitor.y + topOffset,
-        width: actualMonitor.width,
-        height: actualMonitor.height - topOffset
+        width: activeMonWidth,
+        height: Math.max(100, activeMonHeight - topOffset)
     };
 
     let [, boxW] = dockUI.boxActor.get_preferred_width(-1);
@@ -80,42 +85,58 @@ export function updateLayout(dockUI) {
 
     const sWidth = !isFullWidth ? Settings.strokeWidth : 0;
     const hoverZoom = Settings.hoverZoom;
-    const maxZoom = hoverZoom ? Settings.hoverZoomFactor : 1.0;
-    const actualMax = 1.0 + (maxZoom - 1.0) * 2.0;
     const iconSize = Settings.iconSize;
-    const maxExpansion = hoverZoom ? (iconSize * 3.5 * (actualMax - 1.0)) : 0;
+    const zoomFactor = hoverZoom ? (Settings.hoverZoomFactor || 1.8) : 1.0;
 
-    const actorW = isFullWidth ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : boxW + (sWidth * 2);
-    const actorH = isFullWidth ? (isVertical ? monitor.height : Math.max(boxH, gridH) + (sWidth * 2)) : boxH + (sWidth * 2);
+    const isNeverHide = Settings.hideMode === 'none';
+    const edgeMargin = isNeverHide ? Math.max(0, Settings.dockMargin || 0) : 0;
+
+    const baseActorW = isFullWidth ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : boxW + (sWidth * 2);
+    const baseActorH = isFullWidth ? (isVertical ? monitor.height : Math.max(boxH, gridH) + (sWidth * 2)) : boxH + (sWidth * 2);
+
+    const actorW = isVertical ? (baseActorW + edgeMargin) : baseActorW;
+    const actorH = isVertical ? baseActorH : (baseActorH + edgeMargin);
 
     dockUI.actor.set_size(actorW, actorH);
 
-    let contentW = boxW;
-    let contentH = boxH;
+    let contentW = boxW + (sWidth * 2);
+    let contentH = boxH + (sWidth * 2);
 
     if (isFullWidth) {
         if (dockUI.gridBtn && dockUI.gridBtn.visible) {
-            contentW += gridW + 80;
-            contentH += gridH + 80;
+            contentW += gridW + 30;
+            contentH += gridH + 30;
         }
         if (dockUI.extractedClock && dockUI.extractedClock.visible) {
-            contentW += clockW + 80;
-            contentH += clockH + 80;
+            contentW += clockW + 30;
+            contentH += clockH + 30;
         }
     }
 
-    const totalW = contentW + (maxExpansion * 2) + (sWidth * 2);
-    const totalH = contentH + (maxExpansion * 2) + (sWidth * 2);
+    const availableSpace = isVertical ? monitor.height : monitor.width;
+    const baseContentSize = isVertical ? contentH : contentW;
 
-    const scale = calculateScale(isVertical, totalW, totalH, monitor);
+    const scale = calculateScale(isVertical, baseContentSize, zoomFactor, iconSize, availableSpace);
     const { pivotX, pivotY } = calculatePivot(pos, isFullWidth, isVertical, alignment);
 
     dockUI.actor.set_pivot_point(pivotX, pivotY);
     dockUI.actor.set_scale(scale, scale);
 
-    const { bgX, bgY, bgW, bgH } = calculateBackgroundBounds(
-        isFullWidth, isVertical, pos, scale, sWidth, boxW, boxH, monitor, pivotX, pivotY, actorW, actorH
+    let { bgX, bgY, bgW, bgH } = calculateBackgroundBounds(
+        isFullWidth, isVertical, pos, scale, sWidth, boxW, boxH, monitor, pivotX, pivotY, baseActorW, baseActorH
     );
+
+    if (isNeverHide && edgeMargin > 0) {
+        if (pos === 'BOTTOM') {
+            bgY = (actorH - bgH) - edgeMargin;
+        } else if (pos === 'TOP') {
+            bgY = edgeMargin;
+        } else if (pos === 'LEFT') {
+            bgX = edgeMargin;
+        } else if (pos === 'RIGHT') {
+            bgX = (actorW - bgW) - edgeMargin;
+        }
+    }
 
     const padScale = 10 / scale;
 
@@ -156,8 +177,8 @@ export function updateLayout(dockUI) {
 
     if (!isVertical) {
         if (isFullWidth) {
-            if (alignment === 'START') contentX = bgX + padScale + maxExpansion;
-            else if (alignment === 'END') contentX = bgX + bgW - boxW - padScale - maxExpansion;
+            if (alignment === 'START') contentX = bgX + padScale;
+            else if (alignment === 'END') contentX = bgX + bgW - boxW - padScale;
             else contentX = bgX + (bgW - boxW) / 2;
         } else {
             contentX = bgX + (bgW - boxW) / 2;
@@ -165,8 +186,8 @@ export function updateLayout(dockUI) {
         contentY = bgY + (bgH - boxH) / 2;
     } else {
         if (isFullWidth) {
-            if (alignment === 'START') contentY = bgY + padScale + maxExpansion;
-            else if (alignment === 'END') contentY = bgY + bgH - boxH - padScale - maxExpansion;
+            if (alignment === 'START') contentY = bgY + padScale;
+            else if (alignment === 'END') contentY = bgY + bgH - boxH - padScale;
             else contentY = bgY + (bgH - boxH) / 2;
         } else {
             contentY = bgY + (bgH - boxH) / 2;
@@ -177,11 +198,11 @@ export function updateLayout(dockUI) {
     if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
         if (!isVertical) {
             const gridRight = (bgX + padScale) + gridW + safetyGap;
-            const boxLeft = contentX - maxExpansion;
+            const boxLeft = contentX;
             if (boxLeft < gridRight) contentX += (gridRight - boxLeft);
         } else {
             const gridBottom = (bgY + padScale) + gridH + safetyGap;
-            const boxTop = contentY - maxExpansion;
+            const boxTop = contentY;
             if (boxTop < gridBottom) contentY += (gridBottom - boxTop);
         }
     }
@@ -189,11 +210,11 @@ export function updateLayout(dockUI) {
     if (isFullWidth && dockUI.extractedClock && dockUI.extractedClock.visible) {
         if (!isVertical) {
             const clockLeft = cx - safetyGap;
-            const boxRight = contentX + boxW + maxExpansion;
+            const boxRight = contentX + boxW;
             if (boxRight > clockLeft) contentX -= (boxRight - clockLeft);
         } else {
             const clockTop = cy - safetyGap;
-            const boxBottom = contentY + boxH + maxExpansion;
+            const boxBottom = contentY + boxH;
             if (boxBottom > clockTop) contentY -= (boxBottom - clockTop);
         }
     }
@@ -205,8 +226,8 @@ export function updateLayout(dockUI) {
     dockUI.bgActor.set_position(bgX, bgY);
     dockUI.bgActor.set_size(bgW, bgH);
 
-    if (dockUI._syncGlassGeometry) {
-        dockUI._syncGlassGeometry();
+    if (dockUI._syncBlurGeometry) {
+        dockUI._syncBlurGeometry();
     }
 
     if (dockUI.dockManager) {

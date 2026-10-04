@@ -158,7 +158,9 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         return;
     }
 
-    dockActor._isResetting = false;
+    if (dockActor._isResetting) {
+        dockActor._isResetting = false;
+    }
 
     const tFrame = now || Date.now();
     if (!dockActor._pointerState) {
@@ -413,6 +415,11 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
+    const stageW = global.stage.width;
+    const stageH = global.stage.height;
+    const dockScaleX = dockActor.scale_x || 1.0;
+    const dockScaleY = dockActor.scale_y || 1.0;
+
     for (let i = 0; i < n; i++) {
         const b = btns[i];
         const zoomTrans = zoomEnabled ? (scaledCenters[i] + zoomOffset) - centersByBtn[i] : 0;
@@ -467,7 +474,32 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             b.rotation_angle_x = smoothAngleX;
         }
 
-        b[lateralAxis] = Math.round(smoothLateral);
+        let finalLateral = smoothLateral;
+        if (!isVertical) {
+            const bWidth = (b.width || 48) * (zoomEnabled ? smoothScaleX : 1.0) * dockScaleX;
+            const bGlobalX = dx + ((centersByBtn[i] + finalLateral) * dockScaleX);
+            const leftEdge = bGlobalX - (bWidth / 2);
+            const rightEdge = bGlobalX + (bWidth / 2);
+
+            if (leftEdge < 8) {
+                finalLateral += (8 - leftEdge) / dockScaleX;
+            } else if (rightEdge > stageW - 8) {
+                finalLateral -= (rightEdge - (stageW - 8)) / dockScaleX;
+            }
+        } else {
+            const bHeight = (b.height || 48) * (zoomEnabled ? smoothScaleY : 1.0) * dockScaleY;
+            const bGlobalY = dy + ((centersByBtn[i] + finalLateral) * dockScaleY);
+            const topEdge = bGlobalY - (bHeight / 2);
+            const bottomEdge = bGlobalY + (bHeight / 2);
+
+            if (topEdge < 8) {
+                finalLateral += (8 - topEdge) / dockScaleY;
+            } else if (bottomEdge > stageH - 8) {
+                finalLateral -= (bottomEdge - (stageH - 8)) / dockScaleY;
+            }
+        }
+
+        b[lateralAxis] = Math.round(finalLateral);
         b[riseAxis] = Math.round(smoothRise);
 
         const appBox = b.get_child ? b.get_child() : null;
@@ -508,34 +540,49 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
-    if (dockActor.bgActor && dockActor.boxActor && !Settings.fullWidth && zoomEnabled && widthPushEnabled) {
-        const baseW = dockActor.bgActor.width || dockActor.bgActor._baseW || dockActor.boxActor.width;
-        const baseH = dockActor.bgActor.height || dockActor.bgActor._baseH || dockActor.boxActor.height;
-        const BUFFER = 16;
+    if (dockActor.bgActor && dockActor.boxActor && !Settings.fullWidth) {
+        if (zoomEnabled && widthPushEnabled && (leftExp > 0 || rightExp > 0 || topExp > 0 || botExp > 0)) {
+            const baseW = dockActor.bgActor.width || dockActor.bgActor._baseW || dockActor.boxActor.width;
+            const baseH = dockActor.bgActor.height || dockActor.bgActor._baseH || dockActor.boxActor.height;
+            const BUFFER = 16;
 
-        dockActor.bgActor.remove_transition('scale_x');
-        dockActor.bgActor.remove_transition('scale_y');
-        dockActor.bgActor.remove_transition('translation_x');
-        dockActor.bgActor.remove_transition('translation_y');
+            dockActor.bgActor.remove_transition('scale_x');
+            dockActor.bgActor.remove_transition('scale_y');
+            dockActor.bgActor.remove_transition('translation_x');
+            dockActor.bgActor.remove_transition('translation_y');
 
-        if (isVertical) {
-            const newH = baseH + topExp + botExp + BUFFER;
-            const targetScaleY = baseH > 0 ? newH / baseH : 1.0;
-            const targetTransY = (botExp - topExp) / 2;
-            const prevScaleY = Number.isFinite(dockActor.bgActor.scale_y) ? dockActor.bgActor.scale_y : 1.0;
-            const prevTransY = Number.isFinite(dockActor.bgActor.translation_y) ? dockActor.bgActor.translation_y : 0.0;
+            if (isVertical) {
+                const newH = baseH + topExp + botExp + BUFFER;
+                const targetScaleY = baseH > 0 ? newH / baseH : 1.0;
+                const targetTransY = (botExp - topExp) / 2;
+                const prevScaleY = Number.isFinite(dockActor.bgActor.scale_y) ? dockActor.bgActor.scale_y : 1.0;
+                const prevTransY = Number.isFinite(dockActor.bgActor.translation_y) ? dockActor.bgActor.translation_y : 0.0;
 
-            dockActor.bgActor.scale_y = prevScaleY + ((targetScaleY - prevScaleY) * SMOOTH_FACTOR);
-            dockActor.bgActor.translation_y = prevTransY + ((targetTransY - prevTransY) * SMOOTH_FACTOR);
-        } else {
-            const newW = baseW + leftExp + rightExp + BUFFER;
-            const targetScaleX = baseW > 0 ? newW / baseW : 1.0;
-            const targetTransX = (rightExp - leftExp) / 2;
-            const prevScaleX = Number.isFinite(dockActor.bgActor.scale_x) ? dockActor.bgActor.scale_x : 1.0;
-            const prevTransX = Number.isFinite(dockActor.bgActor.translation_x) ? dockActor.bgActor.translation_x : 0.0;
+                dockActor.bgActor.scale_y = prevScaleY + ((targetScaleY - prevScaleY) * SMOOTH_FACTOR);
+                dockActor.bgActor.translation_y = prevTransY + ((targetTransY - prevTransY) * SMOOTH_FACTOR);
+            } else {
+                const newW = baseW + leftExp + rightExp + BUFFER;
+                const targetScaleX = baseW > 0 ? newW / baseW : 1.0;
+                const targetTransX = (rightExp - leftExp) / 2;
+                const prevScaleX = Number.isFinite(dockActor.bgActor.scale_x) ? dockActor.bgActor.scale_x : 1.0;
+                const prevTransX = Number.isFinite(dockActor.bgActor.translation_x) ? dockActor.bgActor.translation_x : 0.0;
 
-            dockActor.bgActor.scale_x = prevScaleX + ((targetScaleX - prevScaleX) * SMOOTH_FACTOR);
-            dockActor.bgActor.translation_x = prevTransX + ((targetTransX - prevTransX) * SMOOTH_FACTOR);
+                dockActor.bgActor.scale_x = prevScaleX + ((targetScaleX - prevScaleX) * SMOOTH_FACTOR);
+                dockActor.bgActor.translation_x = prevTransX + ((targetTransX - prevTransX) * SMOOTH_FACTOR);
+            }
+        } else if (dockActor.bgActor.scale_x !== 1.0 || dockActor.bgActor.scale_y !== 1.0 || 
+                   dockActor.bgActor.translation_x !== 0 || dockActor.bgActor.translation_y !== 0) {
+            dockActor.bgActor.remove_transition('scale_x');
+            dockActor.bgActor.remove_transition('scale_y');
+            dockActor.bgActor.remove_transition('translation_x');
+            dockActor.bgActor.remove_transition('translation_y');
+            dockActor.bgActor.scale_x = 1.0;
+            dockActor.bgActor.scale_y = 1.0;
+            dockActor.bgActor.translation_x = 0;
+            dockActor.bgActor.translation_y = 0;
+            if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
+                dockActor._dockUI._dockBlur.syncGeometry();
+            }
         }
     }
 
@@ -597,7 +644,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             }
 
             if (!dockActor._magTooltip) {
-                const { tooltip, tooltipBg, tooltipBox } = createTooltipActor();
+                const { tooltip, tooltipBg, tooltipBox } = createTooltipActor(dockActor, settings);
                 dockActor._magTooltip = tooltip;
                 dockActor._magTooltipBg = tooltipBg;
                 dockActor._magTooltipBox = tooltipBox;
@@ -666,20 +713,20 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     const iconCenterX = bx + bw / 2;
                     const iconCenterY = by + bh / 2;
 
-                    const dockPos = Settings.dockPosition || 'BOTTOM';
-                    if (dockPos === 'BOTTOM') {
+                    const currentDockPos = Settings.dockPosition || 'BOTTOM';
+                    if (currentDockPos === 'BOTTOM') {
                         tx = iconCenterX - tw / 2;
                         ty = by - th - gap;
                         dockActor._magTooltip.set_pivot_point(0.5, 1.0);
-                    } else if (dockPos === 'TOP') {
+                    } else if (currentDockPos === 'TOP') {
                         tx = iconCenterX - tw / 2;
                         ty = by + bh + gap;
                         dockActor._magTooltip.set_pivot_point(0.5, 0.0);
-                    } else if (dockPos === 'LEFT') {
+                    } else if (currentDockPos === 'LEFT') {
                         tx = bx + bw + gap;
                         ty = iconCenterY - th / 2;
                         dockActor._magTooltip.set_pivot_point(0.0, 0.5);
-                    } else if (dockPos === 'RIGHT') {
+                    } else if (currentDockPos === 'RIGHT') {
                         tx = bx - tw - gap;
                         ty = iconCenterY - th / 2;
                         dockActor._magTooltip.set_pivot_point(1.0, 0.5);
@@ -691,7 +738,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     if (ty + th > global.stage.height - 10) ty = global.stage.height - th - 10;
 
                     if (isActorAlive(dockActor._magTooltipBg)) {
-                        if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
+                        if (currentDockPos === 'BOTTOM' || currentDockPos === 'TOP') {
                             dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
                         } else {
                             dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
@@ -722,10 +769,10 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     const [bw, bh] = btn.get_transformed_size();
                     const [tx, ty] = dockActor._magTooltip.get_transformed_position();
                     const [tw, th] = dockActor._magTooltip.get_transformed_size();
-                    const dockPos = Settings.dockPosition || 'BOTTOM';
+                    const currentDockPos = Settings.dockPosition || 'BOTTOM';
 
                     if (tw > 0 && th > 0) {
-                        if (dockPos === 'BOTTOM' || dockPos === 'TOP') {
+                        if (currentDockPos === 'BOTTOM' || currentDockPos === 'TOP') {
                             const iconCenterX = bx + bw / 2;
                             dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
                         } else {

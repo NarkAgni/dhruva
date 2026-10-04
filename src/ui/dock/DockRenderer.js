@@ -448,7 +448,11 @@ export function _animateIconEntry(actor, dockUI, delayMs = 0) {
     };
 
     if (delayMs > 0) {
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, runAnim);
+        if (dockUI && dockUI.registry) {
+            dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, delayMs, runAnim);
+        } else {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, runAnim);
+        }
     } else {
         runAnim();
     }
@@ -530,10 +534,17 @@ export function _flipAnimateDockIcons(dockUI, preRenderPositions) {
             }
         });
 
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 310, () => {
-            if (dockUI.actor) dockUI.actor._flipAnimating = false;
-            return GLib.SOURCE_REMOVE;
-        });
+        if (dockUI && dockUI.registry) {
+            dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 310, () => {
+                if (dockUI.actor) dockUI.actor._flipAnimating = false;
+                return GLib.SOURCE_REMOVE;
+            });
+        } else {
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 310, () => {
+                if (dockUI.actor) dockUI.actor._flipAnimating = false;
+                return GLib.SOURCE_REMOVE;
+            });
+        }
 
         return GLib.SOURCE_REMOVE;
     });

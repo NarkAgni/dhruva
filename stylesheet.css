@@ -270,11 +270,12 @@
 }
 
 .dhruva-music-btn-play {
-    background-color: #1db954;
-    color: #0b0b0b;
     padding: 5px;
+    background-color: rgba(255, 255, 255, 0.25); /* Fallback jab koi gaana na chal raha ho */
+    color: #ffffff;
+    transition-duration: 150ms;
 }
 
 .dhruva-music-btn-play:hover {
-    background-color: #1ed760;
+    filter: brightness(1.15);
 }

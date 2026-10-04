@@ -25,6 +25,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { Settings } from '../core/SettingsManager.js';
+import { CrispLabel } from './modules/music/CrispLabel.js';
+import { TimeoutTracker } from '../core/TimeoutTracker.js';
 import { setBoxVertical, hexToRgba } from '../core/Utils.js';
 import AppContextMenu from './context-menu/AppContextMenu.js';
 
@@ -57,6 +59,7 @@ export default class AppGridUI {
         this.isOpen = false;
         this.appRows = [];
         this._scrollIdleId = 0;
+        this._timers = new TimeoutTracker();
         this.isGridView = true;
         this.selectedIndex = -1;
 
@@ -101,11 +104,14 @@ export default class AppGridUI {
 
         const leftSpacer = new St.Widget({ x_expand: true });
 
-        const title = new St.Label({
-            text: _('All Applications'),
+        const title = new CrispLabel({
+            font_desc: 'Sans Bold 14px',
+            color: '#ffffff',
+            align: 'center',
             style_class: 'app-list-title',
             y_align: Clutter.ActorAlign.CENTER,
         });
+        title.text = _('All Applications');
 
         this.toggleViewBtn = new St.Button({
             child: new St.Icon({
@@ -149,6 +155,12 @@ export default class AppGridUI {
             can_focus: true,
             x_expand: true,
         });
+        
+        if (this.searchEntry.clutter_text) {
+            this.searchEntry.clutter_text.set_line_wrap(false);
+            this.searchEntry.clutter_text.set_use_markup(false);
+            this.searchEntry.clutter_text.set_justify(false);
+        }
 
         this.searchEntry.clutter_text.connect('text-changed', () => {
             this._filterApps(this.searchEntry.get_text());
@@ -229,21 +241,21 @@ export default class AppGridUI {
     }
 
     _createOptimizedLabel(text, fontSize, isGrid) {
-        const label = new St.Label({
-            text,
-            style: `font-size: ${fontSize}px; font-weight: bold; color: #ffffff; text-shadow: 0px 1px 3px rgba(0,0,0,0.8);`,
+        let labelText = text;
+        if (isGrid && labelText.length > 13) {
+            labelText = labelText.substring(0, 11) + '…';
+        }
+
+        const label = new CrispLabel({
+            font_desc: `Sans Bold ${fontSize}px`,
+            color: '#ffffff',
+            align: isGrid ? 'center' : 'left',
             y_align: Clutter.ActorAlign.CENTER,
             x_align: isGrid ? Clutter.ActorAlign.CENTER : Clutter.ActorAlign.START,
             x_expand: true,
+            style: isGrid ? 'margin-top: 6px;' : '',
         });
-
-        if (isGrid) {
-            label.style += ' margin-top: 6px; text-align: center;';
-            if (label.clutter_text) {
-                label.clutter_text.ellipsize = 3;
-                label.clutter_text.line_wrap = false;
-            }
-        }
+        label.text = labelText;
 
         return label;
     }
@@ -418,11 +430,11 @@ export default class AppGridUI {
 
     _scrollToItem(button) {
         if (this._scrollIdleId) {
-            GLib.source_remove(this._scrollIdleId);
+            this._timers.remove(this._scrollIdleId);
             this._scrollIdleId = 0;
         }
 
-        this._scrollIdleId = GLib.idle_add(GLib.PRIORITY_LOW, () => {
+        this._scrollIdleId = this._timers.addIdle(GLib.PRIORITY_LOW, () => {
             this._scrollIdleId = 0;
             const adjustment = this.scrollView.vadjustment;
             if (!button || !adjustment) return GLib.SOURCE_REMOVE;
@@ -572,11 +584,14 @@ export default class AppGridUI {
         this.actor.disconnectObject(this);
         this.panel.disconnectObject(this);
 
-        if (this._scrollIdleId) {
-            GLib.source_remove(this._scrollIdleId);
-            this._scrollIdleId = 0;
+        if (this._timers) {
+            this._timers.destroy();
+            this._timers = null;
         }
+        this._scrollIdleId = 0;
+        
         this.hide();
+
         if (this.actor) {
             this.actor.destroy();
             this.actor = null;

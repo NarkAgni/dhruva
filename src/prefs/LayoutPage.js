@@ -85,7 +85,7 @@ export function buildLayoutPage(window, settings, createResetBtn) {
     addSwitchRow(posGroup, settings, 'show-on-all-monitors', _('Show on All Monitors'), _('Display the dock on every connected screen'), 'video-display-symbolic', null);
     addSwitchRow(posGroup, settings, 'isolate-monitors', _('Isolate Monitors'), _('Only show apps running on the current monitor'), 'video-display-symbolic', null);
 
-    const indepDockRow = addSwitchRow(
+    addSwitchRow(
         posGroup,
         settings,
         'independent-dock',
@@ -94,6 +94,171 @@ export function buildLayoutPage(window, settings, createResetBtn) {
         'system-run-symbolic',
         null
     );
+
+    const indepShortcutRow = new Adw.ActionRow({
+        title: _('Toggle Shortcut'),
+        subtitle: _('Keyboard shortcut to switch independent dock mode'),
+        icon_name: 'preferences-desktop-keyboard-shortcuts-symbolic'
+    });
+
+    const shortcutBox = new Gtk.Box({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        spacing: 8,
+        valign: Gtk.Align.CENTER
+    });
+
+    const shortcutBtn = new Gtk.Button({
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat']
+    });
+
+    const shortcutLabel = new Gtk.ShortcutLabel({
+        disabled_text: _('None'),
+        valign: Gtk.Align.CENTER
+    });
+    shortcutBtn.set_child(shortcutLabel);
+
+    const divider = new Gtk.Separator({
+        orientation: Gtk.Orientation.VERTICAL,
+        valign: Gtk.Align.CENTER,
+        margin_top: 6,
+        margin_bottom: 6
+    });
+
+    const resetShortcutBtn = new Gtk.Button({
+        icon_name: 'edit-undo-symbolic',
+        tooltip_text: _('Reset Shortcut'),
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat', 'circular']
+    });
+
+    const updateShortcutBtnText = () => {
+        const val = Settings.toggleIndependentDockShortcut;
+        const hasKey = Boolean(val && val.length > 0 && val[0].trim() !== '');
+        if (hasKey) {
+            shortcutLabel.set_accelerator(val[0]);
+            divider.set_visible(true);
+            resetShortcutBtn.set_visible(true);
+        } else {
+            shortcutLabel.set_accelerator('');
+            divider.set_visible(false);
+            resetShortcutBtn.set_visible(false);
+        }
+    };
+
+    resetShortcutBtn.connect('clicked', () => {
+        Settings.toggleIndependentDockShortcut = [];
+        updateShortcutBtnText();
+    });
+
+    updateShortcutBtnText();
+
+    const openShortcutDialog = () => {
+        const dialog = new Adw.Window({
+            transient_for: window,
+            modal: true,
+            title: _('Set Shortcut'),
+            default_width: 380,
+            default_height: 220,
+            resizable: false
+        });
+
+        const rootBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 16,
+            margin_top: 24,
+            margin_bottom: 24,
+            margin_start: 24,
+            margin_end: 24,
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER
+        });
+
+        const icon = new Gtk.Image({
+            icon_name: 'preferences-desktop-keyboard-shortcuts-symbolic',
+            pixel_size: 48
+        });
+
+        const instructionLabel = new Gtk.Label({
+            label: _('Press keys combo (e.g. Super+Alt+I or Ctrl+Alt+D)\n(Esc to Cancel, Backspace to Clear)'),
+            justify: Gtk.Justification.CENTER
+        });
+
+        const clearBtn = new Gtk.Button({
+            label: _('Clear Shortcut'),
+            halign: Gtk.Align.CENTER,
+            css_classes: ['destructive-action']
+        });
+
+        clearBtn.connect('clicked', () => {
+            Settings.toggleIndependentDockShortcut = [];
+            updateShortcutBtnText();
+            dialog.close();
+        });
+
+        rootBox.append(icon);
+        rootBox.append(instructionLabel);
+        rootBox.append(clearBtn);
+        dialog.set_content(rootBox);
+
+        const dialogKeyController = new Gtk.EventControllerKey();
+        dialogKeyController.connect('key-pressed', (_controller, keyval, keycode, state) => {
+            const cleanMask = state & (
+                Gdk.ModifierType.CONTROL_MASK |
+                Gdk.ModifierType.SHIFT_MASK |
+                Gdk.ModifierType.ALT_MASK |
+                Gdk.ModifierType.SUPER_MASK
+            );
+
+            if (keyval === Gdk.KEY_Escape && cleanMask === 0) {
+                dialog.close();
+                return Gdk.EVENT_STOP;
+            }
+
+            if ((keyval === Gdk.KEY_BackSpace || keyval === Gdk.KEY_Delete) && cleanMask === 0) {
+                Settings.toggleIndependentDockShortcut = [];
+                updateShortcutBtnText();
+                dialog.close();
+                return Gdk.EVENT_STOP;
+            }
+
+            const isModifierKey = [
+                Gdk.KEY_Shift_L, Gdk.KEY_Shift_R,
+                Gdk.KEY_Control_L, Gdk.KEY_Control_R,
+                Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
+                Gdk.KEY_Super_L, Gdk.KEY_Super_R,
+                Gdk.KEY_Meta_L, Gdk.KEY_Meta_R
+            ].includes(keyval);
+
+            if (isModifierKey) {
+                return Gdk.EVENT_PROPAGATE;
+            }
+
+            const lowerKeyval = Gdk.keyval_to_lower(keyval);
+            const accel = Gtk.accelerator_name_with_keycode(null, lowerKeyval, keycode, cleanMask);
+
+            if (accel && Gtk.accelerator_valid(lowerKeyval, cleanMask)) {
+                Settings.toggleIndependentDockShortcut = [accel];
+                updateShortcutBtnText();
+                dialog.close();
+                return Gdk.EVENT_STOP;
+            }
+
+            return Gdk.EVENT_PROPAGATE;
+        });
+
+        dialog.add_controller(dialogKeyController);
+        dialog.present();
+    };
+
+    shortcutBtn.connect('clicked', openShortcutDialog);
+    settings.connect('changed::toggle-independent-dock-shortcut', updateShortcutBtnText);
+
+    shortcutBox.append(shortcutBtn);
+    shortcutBox.append(divider);
+    shortcutBox.append(resetShortcutBtn);
+    indepShortcutRow.add_suffix(shortcutBox);
+    posGroup.add(indepShortcutRow);
 
     const showIndepOverviewRow = addSwitchRow(
         posGroup,
@@ -120,7 +285,7 @@ export function buildLayoutPage(window, settings, createResetBtn) {
     }, createResetBtn);
 
     const sizeGroup = new Adw.PreferencesGroup({
-        title: _('Sizing & Spacing'),
+        title: _('Sizing &amp; Spacing'),
         description: _('Base dimensions for dock and icons')
     });
     page.add(sizeGroup);
@@ -158,6 +323,7 @@ export function buildLayoutPage(window, settings, createResetBtn) {
         monitorRow.set_visible(!showOnAll);
         sidePaddingRow.set_visible(!isFullWidth);
 
+        indepShortcutRow.set_visible(isIndep);
         showIndepOverviewRow.set_visible(isIndep);
     };
 

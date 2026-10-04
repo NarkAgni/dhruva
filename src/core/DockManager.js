@@ -116,32 +116,52 @@ export default class DockManager {
             height: actualMonitor.height - topOffset
         };
 
-        const rawMargin = Settings.dockMargin;
+        const rawMargin = Math.max(0, Settings.dockMargin || 0);
         const pos = Settings.dockPosition;
         const isFullWidth = Settings.fullWidth;
+        const isNeverHide = Settings.hideMode === 'none';
 
-        const margin = rawMargin;
-
-        let xPos = 0;
-        let yPos = 0;
         const aw = this.dockUI.actor.width;
         const ah = this.dockUI.actor.height;
 
-        if (pos === 'TOP') {
-            xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
-            yPos = workArea.y + margin + 2;
-        } else if (pos === 'BOTTOM') {
-            xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
-            yPos = workArea.y + workArea.height - ah - margin;
-        } else if (pos === 'LEFT') {
-            xPos = workArea.x + margin;
-            yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
-        } else if (pos === 'RIGHT') {
-            xPos = workArea.x + workArea.width - aw - margin;
-            yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+        let xPos = 0;
+        let yPos = 0;
+
+        if (isNeverHide) {
+            if (pos === 'TOP') {
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y;
+            } else if (pos === 'BOTTOM') {
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = actualMonitor.y + actualMonitor.height - ah;
+            } else if (pos === 'LEFT') {
+                xPos = workArea.x;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+            } else if (pos === 'RIGHT') {
+                xPos = actualMonitor.x + actualMonitor.width - aw;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+            }
+        } else {
+            if (pos === 'TOP') {
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y + rawMargin;
+            } else if (pos === 'BOTTOM') {
+                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                yPos = workArea.y + workArea.height - ah - rawMargin;
+            } else if (pos === 'LEFT') {
+                xPos = workArea.x + rawMargin;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+            } else if (pos === 'RIGHT') {
+                xPos = workArea.x + workArea.width - aw - rawMargin;
+                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+            }
         }
 
-        this.dockUI.actor.set_position(xPos, yPos);
+        this.dockUI.actor.set_position(Math.round(xPos), Math.round(yPos));
+
+        if (isNeverHide && !this.dockUI._isOverviewActive) {
+            Main.layoutManager._queueUpdateRegions();
+        }
     }
 
     destroy() {

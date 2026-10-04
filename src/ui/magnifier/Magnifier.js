@@ -148,6 +148,8 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             const pos = Settings.dockPosition || 'BOTTOM';
 
             if (!onDock && !insideTooltip && !insideBridge) {
+                dockActor._tooltipBridgeActive = false;
+                hideTooltip(dockActor);
                 _checkPointerLeave(dockActor, settings);
                 return Clutter.EVENT_PROPAGATE;
             }

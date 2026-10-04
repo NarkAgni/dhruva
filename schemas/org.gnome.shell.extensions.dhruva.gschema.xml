@@ -45,7 +45,7 @@
     </key>
 
     <key name="dock-margin" type="i">
-      <default>0</default>
+      <default>1</default>
       <summary>Distance from screen edge in pixels</summary>
     </key>
 
@@ -590,6 +590,72 @@
       <default>'START'</default>
       <summary>Music Pill Position</summary>
       <description>Placement of the music pill: Start or End.</description>
+    </key>
+
+    <key name="blur-enabled" type="b">
+      <default>false</default>
+      <summary>Enable Blur</summary>
+    </key>
+
+    <key name="blur-intensity" type="d">
+      <default>40.0</default>
+      <summary>Blur intensity</summary>
+    </key>
+
+    <key name="blur-vibrancy" type="d">
+      <default>2.00</default>
+      <summary>Saturation vibrancy behind blur</summary>
+    </key>
+
+    <key name="blur-brightness" type="d">
+      <default>0.25</default>
+      <summary>blur brightness tone</summary>
+    </key>
+
+    <key name="blur-border-glow" type="d">
+      <default>0.20</default>
+      <summary>Specular rim glow strength</summary>
+    </key>
+
+    <key name="blur-highlight-angle" type="d">
+      <default>303.0</default>
+      <summary>Highlight light angle in degrees</summary>
+    </key>
+
+    <key name="blur-tint-color" type="s">
+      <default>'#241F31'</default>
+      <summary>blur tint color</summary>
+    </key>
+    
+    <key name="blur-tint-opacity" type="d">
+      <default>0.25</default>
+      <summary>Tint color blend opacity</summary>
+    </key>
+
+    <key name="blur-mode" type="s">
+        <default>'dynamic'</default>
+        <summary>Blur Mode (dynamic or static)</summary>
+    </key>
+
+    <key name="blur-static-preset" type="s">
+      <default>'abstract-dark'</default>
+      <summary>Preset texture used for static blur blur</summary>
+    </key>
+
+    <key name="blur-custom-photo" type="s">
+      <default>''</default>
+      <summary>Custom image path for static blur background</summary>
+    </key>
+
+    <key name="blur-static-source" type="s">
+      <default>'preset'</default>
+      <summary>Source for static blur: preset or custom</summary>
+    </key>
+
+    <key name="toggle-independent-dock-shortcut" type="as">
+      <default>[]</default>
+      <summary>Shortcut to toggle independent dock mode</summary>
+      <description>Keybinding to toggle between independent and standard dock mode</description>
     </key>
 
   </schema>

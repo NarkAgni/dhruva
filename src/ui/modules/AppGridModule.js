@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see .
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -26,9 +26,9 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { getHoverBgRadius } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
-import { getHoverBgRadius } from '../dock/DockButtonBase.js';
 
 
 const DEFAULT_HOVER_DURATION_MS = 200;

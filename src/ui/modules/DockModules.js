@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see .
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -28,7 +28,6 @@ import PangoCairo from 'gi://PangoCairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import { hexToRgba } from '../../core/Utils.js';
 import { applyIconFilter } from '../DragDrop.js';
 import { buildClockModule } from './ClockModule.js';
 import { buildTrashModule } from './TrashModule.js';
@@ -419,6 +418,6 @@ export function buildModules(dockUI, iconSize) {
         systemModules,
         clockModule,
         gridModule,
-        desktopModule
+        desktopModule,
     };
 }

@@ -17,7 +17,9 @@
 */
 
 
+import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
@@ -33,6 +35,8 @@ export default class DhruvaExtension extends Extension {
         this._settings = this.getSettings();
         Settings.init(this._settings);
         this._timers = new TimeoutTracker();
+
+        this._setupKeybindings();
 
         this._monitorController = new MultiMonitorController(
             this._settings,
@@ -65,12 +69,9 @@ export default class DhruvaExtension extends Extension {
         this._settings.connectObject(
             'changed::dock-position',
             () => {
-                const axis = this._getAxis();
-                if (this._currentAxis !== axis) {
-                    this._currentAxis = axis;
-                    if (this._monitorController) {
-                        this._monitorController.reloadDocks();
-                    }
+                this._currentAxis = this._getAxis();
+                if (this._monitorController) {
+                    this._monitorController.reloadDocks();
                 }
             },
             'changed::independent-dock',
@@ -95,7 +96,37 @@ export default class DhruvaExtension extends Extension {
         );
     }
 
+    _setupKeybindings() {
+        const registerShortcut = () => {
+            Main.wm.removeKeybinding('toggle-independent-dock-shortcut');
+
+            const shortcutList = this._settings.get_strv('toggle-independent-dock-shortcut');
+            if (!shortcutList || shortcutList.length === 0 || !shortcutList[0] || shortcutList[0].trim() === '') {
+                return;
+            }
+
+            Main.wm.addKeybinding(
+                'toggle-independent-dock-shortcut',
+                this._settings,
+                Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
+                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
+                () => {
+                    const currentKeys = this._settings.get_strv('toggle-independent-dock-shortcut');
+                    if (!currentKeys || currentKeys.length === 0 || !currentKeys[0] || currentKeys[0].trim() === '') {
+                        return;
+                    }
+                    Settings.independentDock = !Settings.independentDock;
+                }
+            );
+        };
+
+        registerShortcut();
+        this._settings.connectObject('changed::toggle-independent-dock-shortcut', registerShortcut, this);
+    }
+
     disable() {
+        Main.wm.removeKeybinding('toggle-independent-dock-shortcut');
+
         Main.layoutManager.disconnectObject(this);
 
         if (this._timers) {

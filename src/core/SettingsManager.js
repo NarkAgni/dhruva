@@ -74,6 +74,9 @@ class SettingsManager {
     get showOnAllMonitors() { return this._settings ? this._settings.get_boolean('show-on-all-monitors') : false; }
     get isolateMonitors() { return this._settings ? this._settings.get_boolean('isolate-monitors') : false; }
     get independentDock() { return this._settings ? this._settings.get_boolean('independent-dock') : false; }
+    set independentDock(val) { if (this._settings) this._settings.set_boolean('independent-dock', val); }
+    get toggleIndependentDockShortcut() { return this._settings ? this._settings.get_strv('toggle-independent-dock-shortcut') : []; }
+    set toggleIndependentDockShortcut(arr) { if (this._settings) this._settings.set_strv('toggle-independent-dock-shortcut', arr); }
     get showIndependentInOverview() { return this._settings ? this._settings.get_boolean('show-independent-in-overview') : false; }
     get fullWidth() { return this._settings ? this._settings.get_boolean('full-width') : false; }
     get iconAlignment() { return this._settings ? this._settings.get_string('icon-alignment') : 'CENTER'; }
@@ -172,6 +175,42 @@ class SettingsManager {
     get showVideos() { return this._settings ? this._settings.get_boolean('show-videos') : false; }
     get showMusic() { return this._settings ? this._settings.get_boolean('show-music') : false; }
     get showMounts() { return this._settings ? this._settings.get_boolean('show-mounts') : true; }
+
+    get blurEnabled() { return this._settings ? this._settings.get_boolean('blur-enabled') : false; }
+    set blurEnabled(val) { if (this._settings) this._settings.set_boolean('blur-enabled', val); }
+
+    get blurMode() { return this._settings ? this._settings.get_string('blur-mode') : 'dynamic'; }
+    set blurMode(val) { if (this._settings) this._settings.set_string('blur-mode', val); }
+
+    get blurStaticSource() { return this._settings ? this._settings.get_string('blur-static-source') : 'preset'; }
+    set blurStaticSource(val) { if (this._settings) this._settings.set_string('blur-static-source', val); }
+
+    get blurStaticPreset() { return this._settings ? this._settings.get_string('blur-static-preset') : 'abstract-dark'; }
+    set blurStaticPreset(val) { if (this._settings) this._settings.set_string('blur-static-preset', val); }
+
+    get blurCustomPhoto() { return this._settings ? this._settings.get_string('blur-custom-photo') : ''; }
+    set blurCustomPhoto(val) { if (this._settings) this._settings.set_string('blur-custom-photo', val); }
+
+    get blurIntensity() { return this._settings ? this._settings.get_double('blur-intensity') : 24.0; }
+    set blurIntensity(val) { if (this._settings) this._settings.set_double('blur-intensity', val); }
+
+    get blurVibrancy() { return this._settings ? this._settings.get_double('blur-vibrancy') : 1.35; }
+    set blurVibrancy(val) { if (this._settings) this._settings.set_double('blur-vibrancy', val); }
+
+    get blurBrightness() { return this._settings ? this._settings.get_double('blur-brightness') : 0.18; }
+    set blurBrightness(val) { if (this._settings) this._settings.set_double('blur-brightness', val); }
+
+    get blurBorderGlow() { return this._settings ? this._settings.get_double('blur-border-glow') : 0.55; }
+    set blurBorderGlow(val) { if (this._settings) this._settings.set_double('blur-border-glow', val); }
+
+    get blurHighlightAngle() { return this._settings ? this._settings.get_double('blur-highlight-angle') : 45.0; }
+    set blurHighlightAngle(val) { if (this._settings) this._settings.set_double('blur-highlight-angle', val); }
+
+    get blurTintColor() { return this._settings ? this._settings.get_string('blur-tint-color') : '#ffffff'; }
+    set blurTintColor(val) { if (this._settings) this._settings.set_string('blur-tint-color', val); }
+
+    get blurTintOpacity() { return this._settings ? this._settings.get_double('blur-tint-opacity') : 0.30; }
+    set blurTintOpacity(val) { if (this._settings) this._settings.set_double('blur-tint-opacity', val); }
 
     connect(key, callback, target = null) {
         if (!this._settings) return 0;

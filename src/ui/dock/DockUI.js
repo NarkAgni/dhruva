@@ -26,6 +26,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import AppGridUI from '../AppGridUI.js';
+import { BlurPanel } from '../blur/BlurPanel.js';
 import AppManager from '../../core/AppManager.js';
 import DockManager from '../../core/DockManager.js';
 import { updateLayout } from './DockLayoutEngine.js';
@@ -48,6 +49,21 @@ import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColo
 const RENDER_DEBOUNCE_MS = 5;
 const LAUNCH_EXPIRY_MS = 8000;
 const CURSOR_BURST_DELAYS = [50, 150, 300, 600, 1000, 1500, 2000];
+
+const BLUR_SETTING_KEYS = [
+    'blur-enabled',
+    'blur-mode',
+    'blur-static-source',
+    'blur-static-preset',
+    'blur-custom-photo',
+    'blur-intensity',
+    'blur-vibrancy',
+    'blur-brightness',
+    'blur-border-glow',
+    'blur-highlight-angle',
+    'blur-tint-color',
+    'blur-tint-opacity'
+];
 
 const WATCHED_SETTINGS = [
     'dock-margin', 'icon-size', 'show-grid-button', 'show-running-indicators', 'hover-zoom', 'hover-zoom-factor',
@@ -185,8 +201,12 @@ export default class DockUI {
         this.actor = new Clutter.Actor({ name: 'DhruvaContainer', reactive: true });
         this.actor.clip_to_allocation = false;
         this.actor._dockUI = this;
+        this.actor.remove_all_transitions();
+        this.actor.opacity = 0;
 
         this.bgActor = new St.Widget({ name: 'DhruvaBackground', style_class: 'plank-like-dock-bg', reactive: true, clip_to_allocation: false });
+        this.bgActor.remove_all_transitions();
+
         this.boxActor = new St.BoxLayout({ name: 'Dhruva', style_class: 'plank-like-dock', reactive: true, track_hover: true, clip_to_allocation: false });
 
         setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
@@ -196,6 +216,22 @@ export default class DockUI {
         this.actor.add_child(this.boxActor);
         this.actor.bgActor = this.bgActor;
         this.actor.boxActor = this.boxActor;
+
+        const dockRadius = Settings.fullWidth ? 0 : Settings.borderRadius;
+        this._dockBlur = new BlurPanel(this.bgActor, this.settings, dockRadius, this.actor);
+
+        this._syncBlurGeometry = () => {
+            if (this._dockBlur) {
+                this._dockBlur.setCornerRadius(Settings.fullWidth ? 0 : Settings.borderRadius);
+                this._dockBlur.syncGeometry();
+            }
+        };
+
+        this.actor.connectObject('notify::mapped', () => {
+            if (this._dockBlur && this.actor.is_mapped()) {
+                this._dockBlur.syncGeometry();
+            }
+        }, this);
 
         ScrollManager.setupDockScroll(this.actor);
     }
@@ -256,6 +292,37 @@ export default class DockUI {
                 return GLib.SOURCE_REMOVE;
             });
         }, this);
+
+        global.window_manager.connectObject(
+            'switch-workspace', () => {
+                if (this._dockBlur) this._dockBlur.queueCapture();
+            },
+            'minimize', () => {
+                if (this._dockBlur) this._dockBlur.queueCapture();
+            },
+            'unminimize', () => {
+                if (this._dockBlur) this._dockBlur.queueCapture();
+            },
+            'size-change', () => {
+                if (this._dockBlur) this._dockBlur.queueCapture();
+            },
+            this
+        );
+
+        if (global.display) {
+            global.display.connectObject(
+                'restacked', () => {
+                    if (this._dockBlur) this._dockBlur.queueCapture();
+                },
+                'grab-op-begin', (_display, window) => {
+                    if (this._dockBlur) this._dockBlur.beginDragTracking(window);
+                },
+                'grab-op-end', () => {
+                    if (this._dockBlur) this._dockBlur.endDragTracking();
+                },
+                this
+            );
+        }
 
         global.window_manager.connectObject('map', (_wm, actor) => {
             if (this.actor) {
@@ -364,6 +431,17 @@ export default class DockUI {
             }, this);
         });
 
+        BLUR_SETTING_KEYS.forEach(key => {
+            this.settings.connectObject(`changed::${key}`, () => {
+                if (this._dockBlur) {
+                    this._dockBlur.syncSettings();
+                    this._dockBlur.syncGeometry();
+                }
+                this._applyDynamicStyles();
+                this._updateLayout();
+            }, this);
+        });
+
         ['full-width', 'icon-alignment', 'grid-button-position'].forEach(key => {
             this.settings.connectObject(`changed::${key}`, () => {
                 setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
@@ -465,6 +543,10 @@ export default class DockUI {
                 this._applyDynamicStyles();
                 this.queueRender('full', true);
             }
+            if (this._dockBlur) {
+                this._dockBlur._hasContent = false;
+                this._dockBlur.queueCapture();
+            }
         };
         this._bgSettings.connectObject('changed::picture-uri', onWallpaperChange, this);
         this._bgSettings.connectObject('changed::picture-uri-dark', onWallpaperChange, this);
@@ -512,8 +594,8 @@ export default class DockUI {
             this.actor.translation_y = 0;
         }
 
-        Main.layoutManager.removeChrome(this.actor);
         this.actor._affectsStruts = shouldAffectStruts;
+        Main.layoutManager.removeChrome(this.actor);
 
         Main.layoutManager.addChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
@@ -524,6 +606,11 @@ export default class DockUI {
             this.dockManager.updatePosition();
         }
 
+        const activeWorkspace = global.display.get_workspace_manager().get_active_workspace();
+        if (activeWorkspace && activeWorkspace.check_unfocused_window_drag) {
+            activeWorkspace.check_unfocused_window_drag();
+        }
+        
         Main.layoutManager._queueUpdateRegions();
     }
 
@@ -550,22 +637,71 @@ export default class DockUI {
         const shouldAffectStruts = (Settings.hideMode === 'none');
         this.actor._affectsStruts = shouldAffectStruts;
 
+        if (this.dockManager) {
+            this.dockManager.updatePosition();
+        }
+        this._updateLayout();
+
         Main.layoutManager.addChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
             trackFullscreen: true
         });
 
-        this.actor.connectObject('notify::mapped', () => {
-            if (!this.actor.is_mapped()) return;
-            this.queueRender('incremental', true);
-            if (this.dockManager) this.dockManager.updatePosition();
-            if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
-        }, this);
+        this.registry.addIdle(GLib.PRIORITY_LOW, () => {
+    if (isActorAlive(this.actor)) {
+        if (this.dockManager) this.dockManager.updatePosition();
+        this._updateLayout();
+        this.actor.remove_all_transitions();
+        this.actor.opacity = 255;
+        if (this._dockBlur) {
+            this._dockBlur.syncGeometry();
+            this._dockBlur.syncSettings();
+            this._dockBlur.queueCapture(true);
+        }
+    }
+    return GLib.SOURCE_REMOVE;
+});
 
-        global.display.connectObject('workareas-changed', () => {
-            if (this.dockManager && !this._isOverviewActive) this.dockManager.updatePosition();
-            if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
-        }, this);
+        this.actor.connectObject('notify::mapped', () => {
+    if (!this.actor.is_mapped()) return;
+    if (this.dockManager) this.dockManager.updatePosition();
+    this._updateLayout();
+    this.queueRender('incremental', true);
+    if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
+    if (this._dockBlur) {
+        this._dockBlur.syncGeometry();
+        this._dockBlur.syncSettings();
+    }
+}, this);
+
+        const handleScreenGeometryChange = () => {
+            if (this._geomResizeTimeoutId) {
+                this.registry.remove(this._geomResizeTimeoutId);
+            }
+            this._geomResizeTimeoutId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 30, () => {
+                this._geomResizeTimeoutId = null;
+                if (!isActorAlive(this.actor)) return GLib.SOURCE_REMOVE;
+                this._updateLayout();
+                if (this.dockManager && !this._isOverviewActive) {
+                    this.dockManager.updatePosition();
+                }
+                if (this.autoHideManager) {
+                    this.autoHideManager.updateTriggerGeometry();
+                }
+                if (this._dockBlur) {
+                    this._dockBlur.syncGeometry();
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+        };
+
+        global.display.connectObject('workareas-changed', handleScreenGeometryChange, this);
+        Main.layoutManager.connectObject('monitors-changed', handleScreenGeometryChange, this);
+
+        if (global.stage) {
+            global.stage.connectObject('notify::width', handleScreenGeometryChange, this);
+            global.stage.connectObject('notify::height', handleScreenGeometryChange, this);
+        }
 
         setupWindowEffects(this.settings, this);
         this.autoHideManager = new AutoHideManager(this, this.settings);
@@ -751,7 +887,9 @@ export default class DockUI {
     }
 
     destroy() {
+        global.stage.disconnectObject(this)
         global.display.disconnectObject(this);
+        Main.layoutManager.disconnectObject(this)
         global.window_manager.disconnectObject(this);
         global.workspace_manager.disconnectObject(this);
         Main.overview.disconnectObject(this);
@@ -807,6 +945,11 @@ export default class DockUI {
         if (this._actorRegistry) this._actorRegistry.clear();
         if (this._separatorRegistry) this._separatorRegistry.clear();
         if (this._preRenderPositions) this._preRenderPositions.clear();
+
+        if (this._dockBlur) {
+            this._dockBlur.destroy();
+            this._dockBlur = null;
+        }
 
         if (this.actor) {
             Main.layoutManager.removeChrome(this.actor);

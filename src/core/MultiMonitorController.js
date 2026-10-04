@@ -17,10 +17,13 @@
 */
 
 
+import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import DockUI from '../ui/dock/DockUI.js';
 import { Settings } from './SettingsManager.js';
+import { BlurPanel } from '../ui/blur/BlurPanel.js';
+import { TimeoutTracker } from './TimeoutTracker.js';
 
 
 export default class MultiMonitorController {
@@ -29,6 +32,8 @@ export default class MultiMonitorController {
         this.openPrefsCallback = openPrefsCallback;
         this.uuid = uuid;
         this.docks = [];
+        this.timers = new TimeoutTracker();
+        this._reloadIdleId = null;
 
         this.settings.connectObject('changed::show-on-all-monitors', () => {
             this.reloadDocks();
@@ -63,35 +68,47 @@ export default class MultiMonitorController {
     }
 
     reloadDocks() {
-        const focusedMonitor = this.getFocusedMonitorIndex();
         this.destroyDocks();
 
         if (!this.settings) return;
 
-        const showOnAll = Settings.showOnAllMonitors;
+        if (this._reloadIdleId) {
+            this.timers.remove(this._reloadIdleId);
+            this._reloadIdleId = null;
+        }
 
-        if (showOnAll) {
-            const numMonitors = global.display.get_n_monitors();
-            let monitorOrder = Array.from({ length: numMonitors }, (_v, i) => i);
+        this._reloadIdleId = this.timers.addIdle(GLib.PRIORITY_HIGH, () => {
+            this._reloadIdleId = null;
+            if (!this.settings) return GLib.SOURCE_REMOVE;
 
-            if (focusedMonitor >= 0 && focusedMonitor < numMonitors) {
-                monitorOrder = [
-                    focusedMonitor,
-                    ...monitorOrder.filter(i => i !== focusedMonitor),
-                ];
-            }
+            const focusedMonitor = this.getFocusedMonitorIndex();
+            const showOnAll = Settings.showOnAllMonitors;
 
-            for (let idx = 0; idx < monitorOrder.length; idx++) {
-                const i = monitorOrder[idx];
-                const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, i);
+            if (showOnAll) {
+                const numMonitors = global.display.get_n_monitors();
+                let monitorOrder = Array.from({ length: numMonitors }, (_v, i) => i);
+
+                if (focusedMonitor >= 0 && focusedMonitor < numMonitors) {
+                    monitorOrder = [
+                        focusedMonitor,
+                        ...monitorOrder.filter(i => i !== focusedMonitor),
+                    ];
+                }
+
+                for (let idx = 0; idx < monitorOrder.length; idx++) {
+                    const i = monitorOrder[idx];
+                    const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, i);
+                    dock.show();
+                    this.docks.push(dock);
+                }
+            } else {
+                const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, null);
                 dock.show();
                 this.docks.push(dock);
             }
-        } else {
-            const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, null);
-            dock.show();
-            this.docks.push(dock);
-        }
+
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     getFocusedMonitorIndex() {
@@ -129,10 +146,20 @@ export default class MultiMonitorController {
     }
 
     destroyDocks() {
+        if (this._reloadIdleId) {
+            this.timers.remove(this._reloadIdleId);
+            this._reloadIdleId = null;
+        }
+
         this.docks.forEach(dock => {
-            dock.destroy();
+            if (dock) dock.destroy();
         });
         this.docks = [];
+
+        for (const panel of Array.from(BlurPanel.allPanels)) {
+            panel.destroy();
+        }
+        BlurPanel.allPanels.clear();
     }
 
     destroy() {
@@ -140,6 +167,10 @@ export default class MultiMonitorController {
             this.settings.disconnectObject(this);
         }
         this.destroyDocks();
+        if (this.timers) {
+            this.timers.destroy();
+            this.timers = null;
+        }
         this.settings = null;
         this.openPrefsCallback = null;
     }

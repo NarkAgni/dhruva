@@ -108,15 +108,19 @@ export function isActorAlive(actor) {
 
     try {
         const str = GObject.Object.prototype.toString.call(actor);
-        if (!str || str.includes('DISPOSED') || str.includes('finalized')) {
+        if (!str || str.includes('DISPOSED') || str.includes('finalized') || str.includes('disposed')) {
             _disposedActors.add(actor);
             return false;
         }
 
-        const stage = Clutter.Actor.prototype.get_stage.call(actor);
-        return Boolean(stage);
+        if (!actor.get_stage) {
+            _disposedActors.add(actor);
+            return false;
+        }
+
+        return true;
     } catch (_e) {
-        _disposedActors.add(actor);
+        try { _disposedActors.add(actor); } catch (_err) {}
         return false;
     }
 }

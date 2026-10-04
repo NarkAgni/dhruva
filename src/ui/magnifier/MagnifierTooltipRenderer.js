@@ -24,13 +24,15 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import { hideTooltip } from './MagnifierTooltip.js';
+import { BlurPanel } from '../blur/BlurPanel.js';
+import { isPointerWithinDockBounds } from './MagnifierMath.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
-import { isActorAlive, setBoxVertical } from '../../core/Utils.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
+import { isActorAlive, setBoxVertical, getBoxVertical, hexToRgba } from '../../core/Utils.js';
+import { hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
 
 const ARROW_HEIGHT = 12;
@@ -69,7 +71,7 @@ export function createWindowControl(iconName, rgbColor, onClick, bindObj) {
     return btn;
 }
 
-export function createTooltipActor() {
+export function createTooltipActor(dockActor, settings) {
     const tooltip = new St.Widget({
         layout_manager: new Clutter.BinLayout(),
         visible: false,
@@ -85,6 +87,28 @@ export function createTooltipActor() {
     setBoxVertical(tooltipBox, true);
     tooltip.add_child(tooltipBg);
     tooltip.add_child(tooltipBox);
+
+    if (dockActor) {
+        tooltip.connectObject('leave-event', () => {
+            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                if (!isActorAlive(dockActor) || !dockActor._magTooltip || !dockActor._magTooltip.visible) {
+                    return GLib.SOURCE_REMOVE;
+                }
+                const [cx, cy] = global.get_pointer();
+                const isVertical = dockActor.boxActor ? getBoxVertical(dockActor.boxActor) : false;
+                const onDock = isPointerWithinDockBounds(dockActor, cx, cy, isVertical, settings);
+                const inBridge = isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
+                const inTip = isInsideTooltip(dockActor, cx, cy, 6);
+
+                if (!onDock && !inBridge && !inTip) {
+                    hideTooltip(dockActor);
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+            return Clutter.EVENT_PROPAGATE;
+        }, tooltip);
+    }
+
     return { tooltip, tooltipBg, tooltipBox };
 }
 
@@ -96,7 +120,7 @@ export function applyTooltipCairoDrawing(tooltipBg, settings) {
         const dockPos = Settings.dockPosition || 'BOTTOM';
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
-        const sw = area._sWidth || 0;
+        const sw = area._sWidth || 1;
         const half = sw / 2;
         const w = fullW - sw;
         const h = fullH - sw;
@@ -113,18 +137,17 @@ export function applyTooltipCairoDrawing(tooltipBg, settings) {
         traceMenuPath(cr, w, h, CORNER_RADIUS, ARROW_HEIGHT, ARROW_WIDTH, dockPos, ax, ay);
 
         const [br, bg, bb, ba] = parseRgba(area._bgRgba);
-        cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);
-        cr.fillPreserve();
-
-        if (sw > 0) {
-            const [sr, sg, sb, sa] = parseRgba(area._strokeRgba);
-            cr.setSourceRGBA(sr / 255, sg / 255, sb / 255, sa);
-            cr.setLineWidth(sw);
-            cr.setLineJoin(cairo.LineJoin.ROUND);
-            cr.stroke();
-        } else {
-            cr.newPath();
+        if (ba > 0) {
+            cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);
+            cr.fillPreserve();
         }
+
+        const [sr, sg, sb, sa] = parseRgba(area._strokeRgba);
+        cr.setSourceRGBA(sr / 255, sg / 255, sb / 255, Math.max(0.20, sa));
+        cr.setLineWidth(sw);
+        cr.setLineJoin(cairo.LineJoin.ROUND);
+        cr.stroke();
+
         cr.$dispose();
     }, tooltipBg);
 }
@@ -132,47 +155,64 @@ export function applyTooltipCairoDrawing(tooltipBg, settings) {
 export function populateTooltipContent(dockActor, btn, appName, settings) {
     dockActor._magTooltipBox.destroy_all_children();
 
-    const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
+    const isBlur = Settings.blurEnabled;
     const tFg = dockActor._tooltipFg || '#ffffff';
-    
-    const sWidth = Settings.strokeWidth || 1;
+    const sWidth = Math.max(1, Settings.strokeWidth || 1);
     const sOpacity = (Settings.strokeOpacity || 20) / 100.0;
+    const sColor = Settings.strokeColor || '#ffffff';
+    const dockPos = Settings.dockPosition || 'BOTTOM';
 
-    let borderRgba = 'rgba(255,255,255,0.2)';
-    if (tFg.startsWith('#')) {
-        const r = parseInt(tFg.slice(1, 3), 16) || 255;
-        const g = parseInt(tFg.slice(3, 5), 16) || 255;
-        const b = parseInt(tFg.slice(5, 7), 16) || 255;
-        borderRgba = `rgba(${r}, ${g}, ${b}, ${sOpacity})`;
+    if (isBlur) {
+        const basePad = 2;
+        const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
+        if (dockPos === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
+        else if (dockPos === 'TOP') insets.top += ARROW_HEIGHT;
+        else if (dockPos === 'LEFT') insets.left += ARROW_HEIGHT;
+        else if (dockPos === 'RIGHT') insets.right += ARROW_HEIGHT;
+
+        if (!dockActor._magTooltipBlur) {
+            dockActor._magTooltipBlur = new BlurPanel(
+                dockActor._magTooltip,
+                settings,
+                CORNER_RADIUS - basePad,
+                dockActor._magTooltip,
+                insets
+            );
+            dockActor._magTooltipBlur.basePad = basePad;
+            dockActor._magTooltipBlur.contentActor = dockActor._magTooltipBox;
+        } else {
+            dockActor._magTooltipBlur.basePad = basePad;
+            dockActor._magTooltipBlur.contentActor = dockActor._magTooltipBox;
+            dockActor._magTooltipBlur.setCustomInsets(insets);
+        }
+    } else if (dockActor._magTooltipBlur) {
+        dockActor._magTooltipBlur.destroy();
+        dockActor._magTooltipBlur = null;
     }
 
     let bgRgba = 'rgba(20, 20, 22, 0.92)';
-    let match = tBg.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
-    if (!match) match = tBg.match(/background-color:\s*(rgba?\([^)]+\))/);
-    if (match) {
-        const color = match[1];
-        if (color === 'rgba(0, 0, 0, 0)' || color === 'transparent') {
-            const allColors = tBg.match(/rgba?\([^)]+\)/g);
-            if (allColors) {
-                bgRgba = allColors.find(c => c !== 'rgba(0, 0, 0, 0)' && c.replace(/\s/g, '') !== 'rgba(0,0,0,0)') || bgRgba;
-            }
-        } else {
-            bgRgba = color;
+    if (isBlur) {
+        bgRgba = 'rgba(0, 0, 0, 0)';
+    } else {
+        const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
+        let match = tBg.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
+        if (!match) match = tBg.match(/background-color:\s*(rgba?\([^)]+\))/);
+        if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent') {
+            bgRgba = match[1];
         }
-    } else if (tBg.startsWith('#')) {
-        bgRgba = tBg;
     }
 
+    const strokeRgba = hexToRgba(sColor, sOpacity);
+
     dockActor._magTooltipBg._bgRgba = bgRgba;
-    dockActor._magTooltipBg._strokeRgba = borderRgba;
+    dockActor._magTooltipBg._strokeRgba = strokeRgba;
     dockActor._magTooltipBg._sWidth = sWidth;
     applyTooltipCairoDrawing(dockActor._magTooltipBg, settings);
 
     let padBottom = 12;
     let padTop = 12;
-    let padLeft = 12;
-    let padRight = 12;
-    const dockPos = Settings.dockPosition || 'BOTTOM';
+    let padLeft = 14;
+    let padRight = 14;
     if (dockPos === 'BOTTOM') padBottom += ARROW_HEIGHT;
     else if (dockPos === 'TOP') padTop += ARROW_HEIGHT;
     else if (dockPos === 'LEFT') padLeft += ARROW_HEIGHT;
@@ -388,6 +428,10 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
                 dockActor._tooltipPosTrackerId = null;
             }
+            if (dockActor._magTooltipBlur) {
+                dockActor._magTooltipBlur.destroy();
+                dockActor._magTooltipBlur = null;
+            }
         }, dockActor);
     }
     
@@ -452,6 +496,17 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
 
         dockActor._magTooltip.ease({ x: tx, y: ty, width: tw, height: th, duration: 100, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         dockActor._magTooltipBg.queue_repaint();
+
+        if (dockActor._magTooltipBlur) {
+            const basePad = (dockActor._magTooltipBlur.basePad !== undefined) ? dockActor._magTooltipBlur.basePad : 2;
+            const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
+            if (dockPosStr === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
+            else if (dockPosStr === 'TOP') insets.top += ARROW_HEIGHT;
+            else if (dockPosStr === 'LEFT') insets.left += ARROW_HEIGHT;
+            else if (dockPosStr === 'RIGHT') insets.right += ARROW_HEIGHT;
+            dockActor._magTooltipBlur.setCustomInsets(insets);
+            dockActor._magTooltipBlur.syncGeometry();
+        }
         
         return GLib.SOURCE_CONTINUE;
     };

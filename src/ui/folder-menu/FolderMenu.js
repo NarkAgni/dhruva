@@ -65,6 +65,10 @@ export default class FolderMenu {
         this.actor.connectObject('destroy', () => {
             Main.sessionMode.disconnectObject(this);
             this.timers.destroy();
+            if (this._blurPanel) {
+                this._blurPanel.destroy();
+                this._blurPanel = null;
+            }
             if (this.buttonActor) this.buttonActor.disconnectObject(this);
             if (this.panel) this.panel.disconnectObject(this);
             if (this._folderChangeHandler && this.dockUI && this.dockUI.folderManager) {
@@ -226,6 +230,17 @@ export default class FolderMenu {
             this.bgDrawingArea._arrowCenter = (btnY + btnH / 2) - posY;
         }
         this.bgDrawingArea.queue_repaint();
+
+        if (this._blurPanel) {
+            const basePad = (this._blurPanel.basePad !== undefined) ? this._blurPanel.basePad : 2;
+            const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
+            const ah = 12;
+            if (dockPosition === 'BOTTOM') insets.bottom += ah;
+            else if (dockPosition === 'TOP') insets.top += ah;
+            else if (dockPosition === 'LEFT') insets.left += ah;
+            else if (dockPosition === 'RIGHT') insets.right += ah;
+            this._blurPanel.setCustomInsets(insets);
+        }
 
         if (this._isFirstPosition !== false) {
             this.menuContainer.set_position(posX, posY);

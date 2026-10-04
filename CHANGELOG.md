@@ -1,3 +1,20 @@
+## [3.0] - 04-10-2026
+
+### New
+* **Dock Blur Effect:** Added background blur to the dock with smooth animations and zero lag
+* **Dual Blur Modes:**
+  * **Dynamic Blur:** Real time adaptive blur that stays buttery smooth during system use
+dynamic.png
+  * **Static Blur:** Includes 5 built in presets with adjustable blur intensity Also supports setting custom images/banners with an interactive position slider and live preview
+banner.png
+preset.png
+* **Dedicated Blur Preferences:** Added intuitive controls in settings to customize blur intensity pick presets or configure custom banner alignment
+blur_settings.png
+* **Music Pill Visual Enhancements:** Integrated background blur beneath the Dhruva music pill for a cleaner unified aesthetic
+musicpill.png
+* **Independent Dock Mode Shortcut:** Added a customizable hotkey to quickly toggle "Independent Dock Mode" on the fly
+hotkey.png
+
 ## [2.6] - 01-10-2026
 
 ### Added
@@ -24,3 +41,4 @@ hover_preview.png
 * **Dock Height Inflation:** Fixed dock expanding vertically when icon hover backgrounds are rendered.
 * **Vertical Clipping:** Fixed height truncation on app hover backgrounds when hover zoom magnification is disabled.
 * **Hover State Reset:** Fixed App Grid background remaining active on open or click interactions.
+

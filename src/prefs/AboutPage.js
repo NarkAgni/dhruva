@@ -108,7 +108,7 @@ export function buildAboutAuthor(prefs, page) {
     page.add(group);
     group.add(new Adw.ActionRow({
         title: 'Narkagni',
-        subtitle: _('Author & Maintainer'),
+        subtitle: _('Author &amp; Maintainer'),
         icon_name: 'avatar-default-symbolic'
     }));
 

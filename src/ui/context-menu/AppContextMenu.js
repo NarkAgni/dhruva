@@ -40,6 +40,7 @@ import { createIconMenuItem, createMenuItem, addSeparator } from './ContextMenuI
 const DEFAULT_PANEL_WIDTH = 280;
 const POS_TRACKER_INTERVAL_MS = 16;
 const IGNORE_EXPIRY_MS = 2000;
+const ARROW_HEIGHT = 12;
 
 export default class AppContextMenu {
     constructor(dockUI, app, buttonActor, isCtrlPressed = false, openPrefsCallback = null, disablePeek = false) {
@@ -89,7 +90,12 @@ export default class AppContextMenu {
             reactive: true,
             style: 'background-color: transparent;'
         });
-        this.bgDrawingArea = new St.DrawingArea({ x_expand: true, y_expand: true, style: 'background-color: transparent;' });
+
+        this.bgDrawingArea = new St.DrawingArea({
+            x_expand: true,
+            y_expand: true,
+            style: 'background-color: transparent;'
+        });
         this.menuContainer.add_child(this.bgDrawingArea);
 
         this.panel = new St.BoxLayout({
@@ -106,14 +112,19 @@ export default class AppContextMenu {
         );
 
         this.menuContainer.add_child(this.panel);
-        applyThemeStyle(this, this.panel);
         this._buildMenu();
+        applyThemeStyle(this, this.panel);
         this.actor.add_child(this.menuContainer);
     }
 
     _cleanup() {
         Main.sessionMode.disconnectObject(this);
         this.timers.destroy();
+
+        if (this._blurPanel) {
+            this._blurPanel.destroy();
+            this._blurPanel = null;
+        }
 
         if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
@@ -220,18 +231,7 @@ export default class AppContextMenu {
                         const isFolderMenuOpen = Boolean(activeFMenu && activeFMenu.folderData && activeFMenu.folderData.id === f.id);
 
                         if (isFolderMenuOpen) {
-                            activeFMenu._suppressSync = true;
-                        }
-
-                        this.dockUI.folderManager.addAppToFolder(f.id, appId);
-                        if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
-                        else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
-                        else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
-
-                        this.dockUI.queueRender('incremental');
-
-                        if (isFolderMenuOpen) {
-                            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 160, () => {
+                            this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 160, () => {
                                 if (activeFMenu && isActorAlive(activeFMenu.actor) && activeFMenu.folderData && activeFMenu.folderData.id === f.id) {
                                     activeFMenu._suppressSync = false;
                                     if (!activeFMenu.folderData.apps.includes(appId)) {
@@ -477,6 +477,16 @@ export default class AppContextMenu {
         } else {
             this.menuContainer.ease({ x: posX, y: posY, height: panelH, duration: 100, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
         }
+
+        if (this._blurPanel) {
+            const basePad = (this._blurPanel.basePad !== undefined) ? this._blurPanel.basePad : 2;
+            const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
+            if (dockPos === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
+            else if (dockPos === 'TOP') insets.top += ARROW_HEIGHT;
+            else if (dockPos === 'LEFT') insets.left += ARROW_HEIGHT;
+            else if (dockPos === 'RIGHT') insets.right += ARROW_HEIGHT;
+            this._blurPanel.setCustomInsets(insets);
+        }
     }
 
     show(dockPosition) {
@@ -526,6 +536,14 @@ export default class AppContextMenu {
             this.panel.set_style(`background-color: transparent; border: none; box-shadow: none; padding: ${padTop}px ${padRight}px ${padBottom}px ${padLeft}px;`);
             this.menuContainer.opacity = 0;
             this._updatePosition();
+
+            if (this.panel && this.bgDrawingArea) {
+                this.menuContainer.set_child_above_sibling(this.panel, this.bgDrawingArea);
+            }
+
+            if (this._blurPanel) {
+                this._blurPanel.syncGeometry();
+            }
 
             this.menuContainer.ease({ opacity: 255, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
 

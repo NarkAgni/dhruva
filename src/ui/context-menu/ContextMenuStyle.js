@@ -20,8 +20,10 @@
 import cairo from 'gi://cairo';
 
 import { hexToRgba } from '../../core/Utils.js';
+import { BlurPanel } from '../blur/BlurPanel.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { resolveTooltipColors } from '../dock/DockThemeResolver.js';
 
 
 const CORNER_RADIUS = 18;
@@ -37,39 +39,56 @@ export function applyThemeStyle(contextMenu, panel) {
     if (!contextMenu || !contextMenu.dockUI || !contextMenu.dockUI.settings) return;
 
     const settings = contextMenu.dockUI.settings;
+    const isBlurEnabled = settings.get_boolean('blur-enabled');
+
+    panel.set_style('background-color: transparent !important; border: none !important; box-shadow: none !important;');
+
+    if (isBlurEnabled && !contextMenu._blurPanel && contextMenu.menuContainer) {
+        const basePad = 2;
+        const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
+        const dockPos = contextMenu._dockPos || 'BOTTOM';
+        if (dockPos === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
+        else if (dockPos === 'TOP') insets.top += ARROW_HEIGHT;
+        else if (dockPos === 'LEFT') insets.left += ARROW_HEIGHT;
+        else if (dockPos === 'RIGHT') insets.right += ARROW_HEIGHT;
+
+        contextMenu._blurPanel = new BlurPanel(
+            contextMenu.menuContainer,
+            settings,
+            CORNER_RADIUS - basePad,
+            contextMenu.menuContainer,
+            insets
+        );
+        contextMenu._blurPanel.basePad = basePad;
+        contextMenu._blurPanel.contentActor = panel;
+    }
+
     const themeId = Settings.dockTheme || 'default';
-    const opacity = Settings.backgroundOpacity / 100.0;
-    const sWidth = Settings.strokeWidth;
+    const sWidth = Math.max(1, Settings.strokeWidth);
     const sColor = Settings.strokeColor || '#ffffff';
     const sOpacity = Settings.strokeOpacity / 100.0;
 
-    let bgRgba = hexToRgba(Settings.backgroundColor || '#000000', opacity);
+    let bgRgba = 'rgba(24, 24, 28, 0.90)';
 
-    if (themeId === 'chameleon') {
-        const chameleonColor = contextMenu.dockUI._chameleonColor;
-        const bg = (chameleonColor && chameleonColor.bg) ? chameleonColor.bg : { r: 30, g: 30, b: 45 };
-        bgRgba = `rgba(${bg.r}, ${bg.g}, ${bg.b}, 0.88)`;
-    } else if (contextMenu.dockUI.actor && contextMenu.dockUI.actor._tooltipBg) {
-        const css = contextMenu.dockUI.actor._tooltipBg;
+    if (isBlurEnabled) {
+        bgRgba = 'rgba(0, 0, 0, 0)';
+    } else {
+        const resolved = resolveTooltipColors(contextMenu.dockUI, themeId);
+        const css = resolved.css || '';
+
         let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
         if (!match) match = css.match(/background-color:\s*(rgba?\([^)]+\))/);
 
-        if (match) {
-            const color = match[1];
-            if (color === 'rgba(0, 0, 0, 0)' || color === 'transparent') {
-                const allColors = css.match(/rgba?\([^)]+\)/g);
-                if (allColors) {
-                    bgRgba = allColors.find(c => c !== 'rgba(0, 0, 0, 0)' && c.replace(/\s/g, '') !== 'rgba(0,0,0,0)') || bgRgba;
-                }
-            } else {
-                bgRgba = color;
-            }
+        if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent') {
+            bgRgba = match[1];
+        } else {
+            const opacity = Math.min(1.0, (Settings.backgroundOpacity / 100.0) + 0.10);
+            bgRgba = hexToRgba(Settings.backgroundColor || '#000000', opacity);
         }
     }
 
-    panel.set_style('background-color: transparent; border: none;');
     contextMenu.bgDrawingArea._bgRgba = bgRgba;
-    contextMenu.bgDrawingArea._strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'transparent';
+    contextMenu.bgDrawingArea._strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'rgba(255, 255, 255, 0.22)';
     contextMenu.bgDrawingArea._sWidth = sWidth;
 
     if (contextMenu.bgDrawingArea._repaintConnected) return;
@@ -80,7 +99,7 @@ export function applyThemeStyle(contextMenu, panel) {
 
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
-        const sw = area._sWidth || 0;
+        const sw = area._sWidth || 1;
         const half = sw / 2;
         const w = fullW - sw;
         const h = fullH - sw;
@@ -97,18 +116,16 @@ export function applyThemeStyle(contextMenu, panel) {
         traceMenuPath(cr, w, h, CORNER_RADIUS, ARROW_HEIGHT, ARROW_WIDTH, contextMenu._dockPos, ax, ay);
 
         const [br, bg, bb, ba] = parseRgba(area._bgRgba);
-        cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);
-        cr.fillPreserve();
-
-        if (sw > 0) {
-            const [sr, sg, sb, sa] = parseRgba(area._strokeRgba);
-            cr.setSourceRGBA(sr / 255, sg / 255, sb / 255, sa);
-            cr.setLineWidth(sw);
-            cr.setLineJoin(cairo.LineJoin.ROUND);
-            cr.stroke();
-        } else {
-            cr.newPath();
+        if (ba > 0) {
+            cr.setSourceRGBA(br / 255, bg / 255, bb / 255, ba);
+            cr.fillPreserve();
         }
+
+        const [sr, sg, sb, sa] = parseRgba(area._strokeRgba);
+        cr.setSourceRGBA(sr / 255, sg / 255, sb / 255, Math.max(0.18, sa));
+        cr.setLineWidth(sw);
+        cr.setLineJoin(cairo.LineJoin.ROUND);
+        cr.stroke();
 
         cr.$dispose();
     }, contextMenu);

@@ -56,8 +56,23 @@ export function resolveTooltipColors(dockUI, themeId) {
 export function applyDynamicStyles(dockUI) {
     if (!isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
 
-    const isFullWidth = Settings.fullWidth;
-    const radius = isFullWidth ? 0 : Settings.borderRadius;
+    const isFullWidth = dockUI.settings ? dockUI.settings.get_boolean('full-width') : false;
+    const radius = isFullWidth ? 0 : (dockUI.settings ? dockUI.settings.get_int('border-radius') : 20);
+    const isBlurEnabled = dockUI.settings ? dockUI.settings.get_boolean('blur-enabled') : false;
+
+    if (isBlurEnabled) {
+        dockUI.bgActor.add_style_class_name('dhruva-blur-active');
+        dockUI.bgActor.set_style(
+            'border-radius: ' + radius + 'px !important; ' +
+            'background-color: transparent !important; ' +
+            'background-image: none !important; ' +
+            'border: none !important; ' +
+            'box-shadow: none !important;'
+        );
+    } else {
+        dockUI.bgActor.remove_style_class_name('dhruva-blur-active');
+    }
+
     const sWidth = Settings.strokeWidth;
     const borderStyle = sWidth > 0 && !isFullWidth 
         ? `border: ${sWidth}px solid ${hexToRgba(Settings.strokeColor, Settings.strokeOpacity / 100.0)};` 
@@ -78,16 +93,18 @@ export function applyDynamicStyles(dockUI) {
         dockUI._chameleonAccent = null;
     }
 
-    const customConfig = {
-        opacity,
-        color1: hexToRgba(Settings.backgroundColor, opacity),
-        color2: hexToRgba(Settings.backgroundGradientColor, opacity),
-        useGradient: Settings.useGradient,
-        direction: Settings.gradientDirection,
-        chameleonColor: dockUI._chameleonColor,
-    };
+    if (!isBlurEnabled) {
+        const customConfig = {
+            opacity,
+            color1: hexToRgba(Settings.backgroundColor, opacity),
+            color2: hexToRgba(Settings.backgroundGradientColor, opacity),
+            useGradient: Settings.useGradient,
+            direction: Settings.gradientDirection,
+            chameleonColor: dockUI._chameleonColor,
+        };
 
-    applyDockTheme(dockUI.bgActor, currentTheme, baseLayoutCss, customConfig);
+        applyDockTheme(dockUI.bgActor, currentTheme, baseLayoutCss, customConfig);
+    }
 
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
     const sidePad = Settings.dockPadding;
@@ -118,5 +135,9 @@ export function applyDynamicStyles(dockUI) {
                 }
             }
         });
+    }
+
+    if (isBlurEnabled && dockUI._syncBlurGeometry) {
+        dockUI._syncBlurGeometry();
     }
 }

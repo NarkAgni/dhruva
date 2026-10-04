@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see .
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -25,10 +25,13 @@ import Clutter from 'gi://Clutter';
 import GdkPixbuf from 'gi://GdkPixbuf';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { isActorAlive } from '../../../core/Utils.js';
+import { BlurEffect } from '../../blur/BlurEffect.js';
 import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
 import { extractColorsFromPixbuf } from './MusicColorExtractor.js';
+import { isActorAlive, setBoxVertical } from '../../../core/Utils.js';
 
+
+let POPUP_ART_BLUR_INTENSITY = 4.0;
 
 const WAVE_AMPLITUDE = 3.5;
 const WAVE_FREQUENCY = 0.08;
@@ -61,9 +64,9 @@ export class MusicPillPopup {
         this._lastFrameTime = 0;
 
         this._cachedArtPath = null;
-        this._accentColor = { r: 1.0, g: 0.45, b: 0.15 };
-        this._accentRgba60 = 'rgba(255, 115, 38, 0.60)';
-        this._accentColorStr = '#1db954';
+        this._accentColor = { r: 1.0, g: 1.0, b: 1.0 };
+        this._accentRgba60 = 'rgba(255, 255, 255, 0.40)';
+        this._accentColorStr = '#ffffff';
         this._bgGradientEnd = 'rgba(14, 14, 18, 0.95)';
 
         this._buildUI();
@@ -82,7 +85,7 @@ export class MusicPillPopup {
             const [boxW, boxH] = this._box.get_transformed_size();
 
             const isInside = clickX >= boxX && clickX <= (boxX + boxW) &&
-                             clickY >= boxY && clickY <= (boxY + boxH);
+                clickY >= boxY && clickY <= (boxY + boxH);
 
             if (!isInside) {
                 this.hide();
@@ -101,7 +104,17 @@ export class MusicPillPopup {
                 height: 395px;
                 border-radius: 28px;
                 background-color: #121214;
+            `,
+        });
+
+        this._borderStroke = new St.Widget({
+            x_expand: true,
+            y_expand: true,
+            reactive: false,
+            style: `
+                border-radius: 28px;
                 border: 2px solid ${this._accentRgba60} !important;
+                background-color: transparent;
             `,
         });
 
@@ -116,9 +129,23 @@ export class MusicPillPopup {
             `,
         });
 
-        this._blurEffect = new Clutter.BlurEffect();
-        this._blurEffect.radius = 75;
-        this._artBackground.add_effect(this._blurEffect);
+        this._artBlurEffect = new BlurEffect();
+        this._artBlurEffect.setParams({
+            radius: 26.0,
+            blurIntensity: POPUP_ART_BLUR_INTENSITY,
+            vibrancy: 1.25,
+            blurBrightness: 0.05,
+            borderGlow: 0.0,
+            colorTintOpacity: 0.0,
+        });
+        this._artBackground.add_effect(this._artBlurEffect);
+        this._artBackground.connectObject('notify::allocation', () => {
+            const [w, h] = this._artBackground.get_size();
+            if (w > 1 && h > 1 && this._artBlurEffect) {
+                this._artBlurEffect.updateDimensions(w, h, w, h);
+            }
+        }, this);
+
         this._box.add_child(this._artBackground);
 
         this._scrim = new St.Widget({
@@ -135,22 +162,22 @@ export class MusicPillPopup {
         this._box.add_child(this._scrim);
 
         this._contentBox = new St.BoxLayout({
-            vertical: true,
             x_expand: true,
             y_expand: true,
             style: 'padding: 18px;',
         });
+        setBoxVertical(this._contentBox, true);
 
         const topRow = new St.BoxLayout({
-            vertical: false,
             x_expand: true,
             y_align: Clutter.ActorAlign.START,
         });
+        setBoxVertical(topRow, false);
 
         this._spotifyIcon = new St.Icon({
             icon_name: 'spotify-indicator-symbolic',
             icon_size: 24,
-            style: 'color: #1db954;',
+            style: 'color: #ffffff;',
             x_align: Clutter.ActorAlign.START,
         });
 
@@ -168,11 +195,11 @@ export class MusicPillPopup {
         this._contentBox.add_child(spacer);
 
         this._metaBox = new St.BoxLayout({
-            vertical: true,
             style: 'spacing: 4px; margin-bottom: 10px;',
             x_align: Clutter.ActorAlign.START,
             x_expand: true,
         });
+        setBoxVertical(this._metaBox, true);
 
         this._titleLabel = new St.Label({
             text: 'Track Title',
@@ -251,10 +278,10 @@ export class MusicPillPopup {
         this._contentBox.add_child(this._sliderCanvas);
 
         const timeRow = new St.BoxLayout({
-            vertical: false,
             x_expand: true,
             style: 'margin-bottom: 12px;',
         });
+        setBoxVertical(timeRow, false);
 
         this._timeElapsedLabel = new St.Label({
             text: '0:00',
@@ -279,7 +306,6 @@ export class MusicPillPopup {
         this._contentBox.add_child(timeRow);
 
         this._pillBar = new St.BoxLayout({
-            vertical: false,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
             style: `
@@ -290,6 +316,7 @@ export class MusicPillPopup {
                 spacing: 20px;
             `,
         });
+        setBoxVertical(this._pillBar, false);
 
         this._prevBtn = new St.Button({
             child: new St.Icon({
@@ -297,16 +324,18 @@ export class MusicPillPopup {
                 icon_size: 20,
                 style: 'color: #ffffff;',
             }),
-            style: 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; transition-duration: 150ms;',
+            style: 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; color: #ffffff; transition-duration: 150ms;',
             y_align: Clutter.ActorAlign.CENTER,
             reactive: true,
         });
+
         this._prevBtn.connectObject('notify::hover', () => {
             if (!isActorAlive(this._prevBtn)) return;
             this._prevBtn.style = this._prevBtn.hover
-                ? 'padding: 8px; border-radius: 999px; background-color: rgba(255, 255, 255, 0.22); border: none; transition-duration: 150ms;'
-                : 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; transition-duration: 150ms;';
+                ? 'padding: 8px; border-radius: 999px; background-color: rgba(255, 255, 255, 0.22); border: none; color: #ffffff; transition-duration: 150ms;'
+                : 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; color: #ffffff; transition-duration: 150ms;';
         }, this);
+
         this._prevBtn.connectObject('clicked', () => {
             if (this._service) this._service.sendControl('Previous');
         }, this);
@@ -345,16 +374,18 @@ export class MusicPillPopup {
                 icon_size: 20,
                 style: 'color: #ffffff;',
             }),
-            style: 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; transition-duration: 150ms;',
+            style: 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; color: #ffffff; transition-duration: 150ms;',
             y_align: Clutter.ActorAlign.CENTER,
             reactive: true,
         });
+
         this._nextBtn.connectObject('notify::hover', () => {
             if (!isActorAlive(this._nextBtn)) return;
             this._nextBtn.style = this._nextBtn.hover
-                ? 'padding: 8px; border-radius: 999px; background-color: rgba(255, 255, 255, 0.22); border: none; transition-duration: 150ms;'
-                : 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; transition-duration: 150ms;';
+                ? 'padding: 8px; border-radius: 999px; background-color: rgba(255, 255, 255, 0.22); border: none; color: #ffffff; transition-duration: 150ms;'
+                : 'padding: 8px; border-radius: 999px; background-color: transparent; border: none; color: #ffffff; transition-duration: 150ms;';
         }, this);
+
         this._nextBtn.connectObject('clicked', () => {
             if (this._service) this._service.sendControl('Next');
         }, this);
@@ -365,6 +396,7 @@ export class MusicPillPopup {
 
         this._contentBox.add_child(this._pillBar);
         this._box.add_child(this._contentBox);
+        this._box.add_child(this._borderStroke);
         this._overlay.add_child(this._box);
     }
 
@@ -441,19 +473,7 @@ export class MusicPillPopup {
     }
 
     _applyColors(artPath) {
-        let colors = null;
-
-        if (this._pill && this._pill._playBtn && isActorAlive(this._pill._playBtn)) {
-            const playStyle = this._pill._playBtn.style || '';
-            const bgMatch = playStyle.match(/background-color:\s*([^;]+)/);
-            if (bgMatch && bgMatch[1]) {
-                const accentStr = bgMatch[1].trim();
-                colors = {
-                    accent: accentStr,
-                    background: 'rgba(14, 14, 18, 0.94)'
-                };
-            }
-        }
+        let colors = this._pill ? this._pill._lastExtractedColors : null;
 
         if (!colors && artPath && GLib.file_test(artPath, GLib.FileTest.EXISTS)) {
             try {
@@ -461,7 +481,7 @@ export class MusicPillPopup {
                 if (pixbuf) {
                     colors = extractColorsFromPixbuf(pixbuf);
                 }
-            } catch (_e) {}
+            } catch (_e) { }
         }
 
         if (colors) {
@@ -472,7 +492,7 @@ export class MusicPillPopup {
     _renderDynamicStyling(colors) {
         if (!isActorAlive(this._box) || !colors) return;
 
-        const accent = colors.accent || '#1db954';
+        const accent = colors.accent || '#ffffff';
         const bg = colors.background || 'rgba(14, 14, 18, 0.95)';
 
         this._accentColorStr = accent;
@@ -497,13 +517,17 @@ export class MusicPillPopup {
                 iconColor = '#121212';
             }
         } else {
-            this._accentColor = { r: 0.11, g: 0.73, b: 0.33 };
-            this._accentRgba60 = 'rgba(29, 185, 84, 0.60)';
+            this._accentColor = { r: 1.0, g: 1.0, b: 1.0 };
+            this._accentRgba60 = 'rgba(255, 255, 255, 0.60)';
         }
 
         this._bgGradientEnd = bg;
 
-        this._box.style = 'width: 300px; height: 395px; border-radius: 28px; background-color: #121214; border: 2px solid ' + this._accentRgba60 + ' !important;';
+        this._box.style = 'width: 300px; height: 395px; border-radius: 28px; background-color: #121214;';
+        
+        if (isActorAlive(this._borderStroke)) {
+            this._borderStroke.style = 'border-radius: 28px; border: 2px solid ' + this._accentRgba60 + ' !important; background-color: transparent;';
+        }
 
         this._scrim.style = 'background-gradient-direction: vertical; background-gradient-start: rgba(0, 0, 0, 0.28); background-gradient-end: ' + bg + '; border-radius: 26px;';
 
@@ -564,6 +588,8 @@ export class MusicPillPopup {
             if (isActorAlive(this._playIcon)) {
                 this._playIcon.style = 'color: #ffffff !important;';
             }
+        } else if (this._pill && this._pill._lastExtractedColors && (!this._accentColorStr || this._accentColorStr === '#1db954')) {
+            this._applyColors(localArtPath);
         }
 
         if (!this._isDragging) {
@@ -627,6 +653,10 @@ export class MusicPillPopup {
         targetY = Math.max(monY + 12, Math.min(monY + monH - boxH - 12, targetY));
 
         this._box.set_position(Math.round(targetX), Math.round(targetY));
+
+        if (this._artBlurEffect) {
+            this._artBlurEffect.updateDimensions(boxW, boxH, boxW, boxH);
+        }
     }
 
     show() {
@@ -642,6 +672,11 @@ export class MusicPillPopup {
         Main.layoutManager.uiGroup.add_child(this._overlay);
 
         this._positionPopup();
+
+        if (this._pill && this._pill._lastExtractedColors) {
+            this._applyColors(this._pill._lastArtUrl);
+        }
+
         this._updateState();
 
         this._box.opacity = 0;
@@ -670,7 +705,7 @@ export class MusicPillPopup {
                 const [bw, bh] = this._box.get_transformed_size();
 
                 const inside = cx >= bx && cx <= (bx + bw) &&
-                               cy >= by && cy <= (by + bh);
+                    cy >= by && cy <= (by + bh);
 
                 if (!inside) {
                     this.hide();
@@ -731,6 +766,10 @@ export class MusicPillPopup {
         if (this._tracker) {
             this._tracker.destroy();
             this._tracker = null;
+        }
+        if (this._artBackground && this._artBlurEffect) {
+            try { this._artBackground.remove_effect(this._artBlurEffect); } catch (_e) { }
+            this._artBlurEffect = null;
         }
         if (isActorAlive(this._overlay)) {
             this._overlay.destroy();

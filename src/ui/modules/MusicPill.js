@@ -27,12 +27,12 @@ import GdkPixbuf from 'gi://GdkPixbuf';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { CrispLabel } from './music/CrispLabel.js';
-import { isActorAlive } from '../../core/Utils.js';
 import { LyricsClient } from './music/LyricsClient.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { MusicPillPopup } from './music/MusicPillPopup.js';
 import { MusicPillSlider } from './music/MusicPillSlider.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { isActorAlive, setBoxVertical } from '../../core/Utils.js';
 import { MusicPlayerService } from './music/MusicPlayerService.js';
 import { resetMagnification } from '../magnifier/MagnifierReset.js';
 import { KaraokeLyricsWidget } from './music/KaraokeLyricsWidget.js';
@@ -69,6 +69,7 @@ export const MusicPill = GObject.registerClass(
             this._isHovered = false;
             this._isDestroyed = false;
             this._lastArtUrl = null;
+            this._lastExtractedColors = null;
             this._hasValidTrack = false;
             this._isPlaying = false;
 
@@ -187,6 +188,14 @@ export const MusicPill = GObject.registerClass(
                 return Clutter.EVENT_PROPAGATE;
             }, this);
 
+            if (this._settings) {
+                this._settings.connectObject(
+                    'changed::blur-enabled', () => this._updatePillBgAppearance(),
+                    'changed::blur-mode', () => this._updatePillBgAppearance(),
+                    this
+                );
+            }
+
             this.hide();
         }
 
@@ -200,13 +209,13 @@ export const MusicPill = GObject.registerClass(
             this.add_child(this._pillBg);
 
             this._mainBox = new St.BoxLayout({
-                vertical: false,
                 reactive: true,
                 style_class: 'dhruva-music-pill',
                 style: 'background-color: transparent; border: none; box-shadow: none;',
                 y_align: Clutter.ActorAlign.CENTER,
                 x_align: Clutter.ActorAlign.CENTER,
             });
+            setBoxVertical(this._mainBox, false);
             this.add_child(this._mainBox);
 
             this._slider = new MusicPillSlider();
@@ -235,10 +244,10 @@ export const MusicPill = GObject.registerClass(
             });
 
             this._infoBox = new St.BoxLayout({
-                vertical: true,
                 y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
             });
+            setBoxVertical(this._infoBox, true);
 
             const makeMarqueeRow = (styleClass, xAlign, fontDesc, color) => {
                 const viewport = new St.Widget({
@@ -295,13 +304,13 @@ export const MusicPill = GObject.registerClass(
             this._metaViewport.add_child(this._infoBox);
 
             this._lyricsBox = new St.BoxLayout({
-                vertical: true,
                 y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
                 opacity: 0,
                 visible: false,
                 style: 'spacing: 1px;',
             });
+            setBoxVertical(this._lyricsBox, true);
 
             const miniRow = makeMarqueeRow(
                 'dhruva-music-mini-title',
@@ -322,13 +331,14 @@ export const MusicPill = GObject.registerClass(
             this._mainBox.add_child(this._metaViewport);
 
             this._controlsBox = new St.BoxLayout({
-                vertical: false,
                 y_align: Clutter.ActorAlign.CENTER,
             });
+            setBoxVertical(this._controlsBox, false);
 
             this._prevBtn = new St.Button({
                 style_class: 'dhruva-music-btn',
-                child: new St.Icon({ icon_name: 'media-skip-backward-symbolic', icon_size: 13 }),
+                style: 'color: #ffffff;',
+                child: new St.Icon({ icon_name: 'media-skip-backward-symbolic', icon_size: 13, style: 'color: #ffffff;' }),
                 opacity: 0,
                 width: 0,
                 reactive: false,
@@ -352,7 +362,8 @@ export const MusicPill = GObject.registerClass(
 
             this._nextBtn = new St.Button({
                 style_class: 'dhruva-music-btn',
-                child: new St.Icon({ icon_name: 'media-skip-forward-symbolic', icon_size: 13 }),
+                style: 'color: #ffffff;',
+                child: new St.Icon({ icon_name: 'media-skip-forward-symbolic', icon_size: 13, style: 'color: #ffffff;' }),
                 opacity: 0,
                 width: 0,
                 reactive: false,
@@ -739,35 +750,40 @@ export const MusicPill = GObject.registerClass(
         }
 
         async _fetchLyrics(title, artist, duration) {
-            if (this._isDestroyed) return;
-            if (!this._lyricsClient) return;
+            if (this._isDestroyed || !this._lyricsClient) return;
 
             const requestedTrackId = title + '::' + artist;
-            const lyrics = await this._lyricsClient.getLyrics(title, artist, duration);
 
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            try {
+                const lyrics = await this._lyricsClient.getLyrics(title, artist, duration);
 
-            this._tracker.addIdle(GLib.PRIORITY_DEFAULT, () => {
-                if (this._isDestroyed) return GLib.SOURCE_REMOVE;
-                if (!isActorAlive(this)) return GLib.SOURCE_REMOVE;
-                if (this._activeTrackId !== requestedTrackId) return GLib.SOURCE_REMOVE;
+                if (this._isDestroyed || !isActorAlive(this)) return;
 
-                if (lyrics && lyrics.length > 0) {
-                    this._lyrics = lyrics;
-                    this._lyricsReadyForTrack = true;
-                    this._currentLyricIndex = -1;
-                } else {
-                    this._lyrics = [];
-                    this._lyricsReadyForTrack = false;
-                    this._currentLyricIndex = -1;
-                    if (this._karaokeWidget) {
-                        this._karaokeWidget.resetState();
+                this._tracker.addIdle(GLib.PRIORITY_DEFAULT, () => {
+                    if (this._isDestroyed || !isActorAlive(this)) return GLib.SOURCE_REMOVE;
+                    if (this._activeTrackId !== requestedTrackId) return GLib.SOURCE_REMOVE;
+
+                    if (lyrics && lyrics.length > 0) {
+                        this._lyrics = lyrics;
+                        this._lyricsReadyForTrack = true;
+                        this._currentLyricIndex = -1;
+                    } else {
+                        this._lyrics = [];
+                        this._lyricsReadyForTrack = false;
+                        this._currentLyricIndex = -1;
+                        if (this._karaokeWidget) {
+                            this._karaokeWidget.resetState();
+                        }
+                        this._cancelModeTransition();
+                        this._switchMode(false, 200);
                     }
-                    this._cancelModeTransition();
-                    this._switchMode(false, 200);
-                }
-                return GLib.SOURCE_REMOVE;
-            });
+                    return GLib.SOURCE_REMOVE;
+                });
+            } catch (_e) {
+                this._lyrics = [];
+                this._lyricsReadyForTrack = false;
+                this._currentLyricIndex = -1;
+            }
         }
 
         _switchMode(showLyrics, durationOverride = null) {
@@ -905,6 +921,33 @@ export const MusicPill = GObject.registerClass(
             return null;
         }
 
+        _updatePillBgAppearance() {
+            if (this._isDestroyed || !isActorAlive(this._pillBg)) return;
+
+            const isBlurEnabled = Boolean(Settings.blurEnabled);
+            const colors = this._lastExtractedColors;
+
+            let borderRgba = 'rgba(255, 255, 255, 0.14)';
+            if (colors && colors.accent) {
+                const rgb = colors.accent.match(/\d+/g);
+                if (rgb && rgb.length >= 3) {
+                    borderRgba = `rgba(\({rgb[0]},\){rgb[1]}, ${rgb[2]}, 0.22)`;
+                }
+            }
+
+            if (isBlurEnabled) {
+                this._pillBg.style = `background-color: transparent; border: 1px solid ${borderRgba}; box-shadow: none;`;
+                return;
+            }
+
+            if (!colors) {
+                this._pillBg.style = '';
+                return;
+            }
+
+            this._pillBg.style = `background-color: \({colors.background}; border: 1px solid\){borderRgba};`;
+        }
+
         _applyArtStyle(filePath) {
             if (this._isDestroyed || !isActorAlive(this) || !isActorAlive(this._artBin)) return;
 
@@ -917,11 +960,9 @@ export const MusicPill = GObject.registerClass(
 
             const colors = extractColorsFromPixbuf(pixbuf);
             if (!colors) return;
+            this._lastExtractedColors = colors;
 
             const rgb = colors.accent.match(/\d+/g);
-            const borderRgba = rgb && rgb.length >= 3
-                ? `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.18)`
-                : 'rgba(255, 255, 255, 0.15)';
 
             let iconColor = '#ffffff';
             if (rgb && rgb.length >= 3) {
@@ -934,20 +975,20 @@ export const MusicPill = GObject.registerClass(
                 }
             }
 
-            if (isActorAlive(this._pillBg)) {
-                this._pillBg.style = `background-color: ${colors.background}; border-color: ${borderRgba};`;
-            }
+            this._updatePillBgAppearance();
+
             if (isActorAlive(this._playBtn)) {
-                this._playBtn.style = `background-color: ${colors.accent}; color: ${iconColor};`;
+                this._playBtn.style = `background-color: \({colors.accent}; color:\){iconColor};`;
             }
             if (isActorAlive(this._playIcon)) {
                 this._playIcon.style = `color: ${iconColor};`;
             }
+
             if (isActorAlive(this._prevBtn)) {
-                this._prevBtn.style = `color: ${iconColor};`;
+                this._prevBtn.style = 'color: #ffffff;';
             }
             if (isActorAlive(this._nextBtn)) {
-                this._nextBtn.style = `color: ${iconColor};`;
+                this._nextBtn.style = 'color: #ffffff;';
             }
 
             if (this._slider && rgb && rgb.length >= 3) {
@@ -957,15 +998,16 @@ export const MusicPill = GObject.registerClass(
 
         _resetArt() {
             if (this._isDestroyed || !isActorAlive(this)) return;
+            this._lastExtractedColors = null;
             if (isActorAlive(this._artBin)) this._artBin.style = '';
             if (isActorAlive(this._artFallbackIcon)) this._artFallbackIcon.visible = true;
 
-            if (isActorAlive(this._pillBg)) this._pillBg.style = '';
-            if (isActorAlive(this._playBtn)) this._playBtn.style = '';
+            this._updatePillBgAppearance();
 
+            if (isActorAlive(this._playBtn)) this._playBtn.style = '';
             if (isActorAlive(this._playIcon)) this._playIcon.style = '';
-            if (isActorAlive(this._prevBtn)) this._prevBtn.style = '';
-            if (isActorAlive(this._nextBtn)) this._nextBtn.style = '';
+            if (isActorAlive(this._prevBtn)) this._prevBtn.style = 'color: #ffffff;';
+            if (isActorAlive(this._nextBtn)) this._nextBtn.style = 'color: #ffffff;';
 
             if (this._slider) {
                 this._slider.setColor(1.0, 1.0, 1.0);
@@ -975,6 +1017,10 @@ export const MusicPill = GObject.registerClass(
 
         destroy() {
             this._isDestroyed = true;
+
+            if (this._settings) {
+                this._settings.disconnectObject(this);
+            }
 
             if (this._popup) {
                 this._popup.destroy();

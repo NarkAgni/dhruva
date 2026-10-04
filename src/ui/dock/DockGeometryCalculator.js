@@ -17,16 +17,23 @@
 */
 
 
-const MONITOR_PADDING_BUFFER = 20;
+const SCREEN_EDGE_SAFETY_MARGIN = 16;
 
-export function calculateScale(isVertical, totalW, totalH, monitor) {
-    let scale = 1.0;
-    if (isVertical && totalH > monitor.height - MONITOR_PADDING_BUFFER) {
-        scale = (monitor.height - MONITOR_PADDING_BUFFER) / totalH;
-    } else if (!isVertical && totalW > monitor.width - MONITOR_PADDING_BUFFER) {
-        scale = (monitor.width - MONITOR_PADDING_BUFFER) / totalW;
+
+export function calculateScale(_isVertical, baseContentSize, maxZoomFactor, iconSize, availableSpace) {
+    const usableSpace = Math.max(100, availableSpace - (SCREEN_EDGE_SAFETY_MARGIN * 2));
+
+    const actualMax = 1.0 + (maxZoomFactor - 1.0) * 2.0;
+    const dynamicZoomPush = actualMax > 1.0 ? Math.round(iconSize * (actualMax - 1.0) * 1.6) : 0;
+
+    const totalProjectedSize = baseContentSize + dynamicZoomPush;
+
+    if (totalProjectedSize <= usableSpace) {
+        return 1.0;
     }
-    return Math.max(0.1, scale);
+
+    const requiredScale = usableSpace / totalProjectedSize;
+    return Math.max(0.20, Math.min(1.0, requiredScale));
 }
 
 export function calculatePivot(pos, isFullWidth, isVertical, alignment) {

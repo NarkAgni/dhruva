@@ -51,6 +51,10 @@ export function hideTooltip(dockActor) {
         dockActor._magPeekManager.stopPeek();
     }
 
+    if (dockActor._magTooltipBlur) {
+        dockActor._magTooltipBlur.blurActor.hide();
+    }
+
     if (dockActor._magTooltip && dockActor._magTooltip.visible) {
         dockActor._magTooltip.remove_all_transitions();
         dockActor._magTooltip.ease({

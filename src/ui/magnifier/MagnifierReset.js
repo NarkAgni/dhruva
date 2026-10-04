@@ -13,7 +13,7 @@
 * GNU General Public License for more details.
 *
 * You should have received a copy of the GNU General Public License
-* along with this program. If not, see .
+* along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
 
@@ -142,14 +142,35 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
 
     if (isActorAlive(dockActor.bgActor)) {
         dockActor.bgActor.remove_all_transitions();
-        dockActor.bgActor.ease({
-            scale_x: 1.0,
-            scale_y: 1.0,
-            translation_x: 0,
-            translation_y: 0,
-            duration,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD
-        });
+        if (duration === 0) {
+            dockActor.bgActor.scale_x = 1.0;
+            dockActor.bgActor.scale_y = 1.0;
+            dockActor.bgActor.translation_x = 0;
+            dockActor.bgActor.translation_y = 0;
+            if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
+                dockActor._dockUI._dockBlur.syncGeometry();
+            }
+        } else {
+            dockActor.bgActor.ease({
+                scale_x: 1.0,
+                scale_y: 1.0,
+                translation_x: 0,
+                translation_y: 0,
+                duration,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onStopped: () => {
+                    if (isActorAlive(dockActor.bgActor)) {
+                        dockActor.bgActor.scale_x = 1.0;
+                        dockActor.bgActor.scale_y = 1.0;
+                        dockActor.bgActor.translation_x = 0;
+                        dockActor.bgActor.translation_y = 0;
+                    }
+                    if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
+                        dockActor._dockUI._dockBlur.syncGeometry();
+                    }
+                }
+            });
+        }
     }
 
     dockActor._structureChanged = false;

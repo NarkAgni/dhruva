@@ -29,11 +29,11 @@ import FolderMenu from '../folder-menu/FolderMenu.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
-import { hexToRgba, isActorAlive } from '../../core/Utils.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
+import { hexToRgba, isActorAlive, setBoxVertical } from '../../core/Utils.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { createBaseButtonContainer, createIndicatorBox, attachHoverBackground } from './DockButtonBase.js';
 
@@ -624,11 +624,11 @@ export function buildFolderButton(dockUI, folder) {
             const spacing = Math.max(3, Math.round(iconSize * 0.08));
 
             const hBox = new St.BoxLayout({
-                vertical: false,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 style: `spacing: ${spacing}px;`
             });
+            setBoxVertical(hBox, false);
 
             validApps.slice(0, 2).forEach(appId => {
                 const app = dockUI.appManager.appSystem.lookup_app(appId);
@@ -644,18 +644,18 @@ export function buildFolderButton(dockUI, folder) {
             const spacing = Math.max(2, Math.round(iconSize * 0.06));
 
             const pyramidStack = new St.BoxLayout({
-                vertical: true,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 style: `spacing: ${spacing}px;`
             });
+            setBoxVertical(pyramidStack, true);
 
             const topRow = new St.BoxLayout({
-                vertical: false,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 style: `spacing: ${spacing}px;`
             });
+            setBoxVertical(topRow, false);
 
             [validApps[0], validApps[1]].forEach(appId => {
                 const app = dockUI.appManager.appSystem.lookup_app(appId);
@@ -665,10 +665,10 @@ export function buildFolderButton(dockUI, folder) {
             });
 
             const bottomRow = new St.BoxLayout({
-                vertical: false,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER
             });
+            setBoxVertical(bottomRow, false);
 
             const thirdApp = dockUI.appManager.appSystem.lookup_app(validApps[2]);
             if (thirdApp) {
@@ -683,21 +683,21 @@ export function buildFolderButton(dockUI, folder) {
             const spacing = Math.max(2, Math.round(iconSize * 0.06));
 
             const gridBox = new St.BoxLayout({
-                vertical: true,
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 style: `spacing: ${spacing}px;`
             });
+            setBoxVertical(gridBox, true);
 
             const previewApps = validApps.slice(0, 4);
 
             for (let rowIdx = 0; rowIdx < 2; rowIdx++) {
                 const row = new St.BoxLayout({
-                    vertical: false,
                     x_align: Clutter.ActorAlign.CENTER,
                     y_align: Clutter.ActorAlign.CENTER,
                     style: `spacing: ${spacing}px;`
                 });
+                setBoxVertical(row, false);
 
                 for (let colIdx = 0; colIdx < 2; colIdx++) {
                     const appIdx = rowIdx * 2 + colIdx;

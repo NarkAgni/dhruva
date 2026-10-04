@@ -17,6 +17,7 @@
 */
 
 
+import { buildBlurPage } from './src/prefs/BlurPage.js';
 import { buildAboutPage } from './src/prefs/AboutPage.js';
 import { buildLayoutPage } from './src/prefs/LayoutPage.js';
 import { buildModulesPage } from './src/prefs/ModulesPage.js';
@@ -36,6 +37,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
 
         buildLayoutPage(window, settings, createResetBtn);
         buildAppearancePage(window, settings, createResetBtn, createGroupReset);
+        buildBlurPage(window, settings, createResetBtn);
         buildBehaviorPage(window, settings, createResetBtn);
         buildMusicPillPage(window, settings, createResetBtn);
         buildModulesPage(this, window, settings);
