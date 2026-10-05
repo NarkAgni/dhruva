@@ -28,7 +28,7 @@ class VortexBase extends BaseDeformEffect {
     }
 
     _getDuration() {
-        return 600;
+        return super._getDuration();
     }
 
     _getTiles() {

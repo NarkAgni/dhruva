@@ -1,3 +1,18 @@
+## [3.1] - 05-10-2026
+
+### New
+* **Configurable Animation Durations:** Added dedicated preference controls to adjust Dock slide in/hide speed (`autohide-animation-speed`) and Window minimize/restore speed (`window-effect-speed`, Magic Lamp and other deform effects) dynamically in milliseconds.
+* **Fullscreen Reveal in Intelligent Mode:** Added support for dock reveal in fullscreen windows exclusively when hide mode is set to "Intelligent (Dodge Active)" on screen edge pressure. In all other modes, the dock remains strictly hidden during fullscreen.
+* **App Menu Drag and Drop Pinning:** Added support to drag and drop application icons directly from the GNOME App Grid / App Menu onto the dock to pin them in real time with dynamic slot gap expansion.
+
+### Improved
+* **Animation Physics & Deform Pipeline:** Connected `BaseDeformEffect` and Magic Lamp timelines directly to settings for fluid, slow-motion, or fast minimize transitions without hardcoded duration caps.
+* **Backdrop Capture Reliability:** Hardened backdrop paint sequences in `BlurPanel` using guaranteed visibility restore logic to eliminate menu element fading.
+
+### Fixed
+* **Custom Icon Color Detection:** Fixed icon color extractor failing on modern icon theme hierarchies (like WhiteSur) where apps reside under `apps/scalable` and dark themes inherit from base parent icon folders.
+* **Dynamic Blur Ghosting on Unhide:** Fixed dock icons appearing translucent or washed-out for 1-2 seconds after unhiding by eliminating conflicting intermediate opacity eases and triggering immediate backdrop recalculation.
+
 ## [3.0] - 04-10-2026
 
 ### New

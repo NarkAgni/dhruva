@@ -21,6 +21,7 @@ import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { Settings } from '../../core/SettingsManager.js';
 import { finishMinimizeEffect, finishRestoreEffect } from './WindowEffects.js';
 
 
@@ -42,7 +43,8 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
     }
 
     _getDuration() {
-        return 500;
+        const val = Settings.windowEffectSpeed;
+        return (Number.isFinite(val) && val >= 50) ? val : 350;
     }
 
     _getTiles() {

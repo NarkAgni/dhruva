@@ -34,12 +34,17 @@ import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltip
 
 
 const FLIP_DURATION = 300;
+const GAP_EASE_MS = 70;
 const TOOLTIP_DELAY_MS = 600;
 const MIN_ARROW_PADDING = 18;
 
 function smoothstep(edge0, edge1, x) {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
+}
+
+function approach(current, target, factor) {
+    return Math.abs(target - current) < 0.1 ? target : current + (target - current) * factor;
 }
 
 function calculateScaleCurve(dist, radius, zoomRange, style) {
@@ -114,7 +119,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
     if (isAppGrid || isMenu) {
         hideTooltip(dockActor);
-        if (isAppGrid) return;
+        if (isAppGrid && !dockActor._isExternalDragging) return;
     }
 
     const hoverZoom = Settings.hoverZoom && !isAppGrid;
@@ -376,6 +381,10 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     const zoomOffset = localCursor - mappedCursor;
     if (Number.isNaN(zoomOffset)) return;
 
+    const gapEase = 1 - Math.exp(-dt / GAP_EASE_MS);
+    const gapSpread = approach(dockActor._gapSpread || 0, dockActor._gapSpreadTarget || 0, gapEase);
+    dockActor._gapSpread = gapSpread;
+
     const lateralAxis = isVertical ? 'translation_y' : 'translation_x';
     const riseAxis = isVertical ? 'translation_x' : 'translation_y';
 
@@ -415,6 +424,14 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
+    if (isVertical) {
+        topExp += gapSpread;
+        botExp += gapSpread;
+    } else {
+        leftExp += gapSpread;
+        rightExp += gapSpread;
+    }
+
     const stageW = global.stage.width;
     const stageH = global.stage.height;
     const dockScaleX = dockActor.scale_x || 1.0;
@@ -434,6 +451,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             }
         }
 
+        b._gapOffset = approach(b._gapOffset || 0, b._gapTarget || 0, gapEase);
+
         b.remove_transition('scale_x');
         b.remove_transition('scale_y');
         b.remove_transition('translation_x');
@@ -444,7 +463,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
         const targetScaleX = scales[i];
         const targetScaleY = scalesY[i];
-        const targetLateral = zoomTrans + flipTrans + magOffsets[i];
+        const targetLateral = zoomTrans + flipTrans + magOffsets[i] + b._gapOffset;
         const targetRise = riseOffsets[i];
         const targetAngleZ = anglesZ[i];
         const targetAngleY = anglesY[i];
@@ -541,7 +560,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     }
 
     if (dockActor.bgActor && dockActor.boxActor && !Settings.fullWidth) {
-        if (zoomEnabled && widthPushEnabled && (leftExp > 0 || rightExp > 0 || topExp > 0 || botExp > 0)) {
+        if (leftExp > 0 || rightExp > 0 || topExp > 0 || botExp > 0) {
             const baseW = dockActor.bgActor.width || dockActor.bgActor._baseW || dockActor.boxActor.width;
             const baseH = dockActor.bgActor.height || dockActor.bgActor._baseH || dockActor.boxActor.height;
             const BUFFER = 16;

@@ -38,6 +38,7 @@ import { applyDynamicStyles } from './DockThemeResolver.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { cleanupTrashEffects } from '../effects/TrashEffect.js';
 import { renderDock, getIndicatorProps } from './DockRenderer.js';
+import { destroyExternalDrop } from '../ExternalDrop.js';
 import NotificationManager from '../../core/NotificationManager.js';
 import AutoHideManager from '../../core/autohide/AutoHideManager.js';
 import { teardownMagnification } from '../magnifier/MagnifierReset.js';
@@ -78,7 +79,7 @@ const WATCHED_SETTINGS = [
     'running-separator-color', 'running-separator-opacity', 'grid-icon-color', 'custom-grid-icon',
     'custom-grid-icon-scale', 'use-old-grid-icon', 'app-folders', 'show-unpinned-apps',
     'desktop-btn-width', 'desktop-btn-opacity', 'desktop-btn-color', 'show-independent-in-overview',
-    'show-music-pill', 'music-pill-position', 'indicator-color-mode'
+    'show-music-pill', 'music-pill-position', 'indicator-color-mode', 'autohide-animation-speed', 'window-effect-speed'
 ];
 
 const STYLE_SETTINGS = [
@@ -210,7 +211,7 @@ export default class DockUI {
         this.boxActor = new St.BoxLayout({ name: 'Dhruva', style_class: 'plank-like-dock', reactive: true, track_hover: true, clip_to_allocation: false });
 
         setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
-        this.boxActor._delegate = { acceptDrop: () => true, handleDragDrop: () => true };
+        this.boxActor._delegate = null;
 
         this.actor.add_child(this.bgActor);
         this.actor.add_child(this.boxActor);
@@ -923,6 +924,7 @@ export default class DockUI {
         if (this.appGridUI) this.appGridUI.destroy();
         if (this.notificationManager) this.notificationManager.destroy();
 
+        destroyExternalDrop(this);
         cleanupTrashEffects();
         teardownWindowEffects();
         teardownMagnification(this.actor);

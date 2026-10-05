@@ -35,6 +35,7 @@ import { MagicLampMinimize, MagicLampRestore } from './GenieEffect.js';
 
 const MIN_EFFECT_NAME = 'we-minimize-effect';
 const UNMIN_EFFECT_NAME = 'we-unminimize-effect';
+const DEFAULT_EFFECT_DURATION_MS = 350;
 
 let _pendingActor = null;
 let _pendingIcon = null;
@@ -52,6 +53,11 @@ let _origCompletedMinimize = null;
 let _origCompletedUnminimize = null;
 let _origCompletedMap = null;
 
+function _getEffectDuration() {
+    const val = Settings.windowEffectSpeed;
+    return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_EFFECT_DURATION_MS;
+}
+
 function _addEffectIdle(cb) {
     if (_effectTimers) {
         _effectTimers.addIdle(GLib.PRIORITY_DEFAULT, () => {
@@ -67,42 +73,72 @@ function _clearEffectIdles() {
     }
 }
 
+function _applyEffectDuration(effect, duration) {
+    if (!effect) return null;
+
+    effect._duration = duration;
+    effect.duration = duration;
+    if (effect.setDuration) effect.setDuration(duration);
+
+    return effect;
+}
+
 function _makeMinimize(iconPos, dockPos, type) {
+    const duration = _getEffectDuration();
+    let effect;
     switch (type) {
         case 'magic-lamp':
-            return new MagicLampMinimize(iconPos, dockPos);
+            effect = new MagicLampMinimize(iconPos, dockPos);
+            break;
         case 'snake':
-            return new SnakeMinimize(iconPos, dockPos);
+            effect = new SnakeMinimize(iconPos, dockPos);
+            break;
         case 'vortex':
-            return new VortexMinimize(iconPos, dockPos);
+            effect = new VortexMinimize(iconPos, dockPos);
+            break;
         case 'crt':
-            return new CRTMinimize(iconPos, dockPos);
+            effect = new CRTMinimize(iconPos, dockPos);
+            break;
         case 'origami':
-            return new OrigamiMinimize(iconPos, dockPos);
+            effect = new OrigamiMinimize(iconPos, dockPos);
+            break;
         case 'jelly':
-            return new JellyMinimize(iconPos, dockPos);
+            effect = new JellyMinimize(iconPos, dockPos);
+            break;
         default:
-            return new MagicLampMinimize(iconPos, dockPos);
+            effect = new MagicLampMinimize(iconPos, dockPos);
+            break;
     }
+    return _applyEffectDuration(effect, duration);
 }
 
 function _makeRestore(iconPos, dockPos, type) {
+    const duration = _getEffectDuration();
+    let effect;
     switch (type) {
         case 'magic-lamp':
-            return new MagicLampRestore(iconPos, dockPos);
+            effect = new MagicLampRestore(iconPos, dockPos);
+            break;
         case 'snake':
-            return new SnakeRestore(iconPos, dockPos);
+            effect = new SnakeRestore(iconPos, dockPos);
+            break;
         case 'vortex':
-            return new VortexRestore(iconPos, dockPos);
+            effect = new VortexRestore(iconPos, dockPos);
+            break;
         case 'crt':
-            return new CRTRestore(iconPos, dockPos);
+            effect = new CRTRestore(iconPos, dockPos);
+            break;
         case 'origami':
-            return new OrigamiRestore(iconPos, dockPos);
+            effect = new OrigamiRestore(iconPos, dockPos);
+            break;
         case 'jelly':
-            return new JellyRestore(iconPos, dockPos);
+            effect = new JellyRestore(iconPos, dockPos);
+            break;
         default:
-            return new MagicLampRestore(iconPos, dockPos);
+            effect = new MagicLampRestore(iconPos, dockPos);
+            break;
     }
+    return _applyEffectDuration(effect, duration);
 }
 
 function _patchWm() {
@@ -229,12 +265,13 @@ export function setupWindowEffects(settings, dockUI) {
                 _animatingActors.add(actor);
                 if (actor.remove_all_transitions) actor.remove_all_transitions();
 
+                const fadeDuration = Math.max(100, Math.round(_getEffectDuration() * 0.6));
                 actor.set_pivot_point(0.5, 0.5);
                 actor.ease({
                     opacity: 0,
                     scale_x: 0.93,
                     scale_y: 0.93,
-                    duration: 200,
+                    duration: fadeDuration,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         _animatingActors.delete(actor);
@@ -325,6 +362,7 @@ export function setupWindowEffects(settings, dockUI) {
                 _animatingActors.add(actor);
                 if (actor.remove_all_transitions) actor.remove_all_transitions();
 
+                const fadeDuration = Math.max(100, Math.round(_getEffectDuration() * 0.6));
                 actor.show();
                 actor.opacity = 0;
                 actor.set_pivot_point(0.5, 0.5);
@@ -334,7 +372,7 @@ export function setupWindowEffects(settings, dockUI) {
                     opacity: 255,
                     scale_x: 1.0,
                     scale_y: 1.0,
-                    duration: 200,
+                    duration: fadeDuration,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         _animatingActors.delete(actor);

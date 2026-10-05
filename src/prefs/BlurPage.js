@@ -480,7 +480,7 @@ export function buildBlurPage(window, settings) {
     createSlider(masterGroup, _('Tint Opacity'), _('Color tint blend strength'), 'blur-tint-opacity', 0.0, 1.0, 0.01, 2);
 
     const opticsGroup = new Adw.PreferencesGroup({
-        title: _('Optics & Dispersion'),
+        title: _('Optics &amp; Dispersion'),
         description: _('Specular light angle and surface outline reflections'),
     });
     page.add(opticsGroup);

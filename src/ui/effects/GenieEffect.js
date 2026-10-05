@@ -40,7 +40,7 @@ class MagicLampBase extends BaseDeformEffect {
     }
 
     _getDuration() {
-        return 420;
+        return super._getDuration();
     }
 
     _getTiles() {

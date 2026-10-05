@@ -30,7 +30,7 @@ class SnakeBase extends BaseDeformEffect {
     }
 
     _getDuration() {
-        return 520;
+        return super._getDuration();
     }
 
     _getTiles() {

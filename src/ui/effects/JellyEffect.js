@@ -28,7 +28,7 @@ class JellyBase extends BaseDeformEffect {
     }
 
     _getDuration() {
-        return 700;
+        return super._getDuration();
     }
 
     _getTiles() {

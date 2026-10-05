@@ -24,7 +24,12 @@ import { Settings } from '../SettingsManager.js';
 
 
 const HIDE_OFFSET_BUFFER = 20;
-const ANIM_DURATION_MS = 250;
+const DEFAULT_ANIM_DURATION_MS = 250;
+
+function getAnimDuration() {
+    const val = Settings.autohideAnimationSpeed;
+    return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_ANIM_DURATION_MS;
+}
 
 export function getHideOffsets(dockUI) {
     const pos = dockUI.dockPosition;
@@ -51,14 +56,15 @@ export function animateShow(dockUI, onComplete) {
     if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
     dockUI.actor.remove_all_transitions();
+    dockUI.actor.opacity = 255;
     dockUI.actor.show();
     dockUI.actor.ease({
         translation_x: 0,
         translation_y: 0,
-        opacity: 255,
-        duration: ANIM_DURATION_MS,
+        duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         onStopped: (_isFinished) => {
+            dockUI.actor.opacity = 255;
             if (onComplete) onComplete();
         },
     });
@@ -73,10 +79,10 @@ export function animateHide(dockUI, onComplete) {
     dockUI.actor.ease({
         translation_x: hideX,
         translation_y: hideY,
-        opacity: 0,
-        duration: ANIM_DURATION_MS,
+        duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
         onStopped: (_isFinished) => {
+            dockUI.actor.opacity = 0;
             if (onComplete) onComplete();
         },
     });

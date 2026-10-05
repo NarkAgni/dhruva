@@ -28,7 +28,7 @@ class CRTBase extends BaseDeformEffect {
     }
 
     _getDuration() {
-        return 450;
+        return super._getDuration();
     }
 
     _getTiles() {

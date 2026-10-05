@@ -66,10 +66,8 @@ class SettingsManager {
 
     get preferredMonitor() { return this._settings ? this._settings.get_int('preferred-monitor') : 0; }
     set preferredMonitor(val) { if (this._settings) this._settings.set_int('preferred-monitor', val); }
-
     get customGridIcon() { return this._settings ? this._settings.get_string('custom-grid-icon') : ''; }
     set customGridIcon(val) { if (this._settings) this._settings.set_string('custom-grid-icon', val); }
-
     get dockPosition() { return this._settings ? this._settings.get_string('dock-position') : 'BOTTOM'; }
     get showOnAllMonitors() { return this._settings ? this._settings.get_boolean('show-on-all-monitors') : false; }
     get isolateMonitors() { return this._settings ? this._settings.get_boolean('isolate-monitors') : false; }
@@ -85,7 +83,6 @@ class SettingsManager {
     get iconSpacing() { return this._settings ? this._settings.get_int('icon-spacing') : 4; }
     get dockPadding() { return this._settings ? this._settings.get_int('dock-padding') : 6; }
     get dockHeight() { return this._settings ? this._settings.get_int('dock-height') : 0; }
-
     get dockTheme() { return this._settings ? this._settings.get_string('dock-theme') : 'default'; }
     get backgroundColor() { return this._settings ? this._settings.get_string('background-color') : '#000000'; }
     get useGradient() { return this._settings ? this._settings.get_boolean('use-gradient') : false; }
@@ -97,7 +94,6 @@ class SettingsManager {
     get strokeColor() { return this._settings ? this._settings.get_string('stroke-color') : '#ffffff'; }
     get strokeOpacity() { return this._settings ? this._settings.get_int('stroke-opacity') : 20; }
     get tooltipOpacity() { return this._settings ? this._settings.get_int('tooltip-opacity') : 95; }
-
     get showRunningIndicators() { return this._settings ? this._settings.get_boolean('show-running-indicators') : true; }
     get indicatorStyle() { return this._settings ? this._settings.get_string('indicator-style') : 'dot'; }
     get indicatorColorMode() { return this._settings ? this._settings.get_string('indicator-color-mode') : 'dominant'; }
@@ -115,7 +111,10 @@ class SettingsManager {
     get runningSeparatorHeight() { return this._settings ? this._settings.get_int('running-separator-height') : 24; }
     get runningSeparatorColor() { return this._settings ? this._settings.get_string('running-separator-color') : '#ffffff'; }
     get runningSeparatorOpacity() { return this._settings ? this._settings.get_int('running-separator-opacity') : 30; }
-
+    get autohideAnimationSpeed() { return this._settings ? this._settings.get_int('autohide-animation-speed') : 250; }
+    set autohideAnimationSpeed(val) { if (this._settings) this._settings.set_int('autohide-animation-speed', val); }
+    get windowEffectSpeed() { return this._settings ? this._settings.get_int('window-effect-speed') : 350; }
+    set windowEffectSpeed(val) { if (this._settings) this._settings.set_int('window-effect-speed', val); }
     get hideMode() { return this._settings ? this._settings.get_string('hide-mode') : 'none'; }
     get hideDelay() { return this._settings ? this._settings.get_int('hide-delay') : 250; }
     get unhideDelay() { return this._settings ? this._settings.get_int('unhide-delay') : 100; }
@@ -128,7 +127,6 @@ class SettingsManager {
     get scrollActionApp() { return this._settings ? this._settings.get_boolean('scroll-action-app') : true; }
     get showUnpinnedApps() { return this._settings ? this._settings.get_boolean('show-unpinned-apps') : true; }
     get newWindowAction() { return this._settings ? this._settings.get_string('new-window-action') : 'new'; }
-
     get hoverZoom() { return this._settings ? this._settings.get_boolean('hover-zoom') : false; }
     get hoverZoomFactor() { return this._settings ? this._settings.get_double('hover-zoom-factor') : 1.4; }
     get hoverZoomStyle() { return this._settings ? this._settings.get_string('hover-zoom-style') : 'default'; }
@@ -143,14 +141,12 @@ class SettingsManager {
     get hoverZoomJellyStretch() { return this._settings ? this._settings.get_double('hover-zoom-jelly-stretch') : 1.2; }
     get hoverZoomJellySquish() { return this._settings ? this._settings.get_double('hover-zoom-jelly-squish') : 0.8; }
     get hoverZoomCoverflowAngle() { return this._settings ? this._settings.get_int('hover-zoom-coverflow-angle') : 45; }
-
     get showAppsPreview() { return this._settings ? this._settings.get_boolean('show-apps-preview') : true; }
     get contextMenuSize() { return this._settings ? this._settings.get_int('context-menu-size') : 240; }
     get bigPreviewSize() { return this._settings ? this._settings.get_int('big-preview-size') : 95; }
     get peekEffect() { return this._settings ? this._settings.get_boolean('peek-effect') : true; }
     get peekAnimationSpeed() { return this._settings ? this._settings.get_int('peek-animation-speed') : 500; }
     get showNotificationBadges() { return this._settings ? this._settings.get_boolean('show-notification-badges') : true; }
-
     get showMusicPill() { return this._settings ? this._settings.get_boolean('show-music-pill') : false; }
     get musicPillPosition() { return this._settings ? this._settings.get_string('music-pill-position') : 'left'; }
     get showTrash() { return this._settings ? this._settings.get_boolean('show-trash') : true; }
@@ -167,7 +163,6 @@ class SettingsManager {
     get use24hClock() { return this._settings ? this._settings.get_boolean('use-24h-clock') : true; }
     get clockFontSize() { return this._settings ? this._settings.get_int('clock-font-size') : 14; }
     get clockPosition() { return this._settings ? this._settings.get_string('clock-position') : 'END'; }
-
     get showHome() { return this._settings ? this._settings.get_boolean('show-home') : false; }
     get showDownloads() { return this._settings ? this._settings.get_boolean('show-downloads') : false; }
     get showDocuments() { return this._settings ? this._settings.get_boolean('show-documents') : false; }
@@ -175,40 +170,28 @@ class SettingsManager {
     get showVideos() { return this._settings ? this._settings.get_boolean('show-videos') : false; }
     get showMusic() { return this._settings ? this._settings.get_boolean('show-music') : false; }
     get showMounts() { return this._settings ? this._settings.get_boolean('show-mounts') : true; }
-
     get blurEnabled() { return this._settings ? this._settings.get_boolean('blur-enabled') : false; }
     set blurEnabled(val) { if (this._settings) this._settings.set_boolean('blur-enabled', val); }
-
     get blurMode() { return this._settings ? this._settings.get_string('blur-mode') : 'dynamic'; }
     set blurMode(val) { if (this._settings) this._settings.set_string('blur-mode', val); }
-
     get blurStaticSource() { return this._settings ? this._settings.get_string('blur-static-source') : 'preset'; }
     set blurStaticSource(val) { if (this._settings) this._settings.set_string('blur-static-source', val); }
-
     get blurStaticPreset() { return this._settings ? this._settings.get_string('blur-static-preset') : 'abstract-dark'; }
     set blurStaticPreset(val) { if (this._settings) this._settings.set_string('blur-static-preset', val); }
-
     get blurCustomPhoto() { return this._settings ? this._settings.get_string('blur-custom-photo') : ''; }
     set blurCustomPhoto(val) { if (this._settings) this._settings.set_string('blur-custom-photo', val); }
-
     get blurIntensity() { return this._settings ? this._settings.get_double('blur-intensity') : 24.0; }
     set blurIntensity(val) { if (this._settings) this._settings.set_double('blur-intensity', val); }
-
     get blurVibrancy() { return this._settings ? this._settings.get_double('blur-vibrancy') : 1.35; }
     set blurVibrancy(val) { if (this._settings) this._settings.set_double('blur-vibrancy', val); }
-
     get blurBrightness() { return this._settings ? this._settings.get_double('blur-brightness') : 0.18; }
     set blurBrightness(val) { if (this._settings) this._settings.set_double('blur-brightness', val); }
-
     get blurBorderGlow() { return this._settings ? this._settings.get_double('blur-border-glow') : 0.55; }
     set blurBorderGlow(val) { if (this._settings) this._settings.set_double('blur-border-glow', val); }
-
     get blurHighlightAngle() { return this._settings ? this._settings.get_double('blur-highlight-angle') : 45.0; }
     set blurHighlightAngle(val) { if (this._settings) this._settings.set_double('blur-highlight-angle', val); }
-
     get blurTintColor() { return this._settings ? this._settings.get_string('blur-tint-color') : '#ffffff'; }
     set blurTintColor(val) { if (this._settings) this._settings.set_string('blur-tint-color', val); }
-
     get blurTintOpacity() { return this._settings ? this._settings.get_double('blur-tint-opacity') : 0.30; }
     set blurTintOpacity(val) { if (this._settings) this._settings.set_double('blur-tint-opacity', val); }
 

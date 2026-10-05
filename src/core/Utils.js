@@ -240,21 +240,37 @@ function _findIconFilePath(iconName) {
 
     const roots = [];
     if (activeTheme && activeTheme !== 'hicolor') {
+        const homeDir = GLib.get_home_dir();
+
         roots.push(
-            `${GLib.get_home_dir()}/.local/share/icons/${activeTheme}`,
-            `${GLib.get_home_dir()}/.icons/${activeTheme}`,
-            `/usr/share/icons/${activeTheme}`
+            homeDir + '/.local/share/icons/' + activeTheme,
+            homeDir + '/.icons/' + activeTheme,
+            '/usr/share/icons/' + activeTheme
         );
+
+        const baseTheme = activeTheme.replace(/-(dark|light)$/i, '');
+        if (baseTheme !== activeTheme) {
+            roots.push(
+                homeDir + '/.local/share/icons/' + baseTheme,
+                homeDir + '/.icons/' + baseTheme,
+                '/usr/share/icons/' + baseTheme
+            );
+        }
     }
 
     roots.push(
-        `${GLib.get_home_dir()}/.local/share/icons/hicolor`,
-        `/usr/share/icons/hicolor`,
+        GLib.get_home_dir() + '/.local/share/icons/hicolor',
+        '/usr/share/icons/hicolor',
         '/usr/share/pixmaps'
     );
 
     const searchRoots = [...new Set(roots)];
     const subDirs = [
+        'apps/scalable',
+        'apps/48',
+        'apps/64',
+        'apps/128',
+        'apps/256',
         'scalable/apps',
         '256x256/apps',
         '128x128/apps',
@@ -273,8 +289,8 @@ function _findIconFilePath(iconName) {
         for (const sub of subDirs) {
             for (const ext of extensions) {
                 const candidate = sub
-                    ? `${root}/${sub}/${cleanName}${ext}`
-                    : `${root}/${cleanName}${ext}`;
+                    ? root + '/' + sub + '/' + cleanName + ext
+                    : root + '/' + cleanName + ext;
 
                 if (_isFile(candidate)) return candidate;
             }

@@ -114,6 +114,28 @@ export function buildBehaviorPage(window, settings, createResetBtn) {
         { name: _('None'), value: 'none' }
     ], null);
 
+    addCustomSpinRow(
+        visGroup,
+        settings,
+        'autohide-animation-speed',
+        _('Dock Animation Duration'),
+        _('Slide in and slide out duration (ms)'),
+        'preferences-system-time-symbolic',
+        { lower: 50, upper: 1000, step_increment: 25 },
+        createResetBtn
+    );
+
+    addCustomSpinRow(
+        animGroup,
+        settings,
+        'window-effect-speed',
+        _('Window Animation Duration'),
+        _('Window minimize effect speed (ms)'),
+        'preferences-system-time-symbolic',
+        { lower: 100, upper: 1500, step_increment: 25 },
+        createResetBtn
+    );
+
     const hoverGroup = new Adw.PreferencesGroup({
         title: _('Hover Zoom Physics &amp; Motion')
     });

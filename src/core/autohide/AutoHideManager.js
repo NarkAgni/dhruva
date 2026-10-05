@@ -226,6 +226,12 @@ export default class AutoHideManager {
         });
     }
 
+    _canShowInFullscreen() {
+        const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
+        const allowFullscreen = Boolean(Settings.showInFullscreen ?? true);
+        return mode === 'intelligent' && allowFullscreen;
+    }
+
     _isCurrentMonitorFullscreen() {
         if (Main.overview && (Main.overview.visible || Main.overview.visibleTarget)) {
             return false;
@@ -270,6 +276,24 @@ export default class AutoHideManager {
                 this._wasFullscreen = true;
                 if (this.dockUI) this.dockUI._updateStruts();
             }
+
+            if (this._canShowInFullscreen()) {
+                if (this.edgeDetection) this.edgeDetection.show();
+
+                if (this._isHovered) {
+                    this.showWithDelay();
+                    return;
+                }
+
+                if (this.dockUI._activeContextMenu || this.dockUI._activeFolderMenu) {
+                    this.show();
+                    return;
+                }
+
+                this.forceHideImmediately();
+                return;
+            }
+
             if (this.edgeDetection) this.edgeDetection.hide();
             this.forceHideImmediately();
             return;
@@ -337,7 +361,11 @@ export default class AutoHideManager {
 
     showWithDelay() {
         const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
-        if (this._isCurrentMonitorFullscreen() && !isOverviewOpen) return;
+        const isFullscreen = this._isCurrentMonitorFullscreen();
+
+        if (isFullscreen && !isOverviewOpen && !this._canShowInFullscreen()) {
+            return;
+        }
 
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
@@ -365,7 +393,11 @@ export default class AutoHideManager {
 
     show() {
         const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
-        if (this._isCurrentMonitorFullscreen() && !isOverviewOpen) return;
+        const isFullscreen = this._isCurrentMonitorFullscreen();
+
+        if (isFullscreen && !isOverviewOpen && !this._canShowInFullscreen()) {
+            return;
+        }
 
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
@@ -377,13 +409,16 @@ export default class AutoHideManager {
         }
 
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
-        if (!this.isHidden && !this.isAnimating && this.dockUI.actor.opacity === 255) return;
+        if (!this.isHidden && !this.isAnimating && this.dockUI.actor.opacity === 255 && this.dockUI.actor.translation_y === 0) return;
 
         this.isHidden = false;
         this.isAnimating = true;
 
         animateShow(this.dockUI, () => {
             this.isAnimating = false;
+            if (this.dockUI && this.dockUI.blurPanel) {
+                this.dockUI.blurPanel.queueCapture(true);
+            }
         });
     }
 
