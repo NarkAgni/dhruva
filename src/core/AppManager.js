@@ -51,9 +51,7 @@ export default class AppManager {
         this.favManager = AppFavorites.getAppFavorites();
 
         if (this.isIndependent()) {
-            this.loadDockState().catch(err => {
-                console.error('[Dhruva] Error loading dock state:', err.message);
-            });
+            this.loadDockState();
         } else {
             this.loadNonIndependentFolders();
         }
@@ -93,7 +91,7 @@ export default class AppManager {
         }
     }
 
-    async loadDockState() {
+    loadDockState() {
         if (!this.isIndependent()) {
             this.loadNonIndependentFolders();
             return;
@@ -103,27 +101,22 @@ export default class AppManager {
 
         if (file.query_exists(null)) {
             try {
-                const [bytes] = await file.load_bytes_async(null);
-                if (bytes) {
+                const [success, contents] = file.load_contents(null);
+                if (success && contents) {
                     const decoder = new TextDecoder('utf-8');
-                    const parsed = JSON.parse(decoder.decode(bytes.get_data()));
+                    const parsed = JSON.parse(decoder.decode(contents));
 
                     if (Array.isArray(parsed)) {
                         this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
                         this.dockOrder = [...parsed];
                         this.independentFolders = [];
-                    } else if (parsed && Boolean(parsed) && !Array.isArray(parsed)) {
+                    } else if (parsed && (Array.isArray(parsed.apps) || Array.isArray(parsed.order))) {
                         this.pinnedApps = Array.isArray(parsed.apps) ? parsed.apps : [];
                         this.dockOrder = Array.isArray(parsed.order) ? parsed.order : [];
                         this.independentFolders = Array.isArray(parsed.folders) ? parsed.folders : [];
                     }
 
                     this._isLoaded = true;
-                    if (this.dockUI && this.dockUI.queueRender) {
-                        this.dockUI.queueRender('full');
-                    } else if (this._onStateChangedCallback) {
-                        this._onStateChangedCallback();
-                    }
                     return;
                 }
             } catch (e) {
