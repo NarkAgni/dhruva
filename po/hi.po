@@ -1,4 +1,4 @@
-# Russian translations for Dhruva Dock
+# Hindi translations for Dhruva Dock
 # Copyright (C) 2026 NarkAgni
 #
 msgid ""
@@ -7,11 +7,11 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-05 21:28+0530\n"
 "PO-Revision-Date: 2026-10-05 21:55+0530\n"
-"Language: ru\n"
+"Language: hi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: src/core/FolderManager.js:111 src/ui/modules/SystemFoldersModule.js:77
 #: src/ui/DragDrop.js:146 src/ui/context-menu/AppContextMenu.js:148
@@ -19,35 +19,35 @@ msgstr ""
 #: src/ui/context-menu/AppContextMenu.js:316
 #: src/ui/folder-menu/FolderMenuBuilder.js:517
 msgid "New Folder"
-msgstr "Новая папка"
+msgstr "नया फ़ोल्डर"
 
 #: src/prefs/AboutPage.js:29
 msgid "About"
-msgstr "О расширении"
+msgstr "परिचय"
 
 #: src/prefs/AboutPage.js:62
 msgid "A beautifully crafted, highly customisable dock for GNOME Shell"
-msgstr "Красивая и функциональная док-панель для GNOME Shell"
+msgstr "GNOME Shell के लिए एक सुंदर और अत्यधिक कस्टमाइज़ करने योग्य डॉक"
 
 #: src/prefs/AboutPage.js:78
 msgid "Links"
-msgstr "Ссылки"
+msgstr "लिंक्स"
 
 #: src/prefs/AboutPage.js:101
 msgid "GitHub Repository"
-msgstr "Репозиторий GitHub"
+msgstr "GitHub रिपॉजिटरी"
 
 #: src/prefs/AboutPage.js:106
 msgid "Credits"
-msgstr "Благодарности"
+msgstr "क्रेडिट"
 
 #: src/prefs/AboutPage.js:111
 msgid "Author & Maintainer"
-msgstr "Автор и разработчик"
+msgstr "निर्माता एवं डेवलपर"
 
 #: src/prefs/AboutPage.js:116
 msgid "Features"
-msgstr "Возможности"
+msgstr "विशेषताएँ"
 
 #: src/prefs/AboutPage.js:117
 msgid ""
@@ -59,1809 +59,1806 @@ msgid ""
 "Workspace isolation · Aero Peek window previews · Lock icons to prevent "
 "accidental reorder"
 msgstr ""
-"Индикаторы для каждого приложения · Увеличение при наведении · Эффекты "
-"сворачивания (Волшебная лампа, Змейка, Черная дыра и др.) · Анимации нажатия "
-"(Подпрыгивание, Желе, Пульс и 20+ стилей) · Умное скрытие с вызовом по "
-"нажатию на край · Тема «Хамелеон» (под цвет обоев) · Полноразмерный режим · "
-"Поддержка нескольких мониторов · Пользовательские папки, Корзина, Кнопка "
-"рабочего стола и Меню приложений · Изоляция рабочих мест · Aero Peek "
-"предпросмотр окон · Закрепление значков"
+"ऐप रनिंग इंडिकेटर · होवर ज़ूम आवर्धन · विंडो मिनिमाइज़ प्रभाव (मैजिक लैंप, स्नेक, वोर्टेक्स आदि) · "
+"आइकन क्लिक एनिमेशन (बाउंस, जेली, हार्टबीट और 20+ शैलियाँ) · एज प्रेशर रीवील के साथ इंटेलिजेंट ऑटो-हाइड · "
+"गिरगिट थीम (वॉलपेपर रंग मिलान) · फुल-विड्थ डॉक मोड · मल्टी-मॉनिटर समर्थन · कस्टम फ़ोल्डर्स, ट्रैश, "
+"डेस्कटॉप बटन और ऐप ग्रिड · वर्कस्पेस आइसोलेशन · एरो पीक विंडो पूर्वावलोकन · आइकन लॉक"
 
 #: src/prefs/AboutPage.js:122
 msgid "Disclaimer"
-msgstr "Отказ от ответственности"
+msgstr "अस्वीकरण"
 
 #: src/prefs/AboutPage.js:123
 msgid "Dhruva Dock is an independent open-source project."
-msgstr "Dhruva Dock — независимый проект с открытым исходным кодом."
+msgstr "ध्रुव डॉक एक स्वतंत्र ओपन-सोर्स प्रोजेक्ट है।"
 
 #: src/prefs/AboutPage.js:130
 msgid "Support Development"
-msgstr "Поддержка разработки"
+msgstr "विकास में सहयोग करें"
 
 #: src/prefs/AboutPage.js:131
 msgid "If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!"
-msgstr "Если вам нравится Dhruva, вы можете угостить разработчика кофе ☕ или отправить криптовалюту!"
+msgstr "यदि आपको ध्रुव पसंद है, तो एक कॉफ़ी ☕ भेंट करें या क्रिप्टो भेजें!"
 
 #: src/prefs/AboutPage.js:136
 msgid "Buy Me a Coffee"
-msgstr "Угостить кофе"
+msgstr "बाय मी अ कॉफ़ी"
 
 #: src/prefs/AboutPage.js:166
 msgid "Copy"
-msgstr "Скопировать"
+msgstr "कॉपी करें"
 
 #: src/prefs/AboutPage.js:166
 msgid "address"
-msgstr "адрес"
+msgstr "पता"
 
 #: src/prefs/AboutPage.js:172
 msgid "address copied!"
-msgstr "адрес скопирован!"
+msgstr "पता कॉपी हो गया!"
 
 #: src/prefs/LayoutPage.js:31
 msgid "Layout"
-msgstr "Макет"
+msgstr "लेआउट"
 
 #: src/prefs/LayoutPage.js:37
 msgid "Screen Placement"
-msgstr "Расположение на экране"
+msgstr "स्क्रीन स्थिति"
 
 #: src/prefs/LayoutPage.js:38
 msgid "Where to place the dock on your display"
-msgstr "Где разместить панель на вашем дисплее"
+msgstr "डॉक को अपनी स्क्रीन पर कहाँ रखना है"
 
 #: src/prefs/LayoutPage.js:42
 msgid "Screen Edge"
-msgstr "Край экрана"
+msgstr "स्क्रीन का किनारा"
 
 #: src/prefs/LayoutPage.js:42
 msgid "Which edge to attach to"
-msgstr "К какому краю прикрепить панель"
+msgstr "डॉक को किस किनारे से जोड़ना है"
 
 #: src/prefs/LayoutPage.js:43
 msgid "Left"
-msgstr "Слева"
+msgstr "बायाँ"
 
 #: src/prefs/LayoutPage.js:44
 msgid "Bottom"
-msgstr "Снизу"
+msgstr "नीचे"
 
 #: src/prefs/LayoutPage.js:45
 msgid "Top"
-msgstr "Сверху"
+msgstr "ऊपर"
 
 #: src/prefs/LayoutPage.js:46
 msgid "Right"
-msgstr "Справа"
+msgstr "दायाँ"
 
 #: src/prefs/LayoutPage.js:55
 msgid "Monitor"
-msgstr "Монитор"
+msgstr "मॉनिटर"
 
 #: src/prefs/LayoutPage.js:57
 #, javascript-format
 msgid "Primary Monitor (%s)"
-msgstr "Основной монитор (%s)"
+msgstr "प्राथमिक मॉनिटर (%s)"
 
 #: src/prefs/LayoutPage.js:65
 msgid "Preferred Monitor"
-msgstr "Предпочитаемый монитор"
+msgstr "पसंदीदा मॉनिटर"
 
 #: src/prefs/LayoutPage.js:66
 msgid "Choose display for the dock"
-msgstr "Выберите дисплей для панели"
+msgstr "डॉक के लिए डिस्प्ले चुनें"
 
 #: src/prefs/LayoutPage.js:85
 msgid "Show on All Monitors"
-msgstr "Показывать на всех мониторах"
+msgstr "सभी मॉनिटरों पर दिखाएँ"
 
 #: src/prefs/LayoutPage.js:85
 msgid "Display the dock on every connected screen"
-msgstr "Отображать панель на каждом подключенном экране"
+msgstr "डॉक को हर कनेक्टेड स्क्रीन पर प्रदर्शित करें"
 
 #: src/prefs/LayoutPage.js:86
 msgid "Isolate Monitors"
-msgstr "Изолировать мониторы"
+msgstr "मॉनिटर्स अलग रखें"
 
 #: src/prefs/LayoutPage.js:86
 msgid "Only show apps running on the current monitor"
-msgstr "Показывать приложения, запущенные на текущем мониторе"
+msgstr "केवल वर्तमान मॉनिटर पर चल रहे ऐप्स दिखाएँ"
 
 #: src/prefs/LayoutPage.js:92
 msgid "Independent Dock Mode"
-msgstr "Независимый режим панели"
+msgstr "स्वतंत्र डॉक मोड"
 
 #: src/prefs/LayoutPage.js:93
 msgid "Use completely separate pinned apps and custom app launcher"
-msgstr "Использовать независимый набор закрепленных приложений и запуск программ"
+msgstr "पूरी तरह से अलग पिन किए गए ऐप्स और कस्टम लॉन्चर का उपयोग करें"
 
 #: src/prefs/LayoutPage.js:99
 msgid "Toggle Shortcut"
-msgstr "Горячая клавиша переключения"
+msgstr "टॉगल शॉर्टकट"
 
 #: src/prefs/LayoutPage.js:100
 msgid "Keyboard shortcut to switch independent dock mode"
-msgstr "Комбинация клавиш для включения независимого режима"
+msgstr "स्वतंत्र डॉक मोड चालू/बंद करने के लिए कीबोर्ड शॉर्टकट"
 
 #: src/prefs/LayoutPage.js:116 src/prefs/BlurPage.js:343
 #: src/prefs/BlurPage.js:407 src/prefs/ModulesPage.js:354
 #: src/prefs/BehaviorPage.js:83 src/prefs/BehaviorPage.js:114
 msgid "None"
-msgstr "Нет"
+msgstr "कोई नहीं"
 
 #: src/prefs/LayoutPage.js:130
 msgid "Reset Shortcut"
-msgstr "Сбросить комбинацию клавиш"
+msgstr "शॉर्टकट रीसेट करें"
 
 #: src/prefs/LayoutPage.js:160
 msgid "Set Shortcut"
-msgstr "Назначить комбинацию"
+msgstr "शॉर्टकट सेट करें"
 
 #: src/prefs/LayoutPage.js:183
 msgid ""
 "Press keys combo (e.g. Super+Alt+I or Ctrl+Alt+D)\n"
 "(Esc to Cancel, Backspace to Clear)"
 msgstr ""
-"Нажмите сочетание клавиш (например, Super+Alt+I или Ctrl+Alt+D)\n"
-"(Esc — отмена, Backspace — очистить)"
+"कुंजी संयोजन दबाएँ (उदा. Super+Alt+I या Ctrl+Alt+D)\n"
+"(रद्द करने के लिए Esc, साफ़ करने के लिए Backspace)"
 
 #: src/prefs/LayoutPage.js:188
 msgid "Clear Shortcut"
-msgstr "Очистить комбинацию"
+msgstr "शॉर्टकट हटाएँ"
 
 #: src/prefs/LayoutPage.js:267
 msgid "Show Independent Dock in Overview"
-msgstr "Показывать панель в режиме обзора"
+msgstr "ओवरव्यू में स्वतंत्र डॉक दिखाएँ"
 
 #: src/prefs/LayoutPage.js:268
 msgid "Shows dock on the left side during overview"
-msgstr "Отображает панель с левой стороны во время обзора"
+msgstr "ओवरव्यू के दौरान डॉक को बाईं ओर दिखाता है"
 
 #: src/prefs/LayoutPage.js:273
 msgid "Full Screen Width"
-msgstr "Во всю ширину экрана"
+msgstr "पूर्ण स्क्रीन चौड़ाई"
 
 #: src/prefs/LayoutPage.js:273
 msgid "Extend dock edge to edge"
-msgstr "Растянуть панель от края до края"
+msgstr "डॉक को किनारे से किनारे तक फैलाएँ"
 
 #: src/prefs/LayoutPage.js:275
 msgid "Icon Alignment"
-msgstr "Выравнивание значков"
+msgstr "आइकन संरेखण"
 
 #: src/prefs/LayoutPage.js:275
 msgid "Justification when Full Width is active"
-msgstr "Выравнивание при активном полноширинном режиме"
+msgstr "पूर्ण चौड़ाई सक्रिय होने पर आइकन स्थिति"
 
 #: src/prefs/LayoutPage.js:276 src/prefs/MusicPillPage.js:57
 #: src/prefs/ModulesPage.js:58 src/prefs/ModulesPage.js:677
 msgid "Start"
-msgstr "В начале"
+msgstr "आरंभ"
 
 #: src/prefs/LayoutPage.js:277
 msgid "Center"
-msgstr "По центру"
+msgstr "मध्य"
 
 #: src/prefs/LayoutPage.js:278 src/prefs/MusicPillPage.js:58
 #: src/prefs/ModulesPage.js:59 src/prefs/ModulesPage.js:678
 msgid "End"
-msgstr "В конце"
+msgstr "अंत"
 
 #: src/prefs/LayoutPage.js:281
 msgid "Edge Margin"
-msgstr "Отступ от края"
+msgstr "किनारे का मार्जिन"
 
 #: src/prefs/LayoutPage.js:281
 msgid "Distance from screen edge"
-msgstr "Расстояние от края экрана"
+msgstr "स्क्रीन के किनारे से दूरी"
 
 #: src/prefs/LayoutPage.js:288
 msgid "Sizing & Spacing"
-msgstr "Размеры и интервалы"
+msgstr "आकार एवं अंतराल"
 
 #: src/prefs/LayoutPage.js:289
 msgid "Base dimensions for dock and icons"
-msgstr "Базовые размеры панели и значков"
+msgstr "डॉक और आइकन के लिए मूल आयाम"
 
 #: src/prefs/LayoutPage.js:293
 msgid "Base Icon Size"
-msgstr "Базовый размер значков"
+msgstr "मूल आइकन आकार"
 
 #: src/prefs/LayoutPage.js:293
 msgid "Normal size of app icons"
-msgstr "Обычный размер значков приложений"
+msgstr "ऐप आइकन का सामान्य आकार"
 
 #: src/prefs/LayoutPage.js:299
 msgid "Icon Gap"
-msgstr "Зазор между значками"
+msgstr "आइकन अंतर"
 
 #: src/prefs/LayoutPage.js:299
 msgid "Distance between icons"
-msgstr "Расстояние между соседними значками"
+msgstr "आइकनों के बीच की दूरी"
 
 #: src/prefs/LayoutPage.js:305
 msgid "Side Padding"
-msgstr "Боковые внутренние отступы"
+msgstr "साइड पैडिंग"
 
 #: src/prefs/LayoutPage.js:305
 msgid "Extra gap inside dock ends"
-msgstr "Дополнительный отступ внутри краев панели"
+msgstr "डॉक सिरों के अंदर अतिरिक्त जगह"
 
 #: src/prefs/LayoutPage.js:311
 msgid "Dock Height / Thickness"
-msgstr "Высота / толщина панели"
+msgstr "डॉक ऊँचाई / मोटाई"
 
 #: src/prefs/LayoutPage.js:311
 msgid "Extra padding on top/bottom (or left/right)"
-msgstr "Дополнительный отступ сверху/снизу (или слева/справа)"
+msgstr "ऊपर/नीचे (या बाएँ/दाएँ) अतिरिक्त पैडिंग"
 
 #: src/prefs/BlurPage.js:37
 msgid "Blur"
-msgstr "Размытие"
+msgstr "ब्लर (धुंधलापन)"
 
 #: src/prefs/BlurPage.js:42
 msgid "Blur Material"
-msgstr "Материал размытия"
+msgstr "ब्लर मटेरियल"
 
 #: src/prefs/BlurPage.js:43
 msgid "Apply refractive backdrop blur to Dhruva dock, menus and panels"
-msgstr "Применять преломляющее фоновое размытие к панели, меню и виджетам Dhruva"
+msgstr "ध्रुव डॉक, मेनू और पैनल पर अपवर्तक बैकड्रॉप ब्लर लागू करें"
 
 #: src/prefs/BlurPage.js:48
 msgid "Enable Blur"
-msgstr "Включить размытие"
+msgstr "ब्लर सक्षम करें"
 
 #: src/prefs/BlurPage.js:49
 msgid "Overrides current theme with clean refractive blur material"
-msgstr "Заменяет текущую тему чистым материалом с эффектом преломления"
+msgstr "वर्तमान थीम को साफ़ अपवर्तक ब्लर मटेरियल से बदलें"
 
 #: src/prefs/BlurPage.js:55
 msgid "Blur Mode"
-msgstr "Режим размытия"
+msgstr "ब्लर मोड"
 
 #: src/prefs/BlurPage.js:56
 msgid "Choose between live real-time tracking or static performance blur"
-msgstr "Выберите живое отслеживание в реальном времени или статичное производительное размытие"
+msgstr "लाइव रीयल-टाइम ट्रैकिंग या स्टैटिक प्रदर्शन ब्लर के बीच चुनें"
 
 #: src/prefs/BlurPage.js:66 src/prefs/AppearancePage.js:258
 msgid "Dynamic"
-msgstr "Динамический"
+msgstr "डायनामिक"
 
 #: src/prefs/BlurPage.js:70
 msgid "Static"
-msgstr "Статический"
+msgstr "स्टैटिक"
 
 #: src/prefs/BlurPage.js:100
 msgid "Static Background Source"
-msgstr "Источник статического фона"
+msgstr "स्टैटिक बैकग्राउंड स्रोत"
 
 #: src/prefs/BlurPage.js:101
 msgid "Choose between built-in vector presets or custom photo"
-msgstr "Выберите между встроенными векторными пресетами или своим изображением"
+msgstr "इन-बिल्ट वेक्टर प्रीसेट या कस्टम फ़ोटो में से चुनें"
 
 #: src/prefs/BlurPage.js:111
 msgid "Preset"
-msgstr "Пресет"
+msgstr "प्रीसेट"
 
 #: src/prefs/BlurPage.js:115
 msgid "Custom Photo"
-msgstr "Свое изображение"
+msgstr "कस्टम फ़ोटो"
 
 #: src/prefs/BlurPage.js:148
 msgid "Static Blur Preset"
-msgstr "Пресет статического размытия"
+msgstr "स्टैटिक ब्लर प्रीसेट"
 
 #: src/prefs/BlurPage.js:149
 msgid "Select an abstract background texture for static blur"
-msgstr "Выберите абстрактную текстуру для статического фона"
+msgstr "स्टैटिक ब्लर के लिए एक अमूर्त बैकग्राउंड टेक्सचर चुनें"
 
 #: src/prefs/BlurPage.js:152
 msgid "Abstract Dark"
-msgstr "Темный абстрактный"
+msgstr "एब्सट्रैक्ट डार्क"
 
 #: src/prefs/BlurPage.js:153
 msgid "Aurora Borealis"
-msgstr "Северное сияние"
+msgstr "अरोरा बोरेलिस"
 
 #: src/prefs/BlurPage.js:154
 msgid "Sunset Glow"
-msgstr "Закатное свечение"
+msgstr "सनसेट ग्लो"
 
 #: src/prefs/BlurPage.js:155
 msgid "Cyberpunk Neon"
-msgstr "Киберпанк неон"
+msgstr "साइबरपंक नियॉन"
 
 #: src/prefs/BlurPage.js:156
 msgid "Minimal Slate"
-msgstr "Минималистичный сланец"
+msgstr "मिनिमल स्लेट"
 
 #: src/prefs/BlurPage.js:219
 msgid "Adjust Dock Banner Area"
-msgstr "Настроить область баннера панели"
+msgstr "डॉक बैनर क्षेत्र समायोजित करें"
 
 #: src/prefs/BlurPage.js:233 src/prefs/ModulesPage.js:269
 #: src/prefs/ModulesPage.js:874 src/ui/context-menu/TrashActionsHandler.js:86
 msgid "Cancel"
-msgstr "Отмена"
+msgstr "रद्द करें"
 
 #: src/prefs/BlurPage.js:234
 msgid "Apply"
-msgstr "Применить"
+msgstr "लागू करें"
 
 #: src/prefs/BlurPage.js:247
 msgid "Use the slider to adjust vertical crop position"
-msgstr "Используйте ползунок для вертикальной подгонки положения обрезки"
+msgstr "वर्टिकल क्रॉप स्थिति समायोजित करने के लिए स्लाइडर का उपयोग करें"
 
 #: src/prefs/BlurPage.js:296
 msgid "Position:"
-msgstr "Положение:"
+msgstr "स्थिति:"
 
 #: src/prefs/BlurPage.js:330
 msgid "Custom Static Background"
-msgstr "Свой статический фон"
+msgstr "कस्टम स्टैटिक बैकग्राउंड"
 
 #: src/prefs/BlurPage.js:331
 msgid "Choose and crop custom image (.png, .jpg, .jpeg, .svg, .webp)"
-msgstr "Выберите и кадрируйте свое изображение (.png, .jpg, .jpeg, .svg, .webp)"
+msgstr "कस्टम छवि चुनें और क्रॉप करें (.png, .jpg, .jpeg, .svg, .webp)"
 
 #: src/prefs/BlurPage.js:350 src/prefs/ModulesPage.js:78
 #: src/prefs/ModulesPage.js:363
 msgid "Browse..."
-msgstr "Обзор..."
+msgstr "ब्राउज़ करें..."
 
 #: src/prefs/BlurPage.js:355
 msgid "Select Blur Background Image"
-msgstr "Выберите изображение фона для размытия"
+msgstr "ब्लर बैकग्राउंड छवि चुनें"
 
 #: src/prefs/BlurPage.js:358
 msgid "Images (.png, .jpg, .svg, .webp)"
-msgstr "Изображения (.png, .jpg, .svg, .webp)"
+msgstr "छवियाँ (.png, .jpg, .svg, .webp)"
 
 #: src/prefs/BlurPage.js:401
 msgid "Clear custom photo"
-msgstr "Очистить свое фото"
+msgstr "कस्टम फ़ोटो हटाएँ"
 
 #: src/prefs/BlurPage.js:430
 msgid "Tint Color"
-msgstr "Цвет оттенка"
+msgstr "टिन्ट रंग"
 
 #: src/prefs/BlurPage.js:431
 msgid "Surface tint accent for blur and background tone"
-msgstr "Цветовой акцент для тонирования фона и размытия"
+msgstr "ब्लर और बैकग्राउंड टोन के लिए टिन्ट एक्सेंट"
 
 #: src/prefs/BlurPage.js:477
 msgid "Blur Intensity"
-msgstr "Интенсивность размытия"
+msgstr "ब्लर तीव्रता"
 
 #: src/prefs/BlurPage.js:477
 msgid "Radius diffusion spread"
-msgstr "Радиус рассеивания размытия"
+msgstr "त्रिज्या फैलाव प्रसार"
 
 #: src/prefs/BlurPage.js:478
 msgid "Vibrancy"
-msgstr "Насыщенность"
+msgstr "जीवंतता (Vibrancy)"
 
 #: src/prefs/BlurPage.js:478
 msgid "Saturation behind blur"
-msgstr "Насыщенность элементов под размытием"
+msgstr "ब्लर के पीछे संतृप्ति (Saturation)"
 
 #: src/prefs/BlurPage.js:479
 msgid "Brightness"
-msgstr "Яркость"
+msgstr "चमक (Brightness)"
 
 #: src/prefs/BlurPage.js:479
 msgid "0.0 dark tone, 1.0 bright tone"
-msgstr "0.0 — темный тон, 1.0 — светлый тон"
+msgstr "0.0 गहरा टोन, 1.0 उज्ज्वल टोन"
 
 #: src/prefs/BlurPage.js:480
 msgid "Tint Opacity"
-msgstr "Непрозрачность тонирования"
+msgstr "टिन्ट अपारदर्शिता"
 
 #: src/prefs/BlurPage.js:480
 msgid "Color tint blend strength"
-msgstr "Сила смешивания цветового оттенка"
+msgstr "रंग टिन्ट मिश्रण शक्ति"
 
 #: src/prefs/BlurPage.js:483
 msgid "Optics & Dispersion"
-msgstr "Оптика и дисперсия"
+msgstr "प्रकाशिकी और फैलाव"
 
 #: src/prefs/BlurPage.js:484
 msgid "Specular light angle and surface outline reflections"
-msgstr "Угол зеркального света и отражения на контуре поверхности"
+msgstr "प्रकाश कोण और सतह रूपरेखा प्रतिबिंब"
 
 #: src/prefs/BlurPage.js:488
 msgid "Border Highlight Glow"
-msgstr "Свечение подсветки рамки"
+msgstr "बॉर्डर हाइलाइट ग्लो"
 
 #: src/prefs/BlurPage.js:488
 msgid "Edge outline shine reflection"
-msgstr "Блик на контуре границы"
+msgstr "किनारे की रूपरेखा की चमक"
 
 #: src/prefs/BlurPage.js:489
 msgid "Highlight Angle"
-msgstr "Угол подсветки"
+msgstr "हाइलाइट कोण"
 
 #: src/prefs/BlurPage.js:489
 msgid "Specular light angle in degrees"
-msgstr "Угол зеркального света в градусах"
+msgstr "प्रकाश का कोण (डिग्री में)"
 
 #: src/prefs/MusicPillPage.js:28
 msgid "Music Pill"
-msgstr "Музыкальный виджет"
+msgstr "म्यूजिक पिल"
 
 #: src/prefs/MusicPillPage.js:34
 msgid "General Settings"
-msgstr "Основные настройки"
+msgstr "सामान्य सेटिंग्स"
 
 #: src/prefs/MusicPillPage.js:35
 msgid "Configure live media player widget on the dock"
-msgstr "Настройка виджета активного медиаплеера на панели"
+msgstr "डॉक पर लाइव मीडिया प्लेयर विजेट कॉन्फ़िगर करें"
 
 #: src/prefs/MusicPillPage.js:43
 msgid "Show Music Pill"
-msgstr "Показывать музыкальный виджет"
+msgstr "म्यूजिक पिल दिखाएँ"
 
 #: src/prefs/MusicPillPage.js:44
 msgid "Display currently playing media and controls"
-msgstr "Отображать текущую композицию и кнопки управления"
+msgstr "वर्तमान में चल रहे मीडिया और नियंत्रण प्रदर्शित करें"
 
 #: src/prefs/MusicPillPage.js:53
 msgid "Pill Placement"
-msgstr "Расположение виджета"
+msgstr "पिल की स्थिति"
 
 #: src/prefs/MusicPillPage.js:54
 msgid "Position of the pill on dock"
-msgstr "Положение виджета на панели"
+msgstr "डॉक पर पिल की स्थिति"
 
 #: src/prefs/ModulesPage.js:42
 msgid "Modules"
-msgstr "Модули"
+msgstr "मॉड्यूल"
 
 #: src/prefs/ModulesPage.js:48
 msgid "Dock Modules"
-msgstr "Модули панели"
+msgstr "डॉक मॉड्यूल"
 
 #: src/prefs/ModulesPage.js:49
 msgid "Enable extra shortcuts on your dock"
-msgstr "Включение дополнительных модулей на панели"
+msgstr "अपने डॉक पर अतिरिक्त शॉर्टकट सक्षम करें"
 
 #: src/prefs/ModulesPage.js:53
 msgid "Recycle Bin (Trash)"
-msgstr "Корзина"
+msgstr "रीसायकल बिन (ट्रैश)"
 
 #: src/prefs/ModulesPage.js:53
 msgid "Show a shortcut to the trash folder"
-msgstr "Показывать значок корзины"
+msgstr "ट्रैश फ़ोल्डर का शॉर्टकट दिखाएँ"
 
 #: src/prefs/ModulesPage.js:54
 msgid "Show Desktop Button"
-msgstr "Кнопка «Показать рабочий стол»"
+msgstr "डेस्कटॉप दिखाएँ बटन"
 
 #: src/prefs/ModulesPage.js:54
 msgid "Quickly minimize all windows"
-msgstr "Быстро свернуть все открытые окна"
+msgstr "सभी खुली खिड़कियों को तुरंत मिनिमाइज़ करें"
 
 #: src/prefs/ModulesPage.js:55
 msgid "Show Applications Button"
-msgstr "Кнопка меню приложений"
+msgstr "अनुप्रयोग बटन दिखाएँ"
 
 #: src/prefs/ModulesPage.js:55
 msgid "App drawer launcher"
-msgstr "Кнопка вызова списка приложений"
+msgstr "ऐप ड्रॉअर लॉन्चर"
 
 #: src/prefs/ModulesPage.js:56
 msgid "Application Button Position"
-msgstr "Положение кнопки приложений"
+msgstr "अनुप्रयोग बटन की स्थिति"
 
 #: src/prefs/ModulesPage.js:56
 msgid "Where to place the launcher"
-msgstr "Где расположить кнопку запуска приложений"
+msgstr "लॉन्चर कहाँ रखना है"
 
 #: src/prefs/ModulesPage.js:57
 msgid "Left Edge"
-msgstr "Левый край"
+msgstr "बायाँ किनारा"
 
 #: src/prefs/ModulesPage.js:62
 msgid "App Grid Button Color"
-msgstr "Цвет кнопки меню приложений"
+msgstr "ऐप ग्रिड बटन का रंग"
 
 #: src/prefs/ModulesPage.js:64
 msgid "Use Old App Grid Icon"
-msgstr "Классический значок сетки приложений"
+msgstr "पुराना ऐप ग्रिड आइकन उपयोग करें"
 
 #: src/prefs/ModulesPage.js:64
 msgid "Show default dotted grid icon instead of Dhruva logo"
-msgstr "Отображать стандартный значок с точками вместо логотипа Dhruva"
+msgstr "ध्रुव लोगो के बजाय डिफ़ॉल्ट डॉटेड ग्रिड आइकन दिखाएँ"
 
 #: src/prefs/ModulesPage.js:67
 msgid "Custom App Grid Icon"
-msgstr "Свой значок меню приложений"
+msgstr "कस्टम ऐप ग्रिड आइकन"
 
 #: src/prefs/ModulesPage.js:68
 msgid "Size: 256x256 or 512x512 (.png, .svg, .ico)"
-msgstr "Размер: 256x256 или 512x512 (.png, .svg, .ico)"
+msgstr "आकार: 256x256 या 512x512 (.png, .svg, .ico)"
 
 #: src/prefs/ModulesPage.js:83
 msgid "Select App Custom Grid Icon"
-msgstr "Выберите свой значок меню приложений"
+msgstr "कस्टम ग्रिड आइकन चुनें"
 
 #: src/prefs/ModulesPage.js:86 src/prefs/ModulesPage.js:371
 msgid "Images (.png, .svg, .ico)"
-msgstr "Изображения (.png, .svg, .ico)"
+msgstr "छवियाँ (.png, .svg, .ico)"
 
 #: src/prefs/ModulesPage.js:133
 msgid "Reset to default icon"
-msgstr "Сбросить на значок по умолчанию"
+msgstr "डिफ़ॉल्ट आइकन पर रीसेट करें"
 
 #: src/prefs/ModulesPage.js:148
 msgid "Custom Icon Scale (%)"
-msgstr "Масштаб своего значка (%)"
+msgstr "कस्टम आइकन पैमाना (%)"
 
 #: src/prefs/ModulesPage.js:149
 msgid "Adjust size multiplier (Default: 125)"
-msgstr "Множитель размера (по умолчанию: 125)"
+msgstr "आकार गुणक समायोजित करें (डिफ़ॉल्ट: 125)"
 
 #: src/prefs/ModulesPage.js:182
 msgid "Standard Folders"
-msgstr "Стандартные папки"
+msgstr "मानक फ़ोल्डर"
 
 #: src/prefs/ModulesPage.js:183
 msgid "Add quick access folders to the dock"
-msgstr "Добавить папки быстрого доступа на панель"
+msgstr "डॉक में त्वरित पहुँच फ़ोल्डर जोड़ें"
 
 #: src/prefs/ModulesPage.js:187 src/prefs/ModulesPage.js:234
 #: src/ui/modules/SystemFoldersModule.js:33
 msgid "Home"
-msgstr "Домашняя папка"
+msgstr "होम"
 
 #: src/prefs/ModulesPage.js:187
 msgid "Shortcut to Home directory"
-msgstr "Ярлык к домашней папке"
+msgstr "होम डायरेक्टरी का शॉर्टकट"
 
 #: src/prefs/ModulesPage.js:188 src/prefs/ModulesPage.js:235
 #: src/ui/modules/SystemFoldersModule.js:45
 msgid "Downloads"
-msgstr "Загрузки"
+msgstr "डाउनलोड्स"
 
 #: src/prefs/ModulesPage.js:188
 msgid "Shortcut to Downloads"
-msgstr "Ярлык к папке загрузок"
+msgstr "डाउनलोड्स का शॉर्टकट"
 
 #: src/prefs/ModulesPage.js:189 src/prefs/ModulesPage.js:236
 #: src/ui/modules/SystemFoldersModule.js:46
 msgid "Documents"
-msgstr "Документы"
+msgstr "दस्तावेज़"
 
 #: src/prefs/ModulesPage.js:189
 msgid "Shortcut to Documents"
-msgstr "Ярлык к папке документов"
+msgstr "दस्तावेज़ों का शॉर्टकट"
 
 #: src/prefs/ModulesPage.js:190 src/prefs/ModulesPage.js:237
 #: src/ui/modules/SystemFoldersModule.js:47
 msgid "Pictures"
-msgstr "Изображения"
+msgstr "चित्र"
 
 #: src/prefs/ModulesPage.js:190
 msgid "Shortcut to Pictures"
-msgstr "Ярлык к папке изображений"
+msgstr "चित्रों का शॉर्टकट"
 
 #: src/prefs/ModulesPage.js:191 src/prefs/ModulesPage.js:238
 #: src/ui/modules/SystemFoldersModule.js:48
 msgid "Videos"
-msgstr "Видео"
+msgstr "वीडियो"
 
 #: src/prefs/ModulesPage.js:191
 msgid "Shortcut to Videos"
-msgstr "Ярлык к папке видео"
+msgstr "वीडियो का शॉर्टकट"
 
 #: src/prefs/ModulesPage.js:192 src/prefs/ModulesPage.js:239
 #: src/ui/modules/SystemFoldersModule.js:49
 msgid "Music"
-msgstr "Музыка"
+msgstr "संगीत"
 
 #: src/prefs/ModulesPage.js:192
 msgid "Shortcut to Music"
-msgstr "Ярлык к папке музыки"
+msgstr "संगीत का शॉर्टकट"
 
 #: src/prefs/ModulesPage.js:195
 msgid "Show USB & Mounted Drives"
-msgstr "Показывать USB и подключенные диски"
+msgstr "USB और माउंटेड ड्राइव दिखाएँ"
 
 #: src/prefs/ModulesPage.js:196
 msgid "Automatically show connected drives and partitions on the dock"
-msgstr "Автоматически отображать подключенные диски и разделы на панели"
+msgstr "कनेक्ट की गई ड्राइव और पार्टीशन स्वचालित रूप से डॉक पर दिखाएँ"
 
 #: src/prefs/ModulesPage.js:216
 msgid "Custom Quick Folders"
-msgstr "Пользовательские папки быстрого доступа"
+msgstr "कस्टम त्वरित फ़ोल्डर"
 
 #: src/prefs/ModulesPage.js:217
 msgid "Add your own directory shortcuts to the dock"
-msgstr "Добавить собственные ярлыки каталогов на панель"
+msgstr "डॉक में अपनी डायरेक्टरी के शॉर्टकट जोड़ें"
 
 #: src/prefs/ModulesPage.js:233
 msgid "System Folder (Default)"
-msgstr "Системная папка (по умолчанию)"
+msgstr "सिस्टम फ़ोल्डर (डिफ़ॉल्ट)"
 
 #: src/prefs/ModulesPage.js:240
 msgid "Public Share"
-msgstr "Общедоступные"
+msgstr "सार्वजनिक साझा"
 
 #: src/prefs/ModulesPage.js:241
 msgid "Templates"
-msgstr "Шаблоны"
+msgstr "टेम्पलेट्स"
 
 #: src/prefs/ModulesPage.js:242
 msgid "Desktop"
-msgstr "Рабочий стол"
+msgstr "डेस्कटॉप"
 
 #: src/prefs/ModulesPage.js:243
 msgid "Projects / Code"
-msgstr "Проекты / Исходный код"
+msgstr "प्रोजेक्ट्स / कोड"
 
 #: src/prefs/ModulesPage.js:244
 msgid "Cloud / Remote"
-msgstr "Облако / Удаленный доступ"
+msgstr "क्लाउड / रिमोट"
 
 #: src/prefs/ModulesPage.js:254
 msgid "Edit Quick Folder"
-msgstr "Изменить папку"
+msgstr "फ़ोल्डर संपादित करें"
 
 #: src/prefs/ModulesPage.js:254 src/prefs/ModulesPage.js:628
 msgid "Add Quick Folder"
-msgstr "Добавить папку"
+msgstr "त्वरित फ़ोल्डर जोड़ें"
 
 #: src/prefs/ModulesPage.js:255
 msgid "Update"
-msgstr "Обновить"
+msgstr "अपडेट करें"
 
 #: src/prefs/ModulesPage.js:255
 msgid "Add"
-msgstr "Добавить"
+msgstr "जोड़ें"
 
 #: src/prefs/ModulesPage.js:280
 msgid "Folder Name (e.g. Workspace)"
-msgstr "Имя папки (например, Рабочая)"
+msgstr "फ़ोल्डर का नाम (उदा. कार्यस्थान)"
 
 #: src/prefs/ModulesPage.js:287
 msgid "Folder Path"
-msgstr "Путь к папке"
+msgstr "फ़ोल्डर पथ"
 
 #: src/prefs/ModulesPage.js:297
 msgid "Browse folder..."
-msgstr "Выбрать каталог..."
+msgstr "फ़ोल्डर ब्राउज़ करें..."
 
 #: src/prefs/ModulesPage.js:302
 msgid "Select Folder"
-msgstr "Выберите папку"
+msgstr "फ़ोल्डर चुनें"
 
 #: src/prefs/ModulesPage.js:325
 msgid "Preset System Icon"
-msgstr "Системный значок"
+msgstr "प्रीसेट सिस्टम आइकन"
 
 #: src/prefs/ModulesPage.js:326
 msgid "Custom Image File"
-msgstr "Файл изображения"
+msgstr "कस्टम छवि फ़ाइल"
 
 #: src/prefs/ModulesPage.js:327
 msgid "Custom Emoji"
-msgstr "Свой эмодзи"
+msgstr "कस्टम इमोजी"
 
 #: src/prefs/ModulesPage.js:331
 msgid "Icon Type"
-msgstr "Тип значка"
+msgstr "आइकन प्रकार"
 
 #: src/prefs/ModulesPage.js:337
 msgid "Select Preset Icon"
-msgstr "Выберите системный значок"
+msgstr "प्रीसेट आइकन चुनें"
 
 #: src/prefs/ModulesPage.js:342
 msgid "Select Image File"
-msgstr "Выберите файл изображения"
+msgstr "छवि फ़ाइल चुनें"
 
 #: src/prefs/ModulesPage.js:343
 msgid "PNG, SVG, ICO format"
-msgstr "Формат PNG, SVG, ICO"
+msgstr "PNG, SVG, ICO प्रारूप"
 
 #: src/prefs/ModulesPage.js:368
 msgid "Select Custom Folder Icon Image"
-msgstr "Выберите изображение значка папки"
+msgstr "कस्टम फ़ोल्डर आइकन छवि चुनें"
 
 #: src/prefs/ModulesPage.js:416
 msgid "Enter Emoji (Only 1 emoji allowed)"
-msgstr "Введите эмодзи (разрешен только 1 символ)"
+msgstr "इमोजी दर्ज करें (केवल 1 इमोजी की अनुमति है)"
 
 #: src/prefs/ModulesPage.js:420
 msgid "Only 1 emoji is allowed. Multiple emojis are not supported."
-msgstr "Разрешен только 1 эмодзи. Использование нескольких не поддерживается."
+msgstr "केवल 1 इमोजी की अनुमति है। एकाधिक इमोजी समर्थित नहीं हैं।"
 
 #: src/prefs/ModulesPage.js:507 src/ui/modules/SystemFoldersModule.js:75
 msgid "Custom Folder"
-msgstr "Пользовательская папка"
+msgstr "कस्टम फ़ोल्डर"
 
 #: src/prefs/ModulesPage.js:598
 msgid "Edit folder"
-msgstr "Изменить папку"
+msgstr "फ़ोल्डर संपादित करें"
 
 #: src/prefs/ModulesPage.js:609
 msgid "Remove folder"
-msgstr "Удалить папку"
+msgstr "फ़ोल्डर हटाएँ"
 
 #: src/prefs/ModulesPage.js:644
 msgid "Clock & Date"
-msgstr "Часы и дата"
+msgstr "घड़ी एवं दिनांक"
 
 #: src/prefs/ModulesPage.js:645
 msgid "Display time on horizontal docks"
-msgstr "Отображение времени на горизонтальной панели"
+msgstr "क्षैतिज (हॉरिजॉन्टल) डॉक पर समय प्रदर्शित करें"
 
 #: src/prefs/ModulesPage.js:649
 msgid "Show Clock"
-msgstr "Показывать часы"
+msgstr "घड़ी दिखाएँ"
 
 #: src/prefs/ModulesPage.js:649
 msgid "Hidden automatically on left/right docks"
-msgstr "Автоматически скрываются на боковых панелях"
+msgstr "बाएँ/दाएँ डॉक पर स्वचालित रूप से छिपा हुआ"
 
 #: src/prefs/ModulesPage.js:651
 msgid "Use 24-Hour Clock"
-msgstr "24-часовой формат времени"
+msgstr "24-घंटे की घड़ी का उपयोग करें"
 
 #: src/prefs/ModulesPage.js:651
 msgid "Display time in 24-hour format"
-msgstr "Отображать время в 24-часовом формате"
+msgstr "समय 24 घंटे के प्रारूप में दिखाएँ"
 
 #: src/prefs/ModulesPage.js:653
 msgid "Clock Text Size"
-msgstr "Размер шрифта часов"
+msgstr "घड़ी का फ़ॉन्ट आकार"
 
 #: src/prefs/ModulesPage.js:653
 msgid "Adjust font size"
-msgstr "Настроить размер шрифта"
+msgstr "फ़ॉन्ट का आकार समायोजित करें"
 
 #: src/prefs/ModulesPage.js:682
 msgid "Right Edge"
-msgstr "Правый край"
+msgstr "दायाँ किनारा"
 
 #: src/prefs/ModulesPage.js:685
 msgid "Clock Position"
-msgstr "Положение часов"
+msgstr "घड़ी की स्थिति"
 
 #: src/prefs/ModulesPage.js:685
 msgid "Separate from App Grid"
-msgstr "Отдельно от меню приложений"
+msgstr "ऐप ग्रिड से अलग रखें"
 
 #: src/prefs/ModulesPage.js:697
 msgid "Danger Zone"
-msgstr "Опасная зона"
+msgstr "डेंजर ज़ोन"
 
 #: src/prefs/ModulesPage.js:698
 msgid "Master controls for your settings"
-msgstr "Основные действия с параметрами"
+msgstr "अपनी सेटिंग्स के मुख्य नियंत्रण"
 
 #: src/prefs/ModulesPage.js:703
 msgid "Backup & Restore"
-msgstr "Резервное копирование и восстановление"
+msgstr "बैकअप एवं पुनर्स्थापना"
 
 #: src/prefs/ModulesPage.js:704
 msgid ""
 "Import or export your dock layout, themes, custom folders, and pinned apps"
-msgstr "Импорт или экспорт раскладки панели, тем, папок и закрепленных приложений"
+msgstr "डॉक लेआउट, थीम, कस्टम फ़ोल्डर और पिन किए गए ऐप्स आयात या निर्यात करें"
 
 #: src/prefs/ModulesPage.js:709
 msgid "Export Configuration"
-msgstr "Экспорт настроек"
+msgstr "कॉन्फ़िगरेशन निर्यात करें"
 
 #: src/prefs/ModulesPage.js:710
 msgid "Save your current settings and apps to a file"
-msgstr "Сохранить текущие параметры и приложения в файл"
+msgstr "अपनी वर्तमान सेटिंग्स और ऐप्स को फ़ाइल में सहेजें"
 
 #: src/prefs/ModulesPage.js:715
 msgid "Export"
-msgstr "Экспортировать"
+msgstr "निर्यात करें"
 
 #: src/prefs/ModulesPage.js:723
 msgid "Export Dock Configuration"
-msgstr "Экспортировать настройки панели"
+msgstr "डॉक कॉन्फ़िगरेशन निर्यात करें"
 
 #: src/prefs/ModulesPage.js:769
 msgid "Import Configuration"
-msgstr "Импорт настроек"
+msgstr "कॉन्फ़िगरेशन आयात करें"
 
 #: src/prefs/ModulesPage.js:770
 msgid "Load a previously saved configuration file"
-msgstr "Загрузить ранее сохраненный файл конфигурации"
+msgstr "पहले से सहेजी गई कॉन्फ़िगरेशन फ़ाइल लोड करें"
 
 #: src/prefs/ModulesPage.js:775
 msgid "Import"
-msgstr "Импортировать"
+msgstr "आयात करें"
 
 #: src/prefs/ModulesPage.js:782
 msgid "Import Dock Configuration"
-msgstr "Импортировать настройки панели"
+msgstr "डॉक कॉन्फ़िगरेशन आयात करें"
 
 #: src/prefs/ModulesPage.js:784
 msgid "JSON Files"
-msgstr "Файлы JSON"
+msgstr "JSON फ़ाइलें"
 
 #: src/prefs/ModulesPage.js:845
 msgid "Reset All Settings"
-msgstr "Сбросить все настройки"
+msgstr "सभी सेटिंग्स रीसेट करें"
 
 #: src/prefs/ModulesPage.js:846
 msgid "Restore all Dhruva Dock settings to their default values"
-msgstr "Вернуть все параметры Dhruva Dock к значениям по умолчанию"
+msgstr "ध्रुव डॉक की सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें"
 
 #: src/prefs/ModulesPage.js:851
 msgid "Reset Defaults"
-msgstr "Сбросить по умолчанию"
+msgstr "डिफ़ॉल्ट रीसेट करें"
 
 #: src/prefs/ModulesPage.js:862 src/prefs/ModulesPage.js:869
 msgid "Reset All Settings?"
-msgstr "Сбросить все настройки?"
+msgstr "सभी सेटिंग्स रीसेट करें?"
 
 #: src/prefs/ModulesPage.js:863 src/prefs/ModulesPage.js:870
 msgid ""
 "Are you sure you want to reset all settings to default? This action cannot "
 "be undone."
 msgstr ""
-"Вы уверены, что хотите вернуть все параметры к значениям по умолчанию? Это "
-"действие нельзя отменить."
+"क्या आप वाकई सभी सेटिंग्स को डिफ़ॉल्ट पर रीसेट करना चाहते हैं? यह क्रिया पूर्ववत "
+"नहीं की जा सकती।"
 
 #: src/prefs/ModulesPage.js:875
 msgid "Reset Settings"
-msgstr "Сбросить настройки"
+msgstr "सेटिंग्स रीसेट करें"
 
 #: src/prefs/AppearancePage.js:29
 msgid "Appearance"
-msgstr "Внешний вид"
+msgstr "दिखावट"
 
 #: src/prefs/AppearancePage.js:35
 msgid "Panel Style"
-msgstr "Стиль панели"
+msgstr "पैनल शैली"
 
 #: src/prefs/AppearancePage.js:36
 msgid "Background colors and borders"
-msgstr "Цвета фона и границы"
+msgstr "पृष्ठभूमि का रंग और बॉर्डर"
 
 #: src/prefs/AppearancePage.js:41 src/prefs/AppearancePage.js:263
 msgid "Custom Color"
-msgstr "Свой цвет"
+msgstr "कस्टम रंग"
 
 #: src/prefs/AppearancePage.js:42
 msgid "Wallpaper Color"
-msgstr "Цвет обоев"
+msgstr "वॉलपेपर रंग"
 
 #: src/prefs/AppearancePage.js:43
 msgid "Carbon"
-msgstr "Углерод"
+msgstr "कार्बन"
 
 #: src/prefs/AppearancePage.js:44
 msgid "Nord"
-msgstr "Норд"
+msgstr "नॉर्ड"
 
 #: src/prefs/AppearancePage.js:45
 msgid "Catppuccin Mocha"
-msgstr "Каппучино Мокко"
+msgstr "कैटपुचिन मोचा"
 
 #: src/prefs/AppearancePage.js:46
 msgid "Gruvbox Dark"
-msgstr "Грувбокс Темный"
+msgstr "ग्रूवबॉक्स डार्क"
 
 #: src/prefs/AppearancePage.js:47
 msgid "Ash Glass"
-msgstr "Пепельное стекло"
+msgstr "ऐश ग्लास"
 
 #: src/prefs/AppearancePage.js:48
 msgid "Dracula"
-msgstr "Дракула"
+msgstr "ड्रैकुला"
 
 #: src/prefs/AppearancePage.js:49
 msgid "Tokyo Night"
-msgstr "Токио Ночь"
+msgstr "टोक्यो नाइट"
 
 #: src/prefs/AppearancePage.js:50
 msgid "Aurora"
-msgstr "Аврора"
+msgstr "अरोरा"
 
 #: src/prefs/AppearancePage.js:51
 msgid "Sunset"
-msgstr "Закат"
+msgstr "सनसेट"
 
 #: src/prefs/AppearancePage.js:52
 msgid "Slate Ocean"
-msgstr "Морской сланец"
+msgstr "स्लेट ओशन"
 
 #: src/prefs/AppearancePage.js:55
 msgid "Dock Theme"
-msgstr "Тема панели"
+msgstr "डॉक थीम"
 
 #: src/prefs/AppearancePage.js:55
 msgid "Choose a preset theme or use custom colors"
-msgstr "Выберите готовую тему или используйте свои цвета"
+msgstr "एक प्रीसेट थीम चुनें या कस्टम रंगों का उपयोग करें"
 
 #: src/prefs/AppearancePage.js:58
 msgid "Chameleon Active"
-msgstr "Режим «Хамелеон» активен"
+msgstr "गिरगिट मोड सक्रिय"
 
 #: src/prefs/AppearancePage.js:59
 msgid "Dock color & indicator auto-update from your wallpaper"
-msgstr "Цвет панели и индикаторов обновляется автоматически под обои"
+msgstr "डॉक रंग और इंडिकेटर आपके वॉलपेपर से अपने आप अपडेट होते हैं"
 
 #: src/prefs/AppearancePage.js:65
 msgid "Primary Color"
-msgstr "Основной цвет"
+msgstr "प्राथमिक रंग"
 
 #: src/prefs/AppearancePage.js:66
 msgid "Use Gradient"
-msgstr "Использовать градиент"
+msgstr "ग्रेडिएंट का उपयोग करें"
 
 #: src/prefs/AppearancePage.js:66
 msgid "Blend with a second color"
-msgstr "Плавное смешивание со вторым цветом"
+msgstr "दूसरे रंग के साथ सम्मिश्रण करें"
 
 #: src/prefs/AppearancePage.js:67
 msgid "Secondary Color"
-msgstr "Дополнительный цвет"
+msgstr "द्वितीयक रंग"
 
 #: src/prefs/AppearancePage.js:68
 msgid "Gradient Direction"
-msgstr "Направление градиента"
+msgstr "ग्रेडिएंट दिशा"
 
 #: src/prefs/AppearancePage.js:68
 msgid "Flow of the gradient"
-msgstr "Направление перетекания цветов"
+msgstr "ग्रेडिएंट का बहाव"
 
 #: src/prefs/AppearancePage.js:69
 msgid "Vertical"
-msgstr "Вертикальное"
+msgstr "लंबवत (Vertical)"
 
 #: src/prefs/AppearancePage.js:70
 msgid "Horizontal"
-msgstr "Горизонтальное"
+msgstr "क्षैतिज (Horizontal)"
 
 #: src/prefs/AppearancePage.js:73
 msgid "Background Opacity"
-msgstr "Непрозрачность фона"
+msgstr "पृष्ठभूमि अपारदर्शिता"
 
 #: src/prefs/AppearancePage.js:73 src/prefs/AppearancePage.js:124
 #: src/prefs/AppearancePage.js:147 src/prefs/AppearancePage.js:191
 #: src/prefs/AppearancePage.js:221
 msgid "0 = Invisible, 100 = Solid"
-msgstr "0 — полностью прозрачный, 100 — сплошной"
+msgstr "0 = अदृश्य, 100 = ठोस"
 
 #: src/prefs/AppearancePage.js:79
 msgid "Hover Box Opacity"
-msgstr "Непрозрачность панели наведения"
+msgstr "होवर बॉक्स अपारदर्शिता"
 
 #: src/prefs/AppearancePage.js:79
 msgid "App preview box background opacity (0-100)"
-msgstr "Непрозрачность фона всплывающего окна предпросмотра (0-100)"
+msgstr "ऐप पूर्वावलोकन बॉक्स पृष्ठभूमि अपारदर्शिता (0-100)"
 
 #: src/prefs/AppearancePage.js:92
 msgid "Border Radius"
-msgstr "Радиус скругления рамки"
+msgstr "बॉर्डर त्रिज्या (Radius)"
 
 #: src/prefs/AppearancePage.js:92
 msgid "Corner roundness"
-msgstr "Степень скругления углов"
+msgstr "कोने की गोलाई"
 
 #: src/prefs/AppearancePage.js:99
 msgid "Border Outline (Stroke)"
-msgstr "Внешняя рамка (обводка)"
+msgstr "बॉर्डर आउटलाइन (स्ट्रोक)"
 
 #: src/prefs/AppearancePage.js:100
 msgid "Draw an outer line around the dock"
-msgstr "Рисовать контурную линию вокруг панели"
+msgstr "डॉक के चारों ओर एक बाहरी रेखा बनाएँ"
 
 #: src/prefs/AppearancePage.js:108
 msgid "Show Desktop Button Style"
-msgstr "Стиль кнопки «Показать рабочий стол»"
+msgstr "डेस्कटॉप बटन शैली दिखाएँ"
 
 #: src/prefs/AppearancePage.js:109
 msgid "Customize the right-edge desktop button"
-msgstr "Настройка кнопки рабочего стола на правом краю"
+msgstr "दाएँ किनारे के डेस्कटॉप बटन को कस्टमाइज़ करें"
 
 #: src/prefs/AppearancePage.js:118 src/prefs/AppearancePage.js:180
 #: src/prefs/AppearancePage.js:210
 msgid "Thickness"
-msgstr "Толщина"
+msgstr "मोटाई"
 
 #: src/prefs/AppearancePage.js:118 src/prefs/AppearancePage.js:180
 #: src/prefs/AppearancePage.js:210
 msgid "Width in pixels"
-msgstr "Ширина в пикселях"
+msgstr "पिक्सेल में चौड़ाई"
 
 #: src/prefs/AppearancePage.js:124 src/prefs/AppearancePage.js:191
 #: src/prefs/AppearancePage.js:221
 msgid "Opacity"
-msgstr "Непрозрачность"
+msgstr "अपारदर्शिता"
 
 #: src/prefs/AppearancePage.js:130 src/prefs/AppearancePage.js:190
 #: src/prefs/AppearancePage.js:220
 msgid "Color"
-msgstr "Цвет"
+msgstr "रंग"
 
 #: src/prefs/AppearancePage.js:139
 msgid "Stroke Width"
-msgstr "Толщина обводки"
+msgstr "स्ट्रोक चौड़ाई"
 
 #: src/prefs/AppearancePage.js:139
 msgid "Thickness in pixels (0 to disable)"
-msgstr "Толщина в пикселях (0 для отключения)"
+msgstr "पिक्सेल में मोटाई (अक्षम करने के लिए 0)"
 
 #: src/prefs/AppearancePage.js:145
 msgid "Stroke Color"
-msgstr "Цвет обводки"
+msgstr "स्ट्रोक रंग"
 
 #: src/prefs/AppearancePage.js:147
 msgid "Stroke Opacity"
-msgstr "Непрозрачность обводки"
+msgstr "स्ट्रोक अपारदर्शिता"
 
 #: src/prefs/AppearancePage.js:162
 msgid "Separators"
-msgstr "Разделители"
+msgstr "विभाजक (Separators)"
 
 #: src/prefs/AppearancePage.js:163
 msgid "Divider lines between dock items"
-msgstr "Линии разделения между элементами панели"
+msgstr "डॉक वस्तुओं के बीच विभाजक रेखाएँ"
 
 #: src/prefs/AppearancePage.js:168
 msgid "Module Separator"
-msgstr "Разделитель модулей"
+msgstr "मॉड्यूल विभाजक"
 
 #: src/prefs/AppearancePage.js:169
 msgid "Divides clock, grid, and system icons"
-msgstr "Отделяет часы, меню программ и системные значки"
+msgstr "घड़ी, ग्रिड और सिस्टम आइकन को विभाजित करता है"
 
 #: src/prefs/AppearancePage.js:178
 msgid "Enable Module Separator"
-msgstr "Включить разделитель модулей"
+msgstr "मॉड्यूल विभाजक सक्षम करें"
 
 #: src/prefs/AppearancePage.js:178
 msgid "Show a divider for system modules"
-msgstr "Отображать разделитель для системных модулей"
+msgstr "सिस्टम मॉड्यूल के लिए एक विभाजक दिखाएँ"
 
 #: src/prefs/AppearancePage.js:185 src/prefs/AppearancePage.js:215
 msgid "Height / Length"
-msgstr "Высота / длина"
+msgstr "ऊँचाई / लंबाई"
 
 #: src/prefs/AppearancePage.js:185 src/prefs/AppearancePage.js:215
 msgid "Percentage of dock size (10-100)"
-msgstr "Процент от размера панели (10-100)"
+msgstr "डॉक आकार का प्रतिशत (10-100)"
 
 #: src/prefs/AppearancePage.js:198
 msgid "App Separator"
-msgstr "Разделитель приложений"
+msgstr "ऐप विभाजक"
 
 #: src/prefs/AppearancePage.js:199
 msgid "Divides pinned apps from running apps"
-msgstr "Отделяет закрепленные приложения от запущенных"
+msgstr "पिन किए गए ऐप्स को चल रहे ऐप्स से अलग करता है"
 
 #: src/prefs/AppearancePage.js:208
 msgid "Enable App Separator"
-msgstr "Включить разделитель приложений"
+msgstr "ऐप विभाजक सक्षम करें"
 
 #: src/prefs/AppearancePage.js:208
 msgid "Show a divider between pinned and unpinned apps"
-msgstr "Отображать разделитель между закрепленными и незакрепленными программами"
+msgstr "पिन और अनपिन ऐप्स के बीच एक विभाजक दिखाएँ"
 
 #: src/prefs/AppearancePage.js:228
 msgid "App Notifications"
-msgstr "Уведомления приложений"
+msgstr "ऐप सूचनाएँ"
 
 #: src/prefs/AppearancePage.js:229
 msgid "Unread message counters"
-msgstr "Счетчики непрочитанных сообщений"
+msgstr "अपठित संदेश काउंटर"
 
 #: src/prefs/AppearancePage.js:232
 msgid "Show Notification Badges"
-msgstr "Значки уведомлений"
+msgstr "सूचना बैज दिखाएँ"
 
 #: src/prefs/AppearancePage.js:232
 msgid "Display unread message counts on app icons"
-msgstr "Отображать число непрочитанных сообщений на значках"
+msgstr "ऐप आइकन पर अपठित संदेशों की संख्या प्रदर्शित करें"
 
 #: src/prefs/AppearancePage.js:235
 msgid "Indicators"
-msgstr "Индикаторы"
+msgstr "संकेतक (Indicators)"
 
 #: src/prefs/AppearancePage.js:236
 msgid "Styles for currently active applications"
-msgstr "Стили для активных в данный момент приложений"
+msgstr "वर्तमान में सक्रिय अनुप्रयोगों के लिए शैलियाँ"
 
 #: src/prefs/AppearancePage.js:241
 msgid "Running Indicators"
-msgstr "Индикаторы запущенных приложений"
+msgstr "रनिंग इंडिकेटर"
 
 #: src/prefs/AppearancePage.js:242
 msgid "Settings for the active app dots/lines"
-msgstr "Настройки точек и линий активных приложений"
+msgstr "सक्रिय ऐप डॉट्स/लाइनों के लिए सेटिंग्स"
 
 #: src/prefs/AppearancePage.js:251
 msgid "Show Indicators"
-msgstr "Показывать индикаторы"
+msgstr "इंडिकेटर दिखाएँ"
 
 #: src/prefs/AppearancePage.js:251
 msgid "Display active marks under icons"
-msgstr "Отображать отметки активности под значками"
+msgstr "आइकन के नीचे सक्रिय चिह्न प्रदर्शित करें"
 
 #: src/prefs/AppearancePage.js:253
 msgid "Indicator Style"
-msgstr "Стиль индикатора"
+msgstr "इंडिकेटर शैली"
 
 #: src/prefs/AppearancePage.js:253
 msgid "Shape of the indicator"
-msgstr "Форма индикатора"
+msgstr "इंडिकेटर का आकार"
 
 #: src/prefs/AppearancePage.js:254
 msgid "Dot"
-msgstr "Точка"
+msgstr "बिंदु (Dot)"
 
 #: src/prefs/AppearancePage.js:255
 msgid "Dash"
-msgstr "Тире"
+msgstr "डैश (Dash)"
 
 #: src/prefs/AppearancePage.js:256
 msgid "Line"
-msgstr "Линия"
+msgstr "रेखा (Line)"
 
 #: src/prefs/AppearancePage.js:257
 msgid "Square"
-msgstr "Квадрат"
+msgstr "वर्ग (Square)"
 
 #: src/prefs/AppearancePage.js:261
 msgid "Color Mode"
-msgstr "Цветовой режим"
+msgstr "रंग मोड"
 
 #: src/prefs/AppearancePage.js:261
 msgid "Match indicator color with icon or use custom"
-msgstr "Сопоставлять цвет индикатора со значком или выбрать свой"
+msgstr "इंडिकेटर का रंग आइकन से मिलाएँ या कस्टम उपयोग करें"
 
 #: src/prefs/AppearancePage.js:262
 msgid "Match Icon Color"
-msgstr "Под цвет значка"
+msgstr "आइकन रंग से मिलाएँ"
 
 #: src/prefs/AppearancePage.js:266
 msgid "Indicator Color"
-msgstr "Цвет индикатора"
+msgstr "इंडिकेटर रंग"
 
 #: src/prefs/AppearancePage.js:268
 msgid "Indicator Size"
-msgstr "Размер индикатора"
+msgstr "इंडिकेटर आकार"
 
 #: src/prefs/AppearancePage.js:268
 msgid "Limit: 2px to 12px"
-msgstr "Ограничение: от 2px до 12px"
+msgstr "सीमा: 2px से 12px"
 
 #: src/prefs/AppearancePage.js:273
 msgid "Indicator Spacing"
-msgstr "Интервал индикатора"
+msgstr "इंडिकेटर अंतराल"
 
 #: src/prefs/AppearancePage.js:273
 msgid "Gap between icon and indicator"
-msgstr "Расстояние между значком и индикатором"
+msgstr "आइकन और इंडिकेटर के बीच की दूरी"
 
 #: src/prefs/AppearancePage.js:278
 msgid "Indicator Glow"
-msgstr "Свечение индикатора"
+msgstr "इंडिकेटर चमक"
 
 #: src/prefs/AppearancePage.js:278
 msgid "Add a shining shadow effect"
-msgstr "Добавить эффект светящейся тени"
+msgstr "एक चमकदार छाया प्रभाव जोड़ें"
 
 #: src/prefs/ResetButtons.js:43
 msgid "Reset to default"
-msgstr "Сбросить по умолчанию"
+msgstr "डिफ़ॉल्ट पर रीसेट करें"
 
 #: src/prefs/ResetButtons.js:80
 msgid "Reset all in this group"
-msgstr "Сбросить всю группу"
+msgstr "इस समूह में सभी को रीसेट करें"
 
 #: src/prefs/BehaviorPage.js:29
 msgid "Behavior"
-msgstr "Поведение"
+msgstr "व्यवहार"
 
 #: src/prefs/BehaviorPage.js:35
 msgid "Visibility Rules"
-msgstr "Правила видимости"
+msgstr "दृश्यता नियम"
 
 #: src/prefs/BehaviorPage.js:36
 msgid "Configure dock auto-hide behavior and timings"
-msgstr "Настройка автоматического скрытия и задержек панели"
+msgstr "डॉक स्वतः-छिपाने का व्यवहार और समय कॉन्फ़िगर करें"
 
 #: src/prefs/BehaviorPage.js:40
 msgid "Hide Mode"
-msgstr "Режим скрытия"
+msgstr "छिपाने का मोड"
 
 #: src/prefs/BehaviorPage.js:40
 msgid "Choose when the dock should hide"
-msgstr "Выберите условия, при которых панель скрывается"
+msgstr "चुनें कि डॉक कब छिपना चाहिए"
 
 #: src/prefs/BehaviorPage.js:41
 msgid "Intelligent (Dodge Active)"
-msgstr "Интеллектуальный (избегать активного окна)"
+msgstr "इंटेलिजेंट (सक्रिय खिड़की से बचें)"
 
 #: src/prefs/BehaviorPage.js:42
 msgid "Dodge All Windows"
-msgstr "Избегать всех окон"
+msgstr "सभी खिड़कियों से बचें"
 
 #: src/prefs/BehaviorPage.js:43
 msgid "Dodge Maximized"
-msgstr "Избегать развернутых окон"
+msgstr "मैक्सिमाइज़्ड खिड़कियों से बचें"
 
 #: src/prefs/BehaviorPage.js:44
 msgid "Always Hide"
-msgstr "Всегда скрывать"
+msgstr "हमेशा छिपाएँ"
 
 #: src/prefs/BehaviorPage.js:45
 msgid "Never Hide"
-msgstr "Никогда не скрывать"
+msgstr "कभी न छिपाएँ"
 
 #: src/prefs/BehaviorPage.js:48
 msgid "Hide Delay"
-msgstr "Задержка скрытия"
+msgstr "छिपाने में देरी"
 
 #: src/prefs/BehaviorPage.js:48
 msgid "Milliseconds before hiding"
-msgstr "Миллисекунды перед скрытием"
+msgstr "छिपाने से पहले मिलीसेकंड"
 
 #: src/prefs/BehaviorPage.js:54
 msgid "Unhide Delay"
-msgstr "Задержка появления"
+msgstr "दिखाने में देरी"
 
 #: src/prefs/BehaviorPage.js:54
 msgid "Milliseconds before showing"
-msgstr "Миллисекунды перед отображением"
+msgstr "दिखाने से पहले मिलीसेकंड"
 
 #: src/prefs/BehaviorPage.js:60
 msgid "Edge Pressure Delay"
-msgstr "Задержка нажатия на край"
+msgstr "एज प्रेशर देरी"
 
 #: src/prefs/BehaviorPage.js:60
 msgid "Hold mouse at screen edge to reveal (ms)"
-msgstr "Удерживать курсор у края экрана для отображения (мс)"
+msgstr "डॉक दिखाने के लिए माउस को किनारे पर रखें (ms)"
 
 #: src/prefs/BehaviorPage.js:78
 msgid "Animations & Effects"
-msgstr "Анимации и эффекты"
+msgstr "एनिमेशन एवं प्रभाव"
 
 #: src/prefs/BehaviorPage.js:82
 msgid "Icon Click Effect"
-msgstr "Эффект нажатия значка"
+msgstr "आइकन क्लिक प्रभाव"
 
 #: src/prefs/BehaviorPage.js:82
 msgid "Animation when an app is clicked"
-msgstr "Анимация при клике по значку приложения"
+msgstr "ऐप पर क्लिक करने पर एनिमेशन"
 
 #: src/prefs/BehaviorPage.js:84
 msgid "Bounce"
-msgstr "Подпрыгивание"
+msgstr "बाउंस"
 
 #: src/prefs/BehaviorPage.js:85
 msgid "Jump"
-msgstr "Прыжок"
+msgstr "जंप"
 
 #: src/prefs/BehaviorPage.js:86
 msgid "Heartbeat"
-msgstr "Пульс"
+msgstr "हार्टबीट"
 
 #: src/prefs/BehaviorPage.js:87
 msgid "Spin"
-msgstr "Вращение"
+msgstr "स्पिन"
 
 #: src/prefs/BehaviorPage.js:88
 msgid "Flip"
-msgstr "Переворот"
+msgstr "फ़्लिप"
 
 #: src/prefs/BehaviorPage.js:89
 msgid "Squeeze"
-msgstr "Сжатие"
+msgstr "स्क्वीज़"
 
 #: src/prefs/BehaviorPage.js:90
 msgid "Glow"
-msgstr "Вспышка"
+msgstr "ग्लो"
 
 #: src/prefs/BehaviorPage.js:91
 msgid "Shake"
-msgstr "Тряска"
+msgstr "शेक"
 
 #: src/prefs/BehaviorPage.js:92 src/prefs/BehaviorPage.js:151
 msgid "Jelly"
-msgstr "Желе"
+msgstr "जेली"
 
 #: src/prefs/BehaviorPage.js:93
 msgid "Tada"
-msgstr "Та-да"
+msgstr "टाडा"
 
 #: src/prefs/BehaviorPage.js:94
 msgid "Swing"
-msgstr "Раскачивание"
+msgstr "स्विंग"
 
 #: src/prefs/BehaviorPage.js:95
 msgid "Dim"
-msgstr "Затемнение"
+msgstr "डिम"
 
 #: src/prefs/BehaviorPage.js:96
 msgid "Move Up"
-msgstr "Сдвиг вверх"
+msgstr "ऊपर जाएँ"
 
 #: src/prefs/BehaviorPage.js:97
 msgid "Move Down"
-msgstr "Сдвиг вниз"
+msgstr "नीचे जाएँ"
 
 #: src/prefs/BehaviorPage.js:98
 msgid "Move Left"
-msgstr "Сдвиг влево"
+msgstr "बाएँ जाएँ"
 
 #: src/prefs/BehaviorPage.js:99
 msgid "Move Right"
-msgstr "Сдвиг вправо"
+msgstr "दाएँ जाएँ"
 
 #: src/prefs/BehaviorPage.js:100
 msgid "Enlarge"
-msgstr "Увеличение"
+msgstr "बड़ा करें"
 
 #: src/prefs/BehaviorPage.js:101
 msgid "Shrink"
-msgstr "Уменьшение"
+msgstr "छोटा करें"
 
 #: src/prefs/BehaviorPage.js:102
 msgid "Roll (Wheel)"
-msgstr "Колесо"
+msgstr "रोल (पहिया)"
 
 #: src/prefs/BehaviorPage.js:103
 msgid "Squish (Drop)"
-msgstr "Капля"
+msgstr "स्क्विश (बूंद)"
 
 #: src/prefs/BehaviorPage.js:104
 msgid "Zoom Fade (Ghost)"
-msgstr "Призрак"
+msgstr "ज़ूम फेड (भूत)"
 
 #: src/prefs/BehaviorPage.js:105
 msgid "3D Spin (Coin)"
-msgstr "3D-монета"
+msgstr "3D स्पिन (सिक्का)"
 
 #: src/prefs/BehaviorPage.js:108
 msgid "Window Minimize Effect"
-msgstr "Эффект сворачивания окон"
+msgstr "विंडो मिनिमाइज़ प्रभाव"
 
 #: src/prefs/BehaviorPage.js:108
 msgid "Animation when minimizing or restoring"
-msgstr "Анимация при сворачивании или разворачивании"
+msgstr "विंडो मिनिमाइज़ या रीस्टोर करने पर एनिमेशन"
 
 #: src/prefs/BehaviorPage.js:109
 msgid "Magic Lamp"
-msgstr "Волшебная лампа"
+msgstr "जादुई चिराग (मैजिक लैंप)"
 
 #: src/prefs/BehaviorPage.js:110
 msgid "Snake"
-msgstr "Змейка"
+msgstr "साँप (स्नेक)"
 
 #: src/prefs/BehaviorPage.js:111
 msgid "Vortex (Black Hole)"
-msgstr "Черная дыра"
+msgstr "भँवर (ब्लैक होल)"
 
 #: src/prefs/BehaviorPage.js:112
 msgid "Origami (3D Fold)"
-msgstr "Оригами (3D-складывание)"
+msgstr "ओरिगेमी (3D मोड़)"
 
 #: src/prefs/BehaviorPage.js:113
 msgid "Jelly (Squash & Stretch)"
-msgstr "Желе (Сжатие и растяжение)"
+msgstr "जेली (दबाव और खिंचाव)"
 
 #: src/prefs/BehaviorPage.js:121
 msgid "Dock Animation Duration"
-msgstr "Длительность анимации панели"
+msgstr "डॉक एनिमेशन अवधि"
 
 #: src/prefs/BehaviorPage.js:122
 msgid "Slide in and slide out duration (ms)"
-msgstr "Длительность появления и скрытия панели (мс)"
+msgstr "अंदर आने और बाहर जाने की अवधि (मिलीसेकंड)"
 
 #: src/prefs/BehaviorPage.js:132
 msgid "Window Animation Duration"
-msgstr "Длительность анимации окон"
+msgstr "विंडो एनिमेशन अवधि"
 
 #: src/prefs/BehaviorPage.js:133
 msgid "Window minimize effect speed (ms)"
-msgstr "Скорость эффекта сворачивания окон (мс)"
+msgstr "विंडो मिनिमाइज़ प्रभाव गति (मिलीसेकंड)"
 
 #: src/prefs/BehaviorPage.js:140
 msgid "Hover Zoom Physics & Motion"
-msgstr "Физика приближения и движения"
+msgstr "होवर ज़ूम भौतिकी एवं गति"
 
 #: src/prefs/BehaviorPage.js:144
 msgid "Hover Zoom"
-msgstr "Увеличение при наведении"
+msgstr "होवर ज़ूम"
 
 #: src/prefs/BehaviorPage.js:144
 msgid "Magnification effect on hover"
-msgstr "Эффект увеличения при наведении курсора"
+msgstr "कर्सर ले जाने पर आवर्धन प्रभाव"
 
 #: src/prefs/BehaviorPage.js:146
 msgid "Zoom Motion Style"
-msgstr "Стиль движения приближения"
+msgstr "ज़ूम गति शैली"
 
 #: src/prefs/BehaviorPage.js:146
 msgid "Physics profile for magnification curve"
-msgstr "Физический профиль для кривой масштабирования"
+msgstr "आवर्धन वक्र के लिए भौतिकी प्रोफ़ाइल"
 
 #: src/prefs/BehaviorPage.js:147
 msgid "Fluid"
-msgstr "Плавный"
+msgstr "तरल (Fluid)"
 
 #: src/prefs/BehaviorPage.js:148
 msgid "Domino"
-msgstr "Домино"
+msgstr "डोमिनोज़"
 
 #: src/prefs/BehaviorPage.js:149
 msgid "Cylinder"
-msgstr "Цилиндр"
+msgstr "सिलेंडर"
 
 #: src/prefs/BehaviorPage.js:150
 msgid "Magnetic"
-msgstr "Магнитный"
+msgstr "चुंबकीय"
 
 #: src/prefs/BehaviorPage.js:152
 msgid "Coverflow"
-msgstr "Coverflow"
+msgstr "कवरफ़्लो"
 
 #: src/prefs/BehaviorPage.js:155
 msgid "Zoom Factor"
-msgstr "Коэффициент увеличения"
+msgstr "ज़ूम गुणक"
 
 #: src/prefs/BehaviorPage.js:155
 msgid "Maximum size multiplier"
-msgstr "Максимальный множитель размера"
+msgstr "अधिकतम आकार गुणक"
 
 #: src/prefs/BehaviorPage.js:161
 msgid "Animation Smoothness"
-msgstr "Плавность анимации"
+msgstr "एनिमेशन सहजता"
 
 #: src/prefs/BehaviorPage.js:161
 msgid "Tracking fluidity"
-msgstr "Плавность отслеживания курсора"
+msgstr "ट्रैकिंग प्रवाह"
 
 #: src/prefs/BehaviorPage.js:167
 msgid "Influence Spread Radius"
-msgstr "Радиус влияния"
+msgstr "प्रभाव प्रसार त्रिज्या"
 
 #: src/prefs/BehaviorPage.js:167
 msgid "How far neighbor icons react"
-msgstr "Насколько далеко реагируют соседние значки"
+msgstr "पड़ोसी आइकन कितनी दूरी तक प्रतिक्रिया करते हैं"
 
 #: src/prefs/BehaviorPage.js:173
 msgid "Icon Elevation (Rise)"
-msgstr "Подъем значков (высота)"
+msgstr "आइकन उभार (Rise)"
 
 #: src/prefs/BehaviorPage.js:173
 msgid "Distance icons lift towards cursor"
-msgstr "Высота подъема значков по направлению к курсору"
+msgstr "कर्सर की ओर आइकन कितनी ऊँचाई तक उठते हैं"
 
 #: src/prefs/BehaviorPage.js:179
 msgid "Dynamic Slot Push"
-msgstr "Динамическое расталкивание"
+msgstr "डायनामिक स्लॉट पुश"
 
 #: src/prefs/BehaviorPage.js:179
 msgid "Expand adjacent icon slots smoothly"
-msgstr "Плавно расширять слоты соседних значков"
+msgstr "आस-पास के आइकन स्लॉट को आसानी से फैलाएँ"
 
 #: src/prefs/BehaviorPage.js:181
 msgid "Slot Spread Strength"
-msgstr "Сила расталкивания слотов"
+msgstr "स्लॉट फैलाव शक्ति"
 
 #: src/prefs/BehaviorPage.js:181
 msgid "Push strength between adjacent icons"
-msgstr "Сила расталкивания между соседними значками"
+msgstr "आस-पास के आइकनों के बीच धक्का देने की शक्ति"
 
 #: src/prefs/BehaviorPage.js:188
 msgid "Effect Fine Tuning"
-msgstr "Тонкая настройка эффектов"
+msgstr "प्रभाव फाइन ट्यूनिंग"
 
 #: src/prefs/BehaviorPage.js:192
 msgid "Domino Tilt Angle"
-msgstr "Угол наклона домино"
+msgstr "डोमिनोज़ झुकाव कोण"
 
 #: src/prefs/BehaviorPage.js:192
 msgid "Cascade tilt angle in degrees"
-msgstr "Угол каскадного наклона в градусах"
+msgstr "डिग्री में कैस्केड झुकाव कोण"
 
 #: src/prefs/BehaviorPage.js:198
 msgid "Cylinder Angle"
-msgstr "Угол цилиндра"
+msgstr "सिलेंडर कोण"
 
 #: src/prefs/BehaviorPage.js:198
 msgid "3D rotation arc angle"
-msgstr "Угол дуги трехмерного вращения"
+msgstr "3D घूर्णन चाप कोण"
 
 #: src/prefs/BehaviorPage.js:204
 msgid "Magnetic Snap Distance"
-msgstr "Дистанция магнитного притяжения"
+msgstr "चुंबकीय स्नैप दूरी"
 
 #: src/prefs/BehaviorPage.js:204
 msgid "Cursor attraction force in pixels"
-msgstr "Сила притяжения к курсору в пикселях"
+msgstr "पिक्सेल में कर्सर आकर्षण बल"
 
 #: src/prefs/BehaviorPage.js:210
 msgid "Jelly Stretch Intensity"
-msgstr "Интенсивность растяжения желе"
+msgstr "जेली खिंचाव तीव्रता"
 
 #: src/prefs/BehaviorPage.js:210
 msgid "How much icons pull/elongate along cursor path"
-msgstr "Степень удлинения значков вдоль траектории курсора"
+msgstr "कर्सर पथ पर आइकन कितने खिंचते हैं"
 
 #: src/prefs/BehaviorPage.js:216
 msgid "Jelly Shrink Intensity"
-msgstr "Интенсивность сжатия желе"
+msgstr "जेली सिकुड़न तीव्रता"
 
 #: src/prefs/BehaviorPage.js:216
 msgid "How much opposite side compresses/squashes"
-msgstr "Степень сжатия противоположной стороны"
+msgstr "विपरीत दिशा कितनी दबती/सिकुड़ती है"
 
 #: src/prefs/BehaviorPage.js:222
 msgid "Coverflow Angle"
-msgstr "Угол Coverflow"
+msgstr "कवरफ़्लो कोण"
 
 #: src/prefs/BehaviorPage.js:222
 msgid "Perspective card angle in degrees"
-msgstr "Угол наклона карточек перспективы в градусах"
+msgstr "डिग्री में परिप्रेक्ष्य कार्ड कोण"
 
 #: src/prefs/BehaviorPage.js:261
 msgid "Interaction & Previews"
-msgstr "Взаимодействие и предпросмотр"
+msgstr "इंटरैक्शन एवं पूर्वावलोकन"
 
 #: src/prefs/BehaviorPage.js:265
 msgid "Show App Previews"
-msgstr "Показывать предпросмотр окон"
+msgstr "ऐप पूर्वावलोकन दिखाएँ"
 
 #: src/prefs/BehaviorPage.js:265
 msgid "Display interactive window thumbnails on hover"
-msgstr "Отображать интерактивные миниатюры окон при наведении"
+msgstr "होवर करने पर विंडो थंबनेल प्रदर्शित करें"
 
 #: src/prefs/BehaviorPage.js:267
 msgid "Thumbnail Width"
-msgstr "Ширина миниатюры"
+msgstr "थंबनेल चौड़ाई"
 
 #: src/prefs/BehaviorPage.js:267
 msgid "Max width of window thumbnails"
-msgstr "Максимальная ширина миниатюр окон"
+msgstr "विंडो थंबनेल की अधिकतम चौड़ाई"
 
 #: src/prefs/BehaviorPage.js:273
 msgid "Live Preview Scale (%)"
-msgstr "Масштаб интерактивного предпросмотра (%)"
+msgstr "लाइव पूर्वावलोकन पैमाना (%)"
 
 #: src/prefs/BehaviorPage.js:273
 msgid "Screen percentage for the big center preview"
-msgstr "Процент площади экрана для крупного центрального предпросмотра"
+msgstr "केंद्र पूर्वावलोकन के लिए स्क्रीन प्रतिशत"
 
 #: src/prefs/BehaviorPage.js:283
 msgid "Window Aero Peek"
-msgstr "Aero Peek для окон"
+msgstr "विंडो एरो पीक"
 
 #: src/prefs/BehaviorPage.js:284
 msgid "Make other windows transparent when hovering thumbnails"
-msgstr "Делать остальные окна прозрачными при наведении на миниатюру"
+msgstr "थंबनेल पर होवर करते समय अन्य खिड़कियों को पारदर्शी बनाएँ"
 
 #: src/prefs/BehaviorPage.js:293
 msgid "Peek Animation Speed"
-msgstr "Скорость анимации Peek"
+msgstr "पीक एनिमेशन गति"
 
 #: src/prefs/BehaviorPage.js:294
 msgid "Higher = slower animation (ms)"
-msgstr "Больше = медленнее анимация (мс)"
+msgstr "उच्च = धीमा एनिमेशन (ms)"
 
 #: src/prefs/BehaviorPage.js:320
 msgid "Multitasking & Utilities"
-msgstr "Многозадачность и утилиты"
+msgstr "मल्टीटास्किंग एवं उपयोगिताएँ"
 
 #: src/prefs/BehaviorPage.js:324
 msgid "New Window Action"
-msgstr "Действие для нового окна"
+msgstr "नई विंडो क्रिया"
 
 #: src/prefs/BehaviorPage.js:324
 msgid "Shortcut to open a new instance of an app"
-msgstr "Комбинация для открытия новой копии приложения"
+msgstr "ऐप का नया उदाहरण (इंस्टेंस) खोलने के लिए शॉर्टकट"
 
 #: src/prefs/BehaviorPage.js:325
 msgid "Ctrl + Left Click"
-msgstr "Ctrl + Левый клик"
+msgstr "Ctrl + बायाँ क्लिक"
 
 #: src/prefs/BehaviorPage.js:326
 msgid "Middle Mouse Click"
-msgstr "Средняя кнопка мыши"
+msgstr "माउस का मध्य क्लिक"
 
 #: src/prefs/BehaviorPage.js:327
 msgid "Both"
-msgstr "Оба варианта"
+msgstr "दोनों"
 
 #: src/prefs/BehaviorPage.js:330
 msgid "Lock Icons"
-msgstr "Закрепить значки"
+msgstr "आइकन लॉक करें"
 
 #: src/prefs/BehaviorPage.js:330
 msgid "Prevent drag and drop reordering"
-msgstr "Запретить изменение порядка значков перетаскиванием"
+msgstr "ड्रैग और ड्रॉप से क्रम बदलने से रोकें"
 
 #: src/prefs/BehaviorPage.js:331
 msgid "Show Unpinned Apps"
-msgstr "Показывать незакрепленные приложения"
+msgstr "अनपिन किए गए ऐप्स दिखाएँ"
 
 #: src/prefs/BehaviorPage.js:331
 msgid "Display running apps that are not pinned to the dock"
-msgstr "Отображать запущенные программы, не закрепленные на панели"
+msgstr "डॉक में पिन न किए गए चल रहे ऐप्स दिखाएँ"
 
 #: src/prefs/BehaviorPage.js:334
 msgid "Quick launch"
-msgstr "Быстрый запуск"
+msgstr "क्विक लॉन्च"
 
 #: src/prefs/BehaviorPage.js:335
 msgid ""
 "Super + 1–9 targets the first nine dock apps (registered as keyboard "
 "shortcuts). Change under Settings → Keyboard."
 msgstr ""
-"Super + 1–9 открывает первые девять приложений панели (зарегистрировано в "
-"качестве горячих клавиш). Изменить можно в Настройки → Клавиатура."
+"Super + 1–9 पहले नौ डॉक ऐप्स को खोलता है (कीबोर्ड शॉर्टकट के रूप में पंजीकृत)। "
+"सेटिंग्स → कीबोर्ड में बदलें।"
 
 #: src/prefs/BehaviorPage.js:342
 msgid "Isolate Workspaces"
-msgstr "Изолировать рабочие места"
+msgstr "वर्कस्पेस अलग रखें"
 
 #: src/prefs/BehaviorPage.js:342
 msgid "Only show apps running on the current workspace"
-msgstr "Показывать только приложения, запущенные на текущем рабочем месте"
+msgstr "केवल वर्तमान वर्कस्पेस पर चल रहे ऐप्स दिखाएँ"
 
 #: src/prefs/BehaviorPage.js:343
 msgid "Dock Scroll Action"
-msgstr "Действие прокрутки на панели"
+msgstr "डॉक स्क्रॉल क्रिया"
 
 #: src/prefs/BehaviorPage.js:343
 msgid "Scroll on empty dock area to switch workspaces"
-msgstr "Прокрутка колеса мыши по пустому месту панели переключает рабочие места"
+msgstr "वर्कस्पेस बदलने के लिए खाली डॉक क्षेत्र पर स्क्रॉल करें"
 
 #: src/prefs/BehaviorPage.js:344
 msgid "App Scroll Action"
-msgstr "Действие прокрутки по значку"
+msgstr "ऐप स्क्रॉल क्रिया"
 
 #: src/prefs/BehaviorPage.js:344
 msgid "Scroll on app icons to cycle through its windows"
-msgstr "Прокрутка по значку программы циклически переключает её окна"
+msgstr "इसकी खिड़कियों के बीच स्विच करने के लिए ऐप आइकन पर स्क्रॉल करें"
 
 #: src/ui/AppGridUI.js:114
 msgid "All Applications"
-msgstr "Все приложения"
+msgstr "सभी अनुप्रयोग"
 
 #: src/ui/AppGridUI.js:154
 msgid "Search apps..."
-msgstr "Поиск приложений..."
+msgstr "ऐप्स खोजें..."
 
 #: src/ui/modules/ClockModule.js:105
 msgid "Date & Time"
-msgstr "Дата и время"
+msgstr "दिनांक एवं समय"
 
 #: src/ui/modules/AppGridModule.js:292
 #: src/ui/magnifier/MagnifierFrameEngine.js:636
 msgid "Applications"
-msgstr "Приложения"
+msgstr "अनुप्रयोग"
 
 #: src/ui/modules/TrashModule.js:38
 msgid "Recycle Bin"
-msgstr "Корзина"
+msgstr "रीसायकल बिन"
 
 #: src/ui/modules/MusicPill.js:652
 msgid "Unknown Artist"
-msgstr "Неизвестный исполнитель"
+msgstr "अज्ञात कलाकार"
 
 #: src/ui/modules/DockModules.js:402 src/ui/modules/DesktopButtonModule.js:100
 msgid "Show Desktop"
-msgstr "Показать рабочий стол"
+msgstr "डेस्कटॉप दिखाएँ"
 
 #: src/ui/magnifier/MagnifierTooltipRenderer.js:275
 #: src/ui/context-menu/WindowThumbnailBuilder.js:59
 msgid "Window"
-msgstr "Окно"
+msgstr "विंडो"
 
 #: src/ui/context-menu/AppContextMenu.js:159
 msgid "Unpack Stack"
-msgstr "Распаковать стопку"
+msgstr "स्टैक खोलें"
 
 #: src/ui/context-menu/AppContextMenu.js:166
 msgid "Close All Apps"
-msgstr "Закрыть все приложения"
+msgstr "सभी ऐप्स बंद करें"
 
 #: src/ui/context-menu/AppContextMenu.js:175
 #, javascript-format
 msgid "Delete %s"
-msgstr "Удалить %s"
+msgstr "%s हटाएँ"
 
 #: src/ui/context-menu/AppContextMenu.js:213
 #, javascript-format
 msgid "Add to %s"
-msgstr "Добавить в %s"
+msgstr "%s में जोड़ें"
 
 #: src/ui/context-menu/AppContextMenu.js:265
 #, javascript-format
 msgid "Open %s"
-msgstr "Открыть %s"
+msgstr "%s खोलें"
 
 #: src/ui/context-menu/AppContextMenu.js:283
 msgid "New Window"
-msgstr "Новое окно"
+msgstr "नई विंडो"
 
 #: src/ui/context-menu/AppContextMenu.js:305
 msgid "Unpin from Dhruva"
-msgstr "Открепить от Dhruva"
+msgstr "ध्रुव से अनपिन करें"
 
 #: src/ui/context-menu/AppContextMenu.js:305
 msgid "Pin to Dhruva"
-msgstr "Закрепить в Dhruva"
+msgstr "ध्रुव में पिन करें"
 
 #: src/ui/context-menu/AppContextMenu.js:316
 msgid "Stack"
-msgstr "Стопка"
+msgstr "स्टैक"
 
 #: src/ui/context-menu/AppContextMenu.js:319
 #, javascript-format
 msgid "Remove from %s"
-msgstr "Убрать из %s"
+msgstr "%s से हटाएँ"
 
 #: src/ui/context-menu/AppContextMenu.js:359
 msgid "Close All Windows"
-msgstr "Закрыть все окна"
+msgstr "सभी खिड़कियाँ बंद करें"
 
 #: src/ui/context-menu/AppContextMenu.js:359
 msgid "Close Folder"
-msgstr "Закрыть папку"
+msgstr "फ़ोल्डर बंद करें"
 
 #: src/ui/context-menu/AppContextMenu.js:359
 msgid "Quit"
-msgstr "Завершить"
+msgstr "बंद करें"
 
 #: src/ui/context-menu/AppContextMenu.js:373
 msgid "Dhruva Settings"
-msgstr "Настройки Dhruva"
+msgstr "ध्रुव सेटिंग्स"
 
 #: src/ui/context-menu/TrashActionsHandler.js:73
 msgid "Empty Trash?"
-msgstr "Очистить корзину?"
+msgstr "ट्रैश खाली करें?"
 
 #: src/ui/context-menu/TrashActionsHandler.js:78
 msgid ""
 "Are you sure you want to permanently delete all items from the Trash?\n"
 "This action cannot be undone."
 msgstr ""
-"Вы уверены, что хотите безвозвратно удалить все объекты из корзины?\n"
-"Это действие нельзя отменить."
+"क्या आप वाकई ट्रैश से सभी वस्तुओं को स्थायी रूप से हटाना चाहते हैं?\n"
+"यह क्रिया पूर्ववत नहीं की जा सकती।"
 
 #: src/ui/context-menu/TrashActionsHandler.js:87
 #: src/ui/context-menu/TrashActionsHandler.js:138
 msgid "Empty Trash"
-msgstr "Очистить корзину"
+msgstr "ट्रैश खाली करें"
 
 #: src/ui/context-menu/TrashActionsHandler.js:98
 msgid "Checking Trash..."
-msgstr "Проверка корзины..."
+msgstr "ट्रैश की जाँच हो रही है..."
 
 #: src/ui/context-menu/TrashActionsHandler.js:148
 msgid "Trash is Empty"
-msgstr "Корзина пуста"
+msgstr "ट्रैश खाली है"
 
 #: src/ui/folder-menu/EmojiPicker.js:111
 msgid "Search emojis..."
-msgstr "Поиск эмодзи..."
+msgstr "इमोजी खोजें..."
 
 #: src/ui/folder-menu/EmojiPicker.js:223
 msgid "Hover an emoji"
-msgstr "Наведите курсор на эмодзи"
+msgstr "किसी इमोजी पर कर्सर ले जाएँ"
 
 #: src/ui/folder-menu/EmojiPicker.js:227
 msgid "Category"
-msgstr "Категория"
+msgstr "श्रेणी"
 
 #: src/ui/folder-menu/FolderMenuBuilder.js:168
 msgid "Name"
-msgstr "Имя"
+msgstr "नाम"
 
 #: src/ui/folder-menu/FolderMenuBuilder.js:474
 msgid "zenity is required for file selection dialogs."
-msgstr "Для диалогов выбора файлов требуется zenity."
+msgstr "फ़ाइल चयन संवाद के लिए zenity आवश्यक है।"

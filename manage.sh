@@ -57,10 +57,15 @@ EXCLUDE_TOP=(
     "Makefile"
     "README*"
     "CHANGELOG*"
+    "LICENSE*"
+    "LICENCE*"
+    "po"
     "media"
+    "media/*"
     "node_modules"
     "package.json"
     "package-lock.json"
+    ".gitignore"
     "*.zip"
 )
 
@@ -307,6 +312,13 @@ pack_ext() {
 
     zip -r "${ZIP_NAME}" \
         "${FILES[@]}" \
+        -x "media/*" \
+        -x "po/*" \
+        -x "README*" \
+        -x "LICENSE*" \
+        -x "LICENCE*" \
+        -x "Makefile" \
+        -x ".gitignore" \
         -x "schemas/gschemas.compiled" \
         -x "*.git*" \
         -x "*__pycache__*" \

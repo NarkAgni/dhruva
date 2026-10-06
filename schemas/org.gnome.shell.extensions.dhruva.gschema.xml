@@ -658,5 +658,17 @@
       <description>Keybinding to toggle between independent and standard dock mode</description>
     </key>
 
+    <key name="autohide-animation-speed" type="i">
+      <default>250</default>
+      <summary>Dock Auto hide Animation Speed</summary>
+      <description>Duration in milliseconds for dock hide and show animations.</description>
+    </key>
+
+    <key name="window-effect-speed" type="i">
+      <default>350</default>
+      <summary>Window Effect Animation Speed</summary>
+      <description>Duration in milliseconds for window minimize and restore effects.</description>
+    </key>
+
   </schema>
 </schemalist>
