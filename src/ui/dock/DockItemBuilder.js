@@ -28,6 +28,7 @@ import { getIndicatorProps } from './DockRenderer.js';
 import FolderMenu from '../folder-menu/FolderMenu.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isCalendarApp, createCalendarIconTexture } from '../modules/CalendarIcon.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
@@ -154,7 +155,10 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows) {
 
     const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
     const renderSize = Math.ceil(iconSize * actualMaxZoom);
-    const icon = app.create_icon_texture(renderSize);
+    const liveCalendar = Settings.liveCalendarIcon && isCalendarApp(app)
+        ? createCalendarIconTexture(app, renderSize)
+        : null;
+    const icon = liveCalendar ?? app.create_icon_texture(renderSize);
     icon.set_size(iconSize, iconSize);
 
     const iconBin = new St.Bin({

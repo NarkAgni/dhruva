@@ -150,6 +150,7 @@ class SettingsManager {
     get showMusicPill() { return this._settings ? this._settings.get_boolean('show-music-pill') : false; }
     get musicPillPosition() { return this._settings ? this._settings.get_string('music-pill-position') : 'left'; }
     get showTrash() { return this._settings ? this._settings.get_boolean('show-trash') : true; }
+    get liveCalendarIcon() { return this._settings ? this._settings.get_boolean('live-calendar-icon') : false; }
     get showDesktopButton() { return this._settings ? this._settings.get_boolean('show-desktop-button') : false; }
     get desktopBtnWidth() { return this._settings ? this._settings.get_int('desktop-btn-width') : 12; }
     get desktopBtnOpacity() { return this._settings ? this._settings.get_int('desktop-btn-opacity') : 60; }
