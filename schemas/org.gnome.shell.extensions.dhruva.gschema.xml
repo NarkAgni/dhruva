@@ -384,6 +384,12 @@
       <summary>Show Recycle Bin</summary>
     </key>
 
+    <key name="live-calendar-icon" type="b">
+      <default>false</default>
+      <summary>Live Calendar Icon</summary>
+      <description>Draw the calendar app's dock icon with today's date</description>
+    </key>
+
     <key name="show-desktop-button" type="b">
       <default>true</default>
       <summary>Show Desktop Button</summary>

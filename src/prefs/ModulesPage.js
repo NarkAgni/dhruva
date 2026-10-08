@@ -51,6 +51,7 @@ export function buildModulesPage(prefs, window, settings) {
     page.add(modGroup);
 
     addSwitchRow(modGroup, settings, 'show-trash', _('Recycle Bin (Trash)'), _('Show a shortcut to the trash folder'), 'user-trash-symbolic', null);
+    addSwitchRow(modGroup, settings, 'live-calendar-icon', _('Live Calendar Icon'), _('Show today\'s date on the Calendar app icon'), 'x-office-calendar-symbolic', null);
     addSwitchRow(modGroup, settings, 'show-desktop-button', _('Show Desktop Button'), _('Quickly minimize all windows'), 'computer-symbolic', null);
     addSwitchRow(modGroup, settings, 'show-grid-button', _('Show Applications Button'), _('App drawer launcher'), 'view-app-grid-symbolic', null);
     const gridPosRow = addSegmentedRow(modGroup, settings, 'grid-button-position', _('Application Button Position'), _('Where to place the launcher'), 'go-next-symbolic', [

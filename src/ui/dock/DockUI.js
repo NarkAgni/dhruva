@@ -45,6 +45,7 @@ import { teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { applyOverviewDockMargin, clearOverviewDockMargin } from './OverviewMargin.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
 import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
+import { todayStamp } from '../modules/CalendarIcon.js';
 
 
 const RENDER_DEBOUNCE_MS = 5;
@@ -79,7 +80,8 @@ const WATCHED_SETTINGS = [
     'running-separator-color', 'running-separator-opacity', 'grid-icon-color', 'custom-grid-icon',
     'custom-grid-icon-scale', 'use-old-grid-icon', 'app-folders', 'show-unpinned-apps',
     'desktop-btn-width', 'desktop-btn-opacity', 'desktop-btn-color', 'show-independent-in-overview',
-    'show-music-pill', 'music-pill-position', 'indicator-color-mode', 'autohide-animation-speed', 'window-effect-speed'
+    'show-music-pill', 'music-pill-position', 'indicator-color-mode', 'autohide-animation-speed', 'window-effect-speed',
+    'live-calendar-icon'
 ];
 
 const STYLE_SETTINGS = [
@@ -506,6 +508,7 @@ export default class DockUI {
 
         this._setupChameleonWatcher();
         this._setupTrashMonitor();
+        this._setupCalendarDayWatch();
 
         this._iconThemeSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
         this._iconThemeSettings.connectObject('changed::icon-theme', () => {
@@ -519,6 +522,21 @@ export default class DockUI {
                 controls._appDisplay.create_all_apps();
             }
             return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    // Polls once a minute rather than arming a midnight timer: GLib timeouts
+    // run on the monotonic clock, which stops during suspend, so a timer set
+    // for midnight fires late after the machine sleeps through it.
+    _setupCalendarDayWatch() {
+        this._calendarDay = todayStamp();
+        this.registry.addTimeout(GLib.PRIORITY_LOW, 60 * 1000, () => {
+            const day = todayStamp();
+            if (day !== this._calendarDay) {
+                this._calendarDay = day;
+                if (Settings.liveCalendarIcon) this.queueRender('full', true);
+            }
+            return GLib.SOURCE_CONTINUE;
         });
     }
 
