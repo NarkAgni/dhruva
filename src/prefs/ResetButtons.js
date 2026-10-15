@@ -20,6 +20,8 @@
 import Gtk from 'gi://Gtk';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
+import { onSettingChanged } from './SettingsSignals.js';
+
 
 export function makeResetBtn(settings) {
     return (key) => {
@@ -50,7 +52,7 @@ export function makeResetBtn(settings) {
         };
 
         btn.connect('clicked', () => settings.reset(key));
-        settings.connect(`changed::${key}`, update);
+        onSettingChanged(settings, key, update);
         update();
 
         box.append(btn);
@@ -99,7 +101,7 @@ export function makeGroupResetBtn(settings) {
 
         keys.forEach(k => {
             if (settings.settings_schema.has_key(k)) {
-                settings.connect(`changed::${k}`, update);
+                onSettingChanged(settings, k, update);
             }
         });
         update();

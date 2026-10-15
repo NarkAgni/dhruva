@@ -18,328 +18,172 @@
 
 
 import Adw from 'gi://Adw';
-import Gtk from 'gi://Gtk';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { addComboRow, addCustomSpinRow, addSwitchRow } from './PrefsWidgets.js';
+import { onSettingChanged } from './SettingsSignals.js';
+import {
+    fmt, addGroup, addGroupReset, showWhen, addSwitchRow, addSliderRow, addComboRow,
+} from './PrefsWidgets.js';
 
 
-export function buildBehaviorPage(window, settings, createResetBtn) {
+const HIDE_TIMING_KEYS = ['hide-delay', 'unhide-delay', 'edge-dwell-delay', 'autohide-animation-speed'];
+const ZOOM_KEYS = ['hover-zoom-factor', 'hover-zoom-smoothness', 'hover-zoom-radius', 'hover-zoom-rise', 'hover-zoom-gap-factor'];
+const TWEAK_KEYS = [
+    'hover-zoom-domino-tilt', 'hover-zoom-cylinder-angle', 'hover-zoom-magnetic-strength',
+    'hover-zoom-jelly-stretch', 'hover-zoom-jelly-squish', 'hover-zoom-coverflow-angle',
+];
+
+const HIDE_MODES = () => [
+    { name: _('Smart'), value: 'intelligent', hint: _('Hides when the active window touches the dock') },
+    { name: _('Dodge Windows'), value: 'dodge-all', hint: _('Hides when any window touches the dock') },
+    { name: _('Maximized'), value: 'maximized', hint: _('Hides when a window is maximized') },
+    { name: _('Always'), value: 'always', hint: _('Stays hidden until you reach the screen edge') },
+    { name: _('Never'), value: 'none', hint: _('The dock is always visible') },
+];
+
+const CLICK_EFFECTS = () => [
+    { name: _('None'), value: 'none' },
+    { name: _('Bounce'), value: 'bounce' },
+    { name: _('Jump'), value: 'jump' },
+    { name: _('Heartbeat'), value: 'heartbeat' },
+    { name: _('Spin'), value: 'spin' },
+    { name: _('Flip'), value: 'flip' },
+    { name: _('Squeeze'), value: 'squeeze' },
+    { name: _('Glow'), value: 'glow' },
+    { name: _('Shake'), value: 'shake' },
+    { name: _('Jelly'), value: 'jelly' },
+    { name: _('Tada'), value: 'tada' },
+    { name: _('Swing'), value: 'swing' },
+    { name: _('Dim'), value: 'dim' },
+    { name: _('Move Up'), value: 'move_up' },
+    { name: _('Move Down'), value: 'move_down' },
+    { name: _('Move Left'), value: 'move_left' },
+    { name: _('Move Right'), value: 'move_right' },
+    { name: _('Enlarge'), value: 'enlarge' },
+    { name: _('Shrink'), value: 'shrink' },
+    { name: _('Roll (Wheel)'), value: 'roll' },
+    { name: _('Squish (Drop)'), value: 'squish' },
+    { name: _('Zoom Fade (Ghost)'), value: 'zoom_fade' },
+    { name: _('3D Spin (Coin)'), value: 'spin_3d' },
+];
+
+
+export function buildBehaviorPage(window, settings) {
     const page = new Adw.PreferencesPage({
         title: _('Behavior'),
-        icon_name: 'applications-engineering-symbolic'
+        icon_name: 'applications-engineering-symbolic',
     });
-    window.add(page);
 
-    const visGroup = new Adw.PreferencesGroup({
-        title: _('Visibility Rules'),
-        description: _('Configure dock auto-hide behavior and timings')
-    });
-    page.add(visGroup);
-
-    addComboRow(visGroup, settings, 'hide-mode', _('Hide Mode'), _('Choose when the dock should hide'), 'go-bottom-symbolic', [
-        { name: _('Intelligent (Dodge Active)'), value: 'intelligent' },
-        { name: _('Dodge All Windows'), value: 'dodge-all' },
-        { name: _('Dodge Maximized'), value: 'maximized' },
-        { name: _('Always Hide'), value: 'always' },
-        { name: _('Never Hide'), value: 'none' }
-    ], null);
-
-    const hideDelayRow = addCustomSpinRow(visGroup, settings, 'hide-delay', _('Hide Delay'), _('Milliseconds before hiding'), 'preferences-system-time-symbolic', {
-        lower: 0,
-        upper: 2000,
-        step_increment: 50
-    }, createResetBtn);
-
-    const unhideDelayRow = addCustomSpinRow(visGroup, settings, 'unhide-delay', _('Unhide Delay'), _('Milliseconds before showing'), 'preferences-system-time-symbolic', {
-        lower: 0,
-        upper: 2000,
-        step_increment: 50
-    }, createResetBtn);
-
-    const dwellDelayRow = addCustomSpinRow(visGroup, settings, 'edge-dwell-delay', _('Edge Pressure Delay'), _('Hold mouse at screen edge to reveal (ms)'), 'timer-symbolic', {
-        lower: 0,
-        upper: 1500,
-        step_increment: 50
-    }, createResetBtn);
-
-    const syncDelayVisibility = () => {
-        const isNone = settings.get_string('hide-mode') === 'none';
-        const showDelays = !isNone;
-        hideDelayRow.set_visible(showDelays);
-        unhideDelayRow.set_visible(showDelays);
-        dwellDelayRow.set_visible(showDelays);
+    const hideGroup = addGroup(page, _('Auto-Hide'), _('When the dock steps out of the way'));
+    const hideRow = addComboRow(hideGroup, settings, 'hide-mode', _('Hide'), null, HIDE_MODES());
+    const syncHideHint = () => {
+        const mode = HIDE_MODES().find(m => m.value === settings.get_string('hide-mode'));
+        hideRow.subtitle = mode ? mode.hint : '';
     };
+    syncHideHint();
+    onSettingChanged(settings, 'hide-mode', syncHideHint);
 
-    settings.connect('changed::hide-mode', syncDelayVisibility);
-    syncDelayVisibility();
+    const timingGroup = addGroup(page, _('Auto-Hide Timing'));
+    addGroupReset(timingGroup, settings, HIDE_TIMING_KEYS);
+    addSliderRow(timingGroup, settings, 'hide-delay', _('Hide After'), null, { lower: 0, upper: 2000, step: 50 }, fmt.ms);
+    addSliderRow(timingGroup, settings, 'unhide-delay', _('Show After'), null, { lower: 0, upper: 2000, step: 50 }, fmt.ms);
+    addSliderRow(timingGroup, settings, 'edge-dwell-delay', _('Edge Push'), _('How long to rest the pointer at the edge'),
+        { lower: 0, upper: 1500, step: 50 }, fmt.ms);
+    addSliderRow(timingGroup, settings, 'autohide-animation-speed', _('Slide Duration'), null,
+        { lower: 50, upper: 1000, step: 25 }, fmt.ms);
+    showWhen(timingGroup, settings, ['hide-mode'], () => settings.get_string('hide-mode') !== 'none');
 
-    const animGroup = new Adw.PreferencesGroup({
-        title: _('Animations &amp; Effects')
-    });
-    page.add(animGroup);
-
-    addComboRow(animGroup, settings, 'click-effect', _('Icon Click Effect'), _('Animation when an app is clicked'), 'input-mouse-symbolic', [
-        { name: _('None'), value: 'none' },
-        { name: _('Bounce'), value: 'bounce' },
-        { name: _('Jump'), value: 'jump' },
-        { name: _('Heartbeat'), value: 'heartbeat' },
-        { name: _('Spin'), value: 'spin' },
-        { name: _('Flip'), value: 'flip' },
-        { name: _('Squeeze'), value: 'squeeze' },
-        { name: _('Glow'), value: 'glow' },
-        { name: _('Shake'), value: 'shake' },
-        { name: _('Jelly'), value: 'jelly' },
-        { name: _('Tada'), value: 'tada' },
-        { name: _('Swing'), value: 'swing' },
-        { name: _('Dim'), value: 'dim' },
-        { name: _('Move Up'), value: 'move_up' },
-        { name: _('Move Down'), value: 'move_down' },
-        { name: _('Move Left'), value: 'move_left' },
-        { name: _('Move Right'), value: 'move_right' },
-        { name: _('Enlarge'), value: 'enlarge' },
-        { name: _('Shrink'), value: 'shrink' },
-        { name: _('Roll (Wheel)'), value: 'roll' },
-        { name: _('Squish (Drop)'), value: 'squish' },
-        { name: _('Zoom Fade (Ghost)'), value: 'zoom_fade' },
-        { name: _('3D Spin (Coin)'), value: 'spin_3d' }
-    ], null);
-
-    addComboRow(animGroup, settings, 'minimize-effect', _('Window Minimize Effect'), _('Animation when minimizing or restoring'), 'window-minimize-symbolic', [
+    const animGroup = addGroup(page, _('Animations'));
+    addComboRow(animGroup, settings, 'click-effect', _('On Click'), _('How an icon reacts when clicked'), CLICK_EFFECTS());
+    addComboRow(animGroup, settings, 'minimize-effect', _('Minimize'), _('How windows fly into the dock'), [
         { name: _('Magic Lamp'), value: 'magic-lamp' },
         { name: _('Snake'), value: 'snake' },
         { name: _('Vortex (Black Hole)'), value: 'crt' },
         { name: _('Origami (3D Fold)'), value: 'origami' },
         { name: _('Jelly (Squash & Stretch)'), value: 'jelly' },
-        { name: _('None'), value: 'none' }
-    ], null);
+        { name: _('None'), value: 'none' },
+    ]);
+    const minimizeSpeedRow = addSliderRow(animGroup, settings, 'window-effect-speed', _('Minimize Duration'), null,
+        { lower: 100, upper: 1500, step: 25 }, fmt.ms);
+    showWhen(minimizeSpeedRow, settings, ['minimize-effect'], () => settings.get_string('minimize-effect') !== 'none');
 
-    addCustomSpinRow(
-        visGroup,
-        settings,
-        'autohide-animation-speed',
-        _('Dock Animation Duration'),
-        _('Slide in and slide out duration (ms)'),
-        'preferences-system-time-symbolic',
-        { lower: 50, upper: 1000, step_increment: 25 },
-        createResetBtn
-    );
+    const isPanel = () => settings.get_boolean('hybrid-panel-mode');
+    const isZoom = () => settings.get_boolean('hover-zoom') && !isPanel();
+    const zoomStyle = () => settings.get_string('hover-zoom-style');
 
-    addCustomSpinRow(
-        animGroup,
-        settings,
-        'window-effect-speed',
-        _('Window Animation Duration'),
-        _('Window minimize effect speed (ms)'),
-        'preferences-system-time-symbolic',
-        { lower: 100, upper: 1500, step_increment: 25 },
-        createResetBtn
-    );
+    const zoomGroup = addGroup(page, _('Hover Zoom'), _('Icons grow as the pointer passes over them'));
+    addSwitchRow(zoomGroup, settings, 'hover-zoom', _('Magnify on Hover'));
+    addGroupReset(zoomGroup, settings, ['hover-zoom-style', ...ZOOM_KEYS]);
 
-    const hoverGroup = new Adw.PreferencesGroup({
-        title: _('Hover Zoom Physics &amp; Motion')
-    });
-    page.add(hoverGroup);
+    const zoomRows = [
+        addComboRow(zoomGroup, settings, 'hover-zoom-style', _('Motion'), _('The shape of the wave'), [
+            { name: _('Fluid'), value: 'fluid' },
+            { name: _('Domino'), value: 'domino' },
+            { name: _('Cylinder'), value: 'cylinder' },
+            { name: _('Magnetic'), value: 'magnetic' },
+            { name: _('Jelly'), value: 'jelly' },
+            { name: _('Coverflow'), value: 'coverflow' },
+        ]),
+        addSliderRow(zoomGroup, settings, 'hover-zoom-factor', _('Zoom'), _('Largest size an icon reaches'),
+            { lower: 1.1, upper: 3, step: 0.1 }, fmt.times),
+        addSliderRow(zoomGroup, settings, 'hover-zoom-smoothness', _('Smoothness'), _('How softly icons follow the pointer'),
+            { lower: 0.1, upper: 0.5, step: 0.02 }, value => value.toFixed(2)),
+        addSliderRow(zoomGroup, settings, 'hover-zoom-radius', _('Spread'), _('How many neighbours react'),
+            { lower: 2, upper: 5.5, step: 0.25 }, value => value.toFixed(2)),
+        addSliderRow(zoomGroup, settings, 'hover-zoom-rise', _('Lift'), _('How far icons rise towards the pointer'),
+            { lower: 0, upper: 45, step: 2 }, fmt.px),
+        addSwitchRow(zoomGroup, settings, 'hover-zoom-width', _('Make Room'), _('Neighbours slide apart for the zoomed icon')),
+    ];
+    for (const row of zoomRows) showWhen(row, settings, ['hover-zoom', 'hybrid-panel-mode'], isZoom);
 
-    addSwitchRow(hoverGroup, settings, 'hover-zoom', _('Hover Zoom'), _('Magnification effect on hover'), 'zoom-in-symbolic', null);
+    const gapRow = addSliderRow(zoomGroup, settings, 'hover-zoom-gap-factor', _('Push Strength'), null,
+        { lower: 1, upper: 3, step: 0.1 }, fmt.times);
+    showWhen(gapRow, settings, ['hover-zoom', 'hybrid-panel-mode', 'hover-zoom-width'],
+        () => isZoom() && settings.get_boolean('hover-zoom-width'));
+    showWhen(zoomGroup, settings, ['hybrid-panel-mode'], () => !isPanel());
 
-    const zoomStyleRow = addComboRow(hoverGroup, settings, 'hover-zoom-style', _('Zoom Motion Style'), _('Physics profile for magnification curve'), 'applications-graphics-symbolic', [
-        { name: _('Fluid'), value: 'fluid' },
-        { name: _('Domino'), value: 'domino' },
-        { name: _('Cylinder'), value: 'cylinder' },
-        { name: _('Magnetic'), value: 'magnetic' },
-        { name: _('Jelly'), value: 'jelly' },
-        { name: _('Coverflow'), value: 'coverflow' }
-    ], null);
+    const tweakGroup = addGroup(page, _('Motion Details'));
+    addGroupReset(tweakGroup, settings, TWEAK_KEYS);
+    const tweaks = [
+        ['domino', addSliderRow(tweakGroup, settings, 'hover-zoom-domino-tilt', _('Tilt'), null, { lower: 2, upper: 40, step: 1 }, fmt.deg)],
+        ['cylinder', addSliderRow(tweakGroup, settings, 'hover-zoom-cylinder-angle', _('Curve'), null, { lower: 10, upper: 60, step: 2 }, fmt.deg)],
+        ['magnetic', addSliderRow(tweakGroup, settings, 'hover-zoom-magnetic-strength', _('Pull'), _('How strongly icons snap to the pointer'),
+            { lower: 2, upper: 30, step: 1 }, fmt.px)],
+        ['jelly', addSliderRow(tweakGroup, settings, 'hover-zoom-jelly-stretch', _('Stretch'), null, { lower: 0.1, upper: 1.5, step: 0.05 }, fmt.fraction)],
+        ['jelly', addSliderRow(tweakGroup, settings, 'hover-zoom-jelly-squish', _('Squash'), null, { lower: 0.1, upper: 0.9, step: 0.05 }, fmt.fraction)],
+        ['coverflow', addSliderRow(tweakGroup, settings, 'hover-zoom-coverflow-angle', _('Card Angle'), null, { lower: 15, upper: 65, step: 2 }, fmt.deg)],
+    ];
+    const zoomKeys = ['hover-zoom', 'hybrid-panel-mode', 'hover-zoom-style'];
+    for (const [style, row] of tweaks) showWhen(row, settings, zoomKeys, () => isZoom() && zoomStyle() === style);
+    showWhen(tweakGroup, settings, zoomKeys, () => isZoom() && tweaks.some(([style]) => style === zoomStyle()));
 
-    const zoomFactorRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-factor', _('Zoom Factor'), _('Maximum size multiplier'), 'zoom-fit-best-symbolic', {
-        lower: 1.1,
-        upper: 3.0,
-        step_increment: 0.1
-    }, createResetBtn, 2);
+    const previewGroup = addGroup(page, _('Window Previews'));
+    addSwitchRow(previewGroup, settings, 'show-apps-preview', _('Preview on Hover'), _('Window thumbnails above the icon'));
+    addSliderRow(previewGroup, settings, 'context-menu-size', _('Thumbnail Width'), null, { lower: 100, upper: 500, step: 10 }, fmt.px);
+    addSliderRow(previewGroup, settings, 'big-preview-size', _('Large Preview'), _('Share of the screen for the big preview'),
+        { lower: 40, upper: 95, step: 5 }, fmt.percent);
+    addSwitchRow(previewGroup, settings, 'peek-effect', _('Peek'), _('Fade other windows while hovering a thumbnail'));
+    const peekSpeedRow = addSliderRow(previewGroup, settings, 'peek-animation-speed', _('Peek Fade'), null,
+        { lower: 200, upper: 3000, step: 50 }, fmt.ms);
+    showWhen(peekSpeedRow, settings, ['peek-effect'], () => settings.get_boolean('peek-effect'));
 
-    const smoothnessRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-smoothness', _('Animation Smoothness'), _('Tracking fluidity'), 'preferences-desktop-display-symbolic', {
-        lower: 0.10,
-        upper: 0.50,
-        step_increment: 0.02
-    }, createResetBtn, 2);
-
-    const radiusRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-radius', _('Influence Spread Radius'), _('How far neighbor icons react'), 'transform-crop-and-resize-symbolic', {
-        lower: 2.0,
-        upper: 5.5,
-        step_increment: 0.25
-    }, createResetBtn, 2);
-
-    const riseRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-rise', _('Icon Elevation (Rise)'), _('Distance icons lift towards cursor'), 'go-up-symbolic', {
-        lower: 0,
-        upper: 45,
-        step_increment: 2
-    }, createResetBtn);
-
-    const widthExpRow = addSwitchRow(hoverGroup, settings, 'hover-zoom-width', _('Dynamic Slot Push'), _('Expand adjacent icon slots smoothly'), 'zoom-original-symbolic', null);
-
-    const gapFactorRow = addCustomSpinRow(hoverGroup, settings, 'hover-zoom-gap-factor', _('Slot Spread Strength'), _('Push strength between adjacent icons'), 'format-justify-fill-symbolic', {
-        lower: 1.0,
-        upper: 3.0,
-        step_increment: 0.1
-    }, createResetBtn, 1);
-
-    const effectTweakGroup = new Adw.PreferencesGroup({
-        title: _('Effect Fine Tuning')
-    });
-    page.add(effectTweakGroup);
-
-    const dominoTiltRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-domino-tilt', _('Domino Tilt Angle'), _('Cascade tilt angle in degrees'), 'object-rotate-right-symbolic', {
-        lower: 2,
-        upper: 40,
-        step_increment: 1
-    }, createResetBtn);
-
-    const cylinderAngleRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-cylinder-angle', _('Cylinder Angle'), _('3D rotation arc angle'), 'view-refresh-symbolic', {
-        lower: 10,
-        upper: 60,
-        step_increment: 2
-    }, createResetBtn);
-
-    const magneticStrengthRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-magnetic-strength', _('Magnetic Snap Distance'), _('Cursor attraction force in pixels'), 'input-mouse-symbolic', {
-        lower: 2,
-        upper: 30,
-        step_increment: 1
-    }, createResetBtn);
-
-    const jellyStretchRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-jelly-stretch', _('Jelly Stretch Intensity'), _('How much icons pull/elongate along cursor path'), 'transform-crop-and-resize-symbolic', {
-        lower: 0.10,
-        upper: 1.50,
-        step_increment: 0.05
-    }, createResetBtn, 2);
-
-    const jellySquishRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-jelly-squish', _('Jelly Shrink Intensity'), _('How much opposite side compresses/squashes'), 'zoom-out-symbolic', {
-        lower: 0.10,
-        upper: 0.90,
-        step_increment: 0.05
-    }, createResetBtn, 2);
-
-    const coverflowAngleRow = addCustomSpinRow(effectTweakGroup, settings, 'hover-zoom-coverflow-angle', _('Coverflow Angle'), _('Perspective card angle in degrees'), 'view-paged-symbolic', {
-        lower: 15,
-        upper: 65,
-        step_increment: 2
-    }, createResetBtn);
-
-    const syncZoomControls = () => {
-        const enabled = settings.get_boolean('hover-zoom');
-        const style = settings.get_string('hover-zoom-style');
-        const widthEnabled = settings.get_boolean('hover-zoom-width');
-
-        zoomStyleRow.set_visible(enabled);
-        zoomFactorRow.set_visible(enabled);
-        smoothnessRow.set_visible(enabled);
-        radiusRow.set_visible(enabled);
-        riseRow.set_visible(enabled);
-        widthExpRow.set_visible(enabled);
-        gapFactorRow.set_visible(enabled && widthEnabled);
-
-        const hasSpecificTweak = enabled && (
-            style === 'domino' || style === 'cylinder' || style === 'magnetic' ||
-            style === 'jelly' || style === 'coverflow'
-        );
-        effectTweakGroup.set_visible(hasSpecificTweak);
-
-        dominoTiltRow.set_visible(enabled && style === 'domino');
-        cylinderAngleRow.set_visible(enabled && style === 'cylinder');
-        magneticStrengthRow.set_visible(enabled && style === 'magnetic');
-        jellyStretchRow.set_visible(enabled && style === 'jelly');
-        jellySquishRow.set_visible(enabled && style === 'jelly');
-        coverflowAngleRow.set_visible(enabled && style === 'coverflow');
-    };
-
-    settings.connect('changed::hover-zoom', syncZoomControls);
-    settings.connect('changed::hover-zoom-style', syncZoomControls);
-    settings.connect('changed::hover-zoom-width', syncZoomControls);
-    syncZoomControls();
-
-    const previewGroup = new Adw.PreferencesGroup({
-        title: _('Interaction &amp; Previews')
-    });
-    page.add(previewGroup);
-
-    addSwitchRow(previewGroup, settings, 'show-apps-preview', _('Show App Previews'), _('Display interactive window thumbnails on hover'), 'dialog-information-symbolic', null);
-
-    addCustomSpinRow(previewGroup, settings, 'context-menu-size', _('Thumbnail Width'), _('Max width of window thumbnails'), 'image-x-generic-symbolic', {
-        lower: 100,
-        upper: 500,
-        step_increment: 10
-    }, createResetBtn);
-
-    addCustomSpinRow(previewGroup, settings, 'big-preview-size', _('Live Preview Scale (%)'), _('Screen percentage for the big center preview'), 'view-fullscreen-symbolic', {
-        lower: 40,
-        upper: 95,
-        step_increment: 5
-    }, createResetBtn);
-
-    const peekRow = addSwitchRow(
-        previewGroup,
-        settings,
-        'peek-effect',
-        _('Window Aero Peek'),
-        _('Make other windows transparent when hovering thumbnails'),
-        'view-reveal-symbolic',
-        null
-    );
-
-    const peekSpeedRow = addCustomSpinRow(
-        previewGroup,
-        settings,
-        'peek-animation-speed',
-        _('Peek Animation Speed'),
-        _('Higher = slower animation (ms)'),
-        'preferences-system-time-symbolic', {
-        lower: 200,
-        upper: 3000,
-        step_increment: 50
-    },
-        createResetBtn
-    );
-
-    const updateSpeedSubtitle = () => {
-        const val = settings.get_int('peek-animation-speed');
-        peekSpeedRow.subtitle = `${val} ms`;
-    };
-
-    updateSpeedSubtitle();
-    settings.connect('changed::peek-animation-speed', updateSpeedSubtitle);
-
-    const syncPeekSpeedVisibility = () => {
-        const enabled = settings.get_boolean('peek-effect');
-        peekSpeedRow.set_visible(enabled);
-    };
-
-    settings.connect('changed::peek-effect', syncPeekSpeedVisibility);
-    syncPeekSpeedVisibility();
-
-    const utilGroup = new Adw.PreferencesGroup({
-        title: _('Multitasking &amp; Utilities')
-    });
-    page.add(utilGroup);
-
-    addComboRow(utilGroup, settings, 'new-window-action', _('New Window Action'), _('Shortcut to open a new instance of an app'), 'window-new-symbolic', [
-        { name: _('Ctrl + Left Click'), value: 'ctrl-click' },
-        { name: _('Middle Mouse Click'), value: 'middle-click' },
-        { name: _('Both'), value: 'both' }
-    ], null);
-
-    addSwitchRow(utilGroup, settings, 'lock-icons', _('Lock Icons'), _('Prevent drag and drop reordering'), 'system-lock-screen-symbolic', null);
-    addSwitchRow(utilGroup, settings, 'show-unpinned-apps', _('Show Unpinned Apps'), _('Display running apps that are not pinned to the dock'), 'view-paged-symbolic', null);
-
-    const qlRow = new Adw.ActionRow({
-        title: _('Quick launch'),
-        subtitle: _('Super + 1–9 targets the first nine dock apps (registered as keyboard shortcuts). Change under Settings → Keyboard.'),
-    });
-    qlRow.add_prefix(new Gtk.Image({
-        icon_name: 'input-keyboard-symbolic'
+    const utilGroup = addGroup(page, _('Mouse &amp; Keyboard'));
+    addComboRow(utilGroup, settings, 'new-window-action', _('New Window'), _('Open another window of an app'), [
+        { name: _('Ctrl + Click'), value: 'ctrl-click' },
+        { name: _('Middle Click'), value: 'middle-click' },
+        { name: _('Both'), value: 'both' },
+    ]);
+    addSwitchRow(utilGroup, settings, 'scroll-action-dock', _('Scroll on Dock'), _('Switch workspaces'));
+    addSwitchRow(utilGroup, settings, 'scroll-action-app', _('Scroll on Icon'), _('Cycle through that app’s windows'));
+    utilGroup.add(new Adw.ActionRow({
+        title: _('Quick Launch'),
+        subtitle: _('Super + 1–9 opens the first nine dock apps. Change it in Settings → Keyboard'),
     }));
-    utilGroup.add(qlRow);
 
-    addSwitchRow(utilGroup, settings, 'isolate-workspaces', _('Isolate Workspaces'), _('Only show apps running on the current workspace'), 'focus-windows-symbolic', null);
-    addSwitchRow(utilGroup, settings, 'scroll-action-dock', _('Dock Scroll Action'), _('Scroll on empty dock area to switch workspaces'), 'input-mouse-symbolic', null);
-    addSwitchRow(utilGroup, settings, 'scroll-action-app', _('App Scroll Action'), _('Scroll on app icons to cycle through its windows'), 'view-restore-symbolic', null);
+    const appsGroup = addGroup(page, _('Apps on the Dock'));
+    addSwitchRow(appsGroup, settings, 'show-unpinned-apps', _('Running Apps'), _('Also show open apps that are not pinned'));
+    addSwitchRow(appsGroup, settings, 'isolate-workspaces', _('This Workspace Only'), _('Show only apps open on the current workspace'));
+    addSwitchRow(appsGroup, settings, 'lock-icons', _('Lock Order'), _('Stop icons from being dragged around'));
+
+    window.add(page);
 }

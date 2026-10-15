@@ -25,11 +25,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { BlurPanel } from '../blur/BlurPanel.js';
-import { isPointerWithinDockBounds } from './MagnifierMath.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { isPointerWithinDockBounds } from './MagnifierMath.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { isActorAlive, setBoxVertical, getBoxVertical, hexToRgba } from '../../core/Utils.js';
 import { hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
@@ -90,7 +90,8 @@ export function createTooltipActor(dockActor, settings) {
 
     if (dockActor) {
         tooltip.connectObject('leave-event', () => {
-            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+            dockActor._magTimers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 if (!isActorAlive(dockActor) || !dockActor._magTooltip || !dockActor._magTooltip.visible) {
                     return GLib.SOURCE_REMOVE;
                 }
@@ -165,10 +166,6 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     if (isBlur) {
         const basePad = 2;
         const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
-        if (dockPos === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
-        else if (dockPos === 'TOP') insets.top += ARROW_HEIGHT;
-        else if (dockPos === 'LEFT') insets.left += ARROW_HEIGHT;
-        else if (dockPos === 'RIGHT') insets.right += ARROW_HEIGHT;
 
         if (!dockActor._magTooltipBlur) {
             dockActor._magTooltipBlur = new BlurPanel(
@@ -194,11 +191,21 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     if (isBlur) {
         bgRgba = 'rgba(0, 0, 0, 0)';
     } else {
-        const tBg = dockActor._tooltipBg || 'background-color: rgba(20, 20, 22, 0.92);';
-        let match = tBg.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
-        if (!match) match = tBg.match(/background-color:\s*(rgba?\([^)]+\))/);
-        if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent') {
-            bgRgba = match[1];
+        const themeId = Settings.dockTheme || 'default';
+        const tBg = dockActor._tooltipBg || '';
+
+        let match = tBg.match(/background-gradient-start:\s*([^;]+)/i);
+        if (!match) match = tBg.match(/background-color:\s*([^;]+)/i);
+
+        if (match && match[1] && match[1].trim() !== 'rgba(0, 0, 0, 0)' && match[1].trim() !== 'transparent') {
+            bgRgba = match[1].trim();
+        } else if (dockActor._dockUI) {
+            const resolved = resolveTooltipColors(dockActor._dockUI, themeId);
+            if (resolved && resolved.css) {
+                let m = resolved.css.match(/background-gradient-start:\s*([^;]+)/i);
+                if (!m) m = resolved.css.match(/background-color:\s*([^;]+)/i);
+                if (m && m[1]) bgRgba = m[1].trim();
+            }
         }
     }
 
@@ -421,8 +428,8 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         dockActor._tooltipPosTrackerId = null;
     }
 
-    if (!dockActor._tooltipPosTrackerDestroyId) {
-        dockActor._tooltipPosTrackerDestroyId = true;
+    if (!dockActor._tooltipDestroyHooked) {
+        dockActor._tooltipDestroyHooked = true;
         dockActor.connectObject('destroy', () => {
             if (dockActor._tooltipPosTrackerId && dockActor._magTimers) {
                 dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
@@ -498,14 +505,11 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         dockActor._magTooltipBg.queue_repaint();
 
         if (dockActor._magTooltipBlur) {
-            const basePad = (dockActor._magTooltipBlur.basePad !== undefined) ? dockActor._magTooltipBlur.basePad : 2;
-            const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
-            if (dockPosStr === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
-            else if (dockPosStr === 'TOP') insets.top += ARROW_HEIGHT;
-            else if (dockPosStr === 'LEFT') insets.left += ARROW_HEIGHT;
-            else if (dockPosStr === 'RIGHT') insets.right += ARROW_HEIGHT;
-            dockActor._magTooltipBlur.setCustomInsets(insets);
-            dockActor._magTooltipBlur.syncGeometry();
+            const blur = dockActor._magTooltipBlur;
+            const basePad = blur.basePad;
+            blur.setCustomInsets({ top: basePad, bottom: basePad, left: basePad, right: basePad });
+            blur.setArrow({ side: dockPosStr, center: dockActor._magTooltipBg._arrowCenter, width: ARROW_WIDTH, height: ARROW_HEIGHT });
+            blur.syncGeometry();
         }
         
         return GLib.SOURCE_CONTINUE;

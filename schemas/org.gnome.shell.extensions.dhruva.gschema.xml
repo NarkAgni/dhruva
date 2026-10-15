@@ -45,12 +45,12 @@
     </key>
 
     <key name="dock-margin" type="i">
-      <default>1</default>
+      <default>0</default>
       <summary>Distance from screen edge in pixels</summary>
     </key>
 
     <key name="icon-size" type="i">
-      <default>38</default>
+      <default>32</default>
       <summary>Icon Size</summary>
     </key>
 
@@ -60,12 +60,12 @@
     </key>
 
     <key name="dock-padding" type="i">
-      <default>8</default>
+      <default>0</default>
       <summary>Dock Side Padding</summary>
     </key>
 
     <key name="dock-height" type="i">
-      <default>10</default>
+      <default>8</default>
       <summary>Dock Height / Thickness padding</summary>
     </key>
 
@@ -95,12 +95,12 @@
     </key>
 
     <key name="background-opacity" type="i">
-      <default>60</default>
+      <default>75</default>
       <summary>Background Opacity</summary>
     </key>
 
     <key name="desktop-btn-width" type="i">
-      <default>15</default>
+      <default>12</default>
       <summary>Desktop button width</summary>
     </key>
     
@@ -120,12 +120,12 @@
     </key>
     
     <key name="border-radius" type="i">
-      <default>20</default>
+      <default>18</default>
       <summary>Border Radius</summary>
     </key>
 
     <key name="stroke-width" type="i">
-      <default>2</default>
+      <default>1</default>
       <summary>Stroke Width</summary>
     </key>
 
@@ -135,7 +135,7 @@
     </key>
 
     <key name="stroke-opacity" type="i">
-      <default>15</default>
+      <default>10</default>
       <summary>Stroke Opacity</summary>
     </key>
 
@@ -152,7 +152,7 @@
         <choice value='square'/>
         <choice value='windows'/>
       </choices>
-      <default>'line'</default>
+      <default>'windows'</default>
       <summary>Running Indicator Style</summary>
     </key>
 
@@ -176,13 +176,8 @@
       <summary>Indicator Size</summary>
     </key>
 
-    <key name="indicator-spacing" type="i">
-      <default>5</default>
-      <summary>Indicator Spacing</summary>
-    </key>
-
     <key name="indicator-glow" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Indicator Glow</summary>
     </key>
 
@@ -374,13 +369,13 @@
     </key>
 
     <key name="show-mounts" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Mounted Drives</summary>
       <description>Show connected USB drives, external HDDs, and mounted volumes on the dock.</description>
     </key>
 
     <key name="show-trash" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Recycle Bin</summary>
     </key>
 
@@ -395,12 +390,12 @@
     </key>
 
     <key name="grid-button-position" type="s">
-      <default>'END'</default>
+      <default>'START'</default>
       <summary>Grid Button Position</summary>
     </key>
 
     <key name="show-home" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Home Folder</summary>
     </key>
 
@@ -450,7 +445,7 @@
     </key>
     
     <key name="clock-position" type="s">
-      <default>'RIGHT_END'</default>
+      <default>'END'</default>
       <summary>Clock Position</summary>
     </key>
 
@@ -460,13 +455,13 @@
     </key>
 
     <key name="show-module-separator" type="b">
-        <default>true</default>
-        <summary>Show Module Separator</summary>
-        <description>Show a divider for clock, grid, and system icons.</description>
+      <default>true</default>
+      <summary>Show Module Separator</summary>
+      <description>Show a divider for clock, grid, and system icons.</description>
     </key>
 
     <key name="separator-width" type="i">
-      <default>2</default>
+      <default>1</default>
       <summary>Module Separator Width</summary>
     </key>
 
@@ -481,14 +476,14 @@
     </key>
 
     <key name="separator-opacity" type="i">
-      <default>40</default>
+      <default>20</default>
       <summary>Module Separator Opacity</summary>
     </key>
 
     <key name="show-app-separator" type="b">
-        <default>true</default>
-        <summary>Show App Separator</summary>
-        <description>Show a divider between pinned and unpinned running apps.</description>
+      <default>false</default>
+      <summary>Show App Separator</summary>
+      <description>Show a divider between pinned and unpinned running apps.</description>
     </key>
 
     <key name="running-separator-width" type="i">
@@ -507,7 +502,7 @@
     </key>
 
     <key name="running-separator-opacity" type="i">
-      <default>12</default>
+      <default>20</default>
       <summary>Pinned/Running Apps Separator Opacity</summary>
     </key>
 
@@ -633,8 +628,8 @@
     </key>
 
     <key name="blur-mode" type="s">
-        <default>'dynamic'</default>
-        <summary>Blur Mode (dynamic or static)</summary>
+      <default>'dynamic'</default>
+      <summary>Blur Mode (dynamic or static)</summary>
     </key>
 
     <key name="blur-static-preset" type="s">
@@ -665,9 +660,27 @@
     </key>
 
     <key name="window-effect-speed" type="i">
-      <default>350</default>
+      <default>450</default>
       <summary>Window Effect Animation Speed</summary>
       <description>Duration in milliseconds for window minimize and restore effects.</description>
+    </key>
+
+    <key name="hybrid-panel-mode" type="b">
+      <default>true</default>
+      <summary>Hybrid Panel Mode</summary>
+      <description>Integrate GNOME top bar panel into Dhruva dock.</description>
+    </key>
+
+    <key name="tray-panel-indicators" type="as">
+      <default>[]</default>
+      <summary>Tray icons shown on the panel</summary>
+      <description>Small status icons the user chose to keep on the panel instead of inside the tray.</description>
+    </key>
+
+    <key name="tray-order" type="as">
+      <default>[]</default>
+      <summary>Tray icon order</summary>
+      <description>Order of the icons inside the tray popup.</description>
     </key>
 
   </schema>

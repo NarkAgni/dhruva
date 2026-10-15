@@ -83,3 +83,63 @@ export function traceMenuPath(ctx, width, height, radius, arrowHeight, arrowWidt
 
     ctx.closePath();
 }
+
+const FALLBACK_RGBA = [24, 24, 31, 0.96];
+
+export function parseCssColor(color) {
+    const value = String(color || '').trim();
+
+    if (value.startsWith('#')) {
+        let hex = value.slice(1);
+        if (hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('');
+        if (!/^[0-9a-fA-F]{6}$/.test(hex)) return FALLBACK_RGBA;
+        return [
+            parseInt(hex.slice(0, 2), 16),
+            parseInt(hex.slice(2, 4), 16),
+            parseInt(hex.slice(4, 6), 16),
+            1,
+        ];
+    }
+
+    const parts = value.match(/[\d.]+/g);
+    if (!parts || parts.length < 3) return FALLBACK_RGBA;
+    return [Number(parts[0]), Number(parts[1]), Number(parts[2]), parts.length > 3 ? Number(parts[3]) : 1];
+}
+
+export function paintMenuBubble(area, cairo, dockPos, colors, shape) {
+    const cr = area.get_context();
+    const [fullW, fullH] = area.get_surface_size();
+    const strokeWidth = colors.strokeWidth;
+    const half = strokeWidth / 2;
+    const arrowCenter = shape.arrowCenter - half;
+
+    cr.save();
+    cr.setOperator(cairo.Operator.CLEAR);
+    cr.paint();
+    cr.restore();
+
+    cr.translate(half, half);
+    traceMenuPath(
+        cr,
+        fullW - strokeWidth,
+        fullH - strokeWidth,
+        shape.radius,
+        shape.arrowHeight,
+        shape.arrowWidth,
+        dockPos,
+        arrowCenter,
+        arrowCenter
+    );
+
+    const [fr, fg, fb, fa] = parseCssColor(colors.fill);
+    cr.setSourceRGBA(fr / 255, fg / 255, fb / 255, fa);
+    cr.fillPreserve();
+
+    const [sr, sg, sb, sa] = parseCssColor(colors.stroke);
+    cr.setSourceRGBA(sr / 255, sg / 255, sb / 255, sa);
+    cr.setLineWidth(strokeWidth);
+    cr.setLineJoin(cairo.LineJoin.ROUND);
+    cr.stroke();
+
+    cr.$dispose();
+}

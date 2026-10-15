@@ -25,9 +25,10 @@ import { hexToRgba, setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 
 const DEFAULT_HOVER_DURATION_MS = 200;
+const INDICATOR_EASE_MS = 160;
+const INDICATOR_SIZE_RE = /width:\s*\d+px;\s*height:\s*\d+px;\s*/i;
 
 export function getHoverBgRadius(iconSize) {
-    const baseRadius = (Settings.borderRadius !== undefined && Settings.borderRadius !== null && Settings.borderRadius > 0) ? Settings.borderRadius : 10;
     return Math.max(6, Math.min(10, Math.round(iconSize * 0.18)));
 }
 
@@ -39,6 +40,33 @@ function safeHexToRgba(color, alpha) {
     } catch (_e) {
         return 'rgba(255, 255, 255, ' + safeAlpha + ')';
     }
+}
+
+export function stripIndicatorSize(style) {
+    return (style || '').replace(INDICATOR_SIZE_RE, '');
+}
+
+export function getDynamicIndicatorLength(isFocused) {
+    const iconSize = Settings.iconSize || 48;
+    const activeLen = Math.min(iconSize - 4, Math.max(22, Math.floor(iconSize * 0.52)));
+    const inactiveLen = Math.max(12, Math.floor(activeLen * 0.45));
+    return isFocused ? activeLen : inactiveLen;
+}
+
+export function syncDynamicIndicator(dotBox, indProps, isVerticalDock, isFocused) {
+    const length = getDynamicIndicatorLength(isFocused);
+    const style = stripIndicatorSize(indProps.style);
+    dotBox.get_children().forEach(dot => {
+        dot.set_style(style);
+        dot.remove_all_transitions();
+        if (isVerticalDock) {
+            dot.width = indProps.dw;
+            dot.ease({ height: length, duration: INDICATOR_EASE_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+        } else {
+            dot.height = indProps.dh;
+            dot.ease({ width: length, duration: INDICATOR_EASE_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+        }
+    });
 }
 
 export function createBaseButtonContainer(appBox) {
@@ -72,9 +100,7 @@ export function createIndicatorBox(dockPosition, isVerticalDock, indProps, count
     let dh = indProps.dh;
 
     if (indStyle === 'windows') {
-        const activeLen = Math.min(expandedDim - 8, Math.max(22, Math.floor((Settings.iconSize || 48) * 0.52)));
-        const inactiveLen = Math.max(12, Math.floor(activeLen * 0.45));
-        const len = isFocused ? activeLen : inactiveLen;
+        const len = getDynamicIndicatorLength(isFocused);
         if (isVerticalDock) {
             dh = len;
         } else {
@@ -102,10 +128,11 @@ export function createIndicatorBox(dockPosition, isVerticalDock, indProps, count
     dotBox.translation_y = indProps.ty;
     dotBox.set_style('spacing: 4px;');
 
+    const cleanStyle = stripIndicatorSize(indProps.style);
     for (let i = 0; i < numDots; i++) {
         const dot = new St.Widget({ reactive: false });
         dot.set_size(dw, dh);
-        dot.set_style(indProps.style);
+        dot.set_style(cleanStyle);
         dotBox.add_child(dot);
     }
     return dotBox;
@@ -224,23 +251,8 @@ attachHoverBackground.updateState = function (btn, isRunning, windows = [], indP
     btn._compactCollapsed = compactCollapsed;
     btn._tightCross = tightCross;
 
-    if (isIndicatorActive && btn._indicatorActor && isActorAlive(btn._indicatorActor) && indStyle === 'windows') {
-        const activeLen = Math.min(compactExpanded - 6, Math.max(20, Math.floor((Settings.iconSize || 48) * 0.52)));
-        const inactiveLen = Math.max(12, Math.floor(activeLen * 0.45));
-        const targetLen = isFocused ? activeLen : inactiveLen;
-
-        const dots = btn._indicatorActor.get_children();
-        dots.forEach(dot => {
-            if (isActorAlive(dot)) {
-                dot.set_style(indProps.style);
-                dot.remove_all_transitions();
-                if (isVerticalDock) {
-                    dot.ease({ height: targetLen, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-                } else {
-                    dot.ease({ width: targetLen, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-                }
-            }
-        });
+    if (isIndicatorActive && indStyle === 'windows' && btn._indicatorActor && isActorAlive(btn._indicatorActor)) {
+        syncDynamicIndicator(btn._indicatorActor, indProps, isVerticalDock, isFocused);
     } else {
         if (btn._indicatorActor && isActorAlive(btn._indicatorActor)) {
             appBox.remove_child(btn._indicatorActor);

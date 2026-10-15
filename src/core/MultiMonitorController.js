@@ -20,9 +20,11 @@
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import GnomeDash from './GnomeDash.js';
+import AppManager from './AppManager.js';
+import FolderManager from './FolderManager.js';
 import DockUI from '../ui/dock/DockUI.js';
 import { Settings } from './SettingsManager.js';
-import { BlurPanel } from '../ui/blur/BlurPanel.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 
@@ -34,6 +36,9 @@ export default class MultiMonitorController {
         this.docks = [];
         this.timers = new TimeoutTracker();
         this._reloadIdleId = null;
+        this._gnomeDash = new GnomeDash();
+        this.appManager = new AppManager(uuid, settings);
+        this.folderManager = new FolderManager(this.appManager);
 
         this.settings.connectObject('changed::show-on-all-monitors', () => {
             this.reloadDocks();
@@ -41,36 +46,38 @@ export default class MultiMonitorController {
     }
 
     handleMonitorsChanged() {
-        if (!this.docks) return;
+        const monitorCount = Main.layoutManager.monitors.length;
+        if (monitorCount === 0) return;
 
-        const monitors = Main.layoutManager.monitors;
-        if (!monitors || monitors.length === 0) return;
-
-        const numMonitors = global.display.get_n_monitors();
-        if (numMonitors <= 0) return;
-
-        const showOnAll = Settings.showOnAllMonitors;
-        const expectedCount = showOnAll ? numMonitors : 1;
-
-        if (this.docks.length === expectedCount) {
-            this.docks.forEach(dock => {
-                if (dock && dock.dockManager) {
-                    dock.dockManager.updatePosition();
-                }
-                if (dock && dock.autoHideManager) {
-                    dock.autoHideManager.updateTriggerGeometry();
-                }
-            });
+        const expectedCount = Settings.showOnAllMonitors ? monitorCount : 1;
+        const primaryChanged = this._primaryIndex !== Main.layoutManager.primaryIndex;
+        if (this.docks.length !== expectedCount || primaryChanged) {
+            this.reloadDocks();
             return;
         }
 
-        this.reloadDocks();
+        for (const dock of this.docks) {
+            dock.dockManager.updatePosition();
+            dock.autoHideManager.updateTriggerGeometry();
+        }
+    }
+
+    _createDock(monitorIndex) {
+        const dock = new DockUI(this.settings, this.openPrefsCallback, this.appManager, this.folderManager, monitorIndex);
+        dock.show();
+        this.docks.push(dock);
+    }
+
+    _syncGnomeDash() {
+        if (Settings.independentDock) this._gnomeDash.release();
+        else this._gnomeDash.takeover();
     }
 
     reloadDocks() {
         this.destroyDocks();
 
         if (!this.settings) return;
+        this._syncGnomeDash();
 
         if (this._reloadIdleId) {
             this.timers.remove(this._reloadIdleId);
@@ -81,6 +88,7 @@ export default class MultiMonitorController {
             this._reloadIdleId = null;
             if (!this.settings) return GLib.SOURCE_REMOVE;
 
+            this._primaryIndex = Main.layoutManager.primaryIndex;
             const focusedMonitor = this.getFocusedMonitorIndex();
             const showOnAll = Settings.showOnAllMonitors;
 
@@ -95,16 +103,9 @@ export default class MultiMonitorController {
                     ];
                 }
 
-                for (let idx = 0; idx < monitorOrder.length; idx++) {
-                    const i = monitorOrder[idx];
-                    const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, i);
-                    dock.show();
-                    this.docks.push(dock);
-                }
+                monitorOrder.forEach(i => this._createDock(i));
             } else {
-                const dock = new DockUI(this.settings, this.openPrefsCallback, this.uuid, null);
-                dock.show();
-                this.docks.push(dock);
+                this._createDock(null);
             }
 
             return GLib.SOURCE_REMOVE;
@@ -155,11 +156,6 @@ export default class MultiMonitorController {
             if (dock) dock.destroy();
         });
         this.docks = [];
-
-        for (const panel of Array.from(BlurPanel.allPanels)) {
-            panel.destroy();
-        }
-        BlurPanel.allPanels.clear();
     }
 
     destroy() {
@@ -167,6 +163,10 @@ export default class MultiMonitorController {
             this.settings.disconnectObject(this);
         }
         this.destroyDocks();
+        this.folderManager = null;
+        this.appManager.destroy();
+        this.appManager = null;
+        this._gnomeDash.release();
         if (this.timers) {
             this.timers.destroy();
             this.timers = null;

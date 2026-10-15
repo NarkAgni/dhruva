@@ -21,143 +21,82 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { isActorAlive } from '../../core/Utils.js';
 
-
-const CONFETTI_COLORS = ['#FF3B30', '#34C759', '#007AFF', '#FFCC00', '#FF2D55', '#AF52DE', '#5AC8FA'];
-const NUM_CONFETTI = 25;
+const PUFF_COUNT = 9;
+const PUFF_MIN_MS = 420;
+const PUFF_EXTRA_MS = 160;
+const PUFF_SPREAD = 0.9;
+const PUFF_RISE = 0.35;
+const ICON_POP_MS = 200;
+const ICON_POP_SCALE = 1.25;
 
 const _activeActors = new Set();
 
-export function cleanupTrashEffects() {
-    for (const actor of _activeActors) {
-        if (isActorAlive(actor)) {
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            const parent = actor.get_parent();
-            if (parent) parent.remove_child(actor);
-            actor.destroy();
-        }
-    }
-    _activeActors.clear();
+
+function track(actor) {
+    Main.uiGroup.add_child(actor);
+    _activeActors.add(actor);
 }
 
-function _triggerConfettiPop(x, y, iconSize) {
-    const flash = new St.Widget({
-        style: 'background-color: rgba(255,255,255,0.9); border-radius: 100px; box-shadow: 0 0 20px rgba(255,255,255,0.8);'
+function easeAndDispose(actor, params) {
+    actor.ease({
+        ...params,
+        onStopped: () => {
+            _activeActors.delete(actor);
+            actor.destroy();
+        },
     });
-    flash.set_size(iconSize, iconSize);
-    flash.set_position(x - iconSize / 2, y - iconSize / 2);
-    flash.set_pivot_point(0.5, 0.5);
+}
 
-    Main.uiGroup.add_child(flash);
-    _activeActors.add(flash);
+function spawnPuff(x, y, iconSize, index) {
+    const size = Math.round(iconSize * (0.35 + Math.random() * 0.25));
+    const shade = 215 + Math.round(Math.random() * 40);
+    const puff = new St.Widget({
+        style: `background-color: rgba(${shade}, ${shade}, ${shade}, 0.6); border-radius: ${size}px;`,
+        width: size,
+        height: size,
+    });
+    puff.set_pivot_point(0.5, 0.5);
+    puff.set_position(x - size / 2, y - size / 2);
+    puff.set_scale(0.4, 0.4);
+    track(puff);
 
-    flash.ease({
-        scale_x: 2.5,
-        scale_y: 2.5,
+    const angle = (index / PUFF_COUNT) * Math.PI * 2 + Math.random() * 0.5;
+    const distance = iconSize * PUFF_SPREAD * (0.6 + Math.random() * 0.4);
+    const duration = PUFF_MIN_MS + Math.random() * PUFF_EXTRA_MS;
+
+    easeAndDispose(puff, {
+        translation_x: Math.cos(angle) * distance,
+        translation_y: Math.sin(angle) * distance - iconSize * PUFF_RISE,
+        scale_x: 1.6,
+        scale_y: 1.6,
         opacity: 0,
-        duration: 300,
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onComplete: () => {
-            if (_activeActors.has(flash)) {
-                if (isActorAlive(flash)) {
-                    Main.uiGroup.remove_child(flash);
-                    flash.destroy();
-                }
-                _activeActors.delete(flash);
-            }
-        }
+        duration,
+        mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
     });
-
-    for (let i = 0; i < NUM_CONFETTI; i++) {
-        const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
-        const size = 6 + Math.random() * 8;
-        const isCircle = Math.random() > 0.5;
-        const radius = isCircle ? '50px' : '2px';
-
-        const confetti = new St.Widget({
-            style: `background-color: ${color}; border-radius: ${radius};`,
-        });
-        confetti.set_size(size, size);
-        confetti.set_position(x - size / 2, y - size / 2);
-        confetti.set_pivot_point(0.5, 0.5);
-
-        Main.uiGroup.add_child(confetti);
-        _activeActors.add(confetti);
-
-        const angle = Math.random() * Math.PI * 2;
-        const distance = 80 + Math.random() * 100;
-        const tx = Math.cos(angle) * distance;
-        const ty = Math.sin(angle) * distance - 40;
-
-        confetti.ease({
-            translation_x: tx,
-            translation_y: ty,
-            rotation_angle_z: Math.random() * 720 - 360,
-            opacity: 0,
-            duration: 600 + Math.random() * 400,
-            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-            onComplete: () => {
-                if (_activeActors.has(confetti)) {
-                    if (isActorAlive(confetti)) {
-                        Main.uiGroup.remove_child(confetti);
-                        confetti.destroy();
-                    }
-                    _activeActors.delete(confetti);
-                }
-            }
-        });
-    }
 }
 
 export function playTrashEffect(app, x, y, iconSize) {
-    if (!app) return;
+    if (app) {
+        const icon = app.create_icon_texture(iconSize);
+        icon.set_size(iconSize, iconSize);
+        icon.set_pivot_point(0.5, 0.5);
+        icon.set_position(x - iconSize / 2, y - iconSize / 2);
+        track(icon);
 
-    const icon = app.create_icon_texture(iconSize);
-    icon.set_position(x - iconSize / 2, y - iconSize / 2);
-    icon.set_pivot_point(0.5, 0.5);
+        easeAndDispose(icon, {
+            scale_x: ICON_POP_SCALE,
+            scale_y: ICON_POP_SCALE,
+            opacity: 0,
+            duration: ICON_POP_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
 
-    Main.uiGroup.add_child(icon);
-    _activeActors.add(icon);
+    for (let i = 0; i < PUFF_COUNT; i++) spawnPuff(x, y, iconSize, i);
+}
 
-    icon.ease({
-        rotation_angle_z: -25,
-        duration: 80,
-        mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-        onComplete: () => {
-            icon.ease({
-                rotation_angle_z: 25,
-                duration: 80,
-                mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-                onComplete: () => {
-                    icon.ease({
-                        rotation_angle_z: 0,
-                        scale_x: 0.3,
-                        scale_y: 0.3,
-                        duration: 120,
-                        mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                        onComplete: () => {
-                            _triggerConfettiPop(x, y, iconSize);
-                            icon.ease({
-                                scale_x: 2.5,
-                                scale_y: 2.5,
-                                opacity: 0,
-                                duration: 250,
-                                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                                onComplete: () => {
-                                    if (_activeActors.has(icon)) {
-                                        if (isActorAlive(icon)) {
-                                            Main.uiGroup.remove_child(icon);
-                                            icon.destroy();
-                                        }
-                                        _activeActors.delete(icon);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        }
-    });
+export function cleanupTrashEffects() {
+    for (const actor of [..._activeActors]) actor.remove_all_transitions();
+    _activeActors.clear();
 }

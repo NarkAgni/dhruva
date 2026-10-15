@@ -41,9 +41,7 @@ export function scheduleOverviewMarginRetry(dockUI) {
 export function applyOverviewDockMargin(dockUI) {
     if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor)) return;
 
-    if (dockUI.settings && Settings.independentDock) {
-        return;
-    }
+    if (Settings.independentDock) return;
 
     const currentMon = dockUI.monitorManager.getCurrentMonitor();
     if (!currentMon || currentMon.index !== Main.layoutManager.primaryIndex) return;
@@ -61,7 +59,7 @@ export function applyOverviewDockMargin(dockUI) {
         dockH = Math.max(dockH, Math.round(prefH || 0));
     }
 
-    const margin = dockUI.settings ? (Settings.dockMargin || 0) : 0;
+    const margin = Settings.dockMargin || 0;
     const finalDockHeight = Math.round(dockH + margin);
 
     if (Main.overview.dash && isActorAlive(Main.overview.dash)) {

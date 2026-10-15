@@ -18,13 +18,14 @@
 
 
 import { buildBlurPage } from './src/prefs/BlurPage.js';
+import { buildPanelPage } from './src/prefs/PanelPage.js';
 import { buildAboutPage } from './src/prefs/AboutPage.js';
 import { buildLayoutPage } from './src/prefs/LayoutPage.js';
 import { buildModulesPage } from './src/prefs/ModulesPage.js';
 import { buildBehaviorPage } from './src/prefs/BehaviorPage.js';
 import { buildMusicPillPage } from './src/prefs/MusicPillPage.js';
 import { buildAppearancePage } from './src/prefs/AppearancePage.js';
-import { makeResetBtn, makeGroupResetBtn } from './src/prefs/ResetButtons.js';
+import { disconnectSettingSignals } from './src/prefs/SettingsSignals.js';
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 
@@ -32,15 +33,18 @@ export default class DhruvaPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
 
-        const createResetBtn = makeResetBtn(settings);
-        const createGroupReset = makeGroupResetBtn(settings);
-
-        buildLayoutPage(window, settings, createResetBtn);
-        buildAppearancePage(window, settings, createResetBtn, createGroupReset);
-        buildBlurPage(window, settings, createResetBtn);
-        buildBehaviorPage(window, settings, createResetBtn);
-        buildMusicPillPage(window, settings, createResetBtn);
+        buildLayoutPage(window, settings);
+        buildPanelPage(window, settings);
+        buildAppearancePage(window, settings);
+        buildBlurPage(window, settings);
+        buildBehaviorPage(window, settings);
         buildModulesPage(this, window, settings);
+        buildMusicPillPage(window, settings);
         buildAboutPage(this, window);
+
+        window.connect('close-request', () => {
+            disconnectSettingSignals();
+            return false;
+        });
     }
 }

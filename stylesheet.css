@@ -271,7 +271,7 @@
 
 .dhruva-music-btn-play {
     padding: 5px;
-    background-color: rgba(255, 255, 255, 0.25); /* Fallback jab koi gaana na chal raha ho */
+    background-color: rgba(255, 255, 255, 0.25);
     color: #ffffff;
     transition-duration: 150ms;
 }
@@ -279,3 +279,154 @@
 .dhruva-music-btn-play:hover {
     filter: brightness(1.15);
 }
+
+/* ==================== Hybrid Panel Integration ==================== */
+.dhruva-hybrid-panel-box {
+    spacing: 0px;
+    padding: 0 4px;
+    margin: 0;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+#DhruvaHybridRightPanel {
+    spacing: 8px;
+    padding: 0;
+}
+
+#DhruvaStolenExtensionsBox {
+    spacing: 4px;
+}
+
+.dhruva-hybrid-panel-box .panel-button {
+    padding: 0 8px;
+    font-weight: 600;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.95);
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    transition-duration: 150ms;
+}
+
+.dhruva-hybrid-panel-box .panel-button:hover {
+    background-color: rgba(255, 255, 255, 0.18);
+}
+
+.dhruva-hybrid-panel-box .panel-button:active,
+.dhruva-hybrid-panel-box .panel-button:checked {
+    background-color: rgba(255, 255, 255, 0.26);
+}
+
+/* Workspace Indicator Pills */
+.dhruva-workspace-indicator {
+    spacing: 4px;
+}
+
+.dhruva-workspace-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.45);
+    margin: 0 2px;
+    transition-duration: 150ms;
+}
+
+.dhruva-workspace-dot.active {
+    width: 20px;
+    height: 6px;
+    background-color: #ffffff;
+}
+
+.dhruva-workspace-dot.vertical {
+    margin: 2px 0;
+}
+
+.dhruva-workspace-dot.vertical.active {
+    width: 6px;
+    height: 20px;
+}
+
+/* Windows-style Date/Time Clock */
+.dhruva-date-menu-box {
+    margin: 0 4px;
+}
+
+.dhruva-date-menu-label {
+    font-weight: 500;
+    text-align: center;
+    line-height: 1.15;
+    color: #ffffff;
+    font-feature-settings: "tnum";
+}
+
+.dhruva-date-menu-label.solo {
+    font-weight: 600;
+}
+
+/* Tray Arrow Icon */
+.dhruva-tray-arrow-icon {
+    color: #ffffff;
+}
+
+/* ================= Tray popup ==================== */
+.dhruva-tray-header { spacing: 8px; }
+.dhruva-tray-title { font-size: 12px; font-weight: bold; color: rgba(255, 255, 255, 0.85); }
+
+.dhruva-tray-button {
+    padding: 6px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 150ms;
+}
+.dhruva-tray-button:hover { background-color: rgba(255, 255, 255, 0.18); }
+.dhruva-tray-text-button { padding: 4px 12px; font-size: 12px; color: rgba(255, 255, 255, 0.75); }
+.dhruva-tray-text-button.primary { color: #ffffff; font-weight: bold; }
+
+.dhruva-tray-grid,
+.dhruva-tray-grid-row { spacing: 4px; }
+
+.dhruva-tray-pill {
+    width: 30px;
+    height: 30px;
+    padding: 2px;
+    border-radius: 8px;
+    background-color: transparent;
+    transition-duration: 150ms;
+}
+.dhruva-tray-pill:hover { background-color: rgba(255, 255, 255, 0.16); }
+
+.dhruva-tray-section { spacing: 2px; min-width: 180px; }
+.dhruva-tray-section-title { font-size: 10px; font-weight: bold; color: rgba(255, 255, 255, 0.5); padding: 2px 4px; }
+.dhruva-tray-row {
+    spacing: 10px;
+    padding: 4px 6px;
+    border-radius: 10px;
+    background-color: transparent;
+    transition-duration: 120ms;
+}
+.dhruva-tray-row:hover { background-color: rgba(255, 255, 255, 0.08); }
+
+.dhruva-tray-empty { color: rgba(255, 255, 255, 0.45); font-size: 11px; padding: 6px 4px; }
+.dhruva-tray-footer { spacing: 8px; margin-top: 2px; }
+.dhruva-tray-note { font-size: 10px; color: rgba(255, 255, 255, 0.45); }
+.dhruva-tray-panel { spacing: 8px; background-color: transparent; border: none; box-shadow: none; }
+
+/* ==================== Overflow menu ==================== */
+.dhruva-overflow-dots { spacing: 4px; }
+.dhruva-overflow-button {
+    border-radius: 12px;
+    background-color: transparent;
+    transition-duration: 150ms;
+}
+.dhruva-overflow-button:hover { background-color: rgba(255, 255, 255, 0.16); }
+.dhruva-overflow-button:checked { background-color: rgba(255, 255, 255, 0.24); }
+
+.dhruva-overflow-item {
+    border-radius: 12px;
+    background-color: transparent;
+    transition-duration: 120ms;
+}
+.dhruva-overflow-item:hover { background-color: rgba(255, 255, 255, 0.14); }

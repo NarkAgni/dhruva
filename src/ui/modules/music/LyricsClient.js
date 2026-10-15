@@ -22,6 +22,16 @@ import Soup from 'gi://Soup';
 import GLib from 'gi://GLib';
 
 
+Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
+Gio._promisify(Gio.File.prototype, 'load_bytes_async', 'load_bytes_finish');
+Gio._promisify(Gio.File.prototype, 'replace_contents_bytes_async', 'replace_contents_finish');
+
+const MAX_CACHED_SONGS = 300;
+
+const PARENS_RE = /\s*\(.*?\)\s*/g;
+const BRACKETS_RE = /\s*\[.*?\]\s*/g;
+
+
 export class LyricsClient {
     constructor() {
         this._httpSession = new Soup.Session();
@@ -43,7 +53,7 @@ export class LyricsClient {
                 const [bytes] = await file.load_bytes_async(null);
                 if (bytes) {
                     const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
-                    if (data && Boolean(data) && !Array.isArray(data)) {
+                    if (data && !Array.isArray(data)) {
                         for (const [k, v] of Object.entries(data)) {
                             this._cache.set(k, v);
                         }
@@ -53,35 +63,35 @@ export class LyricsClient {
         } catch (_e) { }
     }
 
+    _remember(key, lyrics) {
+        this._cache.delete(key);
+        this._cache.set(key, lyrics);
+        for (const oldKey of this._cache.keys()) {
+            if (this._cache.size <= MAX_CACHED_SONGS) break;
+            this._cache.delete(oldKey);
+        }
+        this._saveDiskCache();
+    }
+
     _saveDiskCache() {
-        try {
-            const obj = {};
-            for (const [k, v] of this._cache.entries()) {
-                obj[k] = v;
-            }
-            const file = Gio.File.new_for_path(this._cacheFilePath);
-            file.replace_contents(
-                JSON.stringify(obj),
-                null,
-                false,
-                Gio.FileCreateFlags.REPLACE_DESTINATION,
-                null
-            );
-        } catch (_e) { }
+        const bytes = new GLib.Bytes(new TextEncoder().encode(JSON.stringify(Object.fromEntries(this._cache))));
+        Gio.File.new_for_path(this._cacheFilePath)
+            .replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null)
+            .catch(() => { });
     }
 
     async getLyrics(title, artist, durationSec) {
         if (!title) return null;
 
         const cleanTitle = title
-            .replace(/\s*\(.*?\)\s*/g, ' ')
-            .replace(/\s*\[.*?\]\s*/g, ' ')
+            .replace(PARENS_RE, ' ')
+            .replace(BRACKETS_RE, ' ')
             .replace(/-.*/, '')
             .trim();
 
         const cleanArtist = (artist || '')
             .split(',')[0]
-            .replace(/\s*\(.*?\)\s*/g, ' ')
+            .replace(PARENS_RE, ' ')
             .trim();
 
         const cacheKey = `${cleanTitle.toLowerCase()}::${cleanArtist.toLowerCase()}`;
@@ -99,8 +109,7 @@ export class LyricsClient {
 
         let result = await this._queryUrl(`https://lrclib.net/api/get?${query}`, durationSec);
         if (result && result.length > 0) {
-            this._cache.set(cacheKey, result);
-            this._saveDiskCache();
+            this._remember(cacheKey, result);
             return result;
         }
 
@@ -119,8 +128,7 @@ export class LyricsClient {
                     }
 
                     if (result && result.length > 0) {
-                        this._cache.set(cacheKey, result);
-                        this._saveDiskCache();
+                        this._remember(cacheKey, result);
                         return result;
                     }
                 }

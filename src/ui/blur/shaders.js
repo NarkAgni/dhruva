@@ -25,6 +25,8 @@ export const BLUR_DECLARATIONS = `
     uniform float u_ch;
     uniform float u_mw;
     uniform float u_mh;
+    uniform float u_mx;
+    uniform float u_my;
     uniform float u_r;
     uniform float u_brightness;
     uniform float u_vibrancy;
@@ -34,6 +36,10 @@ export const BLUR_DECLARATIONS = `
     uniform float u_tint_g;
     uniform float u_tint_b;
     uniform float u_color_tint_opacity;
+    uniform int u_arrow_side;
+    uniform float u_arrow_pos;
+    uniform float u_arrow_w;
+    uniform float u_arrow_h;
 
     float sdRoundedBox(vec2 p, vec2 b, float r) {
         vec2 q = abs(p) - b + vec2(r);
@@ -65,23 +71,29 @@ export const BLUR_CODE = `
     vec2 direction = vec2(float(dir), 1.0 - float(dir));
     float pixel_step = (dir == 0) ? (1.0 / h) : (1.0 / w);
 
+    const int MAX_STEPS = 18;
+    float stride = max(1.0, sigma / 6.0);
+    float s = sigma / stride;
+
     vec3 gauss_coeff;
-    gauss_coeff.x = 1.0 / (sqrt(2.0 * 3.14159265) * sigma);
-    gauss_coeff.y = exp(-0.5 / (sigma * sigma));
+    gauss_coeff.x = 1.0 / (sqrt(2.0 * 3.14159265) * s);
+    gauss_coeff.y = exp(-0.5 / (s * s));
     gauss_coeff.z = gauss_coeff.y * gauss_coeff.y;
 
     float total_weight = gauss_coeff.x;
     vec4 blurred = getTextureClamped(uv, w, h) * gauss_coeff.x;
     gauss_coeff.xy *= gauss_coeff.yz;
 
-    int n_steps = int(ceil(1.5 * sigma)) * 2;
-    for (int i = 1; i <= n_steps; i += 2) {
+    int n_steps = int(ceil(1.5 * s)) * 2;
+    for (int i = 1; i <= MAX_STEPS; i += 2) {
+        if (i > n_steps) break;
+
         float coeff_subtotal = gauss_coeff.x;
         gauss_coeff.xy *= gauss_coeff.yz;
         coeff_subtotal += gauss_coeff.x;
 
         float gauss_ratio = gauss_coeff.x / coeff_subtotal;
-        float foffset = float(i) + gauss_ratio;
+        float foffset = (float(i) + gauss_ratio) * stride;
         vec2 offset = direction * foffset * pixel_step;
 
         blurred += getTextureClamped(uv + offset, w, h) * coeff_subtotal;
@@ -97,10 +109,35 @@ export const BLUR_CODE = `
         return;
     }
 
-    vec2 p = (uv - 0.5) * vec2(w, h);
-    vec2 halfBox = vec2(u_mw, u_mh) * 0.5;
+    vec2 px = uv * vec2(w, h);
+    vec2 bodyMin = vec2(u_mx, u_my);
+    vec2 bodyMax = bodyMin + vec2(u_mw, u_mh);
+    if (u_arrow_side == 1) bodyMax.y -= u_arrow_h;
+    else if (u_arrow_side == 2) bodyMin.y += u_arrow_h;
+    else if (u_arrow_side == 3) bodyMin.x += u_arrow_h;
+    else if (u_arrow_side == 4) bodyMax.x -= u_arrow_h;
+
+    float arrowZone = 0.0;
+
+    vec2 p = px - (bodyMin + bodyMax) * 0.5;
+    vec2 halfBox = (bodyMax - bodyMin) * 0.5;
     float sd = sdRoundedBox(p, halfBox, u_r);
     float mask = 1.0 - smoothstep(-0.5, 0.5, sd);
+
+    if (u_arrow_side > 0) {
+        float across = (u_arrow_side == 1) ? px.y - bodyMax.y
+                     : (u_arrow_side == 2) ? bodyMin.y - px.y
+                     : (u_arrow_side == 3) ? bodyMin.x - px.x
+                     : px.x - bodyMax.x;
+        float along = (u_arrow_side <= 2) ? px.x - u_mx : px.y - u_my;
+        float halfWidth = u_arrow_w * 0.5 * (1.0 - across / max(u_arrow_h, 1.0));
+        float inside = clamp(halfWidth - abs(along - u_arrow_pos) + 0.5, 0.0, 1.0);
+        float triangle = inside * step(-0.5, across) * step(across, u_arrow_h);
+        mask = max(mask, triangle);
+
+        float baseReach = clamp(u_arrow_w * 0.5 + 2.0 - abs(along - u_arrow_pos), 0.0, 1.0);
+        arrowZone = max(triangle, baseReach * step(-3.0, across) * step(across, u_arrow_h));
+    }
 
     if (mask <= 0.0) {
         cogl_color_out = vec4(0.0);
@@ -125,11 +162,11 @@ export const BLUR_CODE = `
         float primaryHighlight = pow(clamp(dotVal, 0.0, 1.0), 3.8);
         float oppositeHighlight = pow(clamp(-dotVal, 0.0, 1.0), 3.8) * 0.70;
         float rimIntensity = (primaryHighlight + oppositeHighlight) * u_border_glow;
-        float edgeLine = smoothstep(-1.8, -0.2, sd) * (1.0 - smoothstep(-0.2, 0.5, sd));
+        float edgeLine = smoothstep(-1.8, -0.2, sd) * (1.0 - smoothstep(-0.2, 0.5, sd)) * (1.0 - arrowZone);
         base += vec3(1.0) * (edgeLine * 2.2 * rimIntensity);
     }
 
-    float edgeDamp = smoothstep(0.0, -2.0, sd);
+    float edgeDamp = max(smoothstep(0.0, -2.0, sd), arrowZone);
     base *= mix(0.85, 1.0, edgeDamp);
 
     cogl_color_out = vec4(base, 1.0) * mask;

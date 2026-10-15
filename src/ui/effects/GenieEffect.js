@@ -18,151 +18,95 @@
 
 
 import GObject from 'gi://GObject';
+
 import { BaseDeformEffect } from './BaseDeformEffect.js';
 
 
-function bezierCubicCalc(p1, p2, p3, p4, t) {
-    const u = 1.0 - t;
-    const w1 = u * u * u;
-    const w2 = 3.0 * u * u * t;
-    const w3 = 3.0 * u * t * t;
-    const w4 = t * t * t;
-    return w1 * p1 + w2 * p2 + w3 * p3 + w4 * p4;
-}
+const BEND_END = 0.4;
+const SLIDE_START = 0.18;
+const TARGET_WIDTH_RATIO = 0.7;
+const MIN_TARGET_WIDTH = 12;
+const ALONG_TILES = 64;
+const ACROSS_TILES = 4;
 
-function lerp(a, b, t) {
-    return a + (b - a) * t;
-}
+const clamp01 = t => Math.min(1, Math.max(0, t));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smoothstep = t => t * t * (3 - 2 * t);
+const easeInOutSine = t => 0.5 - Math.cos(Math.PI * t) / 2;
+const easeInOutCubic = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 class MagicLampBase extends BaseDeformEffect {
     static {
         GObject.registerClass(this);
     }
 
-    _getDuration() {
-        return super._getDuration();
+    _isVertical() {
+        return this._dockPos === 'BOTTOM' || this._dockPos === 'TOP';
     }
 
     _getTiles() {
-        return [48, 48];
+        return this._isVertical() ? [ACROSS_TILES, ALONG_TILES] : [ALONG_TILES, ACROSS_TILES];
     }
 
     _buildTarget() {
-        this._tailW = Math.max(14, this._icon.w * 0.35);
-        this._tailH = Math.max(14, this._icon.h * 0.35);
+        const { x: wx, y: wy, w, h } = this._win;
+        const iconCenterX = this._icon.x + this._icon.w / 2 - wx;
+        const iconCenterY = this._icon.y + this._icon.h / 2 - wy;
+        const iconSpan = this._isVertical() ? this._icon.w : this._icon.h;
 
-        this._targetCenterX = this._icon.x + this._icon.w * 0.5;
-        this._targetCenterY = this._icon.y + this._icon.h * 0.5;
+        this._halfTarget = Math.max(MIN_TARGET_WIDTH, iconSpan * TARGET_WIDTH_RATIO) / 2;
 
-        if (this._dockPos === 'BOTTOM') {
-            this._targetEdge = this._icon.y + this._icon.h;
-        } else if (this._dockPos === 'TOP') {
-            this._targetEdge = this._icon.y;
-        } else if (this._dockPos === 'LEFT') {
-            this._targetEdge = this._icon.x;
-        } else {
-            this._targetEdge = this._icon.x + this._icon.w;
+        switch (this._dockPos) {
+            case 'TOP':
+                this._reach = h - iconCenterY;
+                this._center = iconCenterX;
+                break;
+            case 'LEFT':
+                this._reach = w - iconCenterX;
+                this._center = iconCenterY;
+                break;
+            case 'RIGHT':
+                this._reach = iconCenterX;
+                this._center = iconCenterY;
+                break;
+            default:
+                this._reach = iconCenterY;
+                this._center = iconCenterX;
+                break;
         }
+        this._reach = Math.max(1, this._reach);
     }
 
     vfunc_deform_vertex(w, h, v) {
         if (!this._ready || this.progress <= 0) return;
 
-        const aAnimT = Math.max(0.0, Math.min(1.0, this.progress));
-        const wW = this._win.w;
-        const wH = this._win.h;
+        const t = clamp01(this.progress);
+        const bend = easeInOutSine(clamp01(t / BEND_END));
+        const slide = easeInOutCubic(clamp01((t - SLIDE_START) / (1 - SLIDE_START)));
 
-        const icCenterX = this._targetCenterX - this._win.x;
-        const icCenterY = this._targetCenterY - this._win.y;
+        const isVertical = this._isVertical();
+        const towardDock = this._dockPos === 'BOTTOM' || this._dockPos === 'RIGHT';
+        const alongNorm = isVertical ? v.ty : v.tx;
+        const across = isVertical ? v.tx : v.ty;
+        const length = isVertical ? h : w;
+        const span = isVertical ? w : h;
+        const reach = this._reach;
 
-        const isHorizontal = (this._dockPos === 'LEFT' || this._dockPos === 'RIGHT');
+        const fromFarEdge = (towardDock ? alongNorm : 1 - alongNorm) * length;
+        const along = Math.min(reach, fromFarEdge + slide * reach);
 
-        let p00X, p00Y, p10X, p10Y, p01X, p01Y, p11X, p11Y;
-        let startRatio = 0.0;
-        let endRatio = 1.0;
+        const pinch = bend * smoothstep(clamp01(along / reach));
+        const low = lerp(0, this._center - this._halfTarget, pinch);
+        const high = lerp(span, this._center + this._halfTarget, pinch);
+        const acrossPos = low + across * (high - low);
+        const alongPos = towardDock ? along : length - along;
 
-        if (!isHorizontal) {
-            const isBottom = (this._dockPos === 'BOTTOM');
-            
-            const tgtHalfW = this._tailW * 0.5;
-            const tgtX0 = icCenterX - tgtHalfW;
-            const tgtX1 = icCenterX + tgtHalfW;
-            const tgtY = this._targetEdge - this._win.y;
-
-            const ratio = (aAnimT < 0.3) ? (aAnimT / 0.3) : 1.0;
-            if (aAnimT > 0.25) {
-                startRatio = (aAnimT - 0.25) / (1.0 - 0.25);
-            }
-            endRatio = 1.0;
-
-            if (isBottom) {
-                p00X = 0;   p00Y = 0;
-                p10X = wW;  p10Y = 0;
-                p01X = lerp(0, tgtX0, ratio);   p01Y = lerp(wH, tgtY, ratio);
-                p11X = lerp(wW, tgtX1, ratio);  p11Y = lerp(wH, tgtY, ratio);
-            } else {
-                p00X = 0;   p00Y = wH;
-                p10X = wW;  p10Y = wH;
-                p01X = lerp(0, tgtX0, ratio);   p01Y = lerp(0, tgtY, ratio);
-                p11X = lerp(wW, tgtX1, ratio);  p11Y = lerp(0, tgtY, ratio);
-            }
-
-            const rowFactor = isBottom ? v.ty : (1.0 - v.ty);
-            const patchParam = startRatio + (endRatio - startRatio) * rowFactor;
-
-            const lxC1 = p00X;
-            const lxC2 = p01X;
-            const rxC1 = p10X;
-            const rxC2 = p11X;
-
-            const lpt = bezierCubicCalc(p00X, lxC1, lxC2, p01X, patchParam);
-            const rpt = bezierCubicCalc(p10X, rxC1, rxC2, p11X, patchParam);
-
-            const u = v.tx;
-            v.x = lpt + (rpt - lpt) * u;
-
-            const topY = bezierCubicCalc(p00Y, p00Y, p10Y, p10Y, u);
-            const botY = bezierCubicCalc(p01Y, p01Y, p11Y, p11Y, u);
-            v.y = topY + (botY - topY) * patchParam;
-
+        if (isVertical) {
+            v.x = acrossPos;
+            v.y = alongPos;
         } else {
-            const isRight = (this._dockPos === 'RIGHT');
-            
-            const tgtHalfH = this._tailH * 0.5;
-            const tgtY0 = icCenterY - tgtHalfH;
-            const tgtY1 = icCenterY + tgtHalfH;
-            const tgtX = this._targetEdge - this._win.x;
-
-            const ratio = (aAnimT < 0.3) ? (aAnimT / 0.3) : 1.0;
-            if (aAnimT > 0.25) {
-                startRatio = (aAnimT - 0.25) / (1.0 - 0.25);
-            }
-            endRatio = 1.0;
-
-            if (isRight) {
-                p00X = 0;   p00Y = 0;
-                p01X = 0;   p01Y = wH;
-                p10X = lerp(wW, tgtX, ratio);  p10Y = lerp(0, tgtY0, ratio);
-                p11X = lerp(wW, tgtX, ratio);  p11Y = lerp(wH, tgtY1, ratio);
-            } else {
-                p00X = wW;  p00Y = 0;
-                p01X = wW;  p01Y = wH;
-                p10X = lerp(0, tgtX, ratio);   p10Y = lerp(0, tgtY0, ratio);
-                p11X = lerp(0, tgtX, ratio);   p11Y = lerp(wH, tgtY1, ratio);
-            }
-
-            const colFactor = isRight ? v.tx : (1.0 - v.tx);
-            const patchParam = startRatio + (endRatio - startRatio) * colFactor;
-
-            const tpt = bezierCubicCalc(p00Y, p00Y, p10Y, p10Y, patchParam);
-            const bpt = bezierCubicCalc(p01Y, p01Y, p11Y, p11Y, patchParam);
-
-            const vertU = v.ty;
-            v.y = tpt + (bpt - tpt) * vertU;
-
-            const leftX = bezierCubicCalc(p00X, p00X, p01X, p01X, vertU);
-            const rightX = bezierCubicCalc(p10X, p10X, p11X, p11X, vertU);
-            v.x = leftX + (rightX - leftX) * patchParam;
+            v.x = alongPos;
+            v.y = acrossPos;
         }
     }
 }

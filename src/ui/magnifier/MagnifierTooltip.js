@@ -17,7 +17,6 @@
 */
 
 
-import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
 import { Settings } from '../../core/SettingsManager.js';
@@ -28,16 +27,8 @@ const DEFAULT_TOOLTIP_PADDING = 20;
 
 export function clearTooltipDelay(dockActor) {
     if (!dockActor) return;
-    if (dockActor._tooltipDelayId) {
-        if (dockActor._magTimers) {
-            dockActor._magTimers.remove(dockActor._tooltipDelayId);
-        } else if (dockActor._dockUI && dockActor._dockUI.registry) {
-            dockActor._dockUI.registry.remove(dockActor._tooltipDelayId);
-        } else {
-            GLib.source_remove(dockActor._tooltipDelayId);
-        }
-        dockActor._tooltipDelayId = null;
-    }
+    if (dockActor._magTimers) dockActor._magTimers.remove(dockActor._tooltipDelayId);
+    dockActor._tooltipDelayId = null;
     dockActor._tooltipReady = false;
 }
 

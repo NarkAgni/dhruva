@@ -32,6 +32,10 @@ function getAnimDuration() {
 }
 
 export function getHideOffsets(dockUI) {
+    if (dockUI._isWindowGrabbed || (dockUI._isOnSharedMonitorEdge && dockUI._isOnSharedMonitorEdge())) {
+        return { hideX: 0, hideY: 0 };
+    }
+
     const pos = dockUI.dockPosition;
     let hideX = 0;
     let hideY = 0;
@@ -55,16 +59,22 @@ export function getHideOffsets(dockUI) {
 export function animateShow(dockUI, onComplete) {
     if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
+    dockUI.actor._isAutohiding = false;
     dockUI.actor.remove_all_transitions();
     dockUI.actor.opacity = 255;
     dockUI.actor.show();
     dockUI.actor.ease({
         translation_x: 0,
         translation_y: 0,
+        opacity: 255,
         duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         onStopped: (_isFinished) => {
             dockUI.actor.opacity = 255;
+            if (dockUI._dockBlur) {
+                dockUI._dockBlur.syncGeometry();
+                dockUI._dockBlur.queueCapture(true);
+            }
             if (onComplete) onComplete();
         },
     });
@@ -75,14 +85,23 @@ export function animateHide(dockUI, onComplete) {
 
     const { hideX, hideY } = getHideOffsets(dockUI);
 
+    dockUI.actor._isAutohiding = true;
+    if (dockUI._dockBlur) {
+        dockUI._dockBlur._hideBlur();
+    }
+
     dockUI.actor.remove_all_transitions();
     dockUI.actor.ease({
         translation_x: hideX,
         translation_y: hideY,
+        opacity: 0,
         duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
         onStopped: (_isFinished) => {
             dockUI.actor.opacity = 0;
+            if (dockUI._dockBlur) {
+                dockUI._dockBlur._hideBlur();
+            }
             if (onComplete) onComplete();
         },
     });

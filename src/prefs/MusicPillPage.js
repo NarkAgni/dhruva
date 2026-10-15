@@ -18,52 +18,37 @@
 
 
 import Adw from 'gi://Adw';
+import Gtk from 'gi://Gtk';
+import Gio from 'gi://Gio';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { addSwitchRow, addSegmentedRow } from './PrefsWidgets.js';
+import { addGroup, addChoiceCards, showWhen } from './PrefsWidgets.js';
 
 
-export function buildMusicPillPage(window, settings, createResetBtn) {
+export function buildMusicPillPage(window, settings) {
     const page = new Adw.PreferencesPage({
         title: _('Music Pill'),
-        icon_name: 'audio-x-generic-symbolic'
+        icon_name: 'audio-x-generic-symbolic',
     });
+
+    const pillGroup = addGroup(page, _('Music Pill'),
+        _('Now playing on the dock: artwork, controls and live lyrics. Works with Spotify'));
+    const enableSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+    settings.bind('show-music-pill', enableSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+    pillGroup.set_header_suffix(enableSwitch);
+
+    const placeGroup = addGroup(page, _('Placement'));
+    addChoiceCards(placeGroup, settings, 'music-pill-position', [
+        { value: 'START', icon: 'format-justify-left-symbolic', title: _('Before Apps'), description: _('At the start of the dock') },
+        { value: 'END', icon: 'format-justify-right-symbolic', title: _('After Apps'), description: _('At the end of the dock') },
+    ]);
+    showWhen(placeGroup, settings, ['show-music-pill'], () => settings.get_boolean('show-music-pill'));
+
+    const tipsGroup = addGroup(page, _('Using It'));
+    tipsGroup.add(new Adw.ActionRow({ title: _('Right click'), subtitle: _('Opens the big player with the seek bar') }));
+    tipsGroup.add(new Adw.ActionRow({ title: _('Double click'), subtitle: _('Shows or hides the Spotify window') }));
+    tipsGroup.add(new Adw.ActionRow({ title: _('Scroll while hovering'), subtitle: _('Changes the volume') }));
+    showWhen(tipsGroup, settings, ['show-music-pill'], () => settings.get_boolean('show-music-pill'));
+
     window.add(page);
-
-    const generalGroup = new Adw.PreferencesGroup({
-        title: _('General Settings'),
-        description: _('Configure live media player widget on the dock')
-    });
-    page.add(generalGroup);
-
-    addSwitchRow(
-        generalGroup,
-        settings,
-        'show-music-pill',
-        _('Show Music Pill'),
-        _('Display currently playing media and controls'),
-        'audio-x-generic-symbolic',
-        createResetBtn
-    );
-
-    const musicPosRow = addSegmentedRow(
-        generalGroup,
-        settings,
-        'music-pill-position',
-        _('Pill Placement'),
-        _('Position of the pill on dock'),
-        'format-justify-left-symbolic',
-        [
-            { name: _('Start'), value: 'START' },
-            { name: _('End'), value: 'END' }
-        ]
-    );
-
-    const syncVisibility = () => {
-        const isEnabled = settings.get_boolean('show-music-pill');
-        musicPosRow.set_visible(isEnabled);
-    };
-
-    settings.connect('changed::show-music-pill', syncVisibility);
-    syncVisibility();
 }

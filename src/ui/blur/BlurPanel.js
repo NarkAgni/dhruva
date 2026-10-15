@@ -19,8 +19,6 @@
 
 import St from 'gi://St';
 import Gio from 'gi://Gio';
-import Mtk from 'gi://Mtk';
-import Meta from 'gi://Meta';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -31,8 +29,10 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
 
 
-const DRAG_TICK_MS = 16;
-const LIVE_TICK_MS = 25;
+const KERNEL_REACH = 1.5;
+const PAD_SLACK = 32;
+const INITIAL_SYNC_DELAY_MS = 350;
+const UNLOCK_SYNC_DELAY_MS = 120;
 
 const TRANSFORM_SIGNALS = [
     'notify::scale-x', 'notify::scale-y',
@@ -60,8 +60,6 @@ export function hexToRgb(str) {
 }
 
 export class BlurPanel {
-    static allPanels = new Set();
-
     constructor(targetActor, settings, cornerRadius = 20.0, rootContainer = null, customInsets = null, isPopup = false) {
         this.targetActor = targetActor;
         this.rootContainer = rootContainer || targetActor;
@@ -71,58 +69,35 @@ export class BlurPanel {
         this.isPopup = isPopup;
 
         this._destroyed = false;
-        this._isCapturing = false;
-        this._capturePending = false;
-        this._suppressAllocation = false;
         this._hasContent = false;
-
-        this._dragWindow = null;
-        this._dragTickId = 0;
-        this._liveLaterId = 0;
-        this._liveTimerId = 0;
+        this._lastKey = '';
+        this._pad = PAD_SLACK;
+        this._arrow = null;
+        this._targetRect = null;
         this._unlockDelayId = 0;
-
-        this._lastX = -1;
-        this._lastY = -1;
-        this._lastW = 0;
-        this._lastH = 0;
-
         this._timeouts = new TimeoutTracker();
 
         this._effect = new BlurEffect();
+        this._bgClone = new Clutter.Clone({ source: Main.layoutManager._backgroundGroup });
+        this._winClone = new Clutter.Clone({ source: global.window_group });
 
-        this.blurActor = new Clutter.Actor({ reactive: false });
-        this.blurActor.set_pivot_point(0.0, 0.0);
-        this.blurActor.set_offscreen_redirect(Clutter.OffscreenRedirect.ALWAYS);
+        this.blurActor = new Clutter.Actor({ reactive: false, clip_to_allocation: true, visible: false });
+        this.blurActor.add_child(this._bgClone);
+        this.blurActor.add_child(this._winClone);
         this.blurActor.add_effect(this._effect);
-        this.blurActor.hide();
 
         this._ensureHierarchy();
-        BlurPanel.allPanels.add(this);
-
         this._setupListeners();
         this.syncSettings();
 
-        this._timeouts.addTimeout(GLib.PRIORITY_LOW, 350, () => {
-            if (!this._destroyed && this._isShowable()) {
-                this.syncGeometry();
-                this._startLiveTracking();
-                this.queueCapture(true);
-            }
+        this._timeouts.addTimeout(GLib.PRIORITY_LOW, INITIAL_SYNC_DELAY_MS, () => {
+            this.syncGeometry();
             return GLib.SOURCE_REMOVE;
         });
     }
 
-    _isEnabled() {
-        return Settings.blurEnabled;
-    }
-
     _isStaticMode() {
         return Settings.blurMode === 'static';
-    }
-
-    _hasBlur() {
-        return !this._destroyed && this.blurActor !== null;
     }
 
     _isLocked() {
@@ -132,63 +107,19 @@ export class BlurPanel {
     }
 
     _isShowable() {
-        if (!this._hasBlur() || !this._isEnabled()) return false;
-        if (this._isLocked()) return false;
-        if (!isActorAlive(this.targetActor)) return false;
+        if (this._destroyed || !Settings.blurEnabled || this._isLocked()) return false;
+        if (!isActorAlive(this.targetActor) || !isActorAlive(this.rootContainer)) return false;
         if (!this.targetActor.get_stage() || !this.targetActor.mapped || !this.targetActor.visible) return false;
-        if (!this.rootContainer.get_stage() || this.rootContainer.opacity === 0) return false;
-        return this.targetActor.opacity !== 0;
-    }
+        if (!this.rootContainer.get_stage() || !this.rootContainer.visible || this.rootContainer.opacity < 10) return false;
+        if (this.rootContainer._isAutohiding) return false;
 
-    _startLiveTracking() {
-        if (this._isStaticMode()) return;
-        this._stopLiveTracking();
-
-        const laters = global.compositor.get_laters();
-        const frameTick = () => {
-            if (this._destroyed || this._isStaticMode()) {
-                this._liveLaterId = 0;
-                return GLib.SOURCE_REMOVE;
-            }
-            this._liveTick();
-            this._liveLaterId = laters.add(Meta.LaterType.BEFORE_REDRAW, frameTick);
-            return GLib.SOURCE_REMOVE;
-        };
-        this._liveLaterId = laters.add(Meta.LaterType.BEFORE_REDRAW, frameTick);
-
-        this._liveTimerId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, LIVE_TICK_MS, () => {
-            if (this._destroyed || this._isStaticMode()) {
-                this._liveTimerId = 0;
-                return GLib.SOURCE_REMOVE;
-            }
-            this._liveTick();
-            return GLib.SOURCE_CONTINUE;
-        });
-    }
-
-    _liveTick() {
-        if (!this._isShowable() || this._isCapturing) return;
-
-        this._updateGeometry();
-        this._captureBackdrop();
-        if (this.blurActor && this.blurActor.visible) {
-            this.blurActor.queue_redraw();
-        }
-    }
-
-    _stopLiveTracking() {
-        if (this._liveLaterId) {
-            global.compositor.get_laters().remove(this._liveLaterId);
-            this._liveLaterId = 0;
-        }
-        if (this._liveTimerId) {
-            this._timeouts.remove(this._liveTimerId);
-            this._liveTimerId = 0;
-        }
+        const dockUI = this.rootContainer._dockUI;
+        if (dockUI && dockUI.autoHideManager && dockUI.autoHideManager.isHidden) return false;
+        return this.targetActor.opacity >= 10;
     }
 
     _ensureHierarchy() {
-        if (!this._hasBlur()) return false;
+        if (this._destroyed) return false;
         const parent = this.rootContainer.get_parent();
         if (!parent) return false;
 
@@ -203,19 +134,28 @@ export class BlurPanel {
     }
 
     _setupListeners() {
-        const onTransform = () => this._onTransformChanged();
+        const onTransform = () => {
+            if (this._isShowable()) this._updateGeometry();
+        };
+        const onVisibility = () => {
+            if (this._isShowable()) this.syncGeometry();
+            else this._hideBlur();
+        };
         const transformHandlers = TRANSFORM_SIGNALS.flatMap(signal => [signal, onTransform]);
 
         this.targetActor.connectObject(
             'notify::allocation', onTransform,
-            'notify::visible', () => this._onVisibilityChanged(),
-            'notify::mapped', () => this._onVisibilityChanged(),
+            'notify::visible', onVisibility,
+            'notify::mapped', onVisibility,
+            'notify::opacity', onVisibility,
             'destroy', () => this.destroy(),
             ...transformHandlers,
             this);
 
         this.rootContainer.connectObject(
             'parent-set', () => this._onRootParentChanged(),
+            'notify::visible', onVisibility,
+            'notify::opacity', onVisibility,
             'destroy', () => this.destroy(),
             this);
 
@@ -227,99 +167,44 @@ export class BlurPanel {
                 this);
         }
 
-        const handleUnlockResume = () => {
-            if (this._unlockDelayId) {
-                this._timeouts.remove(this._unlockDelayId);
-                this._unlockDelayId = 0;
+        const onLockChanged = () => {
+            this._timeouts.remove(this._unlockDelayId);
+            this._unlockDelayId = 0;
+
+            if (this._isLocked()) {
+                this._hideBlur();
+                return;
             }
-            this._unlockDelayId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, 120, () => {
+            this._unlockDelayId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, UNLOCK_SYNC_DELAY_MS, () => {
                 this._unlockDelayId = 0;
-                if (this._destroyed || !this._hasBlur()) return GLib.SOURCE_REMOVE;
-                if (this._isShowable()) {
-                    this.syncGeometry();
-                    this._startLiveTracking();
-                    this.queueCapture();
-                }
+                this.syncGeometry();
                 return GLib.SOURCE_REMOVE;
             });
         };
 
-        Main.sessionMode.connectObject('updated', () => {
-            if (this._isLocked()) {
-                this._hideBlur();
-                this._stopLiveTracking();
-            } else {
-                this._hasContent = false;
-                handleUnlockResume();
-            }
-        }, this);
-
-        if (Main.screenShield) {
-            Main.screenShield.connectObject('locked-changed', () => {
-                if (this._isLocked()) {
-                    this._hideBlur();
-                    this._stopLiveTracking();
-                } else {
-                    this._hasContent = false;
-                    handleUnlockResume();
-                }
-            }, this);
-        }
-    }
-
-    _onTransformChanged() {
-        if (this._suppressAllocation || !this._isShowable()) return;
-        if (!this._updateGeometry()) return;
-
-        if (this._isStaticMode()) {
-            if (!this._hasContent) this._captureBackdrop();
-        } else {
-            this.queueCapture();
-        }
+        Main.sessionMode.connectObject('updated', onLockChanged, this);
+        if (Main.screenShield) Main.screenShield.connectObject('locked-changed', onLockChanged, this);
     }
 
     _onRootParentChanged() {
-        const parent = this.rootContainer ? this.rootContainer.get_parent() : null;
-        if (!parent) {
-            this._hideBlur();
-            if (this.blurActor) {
-                const currentParent = this.blurActor.get_parent();
-                if (currentParent) {
-                    currentParent.remove_child(this.blurActor);
-                }
-            }
+        if (this.rootContainer.get_parent()) {
+            if (this._ensureHierarchy()) this.syncGeometry();
             return;
         }
 
-        if (this._ensureHierarchy() && this._isShowable()) {
-            this.syncGeometry();
-        }
-    }
-
-    _onVisibilityChanged() {
-        if (this._isShowable()) {
-            this.syncGeometry();
-            this._startLiveTracking();
-        } else {
-            this._hideBlur();
-            this._stopLiveTracking();
-        }
+        this._hideBlur();
+        const current = this.blurActor.get_parent();
+        if (current) current.remove_child(this.blurActor);
     }
 
     _hideBlur() {
-        this.endDragTracking();
-        if (this._unlockDelayId) {
-            this._timeouts.remove(this._unlockDelayId);
-            this._unlockDelayId = 0;
-        }
-        if (!this._hasBlur()) return;
+        if (this._destroyed) return;
         this.blurActor.hide();
-        this.blurActor.set_content(null);
-        this._hasContent = false;
-        this._lastX = -1;
-        this._lastY = -1;
-        this._lastW = 0;
-        this._lastH = 0;
+        this._lastKey = '';
+        if (this._isStaticMode()) {
+            this.blurActor.set_content(null);
+            this._hasContent = false;
+        }
     }
 
     setCornerRadius(radius) {
@@ -330,209 +215,145 @@ export class BlurPanel {
 
     setCustomInsets(insets) {
         this.customInsets = insets;
-        this._lastW = 0;
-        this._lastH = 0;
+        this._lastKey = '';
+        this._pushArrow();
         this.syncGeometry();
     }
 
-    syncSettings() {
-        if (!this._hasBlur()) return;
+    setArrow(arrow) {
+        this._arrow = arrow;
+        this._pushArrow();
+    }
 
-        if (!this._isEnabled()) {
-            this._stopLiveTracking();
+    setTargetRect(rect) {
+        this._targetRect = rect;
+        this._lastKey = '';
+        this.syncGeometry();
+    }
+
+    _pushArrow() {
+        const arrow = this._arrow;
+        if (!arrow) {
+            this._effect.setArrow(0, 0, 0, 0);
+            return;
+        }
+
+        const insets = this.customInsets || { top: 0, bottom: 0, left: 0, right: 0 };
+        const sideIndex = { BOTTOM: 1, TOP: 2, LEFT: 3, RIGHT: 4 }[arrow.side];
+        const isHorizontalEdge = arrow.side === 'BOTTOM' || arrow.side === 'TOP';
+        const edgeInset = { BOTTOM: insets.bottom, TOP: insets.top, LEFT: insets.left, RIGHT: insets.right }[arrow.side];
+
+        this._effect.setArrow(
+            sideIndex,
+            arrow.center - (isHorizontalEdge ? insets.left : insets.top),
+            arrow.width,
+            Math.max(0, arrow.height - edgeInset)
+        );
+    }
+
+    syncSettings() {
+        if (this._destroyed) return;
+
+        if (!Settings.blurEnabled) {
             this._hideBlur();
             return;
         }
 
-        if (this._isStaticMode()) {
-            this._stopLiveTracking();
-            this._hasContent = false;
-            this._captureBackdrop();
-        } else {
-            this._startLiveTracking();
-        }
+        const isStatic = this._isStaticMode();
+        this._bgClone.visible = !isStatic;
+        this._winClone.visible = !isStatic;
+        this.blurActor.set_content(null);
+        this._hasContent = !isStatic;
 
-        const borderGlowVal = this.isPopup
-            ? Math.max(0.40, Settings.blurBorderGlow)
-            : Settings.blurBorderGlow;
-
-        const brightnessVal = this.isPopup
-            ? Math.max(0.12, Settings.blurBrightness)
-            : Settings.blurBrightness;
-
-        const tintOpacityVal = this.isPopup
-            ? Math.min(1.0, Math.max(0.45, Settings.blurTintOpacity + 0.15))
-            : Settings.blurTintOpacity;
+        const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        this._pad = Math.ceil(Settings.blurIntensity * scaleFactor * KERNEL_REACH) + PAD_SLACK;
+        this._lastKey = '';
 
         this._effect.setParams({
             radius: this.cornerRadius,
             blurIntensity: Settings.blurIntensity,
             vibrancy: Settings.blurVibrancy,
-            blurBrightness: brightnessVal,
-            borderGlow: borderGlowVal,
+            blurBrightness: this.isPopup ? Math.max(0.12, Settings.blurBrightness) : Settings.blurBrightness,
+            borderGlow: this.isPopup ? Math.max(0.40, Settings.blurBorderGlow) : Settings.blurBorderGlow,
             highlightAngle: Settings.blurHighlightAngle,
             tintColor: hexToRgb(Settings.blurTintColor),
-            colorTintOpacity: tintOpacityVal,
+            colorTintOpacity: this.isPopup
+                ? Math.min(1.0, Math.max(0.45, Settings.blurTintOpacity + 0.15))
+                : Settings.blurTintOpacity,
         });
 
-        if (this._hasContent) {
-            this._captureBackdrop();
-        }
-
-        if (!this.blurActor.visible && this._isShowable()) {
-            this.syncGeometry();
-        } else if (this.blurActor.visible) {
-            this.blurActor.queue_redraw();
-        }
+        this.syncGeometry();
     }
 
     _updateGeometry() {
-        if (!this._isShowable() || !this._ensureHierarchy()) return false;
+        if (!this._ensureHierarchy()) return false;
 
-        let [rawX, rawY] = this.targetActor.get_transformed_position();
-        let [rawW, rawH] = this.targetActor.get_transformed_size();
+        let [rawX, rawY] = this._targetRect ? [this._targetRect.x, this._targetRect.y] : this.targetActor.get_transformed_position();
+        let [rawW, rawH] = this._targetRect ? [this._targetRect.width, this._targetRect.height] : this.targetActor.get_transformed_size();
 
-        const currentPos = Settings.dockPosition || 'BOTTOM';
-        if (currentPos === 'BOTTOM' && rawY <= 5 && !this.isPopup) {
-            this.blurActor.hide();
+        if ((Settings.dockPosition || 'BOTTOM') === 'BOTTOM' && rawY <= 5 && !this.isPopup) {
+            this._hideBlur();
             return false;
         }
 
         if (this.customInsets) {
-            rawX += (this.customInsets.left || 0);
-            rawY += (this.customInsets.top || 0);
-            rawW -= ((this.customInsets.left || 0) + (this.customInsets.right || 0));
-            rawH -= ((this.customInsets.top || 0) + (this.customInsets.bottom || 0));
+            const { top = 0, bottom = 0, left = 0, right = 0 } = this.customInsets;
+            rawX += left;
+            rawY += top;
+            rawW -= left + right;
+            rawH -= top + bottom;
         }
 
         const x = Math.round(rawX);
         const y = Math.round(rawY);
         const w = Math.round(rawW);
         const h = Math.round(rawH);
-
         if (!Number.isFinite(x) || !Number.isFinite(y) || w <= 1 || h <= 1) return false;
-        if (x === this._lastX && y === this._lastY && w === this._lastW && h === this._lastH) return false;
 
-        this._lastX = x;
-        this._lastY = y;
-        this._lastW = w;
-        this._lastH = h;
+        const key = `${x},${y},${w},${h},${this._pad}`;
+        if (key === this._lastKey) return false;
+        this._lastKey = key;
+
+        const pad = this._pad;
+        const areaX = x - pad;
+        const areaY = y - pad;
+        const areaW = w + pad * 2;
+        const areaH = h + pad * 2;
 
         const parent = this.blurActor.get_parent();
-        const [, left, top] = parent.transform_stage_point(x, y);
-        const [, right, bottom] = parent.transform_stage_point(x + w, y + h);
+        const [, left, top] = parent.transform_stage_point(areaX, areaY);
+        const [, right, bottom] = parent.transform_stage_point(areaX + areaW, areaY + areaH);
 
-        this.blurActor.remove_all_transitions();
         this.blurActor.set_position(Math.round(left), Math.round(top));
         this.blurActor.set_size(Math.round(right - left), Math.round(bottom - top));
+        this._bgClone.set_position(-areaX, -areaY);
+        this._winClone.set_position(-areaX, -areaY);
 
-        this._effect.updateDimensions(w, h, w, h);
-
+        this._effect.updateDimensions(areaW, areaH, w, h, pad, pad);
         return true;
     }
 
     syncGeometry() {
         if (!this._isShowable()) return;
 
-        const updated = this._updateGeometry();
-        if (this._lastX < 0 || this._lastY < 0) return;
+        this._updateGeometry();
+        if (!this._lastKey) return;
 
-        if (updated || !this._hasContent) {
-            this._captureBackdrop();
+        if (this._isStaticMode() && !this._hasContent) {
+            this._loadStaticPreset(this.blurActor.width, this.blurActor.height);
+            return;
         }
-        if (this._hasContent) {
-            this.blurActor.remove_all_transitions();
-            this.blurActor.show();
-        }
+        this.blurActor.show();
     }
 
     queueCapture(force = false) {
-        if (this._isStaticMode() && this._hasContent && !force) return;
-        if (this._capturePending || !this._isShowable()) return;
-
-        this._capturePending = true;
-        this._timeouts.addIdle(GLib.PRIORITY_HIGH, () => {
-            this._capturePending = false;
-            this._updateGeometry();
-            this._captureBackdrop();
-            return GLib.SOURCE_REMOVE;
-        });
+        if (force && this._isStaticMode()) this._hasContent = false;
+        this.syncGeometry();
     }
 
-    beginDragTracking(window) {
-        if (this._isStaticMode()) return;
-        this.endDragTracking();
-        if (!window || !this._isShowable()) return;
+    beginDragTracking() {}
 
-        this._dragWindow = window;
-        this._dragTickId = this._timeouts.addTimeout(GLib.PRIORITY_HIGH, DRAG_TICK_MS, () => {
-            if (!this._isShowable()) {
-                this._dragTickId = 0;
-                return GLib.SOURCE_REMOVE;
-            }
-            if (this._windowOverlapsBlur(this._dragWindow)) {
-                this._updateGeometry();
-                this._captureBackdrop();
-            }
-            return GLib.SOURCE_CONTINUE;
-        });
-    }
-
-    endDragTracking() {
-        if (this._dragTickId) {
-            this._timeouts.remove(this._dragTickId);
-            this._dragTickId = 0;
-        }
-        this._dragWindow = null;
-        if (!this._isStaticMode()) {
-            this.queueCapture();
-        }
-    }
-
-    _windowOverlapsBlur(win) {
-        const r = win.get_frame_rect();
-        return r.x < this._lastX + this._lastW &&
-            r.x + r.width > this._lastX &&
-            r.y < this._lastY + this._lastH &&
-            r.y + r.height > this._lastY;
-    }
-
-    _paintLiveBackdrop(rect) {
-        const wasBlurVisible = this.blurActor.visible;
-        this.blurActor.visible = false;
-
-        const hidden = [];
-        for (const panel of BlurPanel.allPanels) {
-            const target = panel.rootContainer;
-            if (!isActorAlive(target)) continue;
-
-            if (target.name === 'DhruvaContainer' || target.name === 'DhruvaBackground') {
-                hidden.push({ actor: target, opacity: target.opacity });
-                target.opacity = 0;
-            } else if (panel.contentActor && isActorAlive(panel.contentActor)) {
-                hidden.push({ actor: panel.contentActor, opacity: panel.contentActor.opacity });
-                panel.contentActor.opacity = 0;
-            } else if (panel.folderMenuRef && panel.folderMenuRef.panel && isActorAlive(panel.folderMenuRef.panel)) {
-                const contentPanel = panel.folderMenuRef.panel;
-                hidden.push({ actor: contentPanel, opacity: contentPanel.opacity });
-                contentPanel.opacity = 0;
-            }
-        }
-
-        const paintFlags = 1 | 2;
-        const content = global.stage.paint_to_content.length === 4
-            ? global.stage.paint_to_content(rect, 1, null, paintFlags)
-            : global.stage.paint_to_content(rect, 1, paintFlags);
-
-        for (const { actor, opacity } of hidden) {
-            if (isActorAlive(actor)) {
-                actor.opacity = opacity;
-            }
-        }
-        this.blurActor.visible = wasBlurVisible;
-
-        return content;
-    }
+    endDragTracking() {}
 
     _loadStaticPreset(w, h) {
         const sourceMode = this.settings.get_string('blur-static-source') || 'preset';
@@ -581,11 +402,10 @@ export class BlurPanel {
 
         const applyContent = () => {
             const content = loaderActor.get_content();
-            if (content && !this._destroyed && this._hasBlur()) {
+            if (content && !this._destroyed) {
                 this.blurActor.set_content(content);
                 this._hasContent = true;
-                this.blurActor.show();
-                this.blurActor.queue_redraw();
+                if (this._lastKey) this.blurActor.show();
             }
         };
 
@@ -599,87 +419,27 @@ export class BlurPanel {
         }
     }
 
-    _captureBackdrop() {
-        if (this._isCapturing || !this._isShowable() || !this._ensureHierarchy()) return;
-
-        if (this._lastW <= 1 || this._lastH <= 1) {
-            this._updateGeometry();
-            if (this._lastW <= 1 || this._lastH <= 1) return;
-        }
-
-        if (this._isStaticMode()) {
-            this._loadStaticPreset(this._lastW, this._lastH);
-            return;
-        }
-
-        this._isCapturing = true;
-        this._suppressAllocation = true;
-
-        const rect = new Mtk.Rectangle({
-            x: Math.max(0, this._lastX),
-            y: Math.max(0, this._lastY),
-            width: this._lastW,
-            height: this._lastH,
-        });
-
-        const content = this._paintLiveBackdrop(rect);
-
-        this._suppressAllocation = false;
-        this._isCapturing = false;
-
-        if (content) {
-            this.blurActor.set_content(content);
-            this._hasContent = true;
-            if (!this.blurActor.visible) {
-                this.blurActor.show();
-            }
-        } else {
-            this._hasContent = false;
-        }
-    }
-
     destroy() {
         if (this._destroyed) return;
         this._destroyed = true;
 
-        BlurPanel.allPanels.delete(this);
-
         Main.sessionMode.disconnectObject(this);
-        if (Main.screenShield) {
-            Main.screenShield.disconnectObject(this);
-        }
-
-        this._stopLiveTracking();
-        this.endDragTracking();
+        if (Main.screenShield) Main.screenShield.disconnectObject(this);
         this._timeouts.destroy();
 
-        if (isActorAlive(this.targetActor)) {
-            this.targetActor.disconnectObject(this);
-        }
-        if (this.rootContainer !== this.targetActor && isActorAlive(this.rootContainer)) {
-            this.rootContainer.disconnectObject(this);
-        }
+        if (isActorAlive(this.targetActor)) this.targetActor.disconnectObject(this);
+        if (isActorAlive(this.rootContainer)) this.rootContainer.disconnectObject(this);
 
         const blur = this.blurActor;
-        this.blurActor = null;
-        if (blur) {
-            blur.hide();
-            blur.set_content(null);
-
-            const parent = blur.get_parent();
-            if (parent) {
-                parent.remove_child(blur);
-            }
-
-            if (this._effect) {
-                blur.remove_effect(this._effect);
-            }
-
+        if (isActorAlive(blur)) {
+            blur.remove_effect(this._effect);
             blur.destroy();
             markActorDisposed(blur);
         }
 
         this._effect = null;
+        this._bgClone = null;
+        this._winClone = null;
         this.targetActor = null;
         this.rootContainer = null;
         this.settings = null;

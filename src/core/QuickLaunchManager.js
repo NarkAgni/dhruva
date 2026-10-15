@@ -17,7 +17,6 @@
 */
 
 
-import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
@@ -211,11 +210,9 @@ export default class QuickLaunchManager {
         const focusActor = global.stage.get_key_focus ? global.stage.get_key_focus() : null;
         if (!focusActor) return false;
 
-        if (focusActor instanceof St.Entry) return true;
-
         let parent = focusActor;
         for (let i = 0; i < 5 && parent; i++) {
-            if (parent instanceof St.Entry) return true;
+            if ('hint_text' in parent) return true;
             if (!parent.get_parent) break;
             parent = parent.get_parent();
         }

@@ -20,7 +20,6 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
-import Clutter from 'gi://Clutter';
 
 import { MusicPill } from '../modules/MusicPill.js';
 import { updateLayout } from './DockLayoutEngine.js';
@@ -28,25 +27,75 @@ import { Settings } from '../../core/SettingsManager.js';
 import { buildModules } from '../modules/DockModules.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { applyDynamicStyles } from './DockThemeResolver.js';
-import { attachHoverBackground } from './DockButtonBase.js';
 import { setupMagnification } from '../magnifier/Magnifier.js';
+import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { applyRealtimeFrame } from '../magnifier/MagnifierFrameEngine.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
+import { DockOverflowMenu, OVERFLOW_BUTTON_KEY } from './DockOverflowMenu.js';
 import { createSeparator, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
 import { resetMagnification, teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { isActorAlive, markActorDisposed, extractIconDominantColor } from '../../core/Utils.js';
+import { captureDockTransition, releaseRemovedItems, playDockTransition } from './DockTransitions.js';
 
 
-const CLICK_THROTTLE_MS = 350;
 const POST_CLICK_DELAY_MS = 860;
-const ENTRY_DURATION_MS = 280;
-const EXIT_DURATION_MS = 240;
+
+const OVERFLOW_KEEP_TYPES = new Set(['folder', 'module', 'music-pill', 'grid', 'clock', 'desktop']);
+const DOCK_BOX_EDGE_PADDING = 8;
+const SEPARATOR_MARGIN = 8;
+const CLOCK_FALLBACK_SPAN = 90;
+
+const SYSTEM_MODULES = [
+    ['home', 'user-home'],
+    ['downloads', 'folder-download'],
+    ['documents', 'folder-documents'],
+    ['pictures', 'folder-pictures'],
+    ['videos', 'folder-videos'],
+    ['music', 'folder-music'],
+    ['trash', 'user-trash'],
+];
+
+const EDGE_PIVOTS = {
+    BOTTOM: [0.5, 1.0],
+    TOP: [0.5, 0.0],
+    LEFT: [0.0, 0.5],
+    RIGHT: [1.0, 0.5],
+};
+
+
+function _isVerticalDock(dockUI) {
+    return dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+}
+
+function _naturalSpan(actor, isVertical) {
+    const [, natural] = isVertical ? actor.get_preferred_height(-1) : actor.get_preferred_width(-1);
+    return natural;
+}
+
+function _styleClassOf(actor) {
+    if (!actor) return '';
+    return actor.get_style_class_name ? (actor.get_style_class_name() || '') : (actor.style_class || '');
+}
+
+function _slugify(text) {
+    return (text || 'folder').toLowerCase().replace(/[^a-z0-9]/g, '-');
+}
+
+function _filterActiveWindows(dockUI, windows) {
+    let filtered = WorkspaceFilter.filterWindows(windows);
+    if (Settings.isolateMonitors) {
+        const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
+        filtered = filtered.filter(w => w.get_monitor() === currentMonitorIndex);
+    }
+    return filtered;
+}
+
 
 export function getIndicatorProps(dockUI, appOrIcon = null) {
     const indStyle = Settings.indicatorStyle || 'dot';
     const indSize = Settings.indicatorSize || 4;
     const indGlow = Settings.indicatorGlow;
-    const isVert = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+    const isVert = _isVerticalDock(dockUI);
     const iconSize = Settings.iconSize || 48;
     const hoverZoom = Settings.hoverZoom;
 
@@ -55,7 +104,6 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
     const fallbackColor = Settings.indicatorColor || '#ffffff';
 
     let indColor = fallbackColor;
-
     if (currentTheme === 'chameleon' && dockUI._chameleonAccent) {
         indColor = dockUI._chameleonAccent;
     } else if (colorMode === 'dominant' && appOrIcon) {
@@ -66,8 +114,7 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
     let dh = indSize;
     let br = '100px';
 
-    const heightPad = Settings.dockHeight || 6;
-    const safeHeightPad = Math.max(heightPad, 4);
+    const safeHeightPad = Math.max(Settings.dockHeight || 6, 4);
 
     if (indStyle === 'square') {
         br = '2px';
@@ -77,7 +124,7 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
         if (indStyle === 'windows') {
             len = Math.max(12, Math.floor(indSize * 2.0));
             br = '4px';
-        } else if (indStyle === 'dash' || indStyle === 'line') {
+        } else {
             br = '0px';
         }
         const thick = Math.max(2, Math.floor(indSize / (indStyle === 'line' ? 1.5 : 1.2)));
@@ -85,9 +132,7 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
         dh = isVert ? len : thick;
     }
 
-    const edgeMargin = 4;
-    const offset = Math.max(1, safeHeightPad - edgeMargin);
-
+    const offset = Math.max(1, safeHeightPad - 4);
     let tx = 0;
     let ty = 0;
     if (dockUI.dockPosition === 'BOTTOM') ty = offset;
@@ -104,18 +149,19 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
 export function extractActorId(c) {
     if (!c) return null;
     if (c._entityId) return c._entityId;
+    if (c._isOverflowBtn) return OVERFLOW_BUTTON_KEY;
     if (c._delegate && c._delegate.app && c._delegate.app.get_id) return c._delegate.app.get_id();
     if (c._delegate && c._delegate.isFolder && c._delegate.folderData) return `folder:${c._delegate.folderData.id}`;
     if (c._sepId) return c._sepId;
     if (c.has_style_class_name && c.has_style_class_name('dock-separator')) return c._sepId || 'dhruva-sep-default';
     if (c.has_style_class_name && c.has_style_class_name('clock-module')) return 'dhruva-clock';
 
-    const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
+    const sClass = _styleClassOf(c);
     if (sClass.includes('dock-grid-button') || sClass.includes('grid-button') || c._isGridBtn) return 'dhruva-grid-button';
 
     const child = c.get_child ? c.get_child() : null;
     if (child) {
-        const childClass = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
+        const childClass = _styleClassOf(child);
         if (childClass.includes('dock-grid-icon') || childClass.includes('grid-button')) return 'dhruva-grid-button';
     }
 
@@ -127,11 +173,11 @@ export function extractActorId(c) {
 }
 
 export function _computeDesiredState(dockUI) {
-    const isFullWidth = Settings.fullWidth;
-    const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+    const isFullWidth = Settings.fullWidth || Settings.hybridPanelMode;
+    const isVerticalDock = _isVerticalDock(dockUI);
     const showClock = Settings.showClock && !dockUI._isOverviewActive;
+    const showGridBtn = Settings.showGridButton;
 
-    const showGridBtnSetting = Settings.showGridButton;
     const rawGridPos = Settings.gridButtonPosition || 'END';
     const gridPos = (rawGridPos === 'LEFT_EDGE' && !isFullWidth) ? 'START' : rawGridPos;
 
@@ -146,99 +192,81 @@ export function _computeDesiredState(dockUI) {
 
     const desiredState = [];
 
+    const startModuleKeys = [];
     if (!extractClock && clockPos === 'START' && showClock) {
-        desiredState.push({ key: 'dhruva-clock', type: 'clock', entity: null });
+        startModuleKeys.push({ key: 'dhruva-clock', type: 'clock', entity: null });
     }
-
-    if (desiredState.length > 0 && Settings.showModuleSeparator) {
-        desiredState.push({ key: 'dhruva-sep-start', type: 'separator', position: 'start' });
+    if (showGridBtn && gridPos === 'START' && !extractGrid) {
+        startModuleKeys.push({ key: 'dhruva-grid-button', type: 'grid', entity: null });
     }
-
-    if (showGridBtnSetting && gridPos === 'START' && !extractGrid) {
-        desiredState.push({ key: 'dhruva-grid-button', type: 'grid', entity: null });
+    if (startModuleKeys.length > 0) {
+        for (let i = 0; i < startModuleKeys.length; i++) desiredState.push(startModuleKeys[i]);
+        if (Settings.showModuleSeparator) {
+            desiredState.push({ key: 'dhruva-sep-start', type: 'separator', sepKind: 'module' });
+        }
     }
 
     if (showMusicPill && musicPillPos === 'START' && !isVerticalDock) {
         desiredState.push({ key: 'dhruva-music-pill', type: 'music-pill', entity: null });
     }
 
-    const displayAppsRaw = dockUI.appManager.getDisplayApps();
-    let displayApps = displayAppsRaw;
-
-    const folders = (dockUI.folderManager && dockUI.folderManager.getFolders && dockUI.folderManager.getFolders()) || [];
+    const folders = (dockUI.folderManager && dockUI.folderManager.getFolders) ? dockUI.folderManager.getFolders() : [];
     const appsInFolders = new Set();
-    folders.forEach(f => {
-        if (Array.isArray(f.apps)) {
-            f.apps.forEach(appId => appsInFolders.add(appId));
+    for (let i = 0; i < folders.length; i++) {
+        const folderApps = folders[i].apps;
+        if (Array.isArray(folderApps)) {
+            for (let j = 0; j < folderApps.length; j++) appsInFolders.add(folderApps[j]);
         }
-    });
+    }
 
+    let displayApps = dockUI.appManager.getDisplayApps();
     if (dockUI._ignoringApps && dockUI._ignoringApps.size > 0) {
-        displayApps = displayAppsRaw.filter(app => {
-            if (!app.get_id) return true;
-            if (dockUI.appManager.hasApp(app)) return true;
+        displayApps = displayApps.filter(app => {
+            if (!app.get_id || dockUI.appManager.hasApp(app)) return true;
             return !dockUI._ignoringApps.has(app.get_id());
         });
     }
-
     displayApps = displayApps.filter(app => !appsInFolders.has(app.get_id ? app.get_id() : ''));
 
     const pinnedItemsMap = new Map();
     const unpinnedItems = [];
-
     const focusWin = global.display.get_focus_window();
+    const isIsolated = Settings.isolateWorkspaces || Settings.isolateMonitors;
 
-    displayApps.forEach(app => {
+    for (let i = 0; i < displayApps.length; i++) {
+        const app = displayApps[i];
+        const appId = app.get_id();
+        const activeWindows = _filterActiveWindows(dockUI, app.get_windows());
         let isRunning = app.get_state() === Shell.AppState.RUNNING;
-        let finalActiveWindows = WorkspaceFilter.filterWindows(app.get_windows());
 
-        if (Settings.isolateMonitors) {
-            const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
-            finalActiveWindows = finalActiveWindows.filter(w => w.get_monitor() === currentMonitorIndex);
-        }
-
-        if ((Settings.isolateWorkspaces || Settings.isolateMonitors) && finalActiveWindows.length === 0) {
-            isRunning = false;
-        }
-
-        if (dockUI._ignoringApps && app.get_id && dockUI._ignoringApps.has(app.get_id())) {
-            isRunning = false;
-        }
-
-        const isFocused = Array.isArray(finalActiveWindows) && finalActiveWindows.some(w => w === focusWin);
+        if (isIsolated && activeWindows.length === 0) isRunning = false;
+        if (dockUI._ignoringApps && dockUI._ignoringApps.has(appId)) isRunning = false;
 
         const appItem = {
-            key: app.get_id(),
+            key: appId,
             type: 'app',
             entity: app,
             isRunning,
-            isFocused,
-            windowCount: finalActiveWindows.length,
-            windows: finalActiveWindows
+            isFocused: activeWindows.some(w => w === focusWin),
+            windowCount: activeWindows.length,
+            windows: activeWindows,
         };
 
-        if (dockUI.appManager.hasApp(app)) {
-            pinnedItemsMap.set(app.get_id(), appItem);
-        } else {
-            unpinnedItems.push(appItem);
-        }
-    });
+        if (dockUI.appManager.hasApp(app)) pinnedItemsMap.set(appId, appItem);
+        else unpinnedItems.push(appItem);
+    }
 
-    folders.forEach(folder => {
-        let runningApps = [];
+    for (let i = 0; i < folders.length; i++) {
+        const folder = folders[i];
+        const runningApps = [];
         let isFocused = false;
         let focusedApp = null;
-        const focusWin = global.display.get_focus_window();
 
         if (Array.isArray(folder.apps)) {
-            folder.apps.forEach(appId => {
-                const app = dockUI.appManager.appSystem.lookup_app(appId);
+            for (let j = 0; j < folder.apps.length; j++) {
+                const app = dockUI.appManager.appSystem.lookup_app(folder.apps[j]);
                 if (app && (app.get_state() === Shell.AppState.RUNNING || app.get_windows().length > 0)) {
-                    let wins = WorkspaceFilter.filterWindows(app.get_windows());
-                    if (Settings.isolateMonitors) {
-                        const curMon = dockUI.monitorManager.getCurrentMonitor().index;
-                        wins = wins.filter(w => w.get_monitor() === curMon);
-                    }
+                    const wins = _filterActiveWindows(dockUI, app.get_windows());
                     if (wins.length > 0) {
                         runningApps.push(app);
                         if (wins.some(w => w === focusWin)) {
@@ -247,377 +275,462 @@ export function _computeDesiredState(dockUI) {
                         }
                     }
                 }
-            });
+            }
         }
 
         const isRunning = runningApps.length > 0;
-        const targetColorApp = isFocused ? (focusedApp || runningApps[0]) : (runningApps[0] || null);
-
         pinnedItemsMap.set(`folder:${folder.id}`, {
             key: `folder:${folder.id}`,
             type: 'folder',
             entity: folder,
             isRunning,
             isFocused,
-            focusedApp: targetColorApp,
+            focusedApp: isFocused ? (focusedApp || runningApps[0]) : (runningApps[0] || null),
             runningApps,
-            windowCount: runningApps.length
+            windowCount: runningApps.length,
         });
-    });
+    }
 
     const savedOrder = dockUI.appManager.getDockOrder ? dockUI.appManager.getDockOrder() : [];
     const orderedPinned = [];
 
-    savedOrder.forEach(key => {
+    for (let i = 0; i < savedOrder.length; i++) {
+        const key = savedOrder[i];
         if (pinnedItemsMap.has(key)) {
             orderedPinned.push(pinnedItemsMap.get(key));
             pinnedItemsMap.delete(key);
         }
-    });
-
+    }
     pinnedItemsMap.forEach(item => orderedPinned.push(item));
-    orderedPinned.forEach(item => desiredState.push(item));
+
+    for (let i = 0; i < orderedPinned.length; i++) desiredState.push(orderedPinned[i]);
 
     if (orderedPinned.length > 0 && unpinnedItems.length > 0 && Settings.showAppSeparator) {
-        desiredState.push({ key: 'dhruva-sep-running', type: 'separator', position: 'running' });
+        desiredState.push({ key: 'dhruva-sep-running', type: 'separator', sepKind: 'running' });
     }
 
-    unpinnedItems.forEach(item => desiredState.push(item));
+    for (let i = 0; i < unpinnedItems.length; i++) desiredState.push(unpinnedItems[i]);
+
+    if (showMusicPill && musicPillPos === 'END' && !isVerticalDock) {
+        desiredState.push({ key: 'dhruva-music-pill', type: 'music-pill', entity: null });
+    }
 
     const endModuleKeys = [];
-    if (!isFullWidth && Settings.showDesktopButton) {
+    if (Settings.showDesktopButton && !isFullWidth) {
         endModuleKeys.push({ key: 'dhruva-desktop-module', type: 'desktop', entity: null });
     }
 
-    const sysMods = ['home', 'downloads', 'documents', 'pictures', 'videos', 'music', 'trash'];
-    const modIconMap = {
-        'home': 'user-home',
-        'downloads': 'folder-download',
-        'documents': 'folder-documents',
-        'pictures': 'folder-pictures',
-        'videos': 'folder-videos',
-        'music': 'folder-music',
-        'trash': 'user-trash'
-    };
-    sysMods.forEach(m => {
-        if (dockUI.settings.get_boolean(`show-${m}`)) {
-            const actualIcon = modIconMap[m] || 'folder';
-            endModuleKeys.push({ key: `dhruva-sys-${m}`, type: 'module', entity: actualIcon });
+    for (let i = 0; i < SYSTEM_MODULES.length; i++) {
+        const [modName, iconName] = SYSTEM_MODULES[i];
+        if (dockUI.settings.get_boolean(`show-${modName}`)) {
+            endModuleKeys.push({ key: `dhruva-sys-${modName}`, type: 'module', entity: iconName });
         }
-    });
+    }
 
     if (Settings.showMounts) {
-        const volumeMonitor = Gio.VolumeMonitor.get();
-        const mounts = volumeMonitor.get_mounts();
-        mounts.forEach(mount => {
-            const mKey = `dhruva-sys-mount-${mount.get_name().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-            endModuleKeys.push({ key: mKey, type: 'module', entity: 'mounts', mountRef: mount });
+        const mounts = Gio.VolumeMonitor.get().get_mounts();
+        for (let i = 0; i < mounts.length; i++) {
+            const mount = mounts[i];
+            endModuleKeys.push({
+                key: `dhruva-sys-mount-${_slugify(mount.get_name())}`,
+                type: 'module',
+                entity: 'mounts',
+                mountRef: mount,
+            });
+        }
+    }
+
+    const customFolders = (Settings.independentDock && dockUI.folderManager && dockUI.folderManager.getCustomFolders)
+        ? (dockUI.folderManager.getCustomFolders() || [])
+        : (Array.isArray(Settings.customFolders) ? Settings.customFolders : []);
+
+    for (let idx = 0; idx < customFolders.length; idx++) {
+        const f = customFolders[idx];
+        endModuleKeys.push({
+            key: `dhruva-sys-custom-${idx}-${_slugify(f.name)}`,
+            type: 'module',
+            entity: 'custom',
+            folderData: f,
         });
     }
 
-    let customFolders = [];
-    if (Settings.independentDock && dockUI && dockUI.folderManager && dockUI.folderManager.getCustomFolders) {
-        customFolders = dockUI.folderManager.getCustomFolders() || [];
-    } else {
-        customFolders = Array.isArray(Settings.customFolders) ? Settings.customFolders : [];
-    }
-
-    customFolders.forEach((f, idx) => {
-        const cKey = `dhruva-sys-custom-${idx}-${(f.name || 'folder').toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-        endModuleKeys.push({ key: cKey, type: 'module', entity: 'custom', folderData: f });
-    });
-
-    if (showMusicPill && musicPillPos === 'END' && !isVerticalDock) {
-        endModuleKeys.push({ key: 'dhruva-music-pill', type: 'music-pill', entity: null });
-    }
-
-    if (showGridBtnSetting && gridPos === 'END' && !extractGrid) {
+    if (showGridBtn && gridPos === 'END' && !extractGrid) {
         endModuleKeys.push({ key: 'dhruva-grid-button', type: 'grid', entity: null });
     }
 
     if (endModuleKeys.length > 0) {
         if (Settings.showModuleSeparator) {
-            desiredState.push({ key: 'dhruva-sep-end', type: 'separator', position: 'end' });
+            desiredState.push({ key: 'dhruva-sep-end', type: 'separator', sepKind: 'module' });
         }
-        endModuleKeys.forEach(m => desiredState.push(m));
+        for (let i = 0; i < endModuleKeys.length; i++) desiredState.push(endModuleKeys[i]);
     }
 
     if (!extractClock && clockPos !== 'START' && showClock) {
         if (Settings.showModuleSeparator) {
-            desiredState.push({ key: 'dhruva-sep-clock', type: 'separator', position: 'clock' });
+            desiredState.push({ key: 'dhruva-sep-clock', type: 'separator', sepKind: 'module' });
         }
         desiredState.push({ key: 'dhruva-clock', type: 'clock', entity: null });
     }
 
-    desiredState.forEach((item, index) => {
-        item.position = index;
-    });
+    for (let index = 0; index < desiredState.length; index++) {
+        desiredState[index].position = index;
+    }
 
     return desiredState;
 }
 
-export function _diffStates(currentState, desiredState) {
-    const currentKeys = new Set(currentState.map(i => i.key));
-    const desiredKeys = new Set(desiredState.map(i => i.key));
-    const currentMap = new Map(currentState.map(i => [i.key, i]));
 
-    const added = [];
-    const removed = [];
-    const common = [];
-    const moved = [];
-    const stateChanged = [];
+function _cacheItemSpans(dockUI) {
+    const isVertical = _isVerticalDock(dockUI);
+    const spans = new Map();
+    for (const [key, entry] of dockUI._actorRegistry) {
+        if (entry.type === 'overflow') continue;
+        const span = entry.actor.visible ? _naturalSpan(entry.actor, isVertical) : 0;
+        spans.set(key, { type: entry.type, span });
+    }
+    dockUI._itemSpans = spans;
+}
 
-    desiredState.forEach(item => {
-        if (!currentKeys.has(item.key)) {
-            added.push(item);
+function _measureAppSlot(dockUI) {
+    for (const cached of dockUI._itemSpans.values()) {
+        if (cached.type === 'app' && cached.span > 0) return cached.span;
+    }
+    return Settings.iconSize + Math.max(Settings.dockHeight, 4) * 2;
+}
+
+function _itemSpan(dockUI, item, appSlot) {
+    if (item.type === 'music-pill') {
+        const pill = dockUI._musicPill;
+        return pill && pill.visible ? _naturalSpan(pill, _isVerticalDock(dockUI)) : 0;
+    }
+
+    const cached = dockUI._itemSpans.get(item.key);
+    if (cached) return cached.span;
+
+    switch (item.type) {
+        case 'separator':
+            return (item.sepKind === 'running' ? Settings.runningSeparatorWidth : Settings.separatorWidth) + SEPARATOR_MARGIN;
+        case 'clock': return CLOCK_FALLBACK_SPAN;
+        case 'desktop': return Settings.desktopBtnWidth + SEPARATOR_MARGIN;
+        default: return appSlot;
+    }
+}
+
+function _measureFreeCorridor(dockUI, isVertical) {
+    const cfg = HYBRID_PANEL_CONFIG;
+    const leftBox = dockUI.panelIntegrator.leftContainer;
+    const rightBox = dockUI.panelIntegrator.container;
+    const gapStart = isVertical ? cfg.DOCK_GAP_AFTER_LEFT_VERTICAL : cfg.DOCK_GAP_AFTER_LEFT;
+    const gapEnd = isVertical ? cfg.DOCK_GAP_BEFORE_RIGHT_VERTICAL : cfg.DOCK_GAP_BEFORE_RIGHT;
+
+    const leftStart = isVertical ? leftBox.y : leftBox.x;
+    const leftSize = isVertical ? leftBox.height : leftBox.width;
+    const rightStart = isVertical ? rightBox.y : rightBox.x;
+
+    if (leftSize > 0 && rightStart > 0) {
+        return rightStart - gapEnd - (leftStart + leftSize + gapStart);
+    }
+
+    const monitor = dockUI.monitorManager.getCurrentMonitor().monitor;
+    if (!monitor) return Infinity;
+
+    const screenSpan = isVertical ? monitor.height : monitor.width;
+    return screenSpan - _naturalSpan(leftBox, isVertical) - gapStart - _naturalSpan(rightBox, isVertical) - gapEnd;
+}
+
+function _trimSeparators(items) {
+    const cleaned = [];
+    for (const item of items) {
+        if (item.type === 'separator' && (cleaned.length === 0 || cleaned[cleaned.length - 1].type === 'separator')) continue;
+        cleaned.push(item);
+    }
+    while (cleaned.length > 0 && cleaned[cleaned.length - 1].type === 'separator') cleaned.pop();
+    return cleaned;
+}
+
+function _insertOverflowSlot(items) {
+    const slot = { key: OVERFLOW_BUTTON_KEY, type: 'overflow', entity: null };
+    const index = items.findIndex(item => item.key === 'dhruva-sep-end' || item.type === 'module');
+    if (index >= 0) items.splice(index, 0, slot);
+    else items.push(slot);
+    return items;
+}
+
+function _keepFocusedOnPanel(normalItems, overflowItems) {
+    const focusedIndex = overflowItems.findIndex(item => item.isFocused);
+    if (focusedIndex < 0) return;
+
+    let lastAppIndex = -1;
+    normalItems.forEach((item, index) => {
+        if (item.type === 'app') lastAppIndex = index;
+    });
+    if (lastAppIndex < 0) return;
+
+    const [focused] = overflowItems.splice(focusedIndex, 1);
+    overflowItems.unshift(normalItems[lastAppIndex]);
+    normalItems[lastAppIndex] = focused;
+}
+
+function _partitionForOverflow(dockUI, desiredState) {
+    if (!Settings.hybridPanelMode || !dockUI.panelIntegrator) {
+        return { normalItems: desiredState, overflowItems: [] };
+    }
+
+    const isVertical = _isVerticalDock(dockUI);
+    const spacing = Settings.iconSpacing;
+    const appSlot = _measureAppSlot(dockUI);
+    const hysteresis = dockUI._overflowKeys ? appSlot / 2 : 0;
+    const capacity = _measureFreeCorridor(dockUI, isVertical) - DOCK_BOX_EDGE_PADDING - hysteresis;
+
+    const spanOf = item => {
+        const span = _itemSpan(dockUI, item, appSlot);
+        return span > 0 ? span + spacing : 0;
+    };
+
+    let totalSpan = 0;
+    for (const item of desiredState) totalSpan += spanOf(item);
+    if (totalSpan <= capacity) {
+        return { normalItems: desiredState, overflowItems: [] };
+    }
+
+    let reservedSpan = appSlot + spacing;
+    for (const item of desiredState) {
+        if (item.type === 'separator' || OVERFLOW_KEEP_TYPES.has(item.type)) reservedSpan += spanOf(item);
+    }
+
+    let appBudget = capacity - reservedSpan;
+    const normalItems = [];
+    const overflowItems = [];
+
+    for (const item of desiredState) {
+        if (item.type === 'separator' || OVERFLOW_KEEP_TYPES.has(item.type)) {
+            normalItems.push(item);
+            continue;
+        }
+        const span = spanOf(item);
+        if (span <= appBudget) {
+            appBudget -= span;
+            normalItems.push(item);
         } else {
-            common.push(item);
-            const curr = currentMap.get(item.key);
-            if (curr.position !== item.position) {
-                moved.push(item);
-            }
-            const focusedAppChanged = item.type === 'folder' && (curr.focusedApp !== item.focusedApp);
-            if (curr.isRunning !== item.isRunning || curr.windowCount !== item.windowCount || curr.isFocused !== item.isFocused || focusedAppChanged) {
-                stateChanged.push(item);
-            }
+            appBudget = -1;
+            overflowItems.push(item);
         }
-    });
+    }
 
-    currentState.forEach(item => {
-        if (!desiredKeys.has(item.key)) {
-            removed.push(item);
-        }
-    });
-
-    return { added, removed, common, moved, stateChanged };
+    _keepFocusedOnPanel(normalItems, overflowItems);
+    return { normalItems: _insertOverflowSlot(_trimSeparators(normalItems)), overflowItems };
 }
 
-export function _capturePositions(dockUI) {
-    dockUI._preRenderPositions.clear();
-    if (!dockUI._initialLayoutDone) return dockUI._preRenderPositions;
-
-    dockUI._actorRegistry.forEach((meta, key) => {
-        if (meta.actor && isActorAlive(meta.actor)) {
-            const [x, y] = meta.actor.get_transformed_position();
-            const [w, h] = meta.actor.get_transformed_size();
-            if (x !== 0 || y !== 0) {
-                dockUI._preRenderPositions.set(key, { x, y, width: w, height: h });
-            }
-        }
-    });
-    return dockUI._preRenderPositions;
+function _keysOf(items) {
+    return items.map(item => item.key).join('|');
 }
 
-export function _animateIconEntry(actor, dockUI, delayMs = 0) {
-    if (!actor || !isActorAlive(actor)) return;
+function _syncOverflowMenu(dockUI, overflowItems) {
+    let menu = dockUI._overflowMenu;
 
-    if (!dockUI._initialLayoutDone) {
-        actor.opacity = 255;
-        actor.set_scale(1.0, 1.0);
-        actor.translation_x = 0;
-        actor.translation_y = 0;
+    if (overflowItems.length === 0) {
+        if (menu) menu.destroy();
+        dockUI._overflowKeys = '';
         return;
     }
 
-    const pos = dockUI.dockPosition;
-    let initialRiseY = 0;
-    let initialRiseX = 0;
-    if (pos === 'BOTTOM') initialRiseY = 14;
-    else if (pos === 'TOP') initialRiseY = -14;
-    else if (pos === 'LEFT') initialRiseX = -14;
-    else if (pos === 'RIGHT') initialRiseX = 14;
+    if (menu && menu.isStale()) {
+        menu.destroy();
+        menu = null;
+    }
+    if (!menu) {
+        menu = new DockOverflowMenu(dockUI);
+        dockUI._overflowMenu = menu;
+    }
 
-    actor.opacity = 0;
-    actor.set_pivot_point(0.5, 0.5);
-    actor.set_scale(0.2, 0.2);
-    actor.translation_x = initialRiseX;
-    actor.translation_y = initialRiseY;
+    menu.setItems(overflowItems);
+    dockUI._overflowKeys = menu.keys;
+}
 
-    const runAnim = () => {
-        if (!isActorAlive(actor)) return GLib.SOURCE_REMOVE;
-        actor.ease({
-            opacity: 255,
-            scale_x: 1.0,
-            scale_y: 1.0,
-            translation_x: 0,
-            translation_y: 0,
-            duration: ENTRY_DURATION_MS,
-            mode: Clutter.AnimationMode.EASE_OUT_CUBIC
-        });
-        return GLib.SOURCE_REMOVE;
-    };
+export function syncRunningStates(dockUI) {
+    if (!isActorAlive(dockUI.boxActor)) return;
 
-    if (delayMs > 0) {
-        if (dockUI && dockUI.registry) {
-            dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, delayMs, runAnim);
-        } else {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, delayMs, runAnim);
+    const desiredState = _computeDesiredState(dockUI);
+
+    for (let i = 0; i < desiredState.length; i++) {
+        const item = desiredState[i];
+        const meta = dockUI._actorRegistry.get(item.key);
+        if (!meta || !isActorAlive(meta.actor) || !meta.actor._updateRunningState) continue;
+
+        if (item.type === 'app') {
+            if (meta.isRunning === item.isRunning && meta.isFocused === item.isFocused && meta.windowCount === item.windowCount) continue;
+            meta.isRunning = item.isRunning;
+            meta.isFocused = item.isFocused;
+            meta.windowCount = item.windowCount;
+            meta.actor._updateRunningState(item.isRunning, item.windows, item.isFocused);
+        } else if (item.type === 'folder' || item.type === 'module') {
+            meta.actor._updateRunningState();
         }
-    } else {
-        runAnim();
     }
 }
 
-export function _animateIconExit(actor, dockUI) {
-    if (!actor || !isActorAlive(actor)) return Promise.resolve();
-
-    const pos = dockUI.dockPosition;
-    let exitDropY = 0;
-    let exitDropX = 0;
-    if (pos === 'BOTTOM') exitDropY = 16;
-    else if (pos === 'TOP') exitDropY = -16;
-    else if (pos === 'LEFT') exitDropX = -16;
-    else if (pos === 'RIGHT') exitDropX = 16;
-
-    actor.remove_all_transitions();
-    actor.set_pivot_point(0.5, 0.5);
-
-    return new Promise(resolve => {
-        actor.ease({
-            opacity: 0,
-            scale_x: 0.1,
-            scale_y: 0.1,
-            translation_x: exitDropX,
-            translation_y: exitDropY,
-            duration: EXIT_DURATION_MS,
-            mode: Clutter.AnimationMode.EASE_IN_CUBIC,
-            onComplete: () => {
-                resolve();
-            }
-        });
-    });
+function _isLayoutUnchanged(dockUI) {
+    const { normalItems, overflowItems } = _partitionForOverflow(dockUI, _computeDesiredState(dockUI));
+    return _keysOf(normalItems) === dockUI._currentOrder.join('|') &&
+        _keysOf(overflowItems) === dockUI._overflowKeys;
 }
 
-export function _flipAnimateDockIcons(dockUI, preRenderPositions) {
-    if (!dockUI._initialLayoutDone || !preRenderPositions || preRenderPositions.size === 0) return;
+export function syncOverflowWithPanel(dockUI) {
+    if (!Settings.hybridPanelMode || !isActorAlive(dockUI.actor) || dockUI._isRendering) return;
+    if (!_isLayoutUnchanged(dockUI)) dockUI.queueRender('incremental', true);
+}
 
-    const hoverZoom = Settings.hoverZoom;
-    const [cx, cy] = global.get_pointer();
-    const isVert = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-
-    if (hoverZoom && isPointerWithinDockBounds(dockUI.actor, cx, cy, isVert, dockUI.settings)) {
-        return;
+function _captureMagnifierVisuals(dockUI) {
+    const visuals = new Map();
+    const [px, py] = global.get_pointer();
+    if (!Settings.hoverZoom || !isPointerWithinDockBounds(dockUI.actor, px, py, _isVerticalDock(dockUI), dockUI.settings)) {
+        return visuals;
     }
 
-    dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-        if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor)) return GLib.SOURCE_REMOVE;
-
-        dockUI.actor._flipAnimating = true;
-
-        dockUI._actorRegistry.forEach((meta, key) => {
-            const actor = meta.actor;
-            if (!actor || !isActorAlive(actor)) return;
-
-            const oldPos = preRenderPositions.get(key);
-            if (!oldPos) return;
-
-            const [newX, newY] = actor.get_transformed_position();
-            const dx = oldPos.x - newX;
-            const dy = oldPos.y - newY;
-
-            if (oldPos.x === 0 && oldPos.y === 0) return;
-
-            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
-                actor.remove_all_transitions();
-                actor.translation_x = dx;
-                actor.translation_y = dy;
-
-                actor.ease({
-                    translation_x: 0,
-                    translation_y: 0,
-                    duration: 300,
-                    mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
-                    onComplete: () => {
-                        dockUI.actor._flipAnimating = false;
-                    }
-                });
-            }
+    const remember = actor => {
+        const id = extractActorId(actor);
+        if (!id) return;
+        visuals.set(id, {
+            scaleX: actor.scale_x,
+            scaleY: actor.scale_y,
+            translationX: actor.translation_x,
+            translationY: actor.translation_y,
         });
-
-        if (dockUI && dockUI.registry) {
-            dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 310, () => {
-                if (dockUI.actor) dockUI.actor._flipAnimating = false;
-                return GLib.SOURCE_REMOVE;
-            });
-        } else {
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 310, () => {
-                if (dockUI.actor) dockUI.actor._flipAnimating = false;
-                return GLib.SOURCE_REMOVE;
-            });
-        }
-
-        return GLib.SOURCE_REMOVE;
-    });
-}
-
-export function _renderDockFull(dockUI, _forceRender = false) {
-    const oldVisuals = new Map();
-    const cacheActor = (c) => {
-        const id = extractActorId(c);
-        if (id) {
-            oldVisuals.set(id, {
-                sx: c.scale_x,
-                sy: c.scale_y,
-                tx: c.translation_x,
-                ty: c.translation_y
-            });
-        }
     };
 
-    dockUI.boxActor.get_children().forEach(cacheActor);
-    if (dockUI.gridBtn) cacheActor(dockUI.gridBtn);
-    if (dockUI.extractedClock) cacheActor(dockUI.extractedClock);
+    dockUI.boxActor.get_children().forEach(remember);
+    if (dockUI.gridBtn) remember(dockUI.gridBtn);
+    if (dockUI.extractedClock) remember(dockUI.extractedClock);
+    return visuals;
+}
 
-    const gridBtnOnActor = Boolean(dockUI.gridBtn && dockUI.gridBtn.get_parent() === dockUI.actor);
+function _destroyDetachedButton(dockUI, propName) {
+    const btn = dockUI[propName];
+    dockUI[propName] = null;
+    if (!isActorAlive(btn)) return;
+
+    if (btn.get_parent() === dockUI.actor) {
+         dockUI.actor.remove_child(btn);
+    }
+    markActorDisposed(btn);
+    btn.destroy();
+}
+
+function _modButtonName(modBtn) {
+    return (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_name)
+        ? modBtn._delegate.app.get_name()
+        : '';
+}
+
+function _resolveModuleActor(item, sysModulesMap) {
+    if (item.entity === 'custom' && item.folderData) {
+        const targetName = item.folderData.name || '';
+        const match = item.key ? item.key.match(/custom-(\d+)/) : null;
+        const targetIdx = match ? parseInt(match[1], 10) : -1;
+        for (const [modId, modBtn] of sysModulesMap.entries()) {
+            const btnName = _modButtonName(modBtn);
+            if ((targetIdx >= 0 && modBtn._customFolderIndex === targetIdx) || (targetName && btnName === targetName)) {
+                sysModulesMap.delete(modId);
+                return modBtn;
+            }
+        }
+        return null;
+    }
+
+    if (item.entity === 'mounts' && item.mountRef) {
+        const targetName = item.mountRef.get_name();
+        for (const [modId, modBtn] of sysModulesMap.entries()) {
+            if (_modButtonName(modBtn) === targetName) {
+                sysModulesMap.delete(modId);
+                return modBtn;
+            }
+        }
+        return null;
+    }
+
+    for (const [modId, modBtn] of sysModulesMap.entries()) {
+        if (modId.includes(item.entity) || item.key.includes(modId.replace('dhruva-module-', ''))) {
+            sysModulesMap.delete(modId);
+            return modBtn;
+        }
+    }
+
+    if (sysModulesMap.size > 0) {
+        const firstKey = sysModulesMap.keys().next().value;
+        const actor = sysModulesMap.get(firstKey);
+        sysModulesMap.delete(firstKey);
+        return actor;
+    }
+
+    return null;
+}
+
+function _buildItemActor(dockUI, item, iconSize, isVerticalDock, modsContext) {
+    switch (item.type) {
+        case 'app': {
+            const btn = buildAppButton(dockUI, item.entity, item.isRunning, item.windows || [], item.isFocused);
+            btn._updateRunningState(item.isRunning, item.windows || [], item.isFocused);
+            return btn;
+        }
+        case 'folder': {
+            const btn = buildFolderButton(dockUI, item.entity);
+            btn._updateRunningState();
+            return btn;
+        }
+        case 'overflow':
+            return dockUI._overflowMenu.button;
+        case 'separator':
+            return createSeparator(dockUI, iconSize, isVerticalDock, item.sepKind, item.key);
+        case 'grid':
+            return modsContext.gridBtn;
+        case 'clock':
+            return modsContext.clockModule;
+        case 'desktop':
+            return modsContext.desktopModule;
+        case 'module':
+            return _resolveModuleActor(item, modsContext.sysModulesMap);
+        case 'music-pill':
+            if (!dockUI._musicPill) {
+                dockUI._musicPill = new MusicPill(dockUI, dockUI.settings);
+            }
+            dockUI._musicPill._isStatic = true;
+            dockUI._musicPill._isMusicPill = true;
+            return dockUI._musicPill;
+        default:
+            return null;
+    }
+}
+
+export function _renderDockFull(dockUI, transition) {
+    const { normalItems, overflowItems } = _partitionForOverflow(dockUI, _computeDesiredState(dockUI));
+    if (transition) releaseRemovedItems(dockUI, transition, new Set(normalItems.map(item => item.key)));
+    dockUI._draggedOutKey = null;
+
+    const magnifierVisuals = _captureMagnifierVisuals(dockUI);
+
     if (isActorAlive(dockUI.boxActor)) {
         const children = dockUI.boxActor.get_children();
-        children.forEach(c => {
+        for (let i = 0; i < children.length; i++) {
+            const c = children[i];
             if (isActorAlive(c)) {
                 dockUI.boxActor.remove_child(c);
-                if (!c._isModule && !c._isExternal) {
+                if (c !== dockUI._musicPill && !c._isExternal && !c._isOverflowBtn) {
                     markActorDisposed(c);
                     c.destroy();
                 }
             }
-        });
-    }
-
-    if (dockUI.gridBtn) {
-        const btn = dockUI.gridBtn;
-        dockUI.gridBtn = null;
-        if (gridBtnOnActor) {
-            markActorDisposed(btn);
-            btn.destroy();
         }
     }
 
-    const clockBtnOnActor = Boolean(dockUI.extractedClock && dockUI.extractedClock.get_parent() === dockUI.actor);
-    if (dockUI.extractedClock) {
-        const btn = dockUI.extractedClock;
-        dockUI.extractedClock = null;
-        if (clockBtnOnActor) {
-            markActorDisposed(btn);
-            btn.destroy();
-        }
-    }
-
-    const desktopBtnOnActor = Boolean(dockUI.extractedDesktop && dockUI.extractedDesktop.get_parent() === dockUI.actor);
-    if (dockUI.extractedDesktop) {
-        const btn = dockUI.extractedDesktop;
-        dockUI.extractedDesktop = null;
-        if (desktopBtnOnActor) {
-            markActorDisposed(btn);
-            btn.destroy();
-        }
-    }
+    _destroyDetachedButton(dockUI, 'gridBtn');
+    _destroyDetachedButton(dockUI, 'extractedClock');
+    _destroyDetachedButton(dockUI, 'extractedDesktop');
 
     dockUI._actorRegistry.clear();
-    dockUI._separatorRegistry.clear();
     dockUI._currentOrder = [];
 
     const iconSize = Settings.iconSize;
-    const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const indPropsGlobal = getIndicatorProps(dockUI);
+    const isVerticalDock = _isVerticalDock(dockUI);
 
     const mods = buildModules(dockUI, iconSize);
     const clockModule = mods.clockModule || null;
@@ -626,14 +739,13 @@ export function _renderDockFull(dockUI, _forceRender = false) {
 
     const sysModulesMap = new Map();
     if (Array.isArray(mods.systemModules)) {
-        mods.systemModules.forEach(modBtn => {
-            const id = (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_id) 
-                ? modBtn._delegate.app.get_id() 
+        for (let i = 0; i < mods.systemModules.length; i++) {
+            const modBtn = mods.systemModules[i];
+            const id = (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_id)
+                ? modBtn._delegate.app.get_id()
                 : null;
-            if (id) {
-                sysModulesMap.set(id, modBtn);
-            }
-        });
+            if (id) sysModulesMap.set(id, modBtn);
+        }
     }
 
     if (gridBtn) {
@@ -641,391 +753,147 @@ export function _renderDockFull(dockUI, _forceRender = false) {
         gridBtn._isGridBtn = true;
     }
     if (clockModule) clockModule._entityId = 'dhruva-clock';
-    if (desktopModule) desktopModule._entityId = 'dhruva-desktop-module';
+    if (desktopModule) {
+        desktopModule._entityId = 'dhruva-desktop-module';
+        desktopModule._isDesktopBtn = true;
+    }
     dockUI.gridBtn = gridBtn;
 
-    const desiredState = _computeDesiredState(dockUI);
-
-    desiredState.forEach(item => {
-        let actor = null;
-        if (item.type === 'app') {
-            actor = buildAppButton(dockUI, item.entity, item.isRunning, item.windows || []);
-        } else if (item.type === 'folder') {
-            actor = buildFolderButton(dockUI, item.entity);
-        } else if (item.type === 'separator') {
-            actor = createSeparator(dockUI, iconSize, isVerticalDock, item.position, item.key);
-        } else if (item.type === 'grid') {
-            actor = gridBtn;
-        } else if (item.type === 'clock') {
-            actor = clockModule;
-        } else if (item.type === 'desktop') {
-            actor = desktopModule;
-        } else if (item.type === 'module') {
-            if (item.entity === 'custom' && item.folderData) {
-                const targetName = item.folderData.name || '';
-                const m = item.key ? item.key.match(/custom-(\d+)/) : null;
-                const targetIdx = m ? parseInt(m[1], 10) : -1;
-                for (const [modId, modBtn] of sysModulesMap.entries()) {
-                    const btnName = (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_name)
-                        ? modBtn._delegate.app.get_name()
-                        : '';
-                    if ((targetIdx >= 0 && modBtn._customFolderIndex === targetIdx) ||
-                        (targetName && btnName === targetName)) {
-                        actor = modBtn;
-                        sysModulesMap.delete(modId);
-                        break;
-                    }
-                }
-            } else if (item.entity === 'mounts' && item.mountRef) {
-                const targetName = item.mountRef.get_name();
-                for (const [modId, modBtn] of sysModulesMap.entries()) {
-                    const btnName = (modBtn._delegate && modBtn._delegate.app && modBtn._delegate.app.get_name)
-                        ? modBtn._delegate.app.get_name()
-                        : '';
-                    if (btnName === targetName) {
-                        actor = modBtn;
-                        sysModulesMap.delete(modId);
-                        break;
-                    }
-                }
-            } else {
-                for (const [modId, modBtn] of sysModulesMap.entries()) {
-                    if (modId.includes(item.entity) || item.key.includes(modId.replace('dhruva-module-', ''))) {
-                        actor = modBtn;
-                        sysModulesMap.delete(modId);
-                        break;
-                    }
-                }
-                if (!actor && sysModulesMap.size > 0) {
-                    const firstKey = sysModulesMap.keys().next().value;
-                    actor = sysModulesMap.get(firstKey);
-                    sysModulesMap.delete(firstKey);
-                }
-            }
-        } else if (item.type === 'music-pill') {
-            if (!dockUI._musicPill) {
-                dockUI._musicPill = new MusicPill(dockUI, dockUI.settings);
-            }
-            actor = dockUI._musicPill;
-            actor._isStatic = true;
-            actor._isMusicPill = true;
+    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+    if (isFullBar && Settings.showDesktopButton && desktopModule) {
+        dockUI.extractedDesktop = desktopModule;
+        const currentParent = desktopModule.get_parent();
+        if (currentParent && currentParent !== dockUI.actor) {
+            currentParent.remove_child(desktopModule);
         }
-
-        if (actor) {
-            actor._entityId = item.key;
-            if (oldVisuals.has(item.key)) {
-                const v = oldVisuals.get(item.key);
-                actor.scale_x = v.sx !== undefined ? v.sx : 1.0;
-                actor.scale_y = v.sy !== undefined ? v.sy : 1.0;
-                actor.translation_x = v.tx !== undefined ? v.tx : 0;
-                actor.translation_y = v.ty !== undefined ? v.ty : 0;
-            }
-            actor.opacity = 255;
-
-            dockUI.boxActor.add_child(actor);
-            dockUI._actorRegistry.set(item.key, {
-                actor,
-                type: item.type,
-                entity: item.entity,
-                isRunning: item.isRunning,
-                isFocused: item.isFocused,
-                windowCount: item.windowCount
-            });
+        if (desktopModule.get_parent() !== dockUI.actor) {
+            dockUI.actor.add_child(desktopModule);
         }
-    });
-
-    dockUI._currentOrder = desiredState.map(i => i.key);
-    dockUI._previousIconCount = dockUI._currentOrder.length;
-
-    dockActorNotifyStructure(dockUI);
-}
-
-export function _renderDockIncremental(dockUI, _forceRender = false) {
-    const iconSize = Settings.iconSize;
-    const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const indPropsGlobal = getIndicatorProps(dockUI);
-
-    const desiredState = _computeDesiredState(dockUI);
-    const desiredKeys = new Set(desiredState.map(i => i.key));
-
-    const seenActorIds = new Set();
-    dockUI.boxActor.get_children().forEach(child => {
-        if (!isActorAlive(child)) return;
-        const id = extractActorId(child);
-        if (!id || !desiredKeys.has(id) || seenActorIds.has(id)) {
-            dockUI.boxActor.remove_child(child);
-            if (!child._isModule && !child._isExternal && !child._isGridBtn) {
-                markActorDisposed(child);
-                child.destroy();
-            } else {
-                child.hide();
-            }
-        } else {
-            seenActorIds.add(id);
-        }
-    });
-
-    const currentState = [];
-    dockUI._currentOrder.forEach((key, index) => {
-        const meta = dockUI._actorRegistry.get(key);
-        if (meta) {
-            currentState.push({
-                key,
-                type: meta.type || 'separator',
-                entity: meta.entity || null,
-                isRunning: meta.isRunning,
-                isFocused: meta.isFocused,
-                focusedApp: meta.focusedApp || null,
-                windowCount: meta.windowCount,
-                position: index
-            });
-        }
-    });
-
-    const diff = _diffStates(currentState, desiredState);
-    _capturePositions(dockUI);
-
-    diff.removed.forEach(item => {
-        const reg = dockUI._actorRegistry.get(item.key);
-        if (!reg || !reg.actor) return;
-
-        const actor = reg.actor;
-        const isDraggedOut = (dockUI._draggedOutKey === item.key);
-
-        if (item.type === 'grid' || item.type === 'clock' || item.type === 'desktop' || actor._isModule || actor._isExternal || actor._isGridBtn) {
-            actor.hide();
-            dockUI._actorRegistry.delete(item.key);
-        } else if (isDraggedOut) {
-            dockUI._actorRegistry.delete(item.key);
-            if (isActorAlive(actor)) {
-                if (actor.get_parent()) actor.get_parent().remove_child(actor);
-                markActorDisposed(actor);
-                actor.destroy();
-            }
-        } else {
-            dockUI._actorRegistry.delete(item.key);
-            _animateIconExit(actor, dockUI).then(() => {
-                if (isActorAlive(actor)) {
-                    if (actor.get_parent()) actor.get_parent().remove_child(actor);
-                    markActorDisposed(actor);
-                    actor.destroy();
-                    if (dockUI._updateLayout) dockUI._updateLayout();
-                }
-            });
-        }
-    });
-
-    dockUI._draggedOutKey = null;
-
-    let staggerIdx = 0;
-    diff.added.forEach(item => {
-        let newActor = null;
-        let isStatic = false;
-
-        if (item.type === 'app') {
-            newActor = buildAppButton(dockUI, item.entity, item.isRunning, item.windows || []);
-            newActor._entityId = item.key;
-        } else if (item.type === 'folder') {
-            newActor = buildFolderButton(dockUI, item.entity);
-            newActor._entityId = item.key;
-        } else if (item.type === 'separator') {
-            newActor = createSeparator(dockUI, iconSize, isVerticalDock, item.position, item.key);
-            newActor._entityId = item.key;
-            isStatic = true;
-        } else if (item.type === 'grid') {
-            if (dockUI.gridBtn && isActorAlive(dockUI.gridBtn)) {
-                newActor = dockUI.gridBtn;
-            } else {
-                const mods = buildModules(dockUI, iconSize);
-                newActor = mods.gridModule;
-                dockUI.gridBtn = newActor;
-            }
-            if (newActor) {
-                newActor._entityId = 'dhruva-grid-button';
-                newActor._isGridBtn = true;
-                isStatic = true;
-            }
-        } else if (item.type === 'clock') {
-            if (dockUI.extractedClock && isActorAlive(dockUI.extractedClock)) {
-                newActor = dockUI.extractedClock;
-            } else {
-                const mods = buildModules(dockUI, iconSize);
-                newActor = mods.clockModule;
-            }
-            if (newActor) {
-                newActor._entityId = 'dhruva-clock';
-                isStatic = true;
-            }
-        } else if (item.type === 'desktop') {
-            const mods = buildModules(dockUI, iconSize);
-            newActor = mods.desktopModule;
-            if (newActor) {
-                newActor._entityId = 'dhruva-desktop-module';
-                isStatic = true;
-            }
-        } else if (item.type === 'module') {
-            const mods = buildModules(dockUI, iconSize);
-            if (Array.isArray(mods.systemModules)) {
-                if (item.entity === 'custom' && item.folderData) {
-                    const targetName = item.folderData.name || '';
-                    const m = item.key ? item.key.match(/custom-(\d+)/) : null;
-                    const targetIdx = m ? parseInt(m[1], 10) : -1;
-                    for (let i = 0; i < mods.systemModules.length; i++) {
-                        const btn = mods.systemModules[i];
-                        const btnName = (btn._delegate && btn._delegate.app && btn._delegate.app.get_name)
-                            ? btn._delegate.app.get_name()
-                            : '';
-                        if ((targetIdx >= 0 && btn._customFolderIndex === targetIdx) ||
-                            (targetName && btnName === targetName)) {
-                            newActor = btn;
-                            break;
-                        }
-                    }
-                } else if (item.entity === 'mounts' && item.mountRef) {
-                    const targetName = item.mountRef.get_name();
-                    for (let i = 0; i < mods.systemModules.length; i++) {
-                        const btn = mods.systemModules[i];
-                        const btnName = (btn._delegate && btn._delegate.app && btn._delegate.app.get_name)
-                            ? btn._delegate.app.get_name()
-                            : '';
-                        if (btnName === targetName) {
-                            newActor = btn;
-                            break;
-                        }
-                    }
-                } else {
-                    for (let i = 0; i < mods.systemModules.length; i++) {
-                        const btn = mods.systemModules[i];
-                        const id = (btn._delegate && btn._delegate.app && btn._delegate.app.get_id) 
-                            ? btn._delegate.app.get_id() 
-                            : '';
-                        if (id.includes(item.entity) || item.key.includes(id.replace('dhruva-module-', ''))) {
-                            newActor = btn;
-                            break;
-                        }
-                    }
-                }
-
-                if (!newActor && mods.systemModules.length > 0) {
-                    newActor = mods.systemModules[0];
-                }
-            }
-            if (newActor) {
-                newActor._entityId = item.key;
-                isStatic = true;
-            }
-        } else if (item.type === 'music-pill') {
-            if (!dockUI._musicPill) {
-                dockUI._musicPill = new MusicPill(dockUI, dockUI.settings);
-            }
-            newActor = dockUI._musicPill;
-            newActor._entityId = 'dhruva-music-pill';
-            newActor._isMusicPill = true;
-            isStatic = true;
-        }
-
-        if (newActor) {
-            if (newActor.get_parent() !== dockUI.boxActor) {
-                if (newActor.get_parent()) newActor.get_parent().remove_child(newActor);
-                dockUI.boxActor.add_child(newActor);
-            }
-
-            dockUI._actorRegistry.set(item.key, {
-                actor: newActor,
-                type: item.type,
-                entity: item.entity,
-                isRunning: item.isRunning,
-                isFocused: item.isFocused,
-                windowCount: item.windowCount
-            });
-
-            if (!isStatic) {
-                _animateIconEntry(newActor, dockUI, staggerIdx * 25);
-                staggerIdx++;
-            } else {
-                newActor.opacity = 255;
-                newActor.show();
-            }
-        }
-    });
-
-    diff.stateChanged.forEach(item => {
-        const meta = dockUI._actorRegistry.get(item.key);
-        if (!meta || !meta.actor || !isActorAlive(meta.actor)) return;
-
-        meta.isRunning = item.isRunning;
-        meta.isFocused = item.isFocused;
-        meta.focusedApp = item.focusedApp || null;
-        meta.windowCount = item.windowCount;
-
-        let activeColorSource = item.entity || item.key;
-        if (item.type === 'folder') {
-            const folderIcon = (item.entity && item.entity.icon) ? item.entity.icon : 'folder';
-            activeColorSource = item.focusedApp || (item.runningApps && item.runningApps[0]) || folderIcon;
-        }
-        const itemIndProps = getIndicatorProps(dockUI, activeColorSource);
-
-        if (meta.type === 'folder' && meta.actor._delegate && meta.actor._delegate.updateRunningState) {
-            meta.actor._delegate.updateRunningState(item.isRunning, item.runningApps || [], item.isFocused, item.focusedApp);
-        } else if (meta.actor._delegate && meta.actor._delegate.updateRunningState) {
-            meta.actor._delegate.updateRunningState(item.isRunning, item.windows || [], item.isFocused);
-        } else if (attachHoverBackground && attachHoverBackground.updateState) {
-            attachHoverBackground.updateState(meta.actor, item.isRunning, item.windows || [], itemIndProps, dockUI, item.isFocused);
-        }
-    });
-
-    dockUI._actorRegistry.forEach((meta, key) => {
-        if (!meta || !meta.actor || !isActorAlive(meta.actor)) return;
-        if (meta.type === 'folder' && meta.actor._delegate && meta.actor._delegate.updateRunningState) {
-            const des = desiredState.find(d => d.key === key);
-            if (des) {
-                meta.actor._delegate.updateRunningState(des.isRunning, des.runningApps || [], des.isFocused, des.focusedApp);
-            }
-        } else if (meta.type === 'module' && meta.actor._delegate && meta.actor._delegate.updateRunningState) {
-            meta.actor._delegate.updateRunningState();
-        }
-    });
-
-    desiredState.forEach((item, targetIndex) => {
-        const reg = dockUI._actorRegistry.get(item.key);
-        if (reg && reg.actor && isActorAlive(reg.actor)) {
-            const currentChildren = dockUI.boxActor.get_children();
-            if (currentChildren[targetIndex] !== reg.actor) {
-                dockUI.boxActor.set_child_at_index(reg.actor, targetIndex);
-            }
-        }
-    });
-
-    const runningSep = dockUI._actorRegistry.get('dhruva-sep-running');
-    if (runningSep && isActorAlive(runningSep.actor)) {
-        const shouldShow = desiredState.some(i => i.key === 'dhruva-sep-running');
-        if (!shouldShow) {
-            dockUI.boxActor.remove_child(runningSep.actor);
-            runningSep.actor.destroy();
-            dockUI._actorRegistry.delete('dhruva-sep-running');
-        }
+        dockUI.actor.set_child_above_sibling(desktopModule, null);
+        desktopModule.show();
+        desktopModule.opacity = 255;
+    } else if (desktopModule && (!Settings.showDesktopButton || isFullBar) && isActorAlive(desktopModule)) {
+        markActorDisposed(desktopModule);
+        desktopModule.destroy();
     }
 
-    dockUI._currentOrder = desiredState.map(i => i.key);
-    dockUI._previousIconCount = dockUI._currentOrder.length;
+    _syncOverflowMenu(dockUI, overflowItems);
 
-    const isFullWidth = Settings.fullWidth;
-    if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.get_parent() !== dockUI.actor) {
-        if (dockUI.gridBtn.get_parent()) dockUI.gridBtn.get_parent().remove_child(dockUI.gridBtn);
-        dockUI.actor.add_child(dockUI.gridBtn);
+    const modsContext = { clockModule, gridBtn, desktopModule, sysModulesMap };
+
+    for (let i = 0; i < normalItems.length; i++) {
+        const item = normalItems[i];
+        const actor = _buildItemActor(dockUI, item, iconSize, isVerticalDock, modsContext);
+        if (!actor) continue;
+
+        actor._entityId = item.key;
+        const visual = magnifierVisuals.get(item.key);
+        if (visual) {
+            actor.set_scale(visual.scaleX, visual.scaleY);
+            actor.translation_x = visual.translationX;
+            actor.translation_y = visual.translationY;
+
+            const sx = Math.max(0.01, visual.scaleX || 1.0);
+            const sy = Math.max(0.01, visual.scaleY || 1.0);
+            if (Math.abs(sx - 1.0) > 0.001 || Math.abs(sy - 1.0) > 0.001) {
+                const antiSx = 1.0 / sx;
+                const antiSy = 1.0 / sy;
+                const [ipx, ipy] = EDGE_PIVOTS[dockUI.dockPosition] || EDGE_PIVOTS.BOTTOM;
+                const appBox = actor.get_child ? actor.get_child() : null;
+                if (appBox && appBox.get_children) {
+                    appBox.get_children().forEach(c => {
+                        if (c._isIndicator) {
+                            c.set_pivot_point(ipx, ipy);
+                            const baseSx = c._baseScaleX !== undefined ? c._baseScaleX : 1.0;
+                            const baseSy = c._baseScaleY !== undefined ? c._baseScaleY : 1.0;
+                            c.scale_x = baseSx * antiSx;
+                            c.scale_y = baseSy * antiSy;
+                            c.translation_x = (c._baseTx || 0) * antiSx;
+                            c.translation_y = (c._baseTy || 0) * antiSy;
+                        }
+                    });
+                }
+            }
+        }
+        actor.opacity = 255;
+
+        dockUI.boxActor.add_child(actor);
+        dockUI._actorRegistry.set(item.key, {
+            actor,
+            type: item.type,
+            entity: item.entity,
+            isRunning: item.isRunning,
+            isFocused: item.isFocused,
+            windowCount: item.windowCount,
+        });
     }
-    if (dockUI._musicPill) {
-        if (dockUI._musicPill._hasValidTrack && !isVerticalDock) dockUI._musicPill.show();
-        else dockUI._musicPill.hide();
-    }
 
-    dockActorNotifyStructure(dockUI);
-}
+    dockUI._currentOrder = normalItems.map(i => i.key);
+    _cacheItemSpans(dockUI);
 
-function dockActorNotifyStructure(dockUI) {
     if (dockUI.actor) {
         dockUI.actor._structureChanged = true;
         dockUI.actor._fixedSlots = null;
+    }
+}
+
+function _applyMagnifierFrameOrReset(dockUI, isVerticalDock, checkPointerBounds) {
+    const focusWin = global.display.get_focus_window();
+    if (focusWin && focusWin.is_fullscreen && focusWin.is_fullscreen()) {
+        resetMagnification(dockUI.actor);
+        return;
+    }
+
+    const [cx, cy] = global.get_pointer();
+    if (!checkPointerBounds || isPointerWithinDockBounds(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings)) {
+        applyRealtimeFrame(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings, Date.now());
+    } else {
+        resetMagnification(dockUI.actor);
+    }
+}
+
+function _syncMagnifierAndPivots(dockUI) {
+    const hoverZoom = Settings.hoverZoom;
+    const showTooltips = Settings.showAppsPreview;
+    const isVerticalDock = _isVerticalDock(dockUI);
+
+    if (!hoverZoom && !showTooltips) {
+        teardownMagnification(dockUI.actor);
+        dockUI.actor._isMagSetup = false;
+        return;
+    }
+
+    const [px, py] = EDGE_PIVOTS[dockUI.dockPosition] || EDGE_PIVOTS.BOTTOM;
+    const children = dockUI.boxActor.get_children();
+    for (let i = 0; i < children.length; i++) {
+        const c = children[i];
+        if (!_styleClassOf(c).includes('dock-separator')) {
+            c.set_pivot_point(px, py);
+        }
+    }
+    if (dockUI.gridBtn) dockUI.gridBtn.set_pivot_point(px, py);
+
+    if (!dockUI.actor._isMagSetup) {
+        if (dockUI._magnifierSetupIdleId) {
+            dockUI.registry.remove(dockUI._magnifierSetupIdleId);
+            dockUI._magnifierSetupIdleId = null;
+        }
+
+        dockUI._magnifierSetupIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            dockUI._magnifierSetupIdleId = null;
+            if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) {
+                return GLib.SOURCE_REMOVE;
+            }
+
+            setupMagnification(dockUI.actor, dockUI.settings, () => dockUI.dockPosition);
+            dockUI.actor._isMagSetup = true;
+            dockUI.actor._fixedSlots = null;
+
+            _applyMagnifierFrameOrReset(dockUI, isVerticalDock, true);
+            return GLib.SOURCE_REMOVE;
+        });
+    } else {
+        _applyMagnifierFrameOrReset(dockUI, isVerticalDock, false);
     }
 }
 
@@ -1043,10 +911,11 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
         return;
     }
 
-    if (!forceRender && dockUI.actor._lastIconClickTime) {
+    if (mode !== 'full' && dockUI.actor._lastIconClickTime) {
         const elapsed = Date.now() - dockUI.actor._lastIconClickTime;
-        if (elapsed < CLICK_THROTTLE_MS) {
+        if (elapsed < POST_CLICK_DELAY_MS && _isLayoutUnchanged(dockUI)) {
             dockUI._pendingRender = false;
+            if (dockUI._updateRunningStatesFast) dockUI._updateRunningStatesFast();
 
             if (dockUI._delayedRenderId) {
                 dockUI.registry.remove(dockUI._delayedRenderId);
@@ -1054,7 +923,7 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
             }
             dockUI._delayedRenderId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, POST_CLICK_DELAY_MS - elapsed, () => {
                 dockUI._delayedRenderId = null;
-                if (dockUI.queueRender) dockUI.queueRender(mode, false);
+                if (dockUI.queueRender) dockUI.queueRender(mode, true);
                 return GLib.SOURCE_REMOVE;
             });
             return;
@@ -1069,85 +938,24 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
     dockUI._isRendering = true;
     dockUI._pendingRender = false;
 
-    if (mode === 'full' || !dockUI._initialLayoutDone || dockUI._actorRegistry.size === 0) {
-        _renderDockFull(dockUI, forceRender);
-    } else {
-        _renderDockIncremental(dockUI, forceRender);
+    if (dockUI._delayedRenderId) {
+        dockUI.registry.remove(dockUI._delayedRenderId);
+        dockUI._delayedRenderId = null;
     }
 
-    dockUI._applyIndicatorBaselineAlignment();
+    const transition = mode === 'full' ? null : captureDockTransition(dockUI);
+    _renderDockFull(dockUI, transition);
+    if (transition) dockUI.actor._flipAnimating = true;
+
     dockUI.actor._fixedSlots = null;
     dockUI.actor._tooltipHoveredIndex = -1;
     dockUI.actor._magTooltipAppId = null;
 
-    const hoverZoom = Settings.hoverZoom;
-    const showTooltips = Settings.showAppsPreview;
-    const isVerticalDock = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-
-    if (hoverZoom || showTooltips) {
-        const setPivot = (btn) => {
-            if (dockUI.dockPosition === 'BOTTOM') btn.set_pivot_point(0.5, 1.0);
-            else if (dockUI.dockPosition === 'TOP') btn.set_pivot_point(0.5, 0.0);
-            else if (dockUI.dockPosition === 'LEFT') btn.set_pivot_point(0.0, 0.5);
-            else if (dockUI.dockPosition === 'RIGHT') btn.set_pivot_point(1.0, 0.5);
-        };
-
-        dockUI.boxActor.get_children().forEach(c => {
-            const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');
-            if (!sClass.includes('dock-separator')) setPivot(c);
-        });
-
-        if (dockUI.gridBtn) setPivot(dockUI.gridBtn);
-
-        if (!dockUI.actor._isMagSetup) {
-            if (dockUI._magnifierSetupIdleId) {
-                dockUI.registry.remove(dockUI._magnifierSetupIdleId);
-                dockUI._magnifierSetupIdleId = null;
-            }
-
-            dockUI._magnifierSetupIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                dockUI._magnifierSetupIdleId = null;
-                if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) {
-                    return GLib.SOURCE_REMOVE;
-                }
-
-                setupMagnification(dockUI.actor, dockUI.settings, () => dockUI.dockPosition);
-                dockUI.actor._isMagSetup = true;
-
-                const focusWin = global.display.get_focus_window();
-                if (focusWin && focusWin.is_fullscreen && focusWin.is_fullscreen()) {
-                    resetMagnification(dockUI.actor);
-                    return GLib.SOURCE_REMOVE;
-                }
-
-                dockUI.actor._fixedSlots = null;
-                const [cx, cy] = global.get_pointer();
-
-                if (isPointerWithinDockBounds(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings)) {
-                    applyRealtimeFrame(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings, Date.now());
-                } else {
-                    resetMagnification(dockUI.actor);
-                }
-
-                return GLib.SOURCE_REMOVE;
-            });
-        } else {
-            const focusWin = global.display.get_focus_window();
-            if (!focusWin || !focusWin.is_fullscreen || !focusWin.is_fullscreen()) {
-                const [cx, cy] = global.get_pointer();
-                applyRealtimeFrame(dockUI.actor, cx, cy, isVerticalDock, dockUI.settings, Date.now());
-            } else {
-                resetMagnification(dockUI.actor);
-            }
-        }
-    } else {
-        teardownMagnification(dockUI.actor);
-        dockUI.actor._isMagSetup = false;
-    }
-
     applyDynamicStyles(dockUI);
     updateLayout(dockUI);
     if (dockUI.dockManager) dockUI.dockManager.updatePosition();
+    _syncMagnifierAndPivots(dockUI);
+    if (transition) playDockTransition(dockUI, transition);
 
     dockUI._initialLayoutDone = true;
     dockUI._isRendering = false;

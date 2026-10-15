@@ -44,6 +44,7 @@ export default class AutoHideManager {
         this.isAnimating = false;
         this._isHovered = false;
         this._wasFullscreen = false;
+        this._isGrabPassThrough = false;
 
         this._hideTimeoutId = 0;
         this._showTimeoutId = 0;
@@ -189,6 +190,36 @@ export default class AutoHideManager {
         }
     }
 
+    setWindowGrabPassThrough(enabled) {
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
+        const nextState = Boolean(enabled);
+        if (this._isGrabPassThrough === nextState) return;
+        this._isGrabPassThrough = nextState;
+
+        if (this.edgeDetection) {
+            this.edgeDetection.setPassThrough(this._isGrabPassThrough);
+        }
+
+        if (this._isGrabPassThrough) {
+            this._clearTimers();
+            this._isHovered = false;
+            this.isHidden = true;
+            this.isAnimating = false;
+
+            this.forceHideImmediately();
+            if (this.dockUI._dockBlur) {
+                this.dockUI._dockBlur._hideBlur();
+            }
+        } else {
+            const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
+            if (mode === 'none') {
+                this.show();
+            } else {
+                this.scheduleCheck(20);
+            }
+        }
+    }
+
     updateTriggerGeometry() {
         if (this.edgeDetection) {
             this.edgeDetection.updateGeometry();
@@ -256,6 +287,7 @@ export default class AutoHideManager {
         if (!this.dockUI || !isActorAlive(this.dockUI.actor) || !isActorAlive(this.dockUI.boxActor)) {
             return;
         }
+        if (this._isGrabPassThrough) return;
 
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
@@ -360,6 +392,7 @@ export default class AutoHideManager {
     }
 
     showWithDelay() {
+        if (this._isGrabPassThrough) return;
         const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
         const isFullscreen = this._isCurrentMonitorFullscreen();
 
@@ -392,6 +425,7 @@ export default class AutoHideManager {
     }
 
     show() {
+        if (this._isGrabPassThrough) return;
         const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
         const isFullscreen = this._isCurrentMonitorFullscreen();
 
@@ -409,15 +443,19 @@ export default class AutoHideManager {
         }
 
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
-        if (!this.isHidden && !this.isAnimating && this.dockUI.actor.opacity === 255 && this.dockUI.actor.translation_y === 0) return;
+        if (!this.isHidden && !this.isAnimating &&
+            this.dockUI.actor.opacity === 255 &&
+            this.dockUI.actor.translation_x === 0 &&
+            this.dockUI.actor.translation_y === 0) return;
 
         this.isHidden = false;
         this.isAnimating = true;
 
         animateShow(this.dockUI, () => {
             this.isAnimating = false;
-            if (this.dockUI && this.dockUI.blurPanel) {
-                this.dockUI.blurPanel.queueCapture(true);
+            if (this.dockUI && this.dockUI._dockBlur) {
+                this.dockUI._dockBlur.syncGeometry();
+                this.dockUI._dockBlur.queueCapture(true);
             }
         });
     }

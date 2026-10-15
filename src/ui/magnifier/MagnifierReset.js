@@ -22,12 +22,19 @@ import Clutter from 'gi://Clutter';
 
 import { isActorAlive } from '../../core/Utils.js';
 import { getDockButtons } from './MagnifierMath.js';
+import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { clearTooltipDelay, hideTooltip } from './MagnifierTooltip.js';
 
 
 export function resetMagnification(dockActor, duration = 200, lockEngine = false) {
     if (!isActorAlive(dockActor)) return;
+
+    dockActor._isZoomActive = false;
+    if (dockActor._settleTickId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._settleTickId);
+        dockActor._settleTickId = null;
+    }
 
     hideTooltip(dockActor);
     clearTooltipDelay(dockActor);
@@ -62,8 +69,9 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
         ? Array.from(dockActor._dockUI._actorRegistry.values()).map(e => e.actor).filter(Boolean)
         : getDockButtons(dockActor);
 
-    btns.forEach(b => {
-        if (!isActorAlive(b)) return;
+    for (let i = 0; i < btns.length; i++) {
+        const b = btns[i];
+        if (!isActorAlive(b)) continue;
 
         b.remove_all_transitions();
         b._flipOffset = 0;
@@ -83,8 +91,10 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
 
         const appBox = b.get_child ? b.get_child() : null;
         if (appBox && appBox.get_children) {
-            appBox.get_children().forEach(c => {
-                if (!isActorAlive(c)) return;
+            const kids = appBox.get_children();
+            for (let j = 0; j < kids.length; j++) {
+                const c = kids[j];
+                if (!isActorAlive(c)) continue;
                 c.remove_all_transitions();
 
                 c.rotation_angle_z = 0;
@@ -93,16 +103,16 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
 
                 if (c._isIndicator) {
                     c.ease({
-                        scale_x: c._baseScaleX || 1.0,
-                        scale_y: c._baseScaleY || 1.0,
+                        scale_x: c._baseScaleX !== undefined ? c._baseScaleX : 1.0,
+                        scale_y: c._baseScaleY !== undefined ? c._baseScaleY : 1.0,
                         translation_x: c._baseTx || 0,
                         translation_y: c._baseTy || 0,
                         duration,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD
                     });
                 } else if (c._isHoverBg) {
-                    const targetSx = c._baseScaleX || 1.0;
-                    const targetSy = c._baseScaleY || 1.0;
+                    const targetSx = c._baseScaleX ? c._baseScaleX : 1.0;
+                    const targetSy = c._baseScaleY ? c._baseScaleY : 1.0;
                     c.ease({
                         scale_x: targetSx,
                         scale_y: targetSy,
@@ -115,55 +125,53 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
                     c.ease({
                         scale_x: 1.0,
                         scale_y: 1.0,
-                        translation_x: c._baseTx || 0,
-                        translation_y: c._baseTy || 0,
+                        translation_x: c._baseTx ? c._baseTx : 0,
+                        translation_y: c._baseTy ? c._baseTy : 0,
                         duration,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD
                     });
-
-                    if (c.get_children) {
-                        c.get_children().forEach(inner => {
-                            if (isActorAlive(inner)) {
-                                inner.remove_all_transitions();
-                                inner.rotation_angle_z = 0;
-                                inner.rotation_angle_y = 0;
-                                inner.rotation_angle_x = 0;
-                                inner.scale_x = 1.0;
-                                inner.scale_y = 1.0;
-                                inner.translation_x = 0;
-                                inner.translation_y = 0;
-                            }
-                        });
-                    }
                 }
-            });
+            }
         }
-    });
+    }
 
-    if (isActorAlive(dockActor.bgActor)) {
+    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+
+    if (isActorAlive(dockActor.bgActor) && !isFullBar) {
         dockActor.bgActor.remove_all_transitions();
+        dockActor.bgActor.scale_x = 1.0;
+        dockActor.bgActor.scale_y = 1.0;
+        dockActor.bgActor.translation_x = 0;
+        dockActor.bgActor.translation_y = 0;
+
+        const baseX = dockActor.bgActor._baseX !== undefined ? dockActor.bgActor._baseX : dockActor.bgActor.x;
+        const baseY = dockActor.bgActor._baseY !== undefined ? dockActor.bgActor._baseY : dockActor.bgActor.y;
+        const baseW = dockActor.bgActor._baseW || dockActor.bgActor.width;
+        const baseH = dockActor.bgActor._baseH || dockActor.bgActor.height;
+
         if (duration === 0) {
-            dockActor.bgActor.scale_x = 1.0;
-            dockActor.bgActor.scale_y = 1.0;
-            dockActor.bgActor.translation_x = 0;
-            dockActor.bgActor.translation_y = 0;
+            dockActor.bgActor.set_position(baseX, baseY);
+            dockActor.bgActor.set_size(baseW, baseH);
             if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
                 dockActor._dockUI._dockBlur.syncGeometry();
             }
         } else {
             dockActor.bgActor.ease({
-                scale_x: 1.0,
-                scale_y: 1.0,
-                translation_x: 0,
-                translation_y: 0,
+                x: baseX,
+                y: baseY,
+                width: baseW,
+                height: baseH,
                 duration,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onUpdate: () => {
+                    if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
+                        dockActor._dockUI._dockBlur.syncGeometry();
+                    }
+                },
                 onStopped: () => {
                     if (isActorAlive(dockActor.bgActor)) {
-                        dockActor.bgActor.scale_x = 1.0;
-                        dockActor.bgActor.scale_y = 1.0;
-                        dockActor.bgActor.translation_x = 0;
-                        dockActor.bgActor.translation_y = 0;
+                        dockActor.bgActor.set_position(baseX, baseY);
+                        dockActor.bgActor.set_size(baseW, baseH);
                     }
                     if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
                         dockActor._dockUI._dockBlur.syncGeometry();
@@ -171,6 +179,12 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
                 }
             });
         }
+    } else if (isActorAlive(dockActor.bgActor) && isFullBar) {
+        dockActor.bgActor.remove_all_transitions();
+        dockActor.bgActor.scale_x = 1.0;
+        dockActor.bgActor.scale_y = 1.0;
+        dockActor.bgActor.translation_x = 0;
+        dockActor.bgActor.translation_y = 0;
     }
 
     dockActor._structureChanged = false;
@@ -187,10 +201,7 @@ export function teardownMagnification(dockActor) {
         dockActor._magTimers = null;
     }
 
-    if (dockActor._stageClickId) {
-        global.stage.disconnectObject(dockActor);
-        dockActor._stageClickId = null;
-    }
+    global.stage.disconnectObject(dockActor);
 
     dockActor.disconnectObject(dockActor);
 

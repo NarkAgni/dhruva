@@ -25,8 +25,8 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { applyRealtimeFrame } from './MagnifierFrameEngine.js';
 import { isActorAlive, getBoxVertical } from '../../core/Utils.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
+import { getDockButtons, isPointerWithinDockBounds } from './MagnifierMath.js';
 import { resetMagnification, teardownMagnification } from './MagnifierReset.js';
-import { getDockButtons, getFixedSlots, isPointerWithinDockBounds } from './MagnifierMath.js';
 import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
 
@@ -39,7 +39,9 @@ function _checkPointerLeave(dockActor, settings) {
     if (dockActor._isResetting) return;
 
     const isVertical = getBoxVertical(dockActor.boxActor);
-    const [px, py] = global.get_pointer();
+    const coords = global.get_pointer();
+    const px = coords[0];
+    const py = coords[1];
     const onDock = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings);
     const insideTooltip = isInsideTooltip(dockActor, px, py, 16);
     const insideBridge = isPointerInDockTooltipBridge(dockActor, px, py, settings);
@@ -62,7 +64,9 @@ function _checkPointerLeave(dockActor, settings) {
             return GLib.SOURCE_REMOVE;
         }
 
-        const [cx, cy] = global.get_pointer();
+        const currentCoords = global.get_pointer();
+        const cx = currentCoords[0];
+        const cy = currentCoords[1];
         const stillInside = isPointerWithinDockBounds(dockActor, cx, cy, isVertical, settings);
         const stillInsideTooltip = isInsideTooltip(dockActor, cx, cy, 16);
         const stillInsideBridge = isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
@@ -97,13 +101,15 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     dockActor._lastMagMotionFrameTs = 0;
     const dockPos = dockPositionGetter();
 
-    getDockButtons(dockActor).forEach(btn => {
-        if (!isActorAlive(btn)) return;
+    const initialBtns = getDockButtons(dockActor);
+    for (let i = 0; i < initialBtns.length; i++) {
+        const btn = initialBtns[i];
+        if (!isActorAlive(btn)) continue;
         if (dockPos === 'BOTTOM') btn.set_pivot_point(0.5, 1.0);
         else if (dockPos === 'TOP') btn.set_pivot_point(0.5, 0.0);
         else if (dockPos === 'LEFT') btn.set_pivot_point(0.0, 0.5);
         else if (dockPos === 'RIGHT') btn.set_pivot_point(1.0, 0.5);
-    });
+    }
 
     if (isActorAlive(dockActor.bgActor)) {
         if (dockPos === 'BOTTOM') dockActor.bgActor.set_pivot_point(0.5, 1.0);
@@ -124,7 +130,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         }, dockActor);
     }
 
-    dockActor._stageClickId = global.stage.connectObject('captured-event', (_stage, event) => {
+    global.stage.connectObject('captured-event', (_stage, event) => {
         if (!isActorAlive(dockActor) || dockActor._isHidden) return Clutter.EVENT_PROPAGATE;
         const evType = event.type();
 
@@ -133,13 +139,15 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             if ((event.get_state() & Clutter.ModifierType.BUTTON1_MASK) !== 0) return Clutter.EVENT_PROPAGATE;
 
             const frameNow = Date.now();
-            const minFrameGap = dockActor._isDragging ? 8 : 16;
+            const minFrameGap = 7;
             if (dockActor._lastMagMotionFrameTs && (frameNow - dockActor._lastMagMotionFrameTs) < minFrameGap) {
                 return Clutter.EVENT_PROPAGATE;
             }
             dockActor._lastMagMotionFrameTs = frameNow;
 
-            const [ex, ey] = event.get_coords();
+            const motionCoords = event.get_coords();
+            const ex = motionCoords[0];
+            const ey = motionCoords[1];
             const isVertical = getBoxVertical(dockActor.boxActor);
             const onDock = isPointerWithinDockBounds(dockActor, ex, ey, isVertical, settings);
 
@@ -175,12 +183,39 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 return Clutter.EVENT_PROPAGATE;
             }
 
+            const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+            if (isFullBar && dockActor.boxActor && isActorAlive(dockActor.boxActor)) {
+                const boxPos = dockActor.boxActor.get_transformed_position();
+                const boxX = boxPos[0];
+                const boxY = boxPos[1];
+                const boxSize = dockActor.boxActor.get_transformed_size();
+                const boxW = boxSize[0];
+                const boxH = boxSize[1];
+                const SMOOTH_PAD = 15;
+
+                const withinBoxCluster = isVertical
+                    ? (ey >= boxY - SMOOTH_PAD && ey <= boxY + boxH + SMOOTH_PAD)
+                    : (ex >= boxX - SMOOTH_PAD && ex <= boxX + boxW + SMOOTH_PAD);
+
+                if (!withinBoxCluster) {
+                    hideTooltip(dockActor);
+                    if (!dockActor._isMagnifierResetDone) {
+                        dockActor._isMagnifierResetDone = true;
+                        resetMagnification(dockActor, 180, false);
+                    }
+                    return Clutter.EVENT_PROPAGATE;
+                }
+            }
+
+            dockActor._isMagnifierResetDone = false;
             applyRealtimeFrame(dockActor, ex, ey, isVertical, settings, Date.now());
             return Clutter.EVENT_PROPAGATE;
         }
 
         if (evType === Clutter.EventType.BUTTON_PRESS) {
-            const [px, py] = event.get_coords();
+            const pressCoords = event.get_coords();
+            const px = pressCoords[0];
+            const py = pressCoords[1];
             dockActor._globalPressX = px;
             dockActor._globalPressY = py;
             dockActor._lastIconClickTime = Date.now();
@@ -201,12 +236,11 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         if (dockActor._isDragging || isAppGridOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
         if (!Settings.hoverZoom) return Clutter.EVENT_PROPAGATE;
 
-        const [ex, ey] = event.get_coords();
+        const releaseCoords = event.get_coords();
+        const ex = releaseCoords[0];
+        const ey = releaseCoords[1];
         const buttonNum = event.get_button();
-        const [dax, day] = dockActor.get_transformed_position();
-
         const isVertical = getBoxVertical(dockActor.boxActor);
-        const actualMaxZoom = 1.0 + (Settings.hoverZoomFactor - 1.0) * 2.0;
 
         if (!isPointerWithinDockBounds(dockActor, ex, ey, isVertical, settings)) {
             return Clutter.EVENT_PROPAGATE;
@@ -221,8 +255,10 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
 
             if (Settings.lockIcons) {
-                const dx = Math.abs(ex - (dockActor._globalPressX || ex));
-                const dy = Math.abs(ey - (dockActor._globalPressY || ey));
+                const pressX = dockActor._globalPressX || ex;
+                const pressY = dockActor._globalPressY || ey;
+                const dx = Math.abs(ex - pressX);
+                const dy = Math.abs(ey - pressY);
                 if (dx > 15 || dy > 15) return true;
             }
 
@@ -235,7 +271,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
 
             targetBtn._activateCallback(buttonNum, event.get_state());
-            
+
             if (buttonNum === 1) {
                 resetMagnification(dockActor, 320, true);
             }
@@ -259,139 +295,39 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         const n = btns.length;
         if (!n) return Clutter.EVENT_PROPAGATE;
 
-        for (let i = n - 1; i >= 0; i--) {
+        let closestBtn = null;
+        let minDistance = Infinity;
+
+        for (let i = 0; i < n; i++) {
             const btn = btns[i];
-            if (!btn || !btn._activateCallback) continue;
-            const [bx, by] = btn.get_transformed_position();
-            const [bw, bh] = btn.get_transformed_size();
+            if (!btn || !btn._activateCallback || !isActorAlive(btn) || !btn.visible) continue;
+
+            const pos = btn.get_transformed_position();
+            const bx = pos[0];
+            const by = pos[1];
+            const sz = btn.get_transformed_size();
+            const bw = sz[0];
+            const bh = sz[1];
             if (bw <= 0 || bh <= 0) continue;
-            if (ex >= bx && ex <= bx + bw && ey >= by && ey <= by + bh) {
-                if (invokeButton(btn)) return Clutter.EVENT_STOP;
+
+            const centerX = bx + bw / 2;
+            const centerY = by + bh / 2;
+
+            const dist = isVertical ? Math.abs(ey - centerY) : Math.abs(ex - centerX);
+            const crossDist = isVertical ? Math.abs(ex - centerX) : Math.abs(ey - centerY);
+            const maxCross = (isVertical ? bw : bh) / 2 + 20;
+
+            if (crossDist <= maxCross && dist < minDistance) {
+                minDistance = dist;
+                closestBtn = btn;
             }
         }
 
-        const picked = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, ex, ey);
-        let cur = picked;
-        let hops = 0;
-        while (cur && hops < 12) {
-            if (cur._activateCallback) {
-                if (invokeButton(cur)) return Clutter.EVENT_STOP;
-            }
-            cur = cur.get_parent ? cur.get_parent() : null;
-            hops++;
+        if (closestBtn) {
+            invokeButton(closestBtn);
+            return Clutter.EVENT_STOP;
         }
 
-        if (!n || actualMaxZoom <= 1.0) return Clutter.EVENT_PROPAGATE;
-
-        const RADIUS = Settings.iconSize * 3.5;
-        const scaleFactor = isVertical ? dockActor.scale_y : dockActor.scale_x;
-        const localEx = (isVertical ? ey - day : ex - dax) / scaleFactor;
-        const boxX = dockActor.boxActor ? dockActor.boxActor.x : 0;
-        const boxY = dockActor.boxActor ? dockActor.boxActor.y : 0;
-        const slotModel = getFixedSlots(dockActor, isVertical, btns);
-        if (!slotModel || !slotModel.orderedSlots || slotModel.orderedSlots.length !== n) return Clutter.EVENT_PROPAGATE;
-
-        const orderedSlots = slotModel.orderedSlots;
-        const orderToBtn = slotModel.orderToBtn;
-        const btnToOrder = slotModel.btnToOrder;
-        const orderedScales = new Array(n).fill(1.0);
-        const orderedCenters = new Array(n).fill(0);
-        const scales = new Array(n).fill(1.0);
-        const scaledCenters = new Array(n).fill(0);
-
-        for (let orderIndex = 0; orderIndex < n; orderIndex++) {
-            const btnIndex = orderToBtn[orderIndex];
-            const b = btns[btnIndex];
-            const sClass = b.get_style_class_name ? b.get_style_class_name() : (b.style_class || '');
-            const isStaticEdge = b._isStatic || sClass.includes('dock-separator') || sClass.includes('clock-module') || sClass.includes('dock-drag-handle');
-
-            if (isStaticEdge) {
-                orderedScales[orderIndex] = 1.0;
-                continue;
-            }
-
-            const dist = Math.abs(localEx - orderedSlots[orderIndex]);
-            if (dist >= RADIUS) orderedScales[orderIndex] = 1.0;
-            else orderedScales[orderIndex] = 1.0 + (actualMaxZoom - 1.0) * ((Math.cos((dist / RADIUS) * Math.PI) + 1) / 2);
-        }
-
-        orderedCenters[0] = orderedSlots[0];
-        for (let orderIndex = 1; orderIndex < n; orderIndex++) {
-            const prevBtn = btns[orderToBtn[orderIndex - 1]];
-            const currBtn = btns[orderToBtn[orderIndex]];
-
-            const prevW = isVertical ? prevBtn.height : prevBtn.width;
-            const currW = isVertical ? currBtn.height : currBtn.width;
-            const prevScale = orderedScales[orderIndex - 1];
-            const currScale = orderedScales[orderIndex];
-
-            const originalGap = orderedSlots[orderIndex] - orderedSlots[orderIndex - 1];
-            const GAP_FACTOR = 2.0;
-
-            let prevExtra = (prevW * prevScale - prevW) / GAP_FACTOR;
-            let currExtra = (currW * currScale - currW) / GAP_FACTOR;
-
-            const sClassP = prevBtn.get_style_class_name ? prevBtn.get_style_class_name() : (prevBtn.style_class || '');
-            const sClassC = currBtn.get_style_class_name ? currBtn.get_style_class_name() : (currBtn.style_class || '');
-
-            const prevIsStatic = prevBtn._isStatic || sClassP.includes('dock-separator') || sClassP.includes('clock-module');
-            const currIsStatic = currBtn._isStatic || sClassC.includes('dock-separator') || sClassC.includes('clock-module');
-
-            if (currIsStatic && prevScale > 1.0) currExtra += (prevW * (prevScale - 1.0)) * 0.25;
-            if (prevIsStatic && currScale > 1.0) prevExtra += (currW * (currScale - 1.0)) * 0.25;
-
-            orderedCenters[orderIndex] = orderedCenters[orderIndex - 1] + originalGap + prevExtra + currExtra;
-        }
-
-        for (let i = 0; i < n; i++) {
-            const orderIndex = btnToOrder[i];
-            scales[i] = orderedScales[orderIndex];
-            scaledCenters[i] = orderedCenters[orderIndex];
-        }
-
-        let mappedCursor = orderedCenters[0];
-        if (n > 1) {
-            if (localEx <= orderedSlots[0]) mappedCursor = orderedCenters[0] - (orderedSlots[0] - localEx);
-            else if (localEx >= orderedSlots[n - 1]) mappedCursor = orderedCenters[n - 1] + (localEx - orderedSlots[n - 1]);
-            else {
-                for (let orderIndex = 0; orderIndex < n - 1; orderIndex++) {
-                    if (localEx >= orderedSlots[orderIndex] && localEx <= orderedSlots[orderIndex + 1]) {
-                        mappedCursor = orderedCenters[orderIndex] +
-                            ((localEx - orderedSlots[orderIndex]) / (orderedSlots[orderIndex + 1] - orderedSlots[orderIndex])) *
-                            (orderedCenters[orderIndex + 1] - orderedCenters[orderIndex]);
-                        break;
-                    }
-                }
-            }
-        }
-
-        const zoomOffset = localEx - mappedCursor;
-        const dockPos = Settings.dockPosition || 'BOTTOM';
-
-        for (let i = 0; i < n; i++) {
-            const btn = btns[i];
-            if (!btn._activateCallback) continue;
-
-            const scale = scales[i];
-            let px = 0.5;
-            let py = 0.5;
-            if (dockPos === 'BOTTOM') py = 1.0;
-            else if (dockPos === 'TOP') py = 0.0;
-            else if (dockPos === 'LEFT') px = 0.0;
-            else if (dockPos === 'RIGHT') px = 1.0;
-
-            const visCenterX = isVertical ? dax + (boxX + btn.x + btn.width * px) * dockActor.scale_x : dax + (scaledCenters[i] + zoomOffset) * dockActor.scale_x;
-            const visCenterY = isVertical ? day + (scaledCenters[i] + zoomOffset) * dockActor.scale_y : day + (boxY + btn.y + btn.height * py) * dockActor.scale_y;
-
-            const visLeft = visCenterX - btn.width * scale * px * dockActor.scale_x;
-            const visRight = visCenterX + btn.width * scale * (1.0 - px) * dockActor.scale_x;
-            const visTop = visCenterY - btn.height * scale * py * dockActor.scale_y;
-            const visBottom = visCenterY + btn.height * scale * (1.0 - py) * dockActor.scale_y;
-
-            if (ex >= visLeft && ex <= visRight && ey >= visTop && ey <= visBottom) {
-                if (invokeButton(btn)) return Clutter.EVENT_STOP;
-            }
-        }
         return Clutter.EVENT_PROPAGATE;
     }, dockActor);
 }

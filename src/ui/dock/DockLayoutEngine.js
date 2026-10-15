@@ -21,12 +21,11 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../../core/Utils.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { _flipAnimateDockIcons } from './DockRenderer.js';
+import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { calculateScale, calculatePivot, calculateBackgroundBounds } from './DockGeometryCalculator.js';
 
 
 const DEFAULT_BOX_SIZE = 10;
-const FALLBACK_PANEL_HEIGHT = 27;
 
 export function updateLayout(dockUI) {
     if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) return;
@@ -40,22 +39,21 @@ export function updateLayout(dockUI) {
     }
     if (dockUI.actor._isDragging) dockUI._wasDragging = true;
 
-    const isFullWidth = Settings.fullWidth;
+    const isHybrid = Settings.hybridPanelMode;
+    const isFullWidth = Settings.fullWidth || isHybrid;
     const pos = dockUI.dockPosition;
     const isVertical = pos === 'LEFT' || pos === 'RIGHT';
-    const alignment = Settings.iconAlignment || 'CENTER';
+    const alignment = isHybrid ? 'CENTER' : (Settings.iconAlignment || 'CENTER');
     const monitorResult = dockUI.monitorManager.getCurrentMonitor();
 
     if (!monitorResult || !monitorResult.monitor) return;
 
     const actualMonitor = monitorResult.monitor;
-    const hasPanel = monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible;
-    const topOffset = hasPanel ? (Main.panel.height || FALLBACK_PANEL_HEIGHT) : 0;
+    const hasPanel = !isHybrid && monitorResult.index === Main.layoutManager.primaryIndex && Main.panel.visible;
+    const topOffset = hasPanel ? Main.panel.height : 0;
 
-    const stageWidth = global.stage ? global.stage.width : actualMonitor.width;
-    const stageHeight = global.stage ? global.stage.height : actualMonitor.height;
-    const activeMonWidth = Math.min(actualMonitor.width, stageWidth);
-    const activeMonHeight = Math.min(actualMonitor.height, stageHeight);
+    const activeMonWidth = actualMonitor.width;
+    const activeMonHeight = actualMonitor.height;
 
     const monitor = {
         x: actualMonitor.x,
@@ -64,23 +62,28 @@ export function updateLayout(dockUI) {
         height: Math.max(100, activeMonHeight - topOffset)
     };
 
-    let [, boxW] = dockUI.boxActor.get_preferred_width(-1);
-    let [, boxH] = dockUI.boxActor.get_preferred_height(-1);
-    boxW = boxW || DEFAULT_BOX_SIZE;
-    boxH = boxH || DEFAULT_BOX_SIZE;
+    const boxPrefW = dockUI.boxActor.get_preferred_width(-1);
+    const boxPrefH = dockUI.boxActor.get_preferred_height(-1);
+    let boxW = boxPrefW[1] || DEFAULT_BOX_SIZE;
+    let boxH = boxPrefH[1] || DEFAULT_BOX_SIZE;
 
+    const isGridExtracted = isFullWidth && (Settings.gridButtonPosition === 'LEFT_EDGE');
     let gridW = 0;
     let gridH = 0;
-    if (dockUI.gridBtn && dockUI.gridBtn.visible && isFullWidth) {
-        [, gridW] = dockUI.gridBtn.get_preferred_width(-1);
-        [, gridH] = dockUI.gridBtn.get_preferred_height(-1);
+    if (dockUI.gridBtn && dockUI.gridBtn.visible && isGridExtracted && !isHybrid) {
+        const gpW = dockUI.gridBtn.get_preferred_width(-1);
+        const gpH = dockUI.gridBtn.get_preferred_height(-1);
+        gridW = gpW[1] || 0;
+        gridH = gpH[1] || 0;
     }
 
     let clockW = 0;
     let clockH = 0;
     if (dockUI.extractedClock && dockUI.extractedClock.visible && isFullWidth) {
-        [, clockW] = dockUI.extractedClock.get_preferred_width(-1);
-        [, clockH] = dockUI.extractedClock.get_preferred_height(-1);
+        const cpW = dockUI.extractedClock.get_preferred_width(-1);
+        const cpH = dockUI.extractedClock.get_preferred_height(-1);
+        clockW = cpW[1] || 0;
+        clockH = cpH[1] || 0;
     }
 
     const sWidth = !isFullWidth ? Settings.strokeWidth : 0;
@@ -89,7 +92,7 @@ export function updateLayout(dockUI) {
     const zoomFactor = hoverZoom ? (Settings.hoverZoomFactor || 1.8) : 1.0;
 
     const isNeverHide = Settings.hideMode === 'none';
-    const edgeMargin = isNeverHide ? Math.max(0, Settings.dockMargin || 0) : 0;
+    const edgeMargin = (!isHybrid && isNeverHide) ? Math.max(0, Settings.dockMargin || 0) : 0;
 
     const baseActorW = isFullWidth ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : boxW + (sWidth * 2);
     const baseActorH = isFullWidth ? (isVertical ? monitor.height : Math.max(boxH, gridH) + (sWidth * 2)) : boxH + (sWidth * 2);
@@ -103,7 +106,7 @@ export function updateLayout(dockUI) {
     let contentH = boxH + (sWidth * 2);
 
     if (isFullWidth) {
-        if (dockUI.gridBtn && dockUI.gridBtn.visible) {
+        if (dockUI.gridBtn && dockUI.gridBtn.visible && !isHybrid) {
             contentW += gridW + 30;
             contentH += gridH + 30;
         }
@@ -116,15 +119,24 @@ export function updateLayout(dockUI) {
     const availableSpace = isVertical ? monitor.height : monitor.width;
     const baseContentSize = isVertical ? contentH : contentW;
 
-    const scale = calculateScale(isVertical, baseContentSize, zoomFactor, iconSize, availableSpace);
-    const { pivotX, pivotY } = calculatePivot(pos, isFullWidth, isVertical, alignment);
+    const scale = (isFullWidth || isHybrid)
+        ? 1.0
+        : calculateScale(isVertical, baseContentSize, zoomFactor, iconSize, availableSpace);
+
+    const pivot = calculatePivot(pos, isFullWidth, isVertical, alignment);
+    const pivotX = pivot.pivotX;
+    const pivotY = pivot.pivotY;
 
     dockUI.actor.set_pivot_point(pivotX, pivotY);
     dockUI.actor.set_scale(scale, scale);
 
-    let { bgX, bgY, bgW, bgH } = calculateBackgroundBounds(
+    const bgBounds = calculateBackgroundBounds(
         isFullWidth, isVertical, pos, scale, sWidth, boxW, boxH, monitor, pivotX, pivotY, baseActorW, baseActorH
     );
+    let bgX = bgBounds.bgX;
+    let bgY = bgBounds.bgY;
+    let bgW = bgBounds.bgW;
+    let bgH = bgBounds.bgH;
 
     if (isNeverHide && edgeMargin > 0) {
         if (pos === 'BOTTOM') {
@@ -138,31 +150,38 @@ export function updateLayout(dockUI) {
         }
     }
 
-    const padScale = 10 / scale;
-
-    if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
-        const gx = isVertical ? bgX + (bgW - gridW) / 2 : bgX + padScale;
-        const gy = isVertical ? bgY + padScale : bgY + (bgH - gridH) / 2;
-        dockUI.gridBtn.set_position(gx, gy);
-    }
+    const padScale = Math.max(4, 10 / scale);
 
     let cx = 0;
     let cy = 0;
     let rightOffset = 0;
     let bottomOffset = 0;
 
-    if (isFullWidth && dockUI.extractedDesktop && dockUI.extractedDesktop.visible) {
-        const deskBtnWidth = Settings.desktopBtnWidth;
+    const isFullBar = isFullWidth || isHybrid;
+    const showDesktopBtn = Settings.showDesktopButton;
+    let desktopStartX = -1;
+
+    if (isFullBar && showDesktopBtn && dockUI.extractedDesktop && isActorAlive(dockUI.extractedDesktop)) {
+        dockUI.extractedDesktop.show();
+        dockUI.extractedDesktop.opacity = 255;
+
+        const rawWidth = Settings.desktopBtnWidth;
+        const deskBtnWidth = (rawWidth !== undefined && rawWidth !== null && rawWidth > 0) ? rawWidth : 12;
         const dWidth = isVertical ? bgW : deskBtnWidth;
         const dHeight = isVertical ? deskBtnWidth : bgH;
 
-        dockUI.extractedDesktop.set_size(dWidth, dHeight);
+        dockUI.extractedDesktop.set_size(Math.round(dWidth), Math.round(dHeight));
+
         const dx = isVertical ? bgX : bgX + bgW - dWidth;
         const dy = isVertical ? bgY + bgH - dHeight : bgY;
 
-        dockUI.extractedDesktop.set_position(dx, dy);
+        dockUI.extractedDesktop.set_position(Math.round(dx), Math.round(dy));
+
+        desktopStartX = dx;
         rightOffset = isVertical ? 0 : dWidth;
         bottomOffset = isVertical ? dHeight : 0;
+    } else if (dockUI.extractedDesktop && isActorAlive(dockUI.extractedDesktop) && !showDesktopBtn) {
+        dockUI.extractedDesktop.hide();
     }
 
     if (isFullWidth && dockUI.extractedClock && dockUI.extractedClock.visible) {
@@ -171,9 +190,97 @@ export function updateLayout(dockUI) {
         dockUI.extractedClock.set_position(cx, cy);
     }
 
+    if (isHybrid && dockUI.panelIntegrator && dockUI.panelIntegrator.leftContainer) {
+        const leftBox = dockUI.panelIntegrator.leftContainer;
+        if (leftBox.get_parent() !== dockUI.actor) {
+            if (leftBox.get_parent()) leftBox.get_parent().remove_child(leftBox);
+            dockUI.actor.add_child(leftBox);
+        }
+        leftBox.queue_relayout();
+
+        const lwPref = leftBox.get_preferred_width(-1);
+        const lhPref = leftBox.get_preferred_height(-1);
+        let lw = Math.max(30, Math.round(lwPref[1] || 0));
+        let lh = Math.max(20, Math.round(lhPref[1] || 0));
+
+        const lx = isVertical ? bgX + (bgW - lw) / 2 : bgX;
+        const ly = isVertical ? bgY : bgY + (bgH - lh) / 2;
+
+        leftBox.set_position(Math.round(lx), Math.round(ly));
+        leftBox.set_size(Math.round(lw), Math.round(lh));
+        leftBox.show();
+        leftBox.opacity = 255;
+    }
+
+    if (isHybrid && dockUI.panelIntegrator && dockUI.panelIntegrator.container) {
+        const rightBox = dockUI.panelIntegrator.container;
+        if (rightBox.get_parent() !== dockUI.actor) {
+            if (rightBox.get_parent()) rightBox.get_parent().remove_child(rightBox);
+            dockUI.actor.add_child(rightBox);
+        }
+
+        dockUI.panelIntegrator.alignItems();
+
+        rightBox.set_size(-1, -1);
+        const rhPref = rightBox.get_preferred_height(-1);
+        let naturalH = rhPref[1] || 0;
+
+        const visibleChildren = rightBox.get_children().filter(c => {
+            if (!isActorAlive(c) || !c.visible || c.opacity === 0) return false;
+            if (c.name === 'DhruvaStolenExtensionsBox') {
+                const subChildren = (c.get_children && c.get_children()) ? c.get_children().filter(sc => isActorAlive(sc) && sc.visible && sc.opacity > 0) : [];
+                return subChildren.length > 0;
+            }
+            return true;
+        });
+
+        let totalItemsW = 0;
+        for (let i = 0; i < visibleChildren.length; i++) {
+            const child = visibleChildren[i];
+            const childWPref = child.get_preferred_width(-1);
+            totalItemsW += Math.round(childWPref[1] || 0);
+        }
+
+        const spacingSum = Math.max(0, (visibleChildren.length - 1) * 8);
+        const rw = Math.max(totalItemsW + spacingSum, 30);
+        const rh = Math.max(Math.round(naturalH || 0), 32);
+
+        const FIXED_GAP = 8;
+
+        let rx = 0;
+        let ry = 0;
+
+        if (isVertical) {
+            rx = bgX + (bgW - rw) / 2;
+            ry = (bottomOffset > 0)
+                ? (bgY + bgH - bottomOffset - FIXED_GAP - rh)
+                : (bgY + bgH - rh - 8);
+        } else {
+            const targetRight = (desktopStartX > 0)
+                ? (desktopStartX - FIXED_GAP)
+                : (bgX + bgW - 8);
+            rx = targetRight - rw;
+            ry = bgY + (bgH - rh) / 2;
+        }
+
+        const nextX = Math.round(rx);
+        const nextY = Math.round(ry);
+        const nextW = Math.round(rw);
+        const nextH = Math.round(rh);
+
+        rightBox.set_position(nextX, nextY);
+        rightBox.set_size(nextW, nextH);
+        rightBox.show();
+        rightBox.opacity = 255;
+
+        if (dockUI.extractedDesktop && isActorAlive(dockUI.extractedDesktop)) {
+            dockUI.actor.set_child_above_sibling(dockUI.extractedDesktop, null);
+        }
+    }
+
     let contentX = sWidth;
     let contentY = sWidth;
-    const safetyGap = 40 / scale;
+    const safetyGap = Math.max(16, 32 / scale);
 
     if (!isVertical) {
         if (isFullWidth) {
@@ -184,6 +291,42 @@ export function updateLayout(dockUI) {
             contentX = bgX + (bgW - boxW) / 2;
         }
         contentY = bgY + (bgH - boxH) / 2;
+
+        if (isHybrid && dockUI.panelIntegrator) {
+            const leftBox = dockUI.panelIntegrator.leftContainer;
+            const rightBox = dockUI.panelIntegrator.container;
+
+            const WORKSPACE_LEFT_GAP = HYBRID_PANEL_CONFIG.DOCK_GAP_AFTER_LEFT;
+            const RIGHT_PANEL_GAP = HYBRID_PANEL_CONFIG.DOCK_GAP_BEFORE_RIGHT;
+
+            let minBoxLeft = bgX + 100;
+            if (isActorAlive(leftBox) && leftBox.visible) {
+                const lwPref = leftBox.get_preferred_width(-1);
+                const lw = leftBox.width > 0 ? leftBox.width : (lwPref[1] || 70);
+                minBoxLeft = Math.round(leftBox.x + lw + WORKSPACE_LEFT_GAP);
+            }
+
+            const fallbackRightReserve = dockUI.isPanelHost ? 260 : 90;
+            let maxBoxRight = bgX + bgW - fallbackRightReserve;
+            if (isActorAlive(rightBox) && rightBox.visible && rightBox.x > 0) {
+                maxBoxRight = rightBox.x - RIGHT_PANEL_GAP;
+            }
+            if (dockUI.extractedDesktop && isActorAlive(dockUI.extractedDesktop) && dockUI.extractedDesktop.visible) {
+                if (dockUI.extractedDesktop.x > 0 && (dockUI.extractedDesktop.x - RIGHT_PANEL_GAP) < maxBoxRight) {
+                    maxBoxRight = dockUI.extractedDesktop.x - RIGHT_PANEL_GAP;
+                }
+            }
+
+            if (contentX + boxW > maxBoxRight) {
+                contentX = maxBoxRight - boxW;
+            }
+
+            if (contentX < minBoxLeft) {
+                contentX = minBoxLeft;
+            }
+
+            if (contentX + boxW > maxBoxRight + 2) dockUI.checkPanelOverflow();
+        }
     } else {
         if (isFullWidth) {
             if (alignment === 'START') contentY = bgY + padScale;
@@ -193,9 +336,38 @@ export function updateLayout(dockUI) {
             contentY = bgY + (bgH - boxH) / 2;
         }
         contentX = bgX + (bgW - boxW) / 2;
+
+        if (isHybrid && dockUI.panelIntegrator) {
+            const leftBox = dockUI.panelIntegrator.leftContainer;
+            const rightBox = dockUI.panelIntegrator.container;
+
+            let minBoxTop = bgY + 180;
+            if (isActorAlive(leftBox) && leftBox.visible) {
+                minBoxTop = (leftBox.y + leftBox.height) + HYBRID_PANEL_CONFIG.DOCK_GAP_AFTER_LEFT_VERTICAL;
+            }
+
+            const fallbackBottomReserve = dockUI.isPanelHost ? 300 : 80;
+            let maxBoxBottom = bgY + bgH - fallbackBottomReserve;
+            if (isActorAlive(rightBox) && rightBox.visible && rightBox.y > 0) {
+                maxBoxBottom = rightBox.y - HYBRID_PANEL_CONFIG.DOCK_GAP_BEFORE_RIGHT_VERTICAL;
+            }
+
+            if (contentY + boxH > maxBoxBottom) {
+                contentY = maxBoxBottom - boxH;
+            }
+            if (contentY < minBoxTop) {
+                contentY = minBoxTop;
+            }
+
+            if (contentY + boxH > maxBoxBottom + 2) dockUI.checkPanelOverflow();
+        }
     }
 
-    if (isFullWidth && dockUI.gridBtn && dockUI.gridBtn.visible) {
+    if (isGridExtracted && dockUI.gridBtn && dockUI.gridBtn.visible && !isHybrid) {
+        const gx = isVertical ? bgX + (bgW - gridW) / 2 : bgX + padScale;
+        const gy = isVertical ? bgY + padScale : bgY + (bgH - gridH) / 2;
+        dockUI.gridBtn.set_position(gx, gy);
+
         if (!isVertical) {
             const gridRight = (bgX + padScale) + gridW + safetyGap;
             const boxLeft = contentX;
@@ -221,10 +393,15 @@ export function updateLayout(dockUI) {
 
     dockUI.boxActor.set_position(contentX, contentY);
     dockUI.actor._isFullWidth = isFullWidth;
+    dockUI.bgActor._baseX = bgX;
+    dockUI.bgActor._baseY = bgY;
     dockUI.bgActor._baseW = bgW;
     dockUI.bgActor._baseH = bgH;
-    dockUI.bgActor.set_position(bgX, bgY);
-    dockUI.bgActor.set_size(bgW, bgH);
+
+    if (!dockUI.actor._isZoomActive || isFullWidth) {
+        dockUI.bgActor.set_position(bgX, bgY);
+        dockUI.bgActor.set_size(bgW, bgH);
+    }
 
     if (dockUI._syncBlurGeometry) {
         dockUI._syncBlurGeometry();
@@ -234,15 +411,10 @@ export function updateLayout(dockUI) {
         dockUI.dockManager.updatePosition();
     }
 
-    if (dockUI.actor._fixedSlots && !dockUI.actor._isDragging) {
+    if (dockUI.actor._fixedSlots && !dockUI.actor._isDragging && !dockUI.actor._isZoomActive) {
         dockUI.actor._fixedSlots = null;
     }
 
     dockUI.actor._cachedW = actorW;
     dockUI.actor._cachedH = actorH;
-
-    if (dockUI._preRenderPositions && dockUI._preRenderPositions.size > 0) {
-        _flipAnimateDockIcons(dockUI, dockUI._preRenderPositions);
-        dockUI._preRenderPositions.clear();
-    }
 }

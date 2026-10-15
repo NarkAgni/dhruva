@@ -32,7 +32,8 @@ import { startDragLoop, stopDragLoop } from './magnifier/MagnifierDragLoop.js';
 const SHRINK_DURATION_MS = 160;
 const DOCK_EDGE_MARGIN = 10;
 const DEFAULT_ICON_SPACING = 6;
-const GAP_SLOTS = 2.4;
+const GAP_SLOTS = 1.0;
+const GAP_SLIDE_MS = 180;
 
 export function sourceDelegate(source) {
     return (source && source._delegate) || source || {};
@@ -60,8 +61,37 @@ export function dockOrderKeys(boxActor) {
     return boxActor.get_children().map(buttonKey).filter(key => key !== null);
 }
 
-export function saveDockLayout(dockUI, keys, entityId) {
+function mergeHiddenKeys(fullOrder, visibleKeys, movedKey) {
+    const visible = new Set(visibleKeys);
+    const hiddenAfter = new Map();
+    let anchor = null;
+
+    fullOrder.forEach(key => {
+        if (visible.has(key)) {
+            if (key !== movedKey) anchor = key;
+            return;
+        }
+        if (!hiddenAfter.has(anchor)) hiddenAfter.set(anchor, []);
+        hiddenAfter.get(anchor).push(key);
+    });
+
+    const merged = [];
+    let pending = hiddenAfter.get(null) || [];
+    visibleKeys.forEach(key => {
+        if (key !== movedKey) {
+            merged.push(...pending);
+            pending = [];
+        }
+        merged.push(key);
+        if (hiddenAfter.has(key)) pending = pending.concat(hiddenAfter.get(key));
+    });
+    merged.push(...pending);
+    return merged;
+}
+
+export function saveDockLayout(dockUI, visibleKeys, entityId) {
     const manager = dockUI.appManager;
+    const keys = mergeHiddenKeys(manager.getDockOrder(), visibleKeys, entityId);
     manager.saveDockOrder(keys);
 
     const current = Settings.independentDock
@@ -87,6 +117,7 @@ class ExternalDrop {
     constructor(dockUI) {
         this._dockUI = dockUI;
         this._active = false;
+        this._bgSpread = 0;
         this._trackedDragActors = new Set();
         this._monitor = { dragMotion: event => this._onDragMotion(event) };
 
@@ -123,7 +154,8 @@ class ExternalDrop {
 
     _isDockIcon(source) {
         const button = sourceDelegate(source).button;
-        return Boolean(button) && this._dockUI.boxActor.contains(button);
+        if (!button) return false;
+        return !isActorAlive(button) || this._dockUI.boxActor.contains(button);
     }
 
     _externalApp(source) {
@@ -196,7 +228,7 @@ class ExternalDrop {
         actor._isExternalDragging = true;
         actor._isDragging = true;
         actor._fixedSlots = null;
-        startDragLoop(actor, isVertical, this._dockUI.settings);
+        if (Settings.hoverZoom) startDragLoop(actor, isVertical, this._dockUI.settings);
     }
 
     _hover(x, y) {
@@ -241,11 +273,42 @@ class ExternalDrop {
         buttons.forEach((btn, i) => {
             btn._gapTarget = model.btnToOrder[i] >= anchor ? half : -half;
         });
+
+        if (!Settings.hoverZoom) this._slideGap(buttons, half);
+    }
+
+    _slideGap(buttons, half) {
+        const isVertical = this._isVertical();
+        const prop = isVertical ? 'translation_y' : 'translation_x';
+
+        buttons.forEach(btn => {
+            if (btn._gapSlideTarget === btn._gapTarget) return;
+            btn._gapSlideTarget = btn._gapTarget;
+            btn.ease({ [prop]: btn._gapTarget, duration: GAP_SLIDE_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+        });
+
+        const bg = this._dockUI.bgActor;
+        if (Settings.fullWidth || Settings.hybridPanelMode || !isActorAlive(bg) || this._bgSpread === half) return;
+        this._bgSpread = half;
+
+        const blur = this._dockUI._dockBlur;
+        bg.ease({
+            x: isVertical ? bg._baseX : bg._baseX - half,
+            y: isVertical ? bg._baseY - half : bg._baseY,
+            width: isVertical ? bg._baseW : bg._baseW + half * 2,
+            height: isVertical ? bg._baseH + half * 2 : bg._baseH,
+            duration: GAP_SLIDE_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            onUpdate: () => {
+                if (blur) blur.syncGeometry();
+            },
+        });
     }
 
     _end() {
         if (!this._active) return;
         this._active = false;
+        this._bgSpread = 0;
 
         const actor = this._dockUI ? this._dockUI.actor : null;
         if (!isActorAlive(actor)) return;
@@ -257,6 +320,7 @@ class ExternalDrop {
         getDockButtons(actor).forEach(btn => {
             btn._gapTarget = 0;
             btn._gapOffset = 0;
+            btn._gapSlideTarget = 0;
         });
 
         stopDragLoop(actor);
@@ -290,7 +354,7 @@ class ExternalDrop {
 
         appManager.addApp(app);
         saveDockLayout(this._dockUI, keys, appId);
-        this._dockUI.queueRender('full', true);
+        this._dockUI.queueRender('incremental', true);
         return true;
     }
 }

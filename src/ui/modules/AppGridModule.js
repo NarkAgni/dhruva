@@ -89,6 +89,14 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     gridIcon.set_pivot_point(0.5, 0.5);
     gridIcon.set_size(gridIconSize, gridIconSize);
 
+    const isLogoActive = !hasCustomIcon && !useOldIcon && hasLogo;
+    const gridPos = Settings.gridButtonPosition || 'END';
+    const isStartPos = gridPos === 'START' || gridPos === 'LEFT_EDGE';
+    const shouldFlip = isLogoActive && isStartPos;
+
+    gridIcon._baseScaleX = shouldFlip ? -1.0 : 1.0;
+    gridIcon.scale_x = shouldFlip ? -1.0 : 1.0;
+
     const gridIconBin = new St.Bin({
         child: gridIcon,
         width: iconSize,
@@ -97,6 +105,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         y_align: Clutter.ActorAlign.CENTER
     });
     gridIconBin.set_pivot_point(0.5, 0.5);
+    gridIconBin._baseScaleX = shouldFlip ? -1.0 : 1.0;
 
     const gridIndProps = dockUI._getIndicatorProps();
     gridIconBin.translation_x = gridIndProps.iconTx;
@@ -241,10 +250,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         } else if (buttonNum === 3) {
             const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
             if (dockUI._activeContextMenu) {
-                if (dockUI._activeContextMenu._forceDestroy) {
-                    dockUI._activeContextMenu._forceDestroy();
-                }
-                dockUI._activeContextMenu = null;
+                dockUI._activeContextMenu.hide();
             }
             new AppContextMenu(
                 dockUI,

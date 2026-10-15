@@ -42,6 +42,9 @@ export class EdgeDetection {
         this._dwellTimeoutId = 0;
         this.triggerActor = null;
 
+        this._isPassThrough = false;
+        this._lastBarrierKey = '';
+
         this._createTrigger();
         this._setupBarriers();
 
@@ -107,7 +110,7 @@ export class EdgeDetection {
 
         const monitor = monitorResult.monitor;
         const pos = this.dockUI.dockPosition;
-        const isFullWidth = Settings.fullWidth;
+        const isFullWidth = Settings.fullWidth || Settings.hybridPanelMode;
 
         let x = 0;
         let y = 0;
@@ -167,9 +170,28 @@ export class EdgeDetection {
 
         this.triggerActor.set_position(x, y);
         this.triggerActor.set_size(w, h);
+
+        if (!this._isPassThrough) {
+            this._setupBarriers();
+        }
+    }
+
+    _teardownBarriers() {
+        this._lastBarrierKey = '';
+        if (this._pressure) {
+            this._pressure.disconnectObject(this);
+            this._pressure.destroy();
+            this._pressure = null;
+        }
+        if (this._barrier) {
+            this._barrier.destroy();
+            this._barrier = null;
+        }
     }
 
     _setupBarriers() {
+        if (this._isPassThrough) return;
+
         const hasBarrierCapability = Boolean(
             global.backend &&
             Meta.BackendCapabilities &&
@@ -177,25 +199,50 @@ export class EdgeDetection {
         );
 
         if (!hasBarrierCapability) return;
+        if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
 
         const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
         if (!monitorResult || !monitorResult.monitor) return;
         const monitor = monitorResult.monitor;
         const pos = this.dockUI.dockPosition;
 
+        if (this.dockUI._isOnSharedMonitorEdge && this.dockUI._isOnSharedMonitorEdge()) {
+            this._teardownBarriers();
+            return;
+        }
+
+        const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+
+        const dockScaleX = this.dockUI.actor.scale_x || 1.0;
+        const dockScaleY = this.dockUI.actor.scale_y || 1.0;
+        const rawW = (this.dockUI.actor.width || 0) * dockScaleX;
+        const rawH = (this.dockUI.actor.height || 0) * dockScaleY;
+
+        const dockW = rawW > 20 ? Math.round(rawW) : monitor.width;
+        const dockH = rawH > 20 ? Math.round(rawH) : monitor.height;
+        const dockX = rawW > 20 ? Math.round(this.dockUI.actor.x) : monitor.x;
+        const dockY = rawH > 20 ? Math.round(this.dockUI.actor.y) : monitor.y;
+
+        const xStart = isFullBar ? monitor.x : Math.max(monitor.x, dockX);
+        const xEnd = isFullBar ? (monitor.x + monitor.width) : Math.min(monitor.x + monitor.width, dockX + dockW);
+        const yStart = isFullBar ? monitor.y : Math.max(monitor.y, dockY);
+        const yEnd = isFullBar ? (monitor.y + monitor.height) : Math.min(monitor.y + monitor.height, dockY + dockH);
+
+        if (xEnd <= xStart || yEnd <= yStart) return;
+
         let props;
         if (pos === 'BOTTOM') {
             props = {
-                x1: monitor.x,
-                x2: monitor.x + monitor.width,
+                x1: xStart,
+                x2: xEnd,
                 y1: monitor.y + monitor.height,
                 y2: monitor.y + monitor.height,
                 directions: Meta.BarrierDirection.NEGATIVE_Y,
             };
         } else if (pos === 'TOP') {
             props = {
-                x1: monitor.x,
-                x2: monitor.x + monitor.width,
+                x1: xStart,
+                x2: xEnd,
                 y1: monitor.y,
                 y2: monitor.y,
                 directions: Meta.BarrierDirection.POSITIVE_Y,
@@ -204,19 +251,27 @@ export class EdgeDetection {
             props = {
                 x1: monitor.x,
                 x2: monitor.x,
-                y1: monitor.y,
-                y2: monitor.y + monitor.height,
+                y1: yStart,
+                y2: yEnd,
                 directions: Meta.BarrierDirection.POSITIVE_X,
             };
         } else if (pos === 'RIGHT') {
             props = {
                 x1: monitor.x + monitor.width,
                 x2: monitor.x + monitor.width,
-                y1: monitor.y,
-                y2: monitor.y + monitor.height,
+                y1: yStart,
+                y2: yEnd,
                 directions: Meta.BarrierDirection.NEGATIVE_X,
             };
         }
+
+        const barrierKey = `${pos}:${props.x1},${props.y1}-${props.x2},${props.y2}`;
+        if (this._barrier && this._lastBarrierKey === barrierKey) {
+            return;
+        }
+
+        this._teardownBarriers();
+        this._lastBarrierKey = barrierKey;
 
         try {
             this._barrier = new Meta.Barrier({
@@ -238,19 +293,39 @@ export class EdgeDetection {
             }, this);
         } catch (e) {
             console.warn('[Dhruva] Could not initialize pressure barrier, using chrome trigger fallback:', e);
-            if (this._barrier) {
-                this._barrier.destroy();
-                this._barrier = null;
+            this._teardownBarriers();
+        }
+    }
+
+    setPassThrough(passThrough) {
+        this._isPassThrough = Boolean(passThrough);
+
+        if (this._isPassThrough) {
+            if (this._dwellTimeoutId) {
+                this.timers.remove(this._dwellTimeoutId);
+                this._dwellTimeoutId = 0;
             }
-            if (this._pressure) {
-                this._pressure.destroy();
-                this._pressure = null;
+            this._teardownBarriers();
+            if (isActorAlive(this.triggerActor)) {
+                this.triggerActor.reactive = false;
+                this.triggerActor.hide();
+            }
+        } else {
+            this._setupBarriers();
+            const mode = Settings.hideMode || 'none';
+            if (mode !== 'none' && isActorAlive(this.triggerActor)) {
+                this.triggerActor.reactive = true;
+                this.triggerActor.show();
             }
         }
     }
 
     show() {
-        if (isActorAlive(this.triggerActor)) this.triggerActor.show();
+        if (this._isPassThrough) return;
+        if (isActorAlive(this.triggerActor)) {
+            this.triggerActor.reactive = true;
+            this.triggerActor.show();
+        }
     }
 
     hide() {
@@ -261,15 +336,7 @@ export class EdgeDetection {
         if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.disconnectObject(this);
         }
-        if (this._pressure) {
-            this._pressure.disconnectObject(this);
-            this._pressure.destroy();
-            this._pressure = null;
-        }
-        if (this._barrier) {
-            this._barrier.destroy();
-            this._barrier = null;
-        }
+        this._teardownBarriers();
 
         if (this._dwellTimeoutId) {
             this.timers.remove(this._dwellTimeoutId);

@@ -22,471 +22,557 @@ import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import Gdk from 'gi://Gdk';
 import GLib from 'gi://GLib';
+import cairo from 'gi://cairo';
+import Pango from 'gi://Pango';
 import GdkPixbuf from 'gi://GdkPixbuf';
-
-import { Settings } from '../core/SettingsManager.js';
+import PangoCairo from 'gi://PangoCairo';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+
+import { onSettingChanged } from './SettingsSignals.js';
+import {
+    fmt, addGroup, addGroupReset, showWhen, bindChoice, addChoiceCards, addSliderRow, addColorRow,
+    parseColor, roundedRect, paintBackdrop, MOCK_ICON_COLORS,
+} from './PrefsWidgets.js';
+
+
+const EXTENSION_DIR = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
+const UUID = 'dhruva@narkagni';
+
+const PREVIEW_HEIGHT = 180;
+const PREVIEW_RADIUS = 14;
+const SOURCE_MAX_WIDTH = 1200;
+
+const PRESETS = () => [
+    { key: 'abstract-dark', name: _('Abstract Dark') },
+    { key: 'aurora', name: _('Aurora Borealis') },
+    { key: 'sunset', name: _('Sunset Glow') },
+    { key: 'cyberpunk', name: _('Cyberpunk Neon') },
+    { key: 'minimal', name: _('Minimal Slate') },
+];
+
+const LOOKS = () => [
+    { name: _('Crystal'), values: { 'blur-intensity': 10, 'blur-vibrancy': 1.05, 'blur-brightness': 0.6, 'blur-tint-opacity': 0.05 } },
+    { name: _('Frosted'), values: { 'blur-intensity': 30, 'blur-vibrancy': 1.2, 'blur-brightness': 0.55, 'blur-tint-opacity': 0.15 } },
+    { name: _('Vivid'), values: { 'blur-intensity': 22, 'blur-vibrancy': 1.8, 'blur-brightness': 0.5, 'blur-tint-opacity': 0.2 } },
+    { name: _('Midnight'), values: { 'blur-intensity': 36, 'blur-vibrancy': 0.9, 'blur-brightness': 0.15, 'blur-tint-opacity': 0.35 } },
+];
+
+const MATERIAL_KEYS = ['blur-tint-color', 'blur-intensity', 'blur-vibrancy', 'blur-brightness', 'blur-tint-opacity'];
+const LIGHT_KEYS = ['blur-border-glow', 'blur-highlight-angle'];
+
+function presetPath(key) {
+    return EXTENSION_DIR.get_child('icons').get_child(`glass-preset-${key}.svg`).get_path();
+}
+
+function coverPixbuf(source, w, h) {
+    const scale = Math.max(w / source.get_width(), h / source.get_height());
+    const scaledW = Math.max(w, Math.ceil(source.get_width() * scale));
+    const scaledH = Math.max(h, Math.ceil(source.get_height() * scale));
+    const scaled = source.scale_simple(scaledW, scaledH, GdkPixbuf.InterpType.BILINEAR);
+    return scaled.new_subpixbuf(Math.floor((scaledW - w) / 2), Math.floor((scaledH - h) / 2), w, h);
+}
+
+function loadPixbuf(path) {
+    if (!path || !GLib.file_test(path, GLib.FileTest.EXISTS)) return null;
+    try {
+        return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, SOURCE_MAX_WIDTH, -1, true);
+    } catch (_e) {
+        return null;
+    }
+}
+
+class BlurPreview {
+    constructor(settings, bgSettings, ifaceSettings) {
+        this._settings = settings;
+        this._bgSettings = bgSettings;
+        this._ifaceSettings = ifaceSettings;
+        this._source = null;
+        this._sourceDirty = true;
+        this._cacheKey = '';
+        this._sharp = null;
+        this._blurred = null;
+
+        this.widget = new Gtk.DrawingArea({
+            content_height: PREVIEW_HEIGHT,
+            hexpand: true,
+        });
+        this.widget.set_draw_func((_area, cr, w, h) => this._draw(cr, w, h));
+    }
+
+    sourceChanged() {
+        this._sourceDirty = true;
+        this.widget.queue_draw();
+    }
+
+    redraw() {
+        this.widget.queue_draw();
+    }
+
+    _wallpaperPath() {
+        const isDark = this._ifaceSettings.get_string('color-scheme') === 'prefer-dark';
+        const uri = this._bgSettings.get_string(isDark ? 'picture-uri-dark' : 'picture-uri') ||
+            this._bgSettings.get_string('picture-uri');
+        return uri ? Gio.File.new_for_uri(uri).get_path() : null;
+    }
+
+    _sourcePath() {
+        const s = this._settings;
+        if (s.get_string('blur-mode') !== 'static') return this._wallpaperPath();
+        if (s.get_string('blur-static-source') === 'custom') return s.get_string('blur-custom-photo');
+        return presetPath(s.get_string('blur-static-preset'));
+    }
+
+    _ensureImages(w, h) {
+        if (this._sourceDirty) {
+            this._source = loadPixbuf(this._sourcePath());
+            this._sourceDirty = false;
+            this._cacheKey = '';
+        }
+        if (!this._source) {
+            this._sharp = null;
+            this._blurred = null;
+            return;
+        }
+
+        const intensity = this._settings.get_double('blur-intensity');
+        const vibrancy = this._settings.get_double('blur-vibrancy');
+        const key = `${w}x${h}|${Math.round(intensity)}|${vibrancy.toFixed(2)}`;
+        if (key === this._cacheKey) return;
+
+        this._sharp = coverPixbuf(this._source, w, h);
+
+        const factor = 1 + intensity / 3;
+        const midW = Math.max(1, Math.round(w / Math.sqrt(factor)));
+        const midH = Math.max(1, Math.round(h / Math.sqrt(factor)));
+        const smallW = Math.max(1, Math.round(w / factor));
+        const smallH = Math.max(1, Math.round(h / factor));
+        const blurred = this._sharp
+            .scale_simple(midW, midH, GdkPixbuf.InterpType.BILINEAR)
+            .scale_simple(smallW, smallH, GdkPixbuf.InterpType.BILINEAR)
+            .scale_simple(w, h, GdkPixbuf.InterpType.BILINEAR);
+
+        this._blurred = blurred.copy();
+        blurred.saturate_and_pixelate(this._blurred, vibrancy, false);
+        this._cacheKey = key;
+    }
+
+    _draw(cr, w, h) {
+        const s = this._settings;
+        const isEnabled = s.get_boolean('blur-enabled');
+        this._ensureImages(w, h);
+
+        roundedRect(cr, 0, 0, w, h, PREVIEW_RADIUS);
+        cr.clip();
+
+        if (this._sharp) {
+            Gdk.cairo_set_source_pixbuf(cr, this._sharp, 0, 0);
+            cr.paint();
+        } else {
+            paintBackdrop(cr, w, h);
+        }
+
+        const isPanel = s.get_boolean('hybrid-panel-mode');
+        const dockH = isPanel ? 50 : 58;
+        const dockW = isPanel ? w : Math.min(w - 48, 460);
+        const dockX = (w - dockW) / 2;
+        const dockY = isPanel ? h - dockH : h - dockH - 22;
+        const dockR = isPanel ? 0 : 18;
+
+        cr.save();
+        roundedRect(cr, dockX, dockY, dockW, dockH, dockR);
+        cr.clip();
+        if (isEnabled && this._blurred) {
+            Gdk.cairo_set_source_pixbuf(cr, this._blurred, 0, 0);
+            cr.paint();
+
+            const brightness = s.get_double('blur-brightness');
+            if (brightness < 0.5) cr.setSourceRGBA(0, 0, 0, (0.5 - brightness) * 1.1);
+            else cr.setSourceRGBA(1, 1, 1, (brightness - 0.5) * 0.5);
+            cr.paint();
+
+            const tint = parseColor(s.get_string('blur-tint-color'));
+            cr.setSourceRGBA(tint.red, tint.green, tint.blue, s.get_double('blur-tint-opacity') * 0.7);
+            cr.paint();
+        } else {
+            cr.setSourceRGBA(0.12, 0.12, 0.15, 0.88);
+            cr.paint();
+        }
+        cr.restore();
+
+        this._drawIcons(cr, dockX, dockY, dockW, dockH);
+        if (!isPanel) this._drawEdge(cr, dockX, dockY, dockW, dockH, dockR, isEnabled);
+        this._drawBadge(cr, isEnabled);
+    }
+
+    _drawIcons(cr, x, y, w, h) {
+        const size = 34;
+        const gap = 12;
+        const count = MOCK_ICON_COLORS.length;
+        const total = count * size + (count - 1) * gap;
+        let iconX = x + (w - total) / 2;
+        const iconY = y + (h - size) / 2;
+
+        for (const [r, g, b] of MOCK_ICON_COLORS) {
+            roundedRect(cr, iconX, iconY, size, size, 9);
+            cr.setSourceRGBA(r, g, b, 0.95);
+            cr.fill();
+            iconX += size + gap;
+        }
+    }
+
+    _drawEdge(cr, x, y, w, h, r, isEnabled) {
+        roundedRect(cr, x + 0.5, y + 0.5, w - 1, h - 1, r);
+        cr.setLineWidth(1);
+        cr.setSourceRGBA(1, 1, 1, 0.14);
+        cr.strokePreserve();
+
+        const glow = isEnabled ? this._settings.get_double('blur-border-glow') : 0;
+        if (glow <= 0) {
+            cr.newPath();
+            return;
+        }
+
+        const angle = this._settings.get_double('blur-highlight-angle') * Math.PI / 180;
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const reach = w / 2;
+        const gradient = new cairo.LinearGradient(
+            cx - Math.cos(angle) * reach, cy + Math.sin(angle) * reach,
+            cx + Math.cos(angle) * reach, cy - Math.sin(angle) * reach);
+        gradient.addColorStopRGBA(0, 1, 1, 1, 0);
+        gradient.addColorStopRGBA(1, 1, 1, 1, Math.min(1, glow));
+        cr.setSource(gradient);
+        cr.setLineWidth(1.6);
+        cr.stroke();
+    }
+
+    _drawBadge(cr, isEnabled) {
+        let text = _('Blur off');
+        if (isEnabled) text = this._settings.get_string('blur-mode') === 'static' ? _('Static blur') : _('Dynamic blur');
+
+        const layout = PangoCairo.create_layout(cr);
+        layout.set_text(text, -1);
+        layout.set_font_description(Pango.FontDescription.from_string('Sans Bold 9'));
+        const [textW, textH] = layout.get_pixel_size();
+
+        roundedRect(cr, 12, 12, textW + 20, textH + 10, (textH + 10) / 2);
+        cr.setSourceRGBA(0, 0, 0, 0.45);
+        cr.fill();
+        cr.setSourceRGBA(1, 1, 1, 0.92);
+        cr.moveTo(22, 17);
+        PangoCairo.show_layout(cr, layout);
+    }
+}
 
 
 export function buildBlurPage(window, settings) {
-    if (!Settings.raw && settings) {
-        Settings.init(settings);
-    }
-
     const page = new Adw.PreferencesPage({
         title: _('Blur'),
         icon_name: 'view-paged-symbolic',
     });
 
-    const masterGroup = new Adw.PreferencesGroup({
-        title: _('Blur Material'),
-        description: _('Apply refractive backdrop blur to Dhruva dock, menus and panels'),
+    const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
+    const ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
+    const preview = new BlurPreview(settings, bgSettings, ifaceSettings);
+
+    const heroGroup = addGroup(page, _('Blur Material'), _('Frosted glass behind the dock, menus and panels'));
+    const enableSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+    settings.bind('blur-enabled', enableSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+    heroGroup.set_header_suffix(enableSwitch);
+    heroGroup.add(preview.widget);
+
+    const isBlurOn = () => settings.get_boolean('blur-enabled');
+
+    const modeGroup = addGroup(page, _('Mode'));
+    addChoiceCards(modeGroup, settings, 'blur-mode', [
+        {
+            value: 'dynamic',
+            icon: 'view-refresh-symbolic',
+            title: _('Dynamic'),
+            description: _('Follows windows and wallpaper behind the dock in real time'),
+        },
+        {
+            value: 'static',
+            icon: 'image-x-generic-symbolic',
+            title: _('Static'),
+            description: _('Blurs a fixed image once. Lightest on battery and GPU'),
+        },
+    ]);
+    showWhen(modeGroup, settings, ['blur-enabled'], isBlurOn);
+
+    const sourceGroup = addGroup(page, _('Background'), _('The image that static blur is made from'));
+    const sourceSwitcher = new Gtk.Box({ valign: Gtk.Align.CENTER, css_classes: ['linked'] });
+    const presetBtn = new Gtk.ToggleButton({ label: _('Presets') });
+    const customBtn = new Gtk.ToggleButton({ label: _('Your Photo'), group: presetBtn });
+    sourceSwitcher.append(presetBtn);
+    sourceSwitcher.append(customBtn);
+    sourceGroup.set_header_suffix(sourceSwitcher);
+    bindChoice(settings, 'blur-static-source', new Map([['preset', presetBtn], ['custom', customBtn]]));
+
+    const presetFlow = new Gtk.FlowBox({
+        selection_mode: Gtk.SelectionMode.SINGLE,
+        homogeneous: true,
+        min_children_per_line: 2,
+        max_children_per_line: 5,
+        column_spacing: 6,
+        row_spacing: 6,
     });
-    page.add(masterGroup);
+    const presetChildren = new Map();
+    for (const { key, name } of PRESETS()) {
+        const picture = Gtk.Picture.new_for_filename(presetPath(key));
+        picture.set_content_fit(Gtk.ContentFit.COVER);
+        picture.set_size_request(112, 64);
+        picture.set_overflow(Gtk.Overflow.HIDDEN);
 
-    const enableRow = new Adw.SwitchRow({
-        title: _('Enable Blur'),
-        subtitle: _('Overrides current theme with clean refractive blur material'),
-    });
-    settings.bind('blur-enabled', enableRow, 'active', Gio.SettingsBindFlags.DEFAULT);
-    masterGroup.add(enableRow);
-
-    const blurModeRow = new Adw.ActionRow({
-        title: _('Blur Mode'),
-        subtitle: _('Choose between live real-time tracking or static performance blur'),
-    });
-
-    const pillBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        valign: Gtk.Align.CENTER,
-    });
-    pillBox.add_css_class('linked');
-
-    const dynamicBtn = new Gtk.ToggleButton({
-        label: _('Dynamic'),
-    });
-
-    const staticBtn = new Gtk.ToggleButton({
-        label: _('Static'),
-        group: dynamicBtn,
-    });
-
-    if (Settings.blurMode === 'static') {
-        staticBtn.set_active(true);
-    } else {
-        dynamicBtn.set_active(true);
-    }
-
-    dynamicBtn.connect('toggled', () => {
-        if (dynamicBtn.get_active()) {
-            Settings.blurMode = 'dynamic';
-            Gio.Settings.sync();
-        }
-    });
-
-    staticBtn.connect('toggled', () => {
-        if (staticBtn.get_active()) {
-            Settings.blurMode = 'static';
-            Gio.Settings.sync();
-        }
-    });
-
-    pillBox.append(dynamicBtn);
-    pillBox.append(staticBtn);
-    blurModeRow.add_suffix(pillBox);
-    masterGroup.add(blurModeRow);
-
-    const sourceRow = new Adw.ActionRow({
-        title: _('Static Background Source'),
-        subtitle: _('Choose between built-in vector presets or custom photo'),
-    });
-
-    const sourceBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        valign: Gtk.Align.CENTER,
-    });
-    sourceBox.add_css_class('linked');
-
-    const presetBtn = new Gtk.ToggleButton({
-        label: _('Preset'),
-    });
-
-    const customBtn = new Gtk.ToggleButton({
-        label: _('Custom Photo'),
-        group: presetBtn,
-    });
-
-    const currentSource = settings.get_string('blur-static-source') || 'preset';
-    if (currentSource === 'custom') {
-        customBtn.set_active(true);
-    } else {
-        presetBtn.set_active(true);
-    }
-
-    presetBtn.connect('toggled', () => {
-        if (presetBtn.get_active()) {
-            settings.set_string('blur-static-source', 'preset');
-            Gio.Settings.sync();
-            updateStaticVisibility();
-        }
-    });
-
-    customBtn.connect('toggled', () => {
-        if (customBtn.get_active()) {
-            settings.set_string('blur-static-source', 'custom');
-            Gio.Settings.sync();
-            updateStaticVisibility();
-        }
-    });
-
-    sourceBox.append(presetBtn);
-    sourceBox.append(customBtn);
-    sourceRow.add_suffix(sourceBox);
-    masterGroup.add(sourceRow);
-
-    const presetRow = new Adw.ComboRow({
-        title: _('Static Blur Preset'),
-        subtitle: _('Select an abstract background texture for static blur'),
-        model: new Gtk.StringList({
-            strings: [
-                _('Abstract Dark'),
-                _('Aurora Borealis'),
-                _('Sunset Glow'),
-                _('Cyberpunk Neon'),
-                _('Minimal Slate'),
-            ],
-        }),
-    });
-
-    const presetKeys = [
-        'abstract-dark',
-        'aurora',
-        'sunset',
-        'cyberpunk',
-        'minimal',
-    ];
-
-    const currentPreset = settings.get_string('blur-static-preset');
-    const currentIdx = presetKeys.indexOf(currentPreset);
-    if (currentIdx >= 0) presetRow.set_selected(currentIdx);
-
-    presetRow.connect('notify::selected', () => {
-        const idx = presetRow.get_selected();
-        settings.set_string('blur-static-preset', presetKeys[idx]);
-        Gio.Settings.sync();
-    });
-    masterGroup.add(presetRow);
-
-    const showImageCropperDialog = (sourceFilePath, onCropped) => {
-        let pixbuf;
-        try {
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(sourceFilePath);
-        } catch (_) {
-            return;
-        }
-
-        const origW = pixbuf.get_width();
-        const origH = pixbuf.get_height();
-
-        const iconSize = settings.get_int('icon-size') || 48;
-        const spacing = settings.get_int('icon-spacing') || 6;
-        const padding = settings.get_int('dock-padding') || 10;
-        const dockHeightPad = settings.get_int('dock-height') || 6;
-
-        let totalIcons = 14;
-        try {
-            const pinned = JSON.parse(settings.get_string('pinned-apps') || '[]');
-            if (Array.isArray(pinned) && pinned.length > 0) totalIcons = pinned.length + 3;
-        } catch (_) {}
-
-        const realDockW = (totalIcons * iconSize) + ((totalIcons - 1) * spacing) + (padding * 2);
-        const realDockH = iconSize + (Math.max(dockHeightPad, 4) * 2);
-        const targetAspect = Math.max(6.0, realDockW / Math.max(1, realDockH));
-
-        let cropW = origW;
-        let cropH = Math.round(cropW / targetAspect);
-        if (cropH > origH) {
-            cropH = origH;
-            cropW = Math.round(cropH * targetAspect);
-        }
-
-        const maxCropY = Math.max(0, origH - cropH);
-        let cropX = Math.round((origW - cropW) / 2);
-        let cropY = Math.round(maxCropY / 2);
-
-        const isGnome45 = !Adw.AlertDialog;
-        let dialog;
-        const dialogTitle = _('Adjust Dock Banner Area');
-
-        if (isGnome45) {
-            dialog = new Adw.MessageDialog({
-                heading: dialogTitle,
-                transient_for: window,
-                modal: true,
-            });
-        } else {
-            dialog = new Adw.AlertDialog({
-                heading: dialogTitle,
-            });
-        }
-
-        dialog.add_response('cancel', _('Cancel'));
-        dialog.add_response('apply', _('Apply'));
-        dialog.set_response_appearance('apply', Adw.ResponseAppearance.SUGGESTED);
-
-        const contentBox = new Gtk.Box({
+        const box = new Gtk.Box({
             orientation: Gtk.Orientation.VERTICAL,
-            spacing: 12,
-            margin_top: 8,
-            margin_bottom: 8,
-            margin_start: 8,
-            margin_end: 8,
+            spacing: 6,
+            margin_top: 6,
+            margin_bottom: 6,
+            margin_start: 6,
+            margin_end: 6,
         });
+        box.append(picture);
+        box.append(new Gtk.Label({ label: name, css_classes: ['caption'], ellipsize: Pango.EllipsizeMode.END }));
 
-        const helpLabel = new Gtk.Label({
-            label: _('Use the slider to adjust vertical crop position'),
-            css_classes: ['dim-label'],
-            halign: Gtk.Align.CENTER,
-        });
-        contentBox.append(helpLabel);
-
-        const previewW = 480;
-        const scale = previewW / origW;
-        const previewH = Math.round(origH * scale);
-
-        const drawingArea = new Gtk.DrawingArea({
-            content_width: previewW,
-            content_height: previewH,
-            halign: Gtk.Align.CENTER,
-        });
-
-        const previewPixbuf = pixbuf.scale_simple(previewW, previewH, GdkPixbuf.InterpType.BILINEAR);
-
-        drawingArea.set_draw_func((area, cr, width, height) => {
-            Gdk.cairo_set_source_pixbuf(cr, previewPixbuf, 0, 0);
-            cr.paint();
-
-            cr.setSourceRGBA(0, 0, 0, 0.65);
-            cr.paint();
-
-            const selX = cropX * scale;
-            const selY = cropY * scale;
-            const selW = cropW * scale;
-            const selH = cropH * scale;
-
-            cr.save();
-            cr.rectangle(selX, selY, selW, selH);
-            cr.clip();
-            Gdk.cairo_set_source_pixbuf(cr, previewPixbuf, 0, 0);
-            cr.paint();
-            cr.restore();
-
-            cr.setSourceRGBA(0.0, 0.85, 1.0, 0.95);
-            cr.setLineWidth(2.5);
-            cr.rectangle(selX, selY, selW, selH);
-            cr.stroke();
-        });
-
-        const sliderBox = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 10,
-            halign: Gtk.Align.CENTER,
-        });
-
-        const sliderLabel = new Gtk.Label({ label: _('Position:'), css_classes: ['dim-label'] });
-        const scaleWidget = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, maxCropY, 1);
-        scaleWidget.set_size_request(320, -1);
-        scaleWidget.set_draw_value(false);
-        scaleWidget.set_value(cropY);
-
-        scaleWidget.connect('value-changed', () => {
-            cropY = Math.round(scaleWidget.get_value());
-            drawingArea.queue_draw();
-        });
-
-        sliderBox.append(sliderLabel);
-        sliderBox.append(scaleWidget);
-
-        contentBox.append(drawingArea);
-        contentBox.append(sliderBox);
-        dialog.set_extra_child(contentBox);
-
-        dialog.connect('response', (dlg, response) => {
-            if (response === 'apply') {
-                const subPixbuf = pixbuf.new_subpixbuf(cropX, cropY, cropW, cropH);
-                onCropped(subPixbuf);
-            }
-            if (isGnome45) dlg.close();
-        });
-
-        if (isGnome45) {
-            dialog.present();
-        } else {
-            dialog.present(window);
-        }
-    };
-
-    const customPhotoRow = new Adw.ActionRow({
-        title: _('Custom Static Background'),
-        subtitle: _('Choose and crop custom image (.png, .jpg, .jpeg, .svg, .webp)'),
-        icon_name: 'image-x-generic-symbolic',
-    });
-
-    const photoBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 8,
-        valign: Gtk.Align.CENTER,
-    });
-
-    const currentCustomPath = settings.get_string('blur-custom-photo');
-    const photoNameLabel = new Gtk.Label({
-        label: currentCustomPath ? currentCustomPath.split('/').pop() : _('None'),
-        css_classes: ['dim-label'],
-        ellipsize: 3,
-        max_width_chars: 14,
-    });
-
-    const browsePhotoBtn = new Gtk.Button({
-        label: _('Browse...'),
-    });
-
-    browsePhotoBtn.connect('clicked', () => {
-        const dialog = new Gtk.FileDialog({
-            title: _('Select Blur Background Image'),
-        });
-        const filter = new Gtk.FileFilter();
-        filter.set_name(_('Images (.png, .jpg, .svg, .webp)'));
-        filter.add_mime_type('image/png');
-        filter.add_mime_type('image/jpeg');
-        filter.add_mime_type('image/svg+xml');
-        filter.add_mime_type('image/webp');
-
-        const filterList = Gio.ListStore.new(Gtk.FileFilter);
-        filterList.append(filter);
-        dialog.set_filters(filterList);
-
-        dialog.open(window, null, (dlg, res) => {
-            let file;
-            try {
-                file = dlg.open_finish(res);
-            } catch (_) {
-                return;
-            }
-            if (!file) return;
-
-            const filePath = file.get_path();
-            if (!filePath) return;
-
-            showImageCropperDialog(filePath, (croppedPixbuf) => {
-                const uuid = 'dhruva@narkagni';
-                const userConfigDir = GLib.get_user_config_dir();
-                const configDir = GLib.build_filenamev([userConfigDir, uuid, 'blur_bg']);
-                GLib.mkdir_with_parents(configDir, 0o755);
-
-                const timestamp = Date.now();
-                const filename = `custom_blur_${timestamp}.png`;
-                const destPath = GLib.build_filenamev([configDir, filename]);
-
-                croppedPixbuf.savev(destPath, 'png', [], []);
-                settings.set_string('blur-custom-photo', destPath);
-                Gio.Settings.sync();
-                photoNameLabel.set_text(file.get_basename());
-            });
-        });
-    });
-
-    const resetPhotoBtn = new Gtk.Button({
-        icon_name: 'edit-undo-symbolic',
-        css_classes: ['flat', 'circular'],
-        tooltip_text: _('Clear custom photo'),
-    });
-
-    resetPhotoBtn.connect('clicked', () => {
-        settings.set_string('blur-custom-photo', '');
-        Gio.Settings.sync();
-        photoNameLabel.set_text(_('None'));
-    });
-
-    photoBox.append(photoNameLabel);
-    photoBox.append(browsePhotoBtn);
-    photoBox.append(resetPhotoBtn);
-    customPhotoRow.add_suffix(photoBox);
-    masterGroup.add(customPhotoRow);
-
-    const updateStaticVisibility = () => {
-        const isStatic = settings.get_string('blur-mode') === 'static';
-        const isPreset = (settings.get_string('blur-static-source') || 'preset') !== 'custom';
-
-        sourceRow.set_visible(isStatic);
-        presetRow.set_visible(isStatic && isPreset);
-        customPhotoRow.set_visible(isStatic && !isPreset);
-    };
-
-    updateStaticVisibility();
-    staticBtn.connect('toggled', () => updateStaticVisibility());
-    dynamicBtn.connect('toggled', () => updateStaticVisibility());
-
-    const colorRow = new Adw.ActionRow({
-        title: _('Tint Color'),
-        subtitle: _('Surface tint accent for blur and background tone'),
-    });
-
-    const initialColor = new Gdk.RGBA();
-    const currentHex = Settings.blurTintColor || '#ffffff';
-    if (!initialColor.parse(currentHex)) {
-        initialColor.parse('#ffffff');
+        const child = new Gtk.FlowBoxChild({ child: box });
+        child._presetKey = key;
+        presetChildren.set(key, child);
+        presetFlow.append(child);
     }
 
-    const colorDialog = new Gtk.ColorDialog({ with_alpha: false });
-    const colorButton = new Gtk.ColorDialogButton({
-        dialog: colorDialog,
-        rgba: initialColor,
+    let isSyncingPreset = false;
+    const syncPresetSelection = () => {
+        const child = presetChildren.get(settings.get_string('blur-static-preset'));
+        if (!child || child.is_selected()) return;
+        isSyncingPreset = true;
+        presetFlow.select_child(child);
+        isSyncingPreset = false;
+    };
+    presetFlow.connect('selected-children-changed', () => {
+        if (isSyncingPreset) return;
+        const [selected] = presetFlow.get_selected_children();
+        if (selected) settings.set_string('blur-static-preset', selected._presetKey);
+    });
+    onSettingChanged(settings, 'blur-static-preset', syncPresetSelection);
+    syncPresetSelection();
+    sourceGroup.add(presetFlow);
+
+    const photoRow = new Adw.ActionRow({ title: _('Your Photo') });
+    const photoThumb = new Gtk.Picture({
+        content_fit: Gtk.ContentFit.COVER,
+        width_request: 72,
+        height_request: 40,
         valign: Gtk.Align.CENTER,
     });
+    photoThumb.set_overflow(Gtk.Overflow.HIDDEN);
+    photoRow.add_prefix(photoThumb);
 
-    colorButton.connect('notify::rgba', () => {
-        const rgba = colorButton.get_rgba();
-        const r = Math.round(rgba.red * 255).toString(16).padStart(2, '0');
-        const g = Math.round(rgba.green * 255).toString(16).padStart(2, '0');
-        const b = Math.round(rgba.blue * 255).toString(16).padStart(2, '0');
-        Settings.blurTintColor = `#\({r}\){g}${b}`;
-        Gio.Settings.sync();
+    const browseBtn = new Gtk.Button({ label: _('Choose…'), valign: Gtk.Align.CENTER });
+    const clearBtn = new Gtk.Button({
+        icon_name: 'edit-clear-symbolic',
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat', 'circular'],
+        tooltip_text: _('Remove photo'),
     });
+    photoRow.add_suffix(browseBtn);
+    photoRow.add_suffix(clearBtn);
+    sourceGroup.add(photoRow);
 
-    colorRow.add_suffix(colorButton);
-    masterGroup.add(colorRow);
-
-    const createSlider = (targetGroup, title, subtitle, key, min, max, step, digits) => {
-        const row = new Adw.ActionRow({ title, subtitle });
-        const scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, min, max, step);
-        scale.set_hexpand(true);
-        scale.set_draw_value(true);
-        scale.set_digits(digits);
-        scale.set_value(settings.get_double(key));
-
-        scale.connect('value-changed', () => {
-            settings.set_double(key, scale.get_value());
-            Gio.Settings.sync();
-        });
-
-        row.add_suffix(scale);
-        targetGroup.add(row);
-        return scale;
+    const syncPhoto = () => {
+        const path = settings.get_string('blur-custom-photo');
+        const hasPhoto = Boolean(path) && GLib.file_test(path, GLib.FileTest.EXISTS);
+        photoThumb.set_filename(hasPhoto ? path : null);
+        photoThumb.set_visible(hasPhoto);
+        clearBtn.set_visible(hasPhoto);
+        photoRow.set_subtitle(hasPhoto
+            ? _('Pick another image to replace it')
+            : _('Pick an image and choose which strip of it sits behind the dock'));
     };
+    onSettingChanged(settings, 'blur-custom-photo', syncPhoto);
+    syncPhoto();
 
-    createSlider(masterGroup, _('Blur Intensity'), _('Radius diffusion spread'), 'blur-intensity', 0.0, 64.0, 1.0, 0);
-    createSlider(masterGroup, _('Vibrancy'), _('Saturation behind blur'), 'blur-vibrancy', 0.5, 2.0, 0.05, 2);
-    createSlider(masterGroup, _('Brightness'), _('0.0 dark tone, 1.0 bright tone'), 'blur-brightness', 0.0, 1.0, 0.01, 2);
-    createSlider(masterGroup, _('Tint Opacity'), _('Color tint blend strength'), 'blur-tint-opacity', 0.0, 1.0, 0.01, 2);
+    browseBtn.connect('clicked', () => pickCustomPhoto(window, settings));
+    clearBtn.connect('clicked', () => replaceCustomPhoto(settings, ''));
 
-    const opticsGroup = new Adw.PreferencesGroup({
-        title: _('Optics &amp; Dispersion'),
-        description: _('Specular light angle and surface outline reflections'),
+    const isCustomSource = () => settings.get_string('blur-static-source') === 'custom';
+    showWhen(presetFlow, settings, ['blur-static-source'], () => !isCustomSource());
+    showWhen(photoRow, settings, ['blur-static-source'], isCustomSource);
+    showWhen(sourceGroup, settings, ['blur-enabled', 'blur-mode'],
+        () => isBlurOn() && settings.get_string('blur-mode') === 'static');
+
+    const materialGroup = addGroup(page, _('Glass'), _('Start from a look, then fine-tune'));
+    addGroupReset(materialGroup, settings, MATERIAL_KEYS);
+
+    const looksBox = new Gtk.Box({
+        spacing: 8,
+        homogeneous: true,
+        margin_top: 10,
+        margin_bottom: 10,
+        margin_start: 10,
+        margin_end: 10,
     });
-    page.add(opticsGroup);
+    for (const { name, values } of LOOKS()) {
+        const button = new Gtk.Button({ label: name, css_classes: ['pill'] });
+        button.connect('clicked', () => {
+            for (const [key, value] of Object.entries(values)) settings.set_double(key, value);
+        });
+        looksBox.append(button);
+    }
+    materialGroup.add(new Adw.PreferencesRow({ child: looksBox, activatable: false }));
 
-    createSlider(opticsGroup, _('Border Highlight Glow'), _('Edge outline shine reflection'), 'blur-border-glow', 0.0, 1.0, 0.05, 2);
-    createSlider(opticsGroup, _('Highlight Angle'), _('Specular light angle in degrees'), 'blur-highlight-angle', 0.0, 360.0, 5.0, 0);
+    addColorRow(materialGroup, settings, 'blur-tint-color', _('Tint'), _('Colour washed over the glass'));
+    addSliderRow(materialGroup, settings, 'blur-tint-opacity', _('Tint Strength'), _('How much of the tint shows'),
+        { lower: 0, upper: 1, step: 0.01 }, fmt.fraction);
+    addSliderRow(materialGroup, settings, 'blur-intensity', _('Blur'), _('How soft the background becomes'),
+        { lower: 0, upper: 64, step: 1 }, fmt.px);
+    addSliderRow(materialGroup, settings, 'blur-vibrancy', _('Vibrancy'), _('Colour saturation seen through the glass'),
+        { lower: 0.5, upper: 2, step: 0.05 }, fmt.times);
+    addSliderRow(materialGroup, settings, 'blur-brightness', _('Brightness'), _('Darker glass on the left, lighter on the right'),
+        { lower: 0, upper: 1, step: 0.01 }, fmt.fraction);
+    showWhen(materialGroup, settings, ['blur-enabled'], isBlurOn);
+
+    const lightGroup = addGroup(page, _('Edge Light'), _('A thin highlight along the rim of the glass'));
+    addGroupReset(lightGroup, settings, LIGHT_KEYS);
+    addSliderRow(lightGroup, settings, 'blur-border-glow', _('Glow'), _('Strength of the rim highlight'),
+        { lower: 0, upper: 1, step: 0.05 }, fmt.fraction);
+    addSliderRow(lightGroup, settings, 'blur-highlight-angle', _('Light Direction'), _('Where the light falls from'),
+        { lower: 0, upper: 360, step: 5 }, fmt.deg);
+    showWhen(lightGroup, settings, ['blur-enabled', 'hybrid-panel-mode'],
+        () => isBlurOn() && !settings.get_boolean('hybrid-panel-mode'));
+
+    for (const key of ['blur-mode', 'blur-static-source', 'blur-static-preset', 'blur-custom-photo'])
+        onSettingChanged(settings, key, () => preview.sourceChanged());
+    for (const key of ['picture-uri', 'picture-uri-dark'])
+        onSettingChanged(bgSettings, key, () => preview.sourceChanged());
+    onSettingChanged(ifaceSettings, 'color-scheme', () => preview.sourceChanged());
+    for (const key of ['blur-enabled', 'hybrid-panel-mode', ...MATERIAL_KEYS, ...LIGHT_KEYS])
+        onSettingChanged(settings, key, () => preview.redraw());
 
     window.add(page);
+}
+
+function replaceCustomPhoto(settings, newPath) {
+    const oldPath = settings.get_string('blur-custom-photo');
+    settings.set_string('blur-custom-photo', newPath);
+
+    const ownDir = GLib.build_filenamev([GLib.get_user_config_dir(), UUID, 'blur_bg']);
+    if (oldPath && oldPath !== newPath && oldPath.startsWith(`${ownDir}/`)) {
+        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+    }
+}
+
+function pickCustomPhoto(window, settings) {
+    const filter = new Gtk.FileFilter();
+    filter.set_name(_('Images'));
+    for (const mime of ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']) filter.add_mime_type(mime);
+    const filters = Gio.ListStore.new(Gtk.FileFilter);
+    filters.append(filter);
+
+    const dialog = new Gtk.FileDialog({ title: _('Choose a Background Photo'), filters });
+    dialog.open(window, null, (dlg, res) => {
+        let file;
+        try {
+            file = dlg.open_finish(res);
+        } catch (_e) {
+            return;
+        }
+        const path = file.get_path();
+        if (!path) return;
+
+        showCropDialog(window, settings, path, cropped => {
+            const dir = GLib.build_filenamev([GLib.get_user_config_dir(), UUID, 'blur_bg']);
+            GLib.mkdir_with_parents(dir, 0o755);
+            const destPath = GLib.build_filenamev([dir, `custom_blur_${Date.now()}.png`]);
+            cropped.savev(destPath, 'png', [], []);
+            replaceCustomPhoto(settings, destPath);
+        });
+    });
+}
+
+function showCropDialog(window, settings, sourcePath, onCropped) {
+    let pixbuf;
+    try {
+        pixbuf = GdkPixbuf.Pixbuf.new_from_file(sourcePath);
+    } catch (_e) {
+        return;
+    }
+
+    const origW = pixbuf.get_width();
+    const origH = pixbuf.get_height();
+
+    const iconSize = settings.get_int('icon-size');
+    const spacing = settings.get_int('icon-spacing');
+    const padding = settings.get_int('dock-padding');
+    const thickness = Math.max(settings.get_int('dock-height'), 4);
+    const iconCount = 14;
+    const dockW = iconCount * iconSize + (iconCount - 1) * spacing + padding * 2;
+    const dockH = iconSize + thickness * 2;
+    const aspect = Math.max(6, dockW / Math.max(1, dockH));
+
+    let cropW = origW;
+    let cropH = Math.round(cropW / aspect);
+    if (cropH > origH) {
+        cropH = origH;
+        cropW = Math.round(cropH * aspect);
+    }
+    const cropX = Math.round((origW - cropW) / 2);
+    const maxCropY = Math.max(0, origH - cropH);
+    let cropY = Math.round(maxCropY / 2);
+
+    const isGnome45 = !Adw.AlertDialog;
+    const heading = _('Choose the Strip Behind the Dock');
+    const dialog = isGnome45
+        ? new Adw.MessageDialog({ heading, transient_for: window, modal: true })
+        : new Adw.AlertDialog({ heading });
+    dialog.add_response('cancel', _('Cancel'));
+    dialog.add_response('apply', _('Use This'));
+    dialog.set_response_appearance('apply', Adw.ResponseAppearance.SUGGESTED);
+
+    const previewW = 480;
+    const scale = previewW / origW;
+    const previewH = Math.round(origH * scale);
+    const previewPixbuf = pixbuf.scale_simple(previewW, previewH, GdkPixbuf.InterpType.BILINEAR);
+
+    const area = new Gtk.DrawingArea({ content_width: previewW, content_height: previewH, halign: Gtk.Align.CENTER });
+    area.set_draw_func((_area, cr) => {
+        Gdk.cairo_set_source_pixbuf(cr, previewPixbuf, 0, 0);
+        cr.paint();
+        cr.setSourceRGBA(0, 0, 0, 0.6);
+        cr.paint();
+
+        roundedRect(cr, cropX * scale, cropY * scale, cropW * scale, cropH * scale, 6);
+        cr.save();
+        cr.clip();
+        Gdk.cairo_set_source_pixbuf(cr, previewPixbuf, 0, 0);
+        cr.paint();
+        cr.restore();
+
+        roundedRect(cr, cropX * scale, cropY * scale, cropW * scale, cropH * scale, 6);
+        cr.setSourceRGBA(1, 1, 1, 0.9);
+        cr.setLineWidth(2);
+        cr.stroke();
+    });
+
+    const slider = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, Math.max(1, maxCropY), 1);
+    slider.set_draw_value(false);
+    slider.set_value(cropY);
+    slider.set_sensitive(maxCropY > 0);
+    slider.connect('value-changed', () => {
+        cropY = Math.round(slider.get_value());
+        area.queue_draw();
+    });
+
+    const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
+    content.append(area);
+    content.append(slider);
+    dialog.set_extra_child(content);
+
+    dialog.connect('response', (dlg, response) => {
+        if (response === 'apply') onCropped(pixbuf.new_subpixbuf(cropX, cropY, cropW, cropH));
+        if (isGnome45) dlg.close();
+    });
+
+    if (isGnome45) dialog.present();
+    else dialog.present(window);
 }

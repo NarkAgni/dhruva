@@ -26,7 +26,6 @@ const DEFAULT_CHAMELEON_BG = { r: 30, g: 30, b: 45 };
 const DEFAULT_CHAMELEON_RAW = { r: 80, g: 90, b: 120 };
 
 export function resolveTooltipColors(dockUI, themeId) {
-    const settings = dockUI.settings;
     const opacity = Math.min(1.0, (Settings.backgroundOpacity / 100.0) + 0.05);
     const sColor = Settings.strokeColor || '#ffffff';
 
@@ -44,19 +43,44 @@ export function resolveTooltipColors(dockUI, themeId) {
         color2: hexToRgba(Settings.backgroundGradientColor || '#000000', opacity),
         useGradient: Settings.useGradient,
         direction: Settings.gradientDirection || 'vertical',
+        chameleonColor: dockUI._chameleonColor,
     };
 
-    const tooltipCss = (DockThemes && DockThemes[themeId]) 
+    let tooltipCss = (DockThemes && DockThemes[themeId]) 
         ? DockThemes[themeId].css(config) 
         : DockThemes['default'].css(config);
 
-    return { css: tooltipCss, fg: sColor };
+    return { css: tooltipCss, fg: dockUI._chameleonAccent || sColor };
+}
+
+const POPUP_FALLBACK_FILL = 'rgba(24, 24, 31, 0.96)';
+const TRANSPARENT_FILL = 'rgba(0, 0, 0, 0)';
+
+function _firstThemeColor(css) {
+    const match = css.match(/background-gradient-start:\s*([^;!]+)/i) || css.match(/background-color:\s*([^;!]+)/i);
+    if (!match) return null;
+    const color = match[1].trim();
+    return color === 'transparent' || color === TRANSPARENT_FILL ? null : color;
+}
+
+export function resolvePopupBubbleColors(dockUI) {
+    const settings = dockUI.settings;
+    const fill = settings.get_boolean('blur-enabled')
+        ? TRANSPARENT_FILL
+        : (_firstThemeColor(resolveTooltipColors(dockUI, settings.get_string('dock-theme')).css) || POPUP_FALLBACK_FILL);
+
+    return {
+        fill,
+        stroke: hexToRgba(settings.get_string('stroke-color'), settings.get_int('stroke-opacity') / 100.0),
+        strokeWidth: Math.max(1, settings.get_int('stroke-width')),
+    };
 }
 
 export function applyDynamicStyles(dockUI) {
     if (!isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
 
-    const isFullWidth = dockUI.settings ? dockUI.settings.get_boolean('full-width') : false;
+    const isHybrid = Settings.hybridPanelMode;
+    const isFullWidth = (dockUI.settings ? dockUI.settings.get_boolean('full-width') : false) || isHybrid;
     const radius = isFullWidth ? 0 : (dockUI.settings ? dockUI.settings.get_int('border-radius') : 20);
     const isBlurEnabled = dockUI.settings ? dockUI.settings.get_boolean('blur-enabled') : false;
 

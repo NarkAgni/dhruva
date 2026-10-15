@@ -23,8 +23,10 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { makeResetBtn } from './ResetButtons.js';
-import { addSwitchRow, addSegmentedRow, addColorRow, addCustomSpinRow } from './PrefsWidgets.js';
+import { onSettingChanged } from './SettingsSignals.js';
+import {
+    fmt, addGroup, addGroupReset, showWhen, addSwitchRow, addSliderRow, addSegmentedRow, addColorRow,
+} from './PrefsWidgets.js';
 
 
 function getGraphemeCount(str) {
@@ -32,191 +34,153 @@ function getGraphemeCount(str) {
     try {
         const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
         return Array.from(segmenter.segment(str)).length;
-    } catch (e) {
+    } catch (_e) {
         return Array.from(str).length;
     }
 }
 
-export function buildModulesPage(prefs, window, settings) {
-    const page = new Adw.PreferencesPage({
-        title: _('Modules'),
-        icon_name: 'application-x-addon-symbolic'
+function presentDialog(window, dialog, isGnome45) {
+    if (isGnome45) dialog.present();
+    else dialog.present(window);
+}
+
+function replaceGridIcon(settings, sourceFile, iconDir) {
+    const ext = sourceFile.get_basename().split('.').pop().toLowerCase();
+    if (!['png', 'svg', 'ico'].includes(ext)) return;
+
+    GLib.mkdir_with_parents(iconDir, 0o755);
+    const destPath = GLib.build_filenamev([iconDir, `custom_grid_icon_${Date.now()}.${ext}`]);
+    sourceFile.copy(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, null, null);
+
+    const oldPath = settings.get_string('custom-grid-icon');
+    settings.set_string('custom-grid-icon', destPath);
+    if (oldPath && oldPath.startsWith(`${iconDir}/`))
+        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+}
+
+function addGridIconRow(group, window, settings, iconDir) {
+    const row = new Adw.ActionRow({
+        title: _('Your Own Icon'),
+        subtitle: _('Square image, 256 or 512 px (.png, .svg, .ico)'),
     });
-    window.add(page);
+    const thumb = new Gtk.Image({ pixel_size: 32, valign: Gtk.Align.CENTER });
+    row.add_prefix(thumb);
 
-    const modGroup = new Adw.PreferencesGroup({
-        title: _('Dock Modules'),
-        description: _('Enable extra shortcuts on your dock')
+    const chooseBtn = new Gtk.Button({ label: _('Choose…'), valign: Gtk.Align.CENTER });
+    const clearBtn = new Gtk.Button({
+        icon_name: 'edit-clear-symbolic',
+        tooltip_text: _('Back to the default icon'),
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat', 'circular'],
     });
-    page.add(modGroup);
-
-    addSwitchRow(modGroup, settings, 'show-trash', _('Recycle Bin (Trash)'), _('Show a shortcut to the trash folder'), 'user-trash-symbolic', null);
-    addSwitchRow(modGroup, settings, 'show-desktop-button', _('Show Desktop Button'), _('Quickly minimize all windows'), 'computer-symbolic', null);
-    addSwitchRow(modGroup, settings, 'show-grid-button', _('Show Applications Button'), _('App drawer launcher'), 'view-app-grid-symbolic', null);
-    const gridPosRow = addSegmentedRow(modGroup, settings, 'grid-button-position', _('Application Button Position'), _('Where to place the launcher'), 'go-next-symbolic', [
-        { name: _('Left Edge'), value: 'LEFT_EDGE' },
-        { name: _('Start'), value: 'START' },
-        { name: _('End'), value: 'END' }
-    ]);
-
-    const gridColorRow = addColorRow(modGroup, settings, 'grid-icon-color', _('App Grid Button Color'), 'preferences-desktop-appearance-symbolic');
-
-    const oldGridIconRow = addSwitchRow(modGroup, settings, 'use-old-grid-icon', _('Use Old App Grid Icon'), _('Show default dotted grid icon instead of Dhruva logo'), 'view-app-grid-symbolic', null);
-
-    const customIconRow = new Adw.ActionRow({
-        title: _('Custom App Grid Icon'),
-        subtitle: _('Size: 256x256 or 512x512 (.png, .svg, .ico)'),
-        icon_name: 'image-x-generic-symbolic'
-    });
-
-    const iconBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 8,
-        valign: Gtk.Align.CENTER
-    });
-    const chooseBtn = new Gtk.Button({
-        label: _('Browse...')
-    });
+    row.add_suffix(chooseBtn);
+    row.add_suffix(clearBtn);
 
     chooseBtn.connect('clicked', () => {
-        const dialog = new Gtk.FileDialog({
-            title: _('Select App Custom Grid Icon')
-        });
         const filter = new Gtk.FileFilter();
-        filter.set_name(_('Images (.png, .svg, .ico)'));
-        filter.add_mime_type('image/png');
-        filter.add_mime_type('image/svg+xml');
-        filter.add_mime_type('image/x-icon');
-        filter.add_mime_type('image/vnd.microsoft.icon');
+        filter.set_name(_('Images'));
+        for (const mime of ['image/png', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']) filter.add_mime_type(mime);
+        const filters = Gio.ListStore.new(Gtk.FileFilter);
+        filters.append(filter);
 
-        const filterList = Gio.ListStore.new(Gtk.FileFilter);
-        filterList.append(filter);
-        dialog.set_filters(filterList);
-
-        dialog.open(window, null, (dlg, res) => {
+        new Gtk.FileDialog({ title: _('Choose a Launcher Icon'), filters }).open(window, null, (dlg, res) => {
             let file;
             try {
                 file = dlg.open_finish(res);
-            } catch (e) {
+            } catch (_e) {
                 return;
             }
-            if (file) {
-                const ext = file.get_basename().split('.').pop().toLowerCase();
-
-                if (!['png', 'svg', 'ico'].includes(ext)) {
-                    return;
-                }
-
-                const uuid = prefs.metadata.uuid || 'dhruva@narkagni';
-                const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
-                GLib.mkdir_with_parents(configDir, 0o755);
-                const dir = Gio.File.new_for_path(configDir);
-                const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                let fileInfo;
-                while ((fileInfo = enumerator.next_file(null))) {
-                    dir.get_child(fileInfo.get_name()).delete(null);
-                }
-
-                const timestamp = Date.now();
-                const destPath = `${configDir}/custom_grid_icon_${timestamp}.${ext}`;
-                const destFile = Gio.File.new_for_path(destPath);
-
-                file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
-                settings.set_string('custom-grid-icon', destPath);
-            }
+            replaceGridIcon(settings, file, iconDir);
         });
     });
 
-    const resetIconBtn = new Gtk.Button({
-        icon_name: 'edit-undo-symbolic',
-        css_classes: ['flat', 'circular'],
-        tooltip_text: _('Reset to default icon')
-    });
-    resetIconBtn.connect('clicked', () => {
+    clearBtn.connect('clicked', () => {
+        const oldPath = settings.get_string('custom-grid-icon');
         settings.set_string('custom-grid-icon', '');
+        if (oldPath.startsWith(`${iconDir}/`))
+            Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
     });
 
-    iconBox.append(chooseBtn);
-    iconBox.append(resetIconBtn);
-    customIconRow.add_suffix(iconBox);
-    modGroup.add(customIconRow);
-
-    const customIconScaleRow = addCustomSpinRow(
-        modGroup,
-        settings,
-        'custom-grid-icon-scale',
-        _('Custom Icon Scale (%)'),
-        _('Adjust size multiplier (Default: 125)'),
-        'zoom-in-symbolic', {
-        lower: 50,
-        upper: 300,
-        step_increment: 5
-    },
-        makeResetBtn(settings)
-    );
-
-    const syncGridSettingsVisibility = () => {
-        const showGrid = settings.get_boolean('show-grid-button');
-        const customIcon = settings.get_string('custom-grid-icon');
-        const hasCustomIcon = customIcon !== '';
-        const useOldIcon = settings.get_boolean('use-old-grid-icon');
-
-        gridPosRow.set_visible(showGrid);
-        customIconRow.set_visible(showGrid);
-
-        oldGridIconRow.set_visible(showGrid && !hasCustomIcon);
-        customIconScaleRow.set_visible(showGrid && hasCustomIcon);
-
-        gridColorRow.set_visible(showGrid && !hasCustomIcon && useOldIcon);
-
-        resetIconBtn.set_sensitive(hasCustomIcon);
+    const sync = () => {
+        const path = settings.get_string('custom-grid-icon');
+        const hasIcon = path !== '';
+        thumb.set_from_file(hasIcon ? path : null);
+        thumb.set_visible(hasIcon);
+        clearBtn.set_visible(hasIcon);
     };
+    onSettingChanged(settings, 'custom-grid-icon', sync);
+    sync();
 
-    settings.connect('changed::custom-grid-icon', syncGridSettingsVisibility);
-    settings.connect('changed::show-grid-button', syncGridSettingsVisibility);
-    settings.connect('changed::use-old-grid-icon', syncGridSettingsVisibility);
-    settings.connect('changed::full-width', syncGridSettingsVisibility);
-    syncGridSettingsVisibility();
+    group.add(row);
+    return row;
+}
 
-    const defaultFolderGroup = new Adw.PreferencesGroup({
-        title: _('Standard Folders'),
-        description: _('Add quick access folders to the dock')
-    });
-    page.add(defaultFolderGroup);
 
-    addSwitchRow(defaultFolderGroup, settings, 'show-home', _('Home'), _('Shortcut to Home directory'), 'user-home', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-downloads', _('Downloads'), _('Shortcut to Downloads'), 'folder-download', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-documents', _('Documents'), _('Shortcut to Documents'), 'folder-documents', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-pictures', _('Pictures'), _('Shortcut to Pictures'), 'folder-pictures', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-videos', _('Videos'), _('Shortcut to Videos'), 'folder-videos', null);
-    addSwitchRow(defaultFolderGroup, settings, 'show-music', _('Music'), _('Shortcut to Music'), 'folder-music', null);
-
-    const mountRow = new Adw.ActionRow({
-        title: _('Show USB &amp; Mounted Drives'),
-        subtitle: _('Automatically show connected drives and partitions on the dock'),
-        icon_name: 'drive-harddisk'
+export function buildModulesPage(prefs, window, settings) {
+    const page = new Adw.PreferencesPage({
+        title: _('Modules'),
+        icon_name: 'application-x-addon-symbolic',
     });
 
-    const mountToggle = new Gtk.Switch({
-        active: settings.get_boolean('show-mounts'),
-        valign: Gtk.Align.CENTER,
-    });
+    const uuid = prefs.metadata.uuid;
+    const iconDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
+    const isFullBar = () => settings.get_boolean('full-width') || settings.get_boolean('hybrid-panel-mode');
 
-    settings.bind(
-        'show-mounts',
-        mountToggle,
-        'active',
-        Gio.SettingsBindFlags.DEFAULT
-    );
+    const gridGroup = addGroup(page, _('App Launcher'), _('Opens your list of applications'));
+    const gridSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+    settings.bind('show-grid-button', gridSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+    gridGroup.set_header_suffix(gridSwitch);
 
-    mountRow.add_suffix(mountToggle);
-    defaultFolderGroup.add(mountRow);
+    const hasCustomIcon = () => settings.get_string('custom-grid-icon') !== '';
+    const gridRows = [
+        addSegmentedRow(gridGroup, settings, 'grid-button-position', _('Position'), null, [
+            { name: _('Far Edge'), value: 'LEFT_EDGE' },
+            { name: _('Start'), value: 'START' },
+            { name: _('End'), value: 'END' },
+        ]),
+        addGridIconRow(gridGroup, window, settings, iconDir),
+    ];
+    for (const row of gridRows) showWhen(row, settings, ['show-grid-button'], () => settings.get_boolean('show-grid-button'));
 
-    const customFoldersGroup = new Adw.PreferencesGroup({
-        title: _('Custom Quick Folders'),
-        description: _('Add your own directory shortcuts to the dock')
-    });
-    page.add(customFoldersGroup);
+    const showGrid = () => settings.get_boolean('show-grid-button');
+    const scaleRow = addSliderRow(gridGroup, settings, 'custom-grid-icon-scale', _('Icon Size'), null,
+        { lower: 50, upper: 300, step: 5 }, fmt.percent);
+    const oldIconRow = addSwitchRow(gridGroup, settings, 'use-old-grid-icon', _('Classic Grid Icon'),
+        _('Dotted grid instead of the Dhruva logo'));
+    const gridColorRow = addColorRow(gridGroup, settings, 'grid-icon-color', _('Grid Icon Colour'));
+    showWhen(scaleRow, settings, ['show-grid-button', 'custom-grid-icon'], () => showGrid() && hasCustomIcon());
+    showWhen(oldIconRow, settings, ['show-grid-button', 'custom-grid-icon'], () => showGrid() && !hasCustomIcon());
+    showWhen(gridColorRow, settings, ['show-grid-button', 'custom-grid-icon', 'use-old-grid-icon'],
+        () => showGrid() && !hasCustomIcon() && settings.get_boolean('use-old-grid-icon'));
+
+    const desktopGroup = addGroup(page, _('Show Desktop'), _('One click hides every window'));
+    const desktopSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+    settings.bind('show-desktop-button', desktopSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+    desktopGroup.set_header_suffix(desktopSwitch);
+
+    const stripRows = [
+        addSliderRow(desktopGroup, settings, 'desktop-btn-width', _('Strip Width'), _('The thin strip at the end of the bar'),
+            { lower: 4, upper: 48, step: 1 }, fmt.px),
+        addColorRow(desktopGroup, settings, 'desktop-btn-color', _('Strip Colour')),
+        addSliderRow(desktopGroup, settings, 'desktop-btn-opacity', _('Strip Opacity'), null,
+            { lower: 0, upper: 100, step: 5 }, fmt.percent),
+    ];
+    for (const row of stripRows) {
+        showWhen(row, settings, ['show-desktop-button', 'full-width', 'hybrid-panel-mode'],
+            () => settings.get_boolean('show-desktop-button') && isFullBar());
+    }
+
+    const placesGroup = addGroup(page, _('Places'), _('Shortcuts that open in your file manager'));
+    addSwitchRow(placesGroup, settings, 'show-home', _('Home'));
+    addSwitchRow(placesGroup, settings, 'show-downloads', _('Downloads'));
+    addSwitchRow(placesGroup, settings, 'show-documents', _('Documents'));
+    addSwitchRow(placesGroup, settings, 'show-pictures', _('Pictures'));
+    addSwitchRow(placesGroup, settings, 'show-videos', _('Videos'));
+    addSwitchRow(placesGroup, settings, 'show-music', _('Music'));
+    addSwitchRow(placesGroup, settings, 'show-mounts', _('USB &amp; Other Drives'), _('Appear while they are connected'));
+    addSwitchRow(placesGroup, settings, 'show-trash', _('Recycle Bin'));
+
+    const customFoldersGroup = addGroup(page, _('Your Folders'), _('Any folder you like, with its own name and icon'));
 
     const folderListBox = new Gtk.ListBox({
         selection_mode: Gtk.SelectionMode.NONE,
@@ -640,255 +604,166 @@ export function buildModulesPage(prefs, window, settings) {
 
     buildFolderList();
 
-    const clockGroup = new Adw.PreferencesGroup({
-        title: _('Clock &amp; Date'),
-        description: _('Display time on horizontal docks')
-    });
-    page.add(clockGroup);
+    const clockGroup = addGroup(page, _('Clock'), _('Date and time on the dock. Hidden on side docks'));
+    const clockSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+    settings.bind('show-clock', clockSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
 
-    addSwitchRow(clockGroup, settings, 'show-clock', _('Show Clock'), _('Hidden automatically on left/right docks'), 'document-open-recent-symbolic', null);
+    addGroupReset(clockGroup, settings, ['clock-font-size']);
+    const clockReset = clockGroup.get_header_suffix();
+    const clockSuffix = new Gtk.Box({ spacing: 12, valign: Gtk.Align.CENTER });
+    clockGroup.set_header_suffix(clockSuffix);
+    clockSuffix.append(clockReset);
+    clockSuffix.append(clockSwitch);
 
-    const use24hRow = addSwitchRow(clockGroup, settings, 'use-24h-clock', _('Use 24-Hour Clock'), _('Display time in 24-hour format'), 'preferences-system-time-symbolic', null);
-
-    const clockSizeRow = addCustomSpinRow(clockGroup, settings, 'clock-font-size', _('Clock Text Size'), _('Adjust font size'), 'format-text-direction-symbolic', {
-        lower: 10,
-        upper: 36,
-        step_increment: 1
-    }, makeResetBtn(settings));
-
-    let clockPosRow = null;
-
-    const syncClockVisibility = () => {
-        const showClock = settings.get_boolean('show-clock');
+    const syncClockPosition = () => {
         const isFullWidth = settings.get_boolean('full-width');
-        const currentPos = settings.get_string('clock-position');
-
-        if (!isFullWidth && currentPos === 'RIGHT_END') {
-            settings.set_string('clock-position', 'END');
-        } else if (isFullWidth && currentPos !== 'RIGHT_END') {
-            settings.set_string('clock-position', 'RIGHT_END');
-        }
-
-        if (clockPosRow) {
-            clockGroup.remove(clockPosRow);
-        }
-
-        const clockOptions = [
-            { name: _('Start'), value: 'START' },
-            { name: _('End'), value: 'END' }
-        ];
-
-        if (isFullWidth) {
-            clockOptions.push({ name: _('Right Edge'), value: 'RIGHT_END' });
-        }
-
-        clockPosRow = addSegmentedRow(clockGroup, settings, 'clock-position', _('Clock Position'), _('Separate from App Grid'), 'format-justify-right-symbolic', clockOptions);
-
-        clockPosRow.set_visible(showClock);
-        clockSizeRow.set_visible(showClock);
-        use24hRow.set_visible(showClock);
+        const position = settings.get_string('clock-position');
+        if (!isFullWidth && position === 'RIGHT_END') settings.set_string('clock-position', 'END');
+        else if (isFullWidth && position !== 'RIGHT_END') settings.set_string('clock-position', 'RIGHT_END');
     };
+    onSettingChanged(settings, 'full-width', syncClockPosition);
+    syncClockPosition();
 
-    settings.connect('changed::show-clock', syncClockVisibility);
-    settings.connect('changed::full-width', syncClockVisibility);
-    syncClockVisibility();
+    const clockRows = [
+        addSegmentedRow(clockGroup, settings, 'clock-position', _('Position'), null, [
+            { name: _('Start'), value: 'START' },
+            { name: _('End'), value: 'END' },
+        ]),
+        addSwitchRow(clockGroup, settings, 'use-24h-clock', _('24-Hour Time')),
+        addSliderRow(clockGroup, settings, 'clock-font-size', _('Text Size'), null, { lower: 10, upper: 36, step: 1 }, fmt.px),
+    ];
+    showWhen(clockRows[0], settings, ['show-clock', 'full-width'],
+        () => settings.get_boolean('show-clock') && !settings.get_boolean('full-width'));
+    for (const row of clockRows.slice(1)) showWhen(row, settings, ['show-clock'], () => settings.get_boolean('show-clock'));
 
-    const dangerGroup = new Adw.PreferencesGroup({
-        title: _('Danger Zone'),
-        description: _('Master controls for your settings')
-    });
-    page.add(dangerGroup);
-
-    const backupGroup = new Adw.PreferencesGroup({
-        title: _('Backup &amp; Restore'),
-        description: _('Import or export your dock layout, themes, custom folders, and pinned apps')
-    });
-    page.add(backupGroup);
-
-    const exportRow = new Adw.ActionRow({
-        title: _('Export Configuration'),
-        subtitle: _('Save your current settings and apps to a file'),
-        icon_name: 'document-export-symbolic'
-    });
-
-    const exportBtn = new Gtk.Button({
-        label: _('Export'),
-        valign: Gtk.Align.CENTER,
-        css_classes: ['suggested-action'],
-        width_request: 100
-    });
+    const backupGroup = addGroup(page, _('Backup'), _('Your settings, pinned apps and folders in one file'));
+    const exportRow = new Adw.ActionRow({ title: _('Export'), subtitle: _('Save everything to a file') });
+    const exportBtn = new Gtk.Button({ label: _('Export…'), valign: Gtk.Align.CENTER });
     exportRow.add_suffix(exportBtn);
-
-    exportBtn.connect('clicked', () => {
-        const dialog = new Gtk.FileDialog({ title: _('Export Dock Configuration') });
-        dialog.set_initial_name('dhruva_config.json');
-
-        dialog.save(window, null, (dlg, res) => {
-            let file;
-            try { file = dlg.save_finish(res); } catch (_) { return; }
-            if (!file) return;
-
-            const isIndependent = settings.get_boolean('independent-dock');
-            const uuid = prefs.metadata.uuid || 'dhruva@narkagni';
-            const extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
-
-            const config = { settings: {}, favorites: [], pinnedApps: null, folders: null };
-
-            settings.list_keys().forEach(key => {
-                if (isIndependent && key === 'app-folders') return;
-                config.settings[key] = settings.get_value(key).deep_unpack();
-            });
-
-            if (isIndependent) {
-                try {
-                    const appsPath = GLib.build_filenamev([extConfigDir, 'dhruva-apps.json']);
-                    const [ok, contents] = GLib.file_get_contents(appsPath);
-                    if (ok) config.pinnedApps = JSON.parse(new TextDecoder().decode(contents));
-                } catch (_) { config.pinnedApps = []; }
-
-                try {
-                    const foldersPath = GLib.build_filenamev([extConfigDir, 'dhruva-folders.json']);
-                    const [ok, contents] = GLib.file_get_contents(foldersPath);
-                    if (ok) config.folders = JSON.parse(new TextDecoder().decode(contents));
-                } catch (_) { config.folders = []; }
-            } else {
-                try {
-                    const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-                    config.favorites = shellSettings.get_strv('favorite-apps');
-                } catch (_) { }
-            }
-
-            const jsonStr = JSON.stringify(config, null, 2);
-            const path = file.get_path();
-            if (path) GLib.file_set_contents(path, jsonStr);
-        });
-    });
+    exportBtn.connect('clicked', () => exportConfig(window, settings, uuid));
     backupGroup.add(exportRow);
 
-    const importRow = new Adw.ActionRow({
-        title: _('Import Configuration'),
-        subtitle: _('Load a previously saved configuration file'),
-        icon_name: 'document-import-symbolic'
-    });
-
-    const importBtn = new Gtk.Button({
-        label: _('Import'),
-        valign: Gtk.Align.CENTER,
-        width_request: 100
-    });
+    const importRow = new Adw.ActionRow({ title: _('Import'), subtitle: _('Load a file you exported before') });
+    const importBtn = new Gtk.Button({ label: _('Import…'), valign: Gtk.Align.CENTER });
     importRow.add_suffix(importBtn);
-
-    importBtn.connect('clicked', () => {
-        const dialog = new Gtk.FileDialog({ title: _('Import Dock Configuration') });
-        const filter = new Gtk.FileFilter();
-        filter.set_name(_('JSON Files'));
-        filter.add_mime_type('application/json');
-
-        const filterList = Gio.ListStore.new(Gtk.FileFilter);
-        filterList.append(filter);
-        dialog.set_filters(filterList);
-
-        dialog.open(window, null, (dlg, res) => {
-            let file;
-            try { file = dlg.open_finish(res); } catch (_) { return; }
-            if (!file) return;
-
-            file.load_contents_async(null, (f, r) => {
-                let success, contents;
-                try { [success, contents] = f.load_contents_finish(r); } catch (_) { return; }
-                if (!success) return;
-
-                let config;
-                try { config = JSON.parse(new TextDecoder().decode(contents)); } catch (_) { return; }
-
-                const isIndependent = settings.get_boolean('independent-dock');
-                const uuid = prefs.metadata.uuid || 'dhruva@narkagni';
-                const extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
-
-                if (config.settings) {
-                    Object.keys(config.settings).forEach(key => {
-                        try {
-                            if (settings.settings_schema.has_key(key)) {
-                                const typeStr = settings.settings_schema.get_key(key).get_value_type().dup_string();
-                                const variant = new GLib.Variant(typeStr, config.settings[key]);
-                                settings.set_value(key, variant);
-                            }
-                        } catch (_) { }
-                    });
-                }
-
-                if (isIndependent) {
-                    if (config.pinnedApps && Array.isArray(config.pinnedApps)) {
-                        GLib.mkdir_with_parents(extConfigDir, 0o755);
-                        const appsPath = GLib.build_filenamev([extConfigDir, 'dhruva-apps.json']);
-                        GLib.file_set_contents(appsPath, JSON.stringify(config.pinnedApps, null, 2));
-                    }
-                    if (config.folders && Array.isArray(config.folders)) {
-                        GLib.mkdir_with_parents(extConfigDir, 0o755);
-                        const foldersPath = GLib.build_filenamev([extConfigDir, 'dhruva-folders.json']);
-                        GLib.file_set_contents(foldersPath, JSON.stringify(config.folders, null, 2));
-                    }
-                } else {
-                    if (config.favorites && Array.isArray(config.favorites)) {
-                        try {
-                            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-                            shellSettings.set_strv('favorite-apps', config.favorites);
-                        } catch (_) { }
-                    }
-                }
-            });
-        });
-    });
+    importBtn.connect('clicked', () => importConfig(window, settings, uuid));
     backupGroup.add(importRow);
 
-    const resetAllRow = new Adw.ActionRow({
-        title: _('Reset All Settings'),
-        subtitle: _('Restore all Dhruva Dock settings to their default values'),
-        icon_name: 'edit-delete-symbolic'
+    const resetGroup = addGroup(page, null);
+    const resetRow = new Adw.ActionRow({
+        title: _('Start Over'),
+        subtitle: _('Put every Dhruva setting back to its default'),
     });
+    const resetBtn = new Gtk.Button({ label: _('Reset All…'), valign: Gtk.Align.CENTER, css_classes: ['destructive-action'] });
+    resetBtn.connect('clicked', () => confirmResetAll(window, settings));
+    resetRow.add_suffix(resetBtn);
+    resetGroup.add(resetRow);
 
-    const resetAllBtn = new Gtk.Button({
-        label: _('Reset Defaults'),
-        valign: Gtk.Align.CENTER,
-        css_classes: ['destructive-action']
-    });
+    window.add(page);
+}
 
-    resetAllBtn.connect('clicked', () => {
-        const isGnome45 = !Adw.AlertDialog;
-        let dialog;
 
-        if (isGnome45) {
-            dialog = new Adw.MessageDialog({
-                heading: _('Reset All Settings?'),
-                body: _('Are you sure you want to reset all settings to default? This action cannot be undone.'),
-                transient_for: window,
-                modal: true
-            });
-        } else {
-            dialog = new Adw.AlertDialog({
-                heading: _('Reset All Settings?'),
-                body: _('Are you sure you want to reset all settings to default? This action cannot be undone.')
-            });
+function exportConfig(window, settings, uuid) {
+    const dialog = new Gtk.FileDialog({ title: _('Export Dhruva Settings'), initial_name: 'dhruva_config.json' });
+    dialog.save(window, null, (dlg, res) => {
+        let file;
+        try {
+            file = dlg.save_finish(res);
+        } catch (_e) {
+            return;
         }
 
-        dialog.add_response('cancel', _('Cancel'));
-        dialog.add_response('reset', _('Reset Settings'));
-        dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
+        const isIndependent = settings.get_boolean('independent-dock');
+        const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
+        const config = { settings: {}, favorites: [], pinnedApps: null, folders: null };
 
-        dialog.connect('response', (dlg, response) => {
-            if (response === 'reset') {
-                settings.list_keys().forEach(k => settings.reset(k));
+        for (const key of settings.list_keys()) {
+            if (isIndependent && key === 'app-folders') continue;
+            config.settings[key] = settings.get_value(key).deep_unpack();
+        }
+
+        const readJson = name => {
+            try {
+                const [, contents] = GLib.file_get_contents(GLib.build_filenamev([configDir, name]));
+                return JSON.parse(new TextDecoder().decode(contents));
+            } catch (_e) {
+                return [];
             }
-            if (isGnome45) dlg.close();
-        });
+        };
 
-        if (isGnome45) {
-            dialog.present();
+        if (isIndependent) {
+            config.pinnedApps = readJson('dhruva-apps.json');
+            config.folders = readJson('dhruva-folders.json');
         } else {
-            dialog.present(window);
+            config.favorites = new Gio.Settings({ schema_id: 'org.gnome.shell' }).get_strv('favorite-apps');
         }
-    });
 
-    resetAllRow.add_suffix(resetAllBtn);
-    dangerGroup.add(resetAllRow);
+        const path = file.get_path();
+        if (path) GLib.file_set_contents(path, JSON.stringify(config, null, 2));
+    });
+}
+
+function importConfig(window, settings, uuid) {
+    const filter = new Gtk.FileFilter();
+    filter.set_name(_('Dhruva settings (JSON)'));
+    filter.add_mime_type('application/json');
+    const filters = Gio.ListStore.new(Gtk.FileFilter);
+    filters.append(filter);
+
+    new Gtk.FileDialog({ title: _('Import Dhruva Settings'), filters }).open(window, null, (dlg, res) => {
+        let file;
+        try {
+            file = dlg.open_finish(res);
+        } catch (_e) {
+            return;
+        }
+
+        file.load_contents_async(null, (f, r) => {
+            let config;
+            try {
+                const [, contents] = f.load_contents_finish(r);
+                config = JSON.parse(new TextDecoder().decode(contents));
+            } catch (_e) {
+                return;
+            }
+
+            const schema = settings.settings_schema;
+            for (const [key, value] of Object.entries(config.settings || {})) {
+                if (!schema.has_key(key)) continue;
+                const type = schema.get_key(key).get_value_type().dup_string();
+                settings.set_value(key, new GLib.Variant(type, value));
+            }
+
+            const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
+            const writeJson = (name, data) => {
+                GLib.mkdir_with_parents(configDir, 0o755);
+                GLib.file_set_contents(GLib.build_filenamev([configDir, name]), JSON.stringify(data, null, 2));
+            };
+
+            if (settings.get_boolean('independent-dock')) {
+                if (Array.isArray(config.pinnedApps)) writeJson('dhruva-apps.json', config.pinnedApps);
+                if (Array.isArray(config.folders)) writeJson('dhruva-folders.json', config.folders);
+            } else if (Array.isArray(config.favorites)) {
+                new Gio.Settings({ schema_id: 'org.gnome.shell' }).set_strv('favorite-apps', config.favorites);
+            }
+        });
+    });
+}
+
+function confirmResetAll(window, settings) {
+    const isGnome45 = !Adw.AlertDialog;
+    const heading = _('Reset Every Setting?');
+    const body = _('Dhruva goes back to how it looked on day one. This cannot be undone.');
+    const dialog = isGnome45
+        ? new Adw.MessageDialog({ heading, body, transient_for: window, modal: true })
+        : new Adw.AlertDialog({ heading, body });
+
+    dialog.add_response('cancel', _('Cancel'));
+    dialog.add_response('reset', _('Reset'));
+    dialog.set_response_appearance('reset', Adw.ResponseAppearance.DESTRUCTIVE);
+    dialog.connect('response', (dlg, response) => {
+        if (response === 'reset') settings.list_keys().forEach(key => settings.reset(key));
+        if (isGnome45) dlg.close();
+    });
+    presentDialog(window, dialog, isGnome45);
 }

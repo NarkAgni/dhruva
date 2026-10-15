@@ -326,6 +326,7 @@ export function buildModules(dockUI, iconSize) {
                 attachHoverBackground.updateState(btn, running, wins, currentProps, dockUI, foc);
             }
         };
+        btn._updateRunningState = btn._delegate.updateRunningState;
 
         if (Settings.hoverZoom) applyIconFilter(btn);
 
@@ -350,10 +351,7 @@ export function buildModules(dockUI, iconSize) {
             } else if (buttonNum === 3) {
                 const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
                 if (dockUI._activeContextMenu) {
-                    if (dockUI._activeContextMenu._forceDestroy) {
-                        dockUI._activeContextMenu._forceDestroy();
-                    }
-                    dockUI._activeContextMenu = null;
+                    dockUI._activeContextMenu.hide();
                 }
                 new AppContextMenu(dockUI, btn._delegate.app, btn, isCtrl, dockUI.openPrefsCallback).show(dockUI.dockPosition);
             }
@@ -396,7 +394,7 @@ export function buildModules(dockUI, iconSize) {
     }
 
     if (Settings.showDesktopButton) {
-        if (Settings.fullWidth) {
+        if (Settings.fullWidth || Settings.hybridPanelMode) {
             desktopModule = buildDesktopButtonModule(dockUI);
         } else {
             desktopModule = createBtn('user-desktop', _('Show Desktop'), () => {
@@ -409,7 +407,7 @@ export function buildModules(dockUI, iconSize) {
     systemModules.push(...folders);
 
     if (Settings.showTrash) {
-        systemModules.push(buildTrashModule(createBtn, toggleAppWindow));
+        systemModules.push(buildTrashModule(dockUI, createBtn, toggleAppWindow));
     }
 
     clockModule = buildClockModule(dockUI);

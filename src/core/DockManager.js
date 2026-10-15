@@ -20,73 +20,13 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from './SettingsManager.js';
-import { TimeoutTracker } from './TimeoutTracker.js';
 
 
 const FALLBACK_PANEL_HEIGHT = 27;
 
 export default class DockManager {
-    constructor(dockUI, settings) {
+    constructor(dockUI) {
         this.dockUI = dockUI;
-        this.settings = settings;
-        this._originalDash = Main.overview.dash;
-        this.timers = new TimeoutTracker();
-
-        this._applyDashState();
-
-        this.settings.connectObject('changed::independent-dock', () => {
-            this._applyDashState();
-        }, this);
-    }
-
-    _applyDashState() {
-        if (Settings.independentDock) {
-            this._restoreGnomeDash();
-        } else {
-            this._takeoverGnomeDash();
-        }
-    }
-
-    _takeoverGnomeDash() {
-        if (!this._originalDash) return;
-
-        if (!this._origAdjustIconSize && this._originalDash._adjustIconSize) {
-            this._origAdjustIconSize = this._originalDash._adjustIconSize.bind(this._originalDash);
-            this._originalDash._adjustIconSize = () => {
-                const box = this._originalDash._box;
-                if (!box) return;
-                const children = box.get_children ? box.get_children() : [];
-                const firstIcon = children.find(c => c && c.icon && c.icon.ensure_style);
-                if (!firstIcon) return;
-                try {
-                    this._origAdjustIconSize();
-                } catch (_e) { }
-            };
-        }
-
-        this._originalDash.opacity = 0;
-        this._originalDash.reactive = false;
-
-        if (this._originalDash.show) {
-            this._originalDash.show();
-        }
-    }
-
-    _restoreGnomeDash() {
-        if (this._originalDash && this._origAdjustIconSize) {
-            this._originalDash._adjustIconSize = this._origAdjustIconSize;
-            this._origAdjustIconSize = null;
-        }
-
-        if (this._originalDash) {
-            this._originalDash.opacity = 255;
-            this._originalDash.reactive = true;
-            this._originalDash.set_height(-1);
-            this._originalDash.set_width(-1);
-            if (this._originalDash.show) {
-                this._originalDash.show();
-            }
-        }
     }
 
     updatePosition() {
@@ -105,7 +45,8 @@ export default class DockManager {
 
         const actualMonitor = monitorResult.monitor;
         let topOffset = 0;
-        if (monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) {
+        const isHybrid = Settings.hybridPanelMode;
+        if (!isHybrid && monitorResult.index === Main.layoutManager.primaryIndex && Main.panel && Main.panel.visible) {
             topOffset = Main.panel.height || FALLBACK_PANEL_HEIGHT;
         }
 
@@ -118,7 +59,7 @@ export default class DockManager {
 
         const rawMargin = Math.max(0, Settings.dockMargin || 0);
         const pos = Settings.dockPosition;
-        const isFullWidth = Settings.fullWidth;
+        const isFullWidth = Settings.fullWidth || isHybrid;
         const isNeverHide = Settings.hideMode === 'none';
 
         const aw = this.dockUI.actor.width;
@@ -165,15 +106,6 @@ export default class DockManager {
     }
 
     destroy() {
-        this.timers.destroy();
-
-        if (this.settings) {
-            this.settings.disconnectObject(this);
-        }
-
-        this._restoreGnomeDash();
-
         this.dockUI = null;
-        this.settings = null;
     }
 }

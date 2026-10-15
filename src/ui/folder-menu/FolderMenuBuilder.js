@@ -33,14 +33,92 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { EmojiPicker } from './EmojiPicker.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { getIndicatorProps } from '../dock/DockRenderer.js';
+import { CrispLabel } from '../modules/music/CrispLabel.js';
 import { createIndicatorBox } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
+import { iconConfigDir, deleteCustomFolderIcon, pickIconImage } from './FolderIconFiles.js';
 
 
-const APPS_PER_ROW = 4;
+const APPS_PER_ROW = 5;
 const EMOJI_TEXTURE_DIM = 256;
 const ENTRY_DURATION_MS = 260;
+const HINT_FADE_MS = 120;
+const SECTION_FADE_MS = 160;
+const SLIDER_SAVE_DELAY_MS = 150;
+
+const HEADER_ICON_SIZE = 16;
+const HEADER_BUTTON_SIZE = 28;
+const SWATCH_SIZE = 22;
+
+const DEFAULT_PLATE_COLOR = 'rgba(255, 255, 255, 0.65)';
+const DEFAULT_PLATE_OPACITY = 130;
+const MIN_PLATE_OPACITY = 0.1;
+const DEFAULT_LETTER_SCALE = 0.44;
+const MIN_LETTER_SCALE = 0.28;
+const MAX_LETTER_SCALE = 0.54;
+
+const ACCENT_COLORS = [
+    { name: 'Default', hex: DEFAULT_PLATE_COLOR },
+    { name: 'Blue', hex: '#3584e4' },
+    { name: 'Green', hex: '#3a944a' },
+    { name: 'Yellow', hex: '#e5a50a' },
+    { name: 'Orange', hex: '#ed5b00' },
+    { name: 'Red', hex: '#e01b24' },
+    { name: 'Pink', hex: '#d56199' },
+    { name: 'Teal', hex: '#2190a4' },
+    { name: 'Purple', hex: '#9141ac' },
+    { name: 'Slate', hex: '#627889' },
+];
+
+const LETTER_COLORS = [
+    { name: 'White', hex: '#ffffff' },
+    { name: 'Black', hex: '#111111' },
+    { name: 'Yellow', hex: '#f6d32d' },
+    { name: 'Green', hex: '#33d17a' },
+    { name: 'Red', hex: '#e01b24' },
+];
+
+
+function symbolicIcon(iconName) {
+    return new St.Icon({
+        icon_name: iconName,
+        icon_size: HEADER_ICON_SIZE,
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+        style: 'color: rgba(255,255,255,0.95);'
+    });
+}
+
+function headerButtonStyle(isHovered, isActive) {
+    let alpha = 0.08;
+    if (isActive) alpha = 0.28;
+    else if (isHovered) alpha = 0.20;
+    return `width: ${HEADER_BUTTON_SIZE}px; height: ${HEADER_BUTTON_SIZE}px; padding: 0; border-radius: 8px; ` +
+        `background-color: rgba(255,255,255,${alpha}); transition-duration: 150ms;`;
+}
+
+function swatchStyle(color, isSelected) {
+    const ring = isSelected ? '2px solid rgba(255,255,255,0.95)' : '1px solid rgba(255,255,255,0.18)';
+    return `width: ${SWATCH_SIZE}px; height: ${SWATCH_SIZE}px; border-radius: ${SWATCH_SIZE / 2}px; ` +
+        `background-color: ${color}; border: ${ring}; transition-duration: 120ms;`;
+}
+
+function renderEmojiToPng(emoji, destPath) {
+    const surface = new cairo.ImageSurface(cairo.Format.ARGB32, EMOJI_TEXTURE_DIM, EMOJI_TEXTURE_DIM);
+    const cr = new cairo.Context(surface);
+
+    const layout = PangoCairo.create_layout(cr);
+    layout.set_text(emoji, -1);
+    layout.set_font_description(Pango.FontDescription.from_string('Noto Color Emoji 160'));
+
+    const [width, height] = layout.get_pixel_size();
+    cr.moveTo((EMOJI_TEXTURE_DIM - width) / 2, (EMOJI_TEXTURE_DIM - height) / 2);
+    PangoCairo.show_layout(cr, layout);
+
+    surface.writeToPNG(destPath);
+    cr.$dispose();
+}
 
 export class FolderMenuBuilder {
     constructor(folderMenu) {
@@ -52,513 +130,16 @@ export class FolderMenuBuilder {
     }
 
     buildMenu() {
-        const titleBox = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'margin-bottom: 16px; min-height: 32px;'
-        });
-        setBoxVertical(titleBox, false);
-
-        const titleStack = new St.Widget({
-            layout_manager: new Clutter.BinLayout(),
-            x_expand: true,
-            y_expand: true
-        });
-
-        const displayBox = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'spacing: 8px;'
-        });
-        setBoxVertical(displayBox, false);
-
-        const nameLabel = new St.Label({
-            text: this.folderData.name,
-            style: 'font-weight: bold; font-size: 16px; color: white;',
-            y_align: Clutter.ActorAlign.CENTER
-        });
-
-        const GNOME_ACCENTS = [
-            { name: 'Default', hex: 'rgba(255, 255, 255, 0.65)' },
-            { name: 'Blue', hex: '#3584e4' },
-            { name: 'Green', hex: '#3a944a' },
-            { name: 'Yellow', hex: '#e5a50a' },
-            { name: 'Orange', hex: '#ed5b00' },
-            { name: 'Red', hex: '#e01b24' },
-            { name: 'Pink', hex: '#d56199' },
-            { name: 'Teal', hex: '#2190a4' },
-            { name: 'Purple', hex: '#9141ac' },
-            { name: 'Slate', hex: '#627889' }
-        ];
-
-        const editBtn = new St.Button({
-            child: new St.Icon({ icon_name: 'document-edit-symbolic', icon_size: 14 }),
-            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true
-        });
-
-        const colorPickerBtn = new St.Button({
-            child: new St.Icon({ icon_name: 'color-select-symbolic', icon_size: 14 }),
-            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true
-        });
-
-        const folderToggleBtn = new St.Button({
-            child: new St.Icon({ icon_name: 'folder-symbolic', icon_size: 14 }),
-            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true
-        });
-
-        const iconBtn = new St.Button({
-            child: new St.Icon({ icon_name: 'insert-image-symbolic', icon_size: 14 }),
-            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true
-        });
-
-        const emojiBtn = new St.Button({
-            child: new St.Label({ text: '😀', style: 'font-size: 14px;' }),
-            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true
-        });
-
-        const resetBtn = new St.Button({
-            child: new St.Icon({ icon_name: 'window-close-symbolic', icon_size: 14 }),
-            style: 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08); transition-duration: 150ms;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true,
-            visible: false
-        });
-
-        const setupHover = (btn) => {
-            btn.connectObject('notify::hover', () => {
-                if (!isActorAlive(btn)) return;
-                btn.set_style(btn.hover
-                    ? 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.25);'
-                    : 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08);');
-            }, this);
-        };
-
-        setupHover(editBtn);
-        setupHover(colorPickerBtn);
-        setupHover(folderToggleBtn);
-        setupHover(iconBtn);
-        setupHover(emojiBtn);
-        setupHover(resetBtn);
-
-        displayBox.add_child(nameLabel);
-        displayBox.add_child(editBtn);
-        displayBox.add_child(colorPickerBtn);
-        displayBox.add_child(folderToggleBtn);
-        displayBox.add_child(iconBtn);
-        displayBox.add_child(emojiBtn);
-        displayBox.add_child(resetBtn);
-
-        const editBox = new St.BoxLayout({
-            style: 'spacing: 8px;',
-            visible: false,
-            y_align: Clutter.ActorAlign.CENTER
-        });
-        setBoxVertical(editBox, false);
-
-        const nameEntry = new St.Entry({
-            text: this.folderData.name,
-            hint_text: _('Name'),
-            style: 'font-size: 14px; border-radius: 6px; padding: 4px 8px; color: white; background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); width: 140px;'
-        });
-
-        const saveBtn = new St.Button({
-            child: new St.Icon({ icon_name: 'object-select-symbolic', icon_size: 14 }),
-            style: 'background-color: rgba(46, 139, 87, 0.9); color: white; border-radius: 6px; padding: 6px; font-weight: bold;',
-            y_align: Clutter.ActorAlign.CENTER,
-            reactive: true
-        });
-
-        editBox.add_child(nameEntry);
-        editBox.add_child(saveBtn);
-        titleStack.add_child(displayBox);
-        titleStack.add_child(editBox);
-        titleBox.add_child(titleStack);
-        this.panel.add_child(titleBox);
-
-        const plateSectionBox = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'margin: 6px 0 14px 0; spacing: 10px;',
-            visible: false
-        });
-        setBoxVertical(plateSectionBox, true);
-
-        const platePaletteBox = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'spacing: 8px; padding: 4px 2px;'
-        });
-        setBoxVertical(platePaletteBox, false);
-
-        GNOME_ACCENTS.forEach(accent => {
-            const isSelected = (this.folderData.plateColor === accent.hex) ||
-                (!this.folderData.plateColor && accent.name === 'Default');
-
-            const circle = new St.Button({
-                style: `
-                    width: ${isSelected ? '24px' : '20px'};
-                    height: ${isSelected ? '24px' : '20px'};
-                    border-radius: ${isSelected ? '12px' : '10px'};
-                    background-color: ${accent.hex};
-                    border: ${isSelected ? '2px solid rgba(255,255,255,0.9)' : '1px solid rgba(255,255,255,0.15)'};
-                `,
-                y_align: Clutter.ActorAlign.CENTER,
-                reactive: true
-            });
-
-            circle.connectObject('clicked', () => {
-                this.folderData.plateColor = accent.hex;
-                this.folderMenu._saveFolderState();
-
-                platePaletteBox.get_children().forEach((btn, idx) => {
-                    const c = GNOME_ACCENTS[idx].hex;
-                    const sel = (accent.hex === c);
-                    btn.set_style(`
-                        width: ${sel ? '24px' : '20px'};
-                        height: ${sel ? '24px' : '20px'};
-                        border-radius: ${sel ? '12px' : '10px'};
-                        background-color: ${c};
-                        border: 1px solid rgba(255, 255, 255, ${sel ? '0.45' : '0.15'});
-                    `);
-                });
-
-                this.updateUIButtons();
-                this.dockUI.queueRender('incremental');
-            }, this);
-
-            platePaletteBox.add_child(circle);
-        });
-
-        const currentOpacity = this.folderData.plateOpacity !== undefined ? this.folderData.plateOpacity : 130;
-        const plateSliderRow = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.FILL,
-            x_expand: true,
-            style: 'margin-top: 10px; padding: 0 2px;'
-        });
-        setBoxVertical(plateSliderRow, false);
-
-        const plateOpacitySlider = new Slider(currentOpacity / 255.0);
-        plateOpacitySlider.x_expand = true;
-        plateOpacitySlider.x_align = Clutter.ActorAlign.FILL;
-        plateOpacitySlider.y_align = Clutter.ActorAlign.CENTER;
-
-        plateOpacitySlider.connectObject('notify::value', () => {
-            const rawVal = Math.max(0.1, plateOpacitySlider.value);
-            this.folderData.plateOpacity = Math.round(rawVal * 255);
-            this.folderMenu._saveFolderState();
-            this.updateUIButtons();
-            this.dockUI.queueRender('incremental');
-        }, this);
-
-        plateSliderRow.add_child(plateOpacitySlider);
-        plateSectionBox.add_child(platePaletteBox);
-        plateSectionBox.add_child(plateSliderRow);
-        this.panel.add_child(plateSectionBox);
-
-        const letterSectionBox = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'margin: 6px 0 14px 0; spacing: 10px;',
-            visible: false
-        });
-        setBoxVertical(letterSectionBox, true);
-
-        const folderTintPalette = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'spacing: 8px; padding: 4px 2px;'
-        });
-        setBoxVertical(folderTintPalette, false);
-
-        GNOME_ACCENTS.forEach(accent => {
-            const isSelected = (this.folderData.folderTintColor === accent.hex) ||
-                (!this.folderData.folderTintColor && accent.name === 'Default');
-
-            const circle = new St.Button({
-                style: `
-                    width: ${isSelected ? '24px' : '20px'};
-                    height: ${isSelected ? '24px' : '20px'};
-                    border-radius: ${isSelected ? '12px' : '10px'};
-                    background-color: ${accent.hex};
-                    border: 1px solid rgba(255, 255, 255, ${isSelected ? '0.45' : '0.15'});
-                `,
-                y_align: Clutter.ActorAlign.CENTER,
-                reactive: true
-            });
-
-            circle.connectObject('clicked', () => {
-                this.folderData.folderTintColor = accent.hex;
-                this.folderMenu._saveFolderState();
-
-                folderTintPalette.get_children().forEach((btn, idx) => {
-                    const c = GNOME_ACCENTS[idx].hex;
-                    const sel = (accent.hex === c);
-                    btn.set_style(`
-                        width: ${sel ? '24px' : '20px'};
-                        height: ${sel ? '24px' : '20px'};
-                        border-radius: ${sel ? '12px' : '10px'};
-                        background-color: ${c};
-                        border: 1px solid rgba(255, 255, 255, ${sel ? '0.45' : '0.15'});
-                    `);
-                });
-
-                this.updateUIButtons();
-                this.dockUI.queueRender('full', true);
-            }, this);
-
-            folderTintPalette.add_child(circle);
-        });
-
-        const currentScale = this.folderData.letterScale !== undefined ? this.folderData.letterScale : 0.44;
-        const fontSliderRow = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.FILL,
-            x_expand: true,
-            style: 'margin-top: 8px; padding: 0 4px; spacing: 8px;'
-        });
-        setBoxVertical(fontSliderRow, false);
-
-        const zoomHint = new St.Label({
-            text: 'A',
-            style: 'font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.7);',
-            y_align: Clutter.ActorAlign.CENTER
-        });
-
-        const MIN_FONT_SCALE = 0.28;
-        const MAX_FONT_SCALE = 0.54;
-        const fontNormalized = (currentScale - MIN_FONT_SCALE) / (MAX_FONT_SCALE - MIN_FONT_SCALE);
-
-        const fontSlider = new Slider(Math.max(0, Math.min(1.0, fontNormalized)));
-        fontSlider.x_expand = true;
-        fontSlider.x_align = Clutter.ActorAlign.FILL;
-        fontSlider.y_align = Clutter.ActorAlign.CENTER;
-
-        fontSlider.connectObject('notify::value', () => {
-            const scaled = MIN_FONT_SCALE + (fontSlider.value * (MAX_FONT_SCALE - MIN_FONT_SCALE));
-            this.folderData.letterScale = parseFloat(scaled.toFixed(2));
-            this.folderMenu._saveFolderState();
-            this.dockUI.queueRender('incremental');
-        }, this);
-
-        fontSliderRow.add_child(zoomHint);
-        fontSliderRow.add_child(fontSlider);
-
-        const LETTER_COLORS = [
-            { name: 'White', hex: '#ffffff' },
-            { name: 'Black', hex: '#111111' },
-            { name: 'Yellow', hex: '#f6d32d' },
-            { name: 'Green', hex: '#33d17a' },
-            { name: 'Red', hex: '#e01b24' }
-        ];
-
-        const letterColorRow = new St.BoxLayout({
-            x_align: Clutter.ActorAlign.CENTER,
-            style: 'margin-top: 8px; spacing: 10px;'
-        });
-        setBoxVertical(letterColorRow, false);
-
-        LETTER_COLORS.forEach(c => {
-            const isSel = (this.folderData.letterColor === c.hex) || (!this.folderData.letterColor && c.hex === '#ffffff');
-            const cBtn = new St.Button({
-                style: `
-                    width: ${isSel ? '20px' : '18px'};
-                    height: ${isSel ? '20px' : '18px'};
-                    border-radius: ${isSel ? '10px' : '9px'};
-                    background-color: ${c.hex};
-                    border: 1px solid rgba(255, 255, 255, ${isSel ? '0.45' : '0.15'});
-                `,
-                y_align: Clutter.ActorAlign.CENTER,
-                reactive: true
-            });
-
-            cBtn.connectObject('clicked', () => {
-                this.folderData.letterColor = c.hex;
-                this.folderMenu._saveFolderState();
-
-                letterColorRow.get_children().forEach((child, idx) => {
-                    const clr = LETTER_COLORS[idx].hex;
-                    const selected = (clr === c.hex);
-                    child.set_style(`
-                        width: ${selected ? '20px' : '18px'};
-                        height: ${selected ? '20px' : '18px'};
-                        border-radius: ${selected ? '10px' : '9px'};
-                        background-color: ${clr};
-                        border: 1px solid rgba(255, 255, 255, ${selected ? '0.45' : '0.15'});
-                    `);
-                });
-
-                this.dockUI.queueRender('incremental');
-            }, this);
-
-            letterColorRow.add_child(cBtn);
-        });
-
-        letterSectionBox.add_child(folderTintPalette);
-        letterSectionBox.add_child(fontSliderRow);
-        letterSectionBox.add_child(letterColorRow);
-        this.panel.add_child(letterSectionBox);
-
-        const updateGridVisibility = () => {
-            const isAnyPanelOpen = plateSectionBox.visible || letterSectionBox.visible;
-            if (this.folderMenu.gridMasterBox) {
-                this.folderMenu.gridMasterBox.visible = !isAnyPanelOpen;
-            }
-        };
-
-        this.updateUIButtons = () => {
-            const curIcon = this.folderData.icon || 'folder';
-            const isCustomFolder = curIcon === 'system-folder';
-            const isCustomMedia = curIcon.startsWith('/') || curIcon.startsWith('file://');
-            const hasCustomPlate = (this.folderData.plateColor && this.folderData.plateColor !== 'rgba(255, 255, 255, 0.65)') ||
-                (this.folderData.plateOpacity !== undefined && this.folderData.plateOpacity !== 130);
-
-            colorPickerBtn.visible = !isCustomFolder && !isCustomMedia;
-
-            folderToggleBtn.set_style(isCustomFolder
-                ? 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.25);'
-                : 'padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,0.08);');
-
-            resetBtn.visible = isCustomFolder || isCustomMedia || hasCustomPlate;
-        };
-
-        colorPickerBtn.connectObject('clicked', () => {
-            plateSectionBox.visible = !plateSectionBox.visible;
-            letterSectionBox.visible = false;
-            updateGridVisibility();
-        }, this);
-
-        folderToggleBtn.connectObject('clicked', () => {
-            letterSectionBox.visible = !letterSectionBox.visible;
-            plateSectionBox.visible = false;
-            updateGridVisibility();
-
-            if (letterSectionBox.visible && this.folderData.icon !== 'system-folder') {
-                this.folderData.icon = 'system-folder';
-                this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, 'system-folder');
-                this.folderMenu._saveFolderState();
-                this.dockUI.queueRender('full', true);
-            }
-            this.updateUIButtons();
-        }, this);
-
-        resetBtn.connectObject('clicked', () => {
-            this.folderData.icon = 'folder';
-            delete this.folderData.folderTintColor;
-            delete this.folderData.letterColor;
-            delete this.folderData.letterScale;
-            delete this.folderData.plateColor;
-            delete this.folderData.plateOpacity;
-
-            letterSectionBox.visible = false;
-            plateSectionBox.visible = false;
-            updateGridVisibility();
-
-            this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, 'folder');
-            this.folderMenu._saveFolderState();
-            this.updateUIButtons();
-            this.dockUI.queueRender('full', true);
-        }, this);
-
-        this.updateUIButtons();
-
-        const uuid = (this.dockUI.appManager && this.dockUI.appManager.uuid) || 'dhruva@narkagni';
-        const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
-
-        iconBtn.connectObject('clicked', () => {
-            this.folderMenu.hide();
-            const zenityPath = GLib.find_program_in_path('zenity');
-            if (!zenityPath) {
-                Main.notifyError('Dhruva', _('zenity is required for file selection dialogs.'));
-                return;
-            }
-
-            const proc = Gio.Subprocess.new(['zenity', '--file-selection', '--title=Select Custom Folder Icon', '--file-filter=Images | *.png *.svg *.ico *.jpg *.jpeg'], Gio.SubprocessFlags.STDOUT_PIPE);
-            proc.communicate_utf8_async(null, null, (p, res) => {
-                try {
-                    const [, stdout] = p.communicate_utf8_finish(res);
-                    if (stdout && stdout.trim()) {
-                        const pickedPath = stdout.trim();
-                        const ext = pickedPath.split('.').pop().toLowerCase();
-                        GLib.mkdir_with_parents(configDir, 0o755);
-                        const destPath = GLib.build_filenamev([configDir, `folder_icon_${this.folderData.id}_${Date.now()}.${ext}`]);
-
-                        const srcFile = Gio.File.new_for_path(pickedPath);
-                        const destFile = Gio.File.new_for_path(destPath);
-
-                        srcFile.copy_async(destFile, Gio.FileCopyFlags.OVERWRITE, GLib.PRIORITY_DEFAULT, null, null, (f, copyRes) => {
-                            try {
-                                f.copy_finish(copyRes);
-                                this.folderData.icon = destPath;
-                                this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, destPath);
-                                this.folderMenu._saveFolderState();
-                                this.updateUIButtons();
-                                this.dockUI.queueRender('full', true);
-                            } catch (err) {
-                                console.error('[Dhruva]', err);
-                            }
-                        });
-                    }
-                } catch (e) {
-                    console.error('[Dhruva]', e);
-                }
-            });
-        }, this);
-
-        editBtn.connectObject('clicked', () => {
-            displayBox.visible = false;
-            editBox.visible = true;
-            global.stage.set_key_focus(nameEntry);
-        }, this);
-
-        const commitSave = () => {
-            const newName = nameEntry.get_text() || _('New Folder');
-            this.folderData.name = newName;
-            this.dockUI.folderManager.updateFolder(this.folderData.id, newName, this.folderData.icon);
-            this.folderMenu._saveFolderState();
-            nameLabel.set_text(newName);
-            displayBox.visible = true;
-            editBox.visible = false;
-            this.dockUI.queueRender('incremental');
-        };
-
-        saveBtn.connectObject('clicked', commitSave, this);
-        nameEntry.clutter_text.connectObject('activate', commitSave, this);
-
-        emojiBtn.connectObject('clicked', () => {
-            this.showEmojiPicker((selectedEmoji) => {
-                try {
-                    GLib.mkdir_with_parents(configDir, 0o755);
-                    const destPath = GLib.build_filenamev([configDir, `emoji_${this.folderData.id}_${Date.now()}.png`]);
-
-                    const surface = new cairo.ImageSurface(cairo.Format.ARGB32, EMOJI_TEXTURE_DIM, EMOJI_TEXTURE_DIM);
-                    const cr = new cairo.Context(surface);
-
-                    const layout = PangoCairo.create_layout(cr);
-                    layout.set_text(selectedEmoji, -1);
-                    layout.set_font_description(Pango.FontDescription.from_string('Noto Color Emoji 160'));
-
-                    const [width, height] = layout.get_pixel_size();
-                    cr.moveTo((EMOJI_TEXTURE_DIM - width) / 2, (EMOJI_TEXTURE_DIM - height) / 2);
-                    PangoCairo.show_layout(cr, layout);
-
-                    surface.writeToPNG(destPath);
-                    cr.$dispose();
-
-                    this.folderData.icon = destPath;
-                    this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, destPath);
-                    this.folderMenu._saveFolderState();
-                    this.updateUIButtons();
-                    this.dockUI.queueRender('full', true);
-                } catch (e) {
-                    console.error('[Dhruva] Emoji error:', e);
-                } finally {
-                    this.folderMenu.hide();
-                }
-            });
-        }, this);
+        this._sections = [];
+        this._hintText = '';
+
+        this.panel.add_child(this._buildHeader());
+        this._plateSection = this._buildPlateSection();
+        this._letterSection = this._buildLetterSection();
+        this.panel.add_child(this._plateSection);
+        this.panel.add_child(this._letterSection);
+
+        this._updateHeaderState();
 
         this.folderMenu.gridMasterBox = new St.BoxLayout({
             style: 'spacing: 8px;',
@@ -569,12 +150,469 @@ export class FolderMenuBuilder {
         this.refreshGrid(true);
     }
 
+    _buildHeader() {
+        const header = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'margin-bottom: 12px; spacing: 6px;'
+        });
+        setBoxVertical(header, true);
+
+        const titleStack = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'min-height: 32px;'
+        });
+
+        this._displayRow = new St.BoxLayout({ x_align: Clutter.ActorAlign.CENTER, style: 'spacing: 6px;' });
+        setBoxVertical(this._displayRow, false);
+
+        this._nameLabel = new CrispLabel({
+            font_desc: 'Sans Bold 12',
+            color: '#ffffff',
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'margin-right: 4px;'
+        });
+        this._nameLabel.text = this.folderData.name;
+
+        this._renameBtn = this._makeHeaderButton(symbolicIcon('document-edit-symbolic'), _('Rename folder'),
+            () => this._beginRename());
+        this._plateBtn = this._makeHeaderButton(symbolicIcon('color-select-symbolic'), _('Background color'),
+            () => this._toggleSection(this._plateSection));
+        this._letterBtn = this._makeHeaderButton(symbolicIcon('folder-symbolic'), _('Letter style'),
+            () => this._openLetterStyle());
+        this._imageBtn = this._makeHeaderButton(symbolicIcon('insert-image-symbolic'), _('Custom image'),
+            () => this._pickImageIcon());
+        this._emojiBtn = this._makeHeaderButton(new St.Label({
+            text: '😀',
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'font-size: 15px;'
+        }), _('Emoji icon'),
+            () => this._pickEmojiIcon());
+        this._resetBtn = this._makeHeaderButton(symbolicIcon('edit-undo-symbolic'), _('Reset style'),
+            () => this._resetStyle());
+
+        [this._nameLabel, this._renameBtn, this._plateBtn, this._letterBtn, this._imageBtn, this._emojiBtn, this._resetBtn]
+            .forEach(child => this._displayRow.add_child(child));
+
+        titleStack.add_child(this._displayRow);
+        titleStack.add_child(this._buildRenameRow());
+
+        this._hintLabel = new CrispLabel({
+            font_desc: 'Sans 9',
+            color: 'rgba(255,255,255,0.88)',
+            align: 'center',
+            x_align: Clutter.ActorAlign.CENTER,
+            opacity: 0
+        });
+
+        header.add_child(titleStack);
+        header.add_child(this._hintLabel);
+        return header;
+    }
+
+    _makeHeaderButton(child, hint, onClick) {
+        const btn = new St.Button({
+            child,
+            style: headerButtonStyle(false, false),
+            y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,
+            accessible_name: hint
+        });
+        btn._isActive = false;
+
+        btn.connectObject(
+            'notify::hover', () => {
+                btn.set_style(headerButtonStyle(btn.hover, btn._isActive));
+                this._showHint(btn.hover ? hint : '');
+            },
+            'clicked', onClick,
+            this
+        );
+        return btn;
+    }
+
+    _setHeaderActive(btn, isActive) {
+        btn._isActive = isActive;
+        btn.set_style(headerButtonStyle(btn.hover, isActive));
+    }
+
+    _showHint(text) {
+        if (text) this._hintLabel.text = text;
+        this._hintLabel.remove_transition('opacity');
+        this._hintLabel.ease({
+            opacity: text ? 255 : 0,
+            duration: HINT_FADE_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD
+        });
+    }
+
+    _updateHeaderState() {
+        const icon = this.folderData.icon || 'folder';
+        const isLetterStyle = icon === 'system-folder';
+        const isCustomMedia = icon.startsWith('/') || icon.startsWith('file://');
+        const hasCustomPlate = (this.folderData.plateColor && this.folderData.plateColor !== DEFAULT_PLATE_COLOR) ||
+            (this.folderData.plateOpacity !== undefined && this.folderData.plateOpacity !== DEFAULT_PLATE_OPACITY);
+
+        this._plateBtn.visible = !isLetterStyle && !isCustomMedia;
+        this._resetBtn.visible = isLetterStyle || isCustomMedia || hasCustomPlate;
+
+        this._setHeaderActive(this._plateBtn, this._plateSection.visible);
+        this._setHeaderActive(this._letterBtn, isLetterStyle || this._letterSection.visible);
+    }
+
+    _buildRenameRow() {
+        this._renameRow = new St.BoxLayout({ style: 'spacing: 6px;', visible: false, y_align: Clutter.ActorAlign.CENTER });
+        setBoxVertical(this._renameRow, false);
+
+        this._nameEntry = new St.Entry({
+            hint_text: _('Folder name'),
+            can_focus: true,
+            style: 'font-size: 14px; border-radius: 8px; padding: 4px 10px; color: white; ' +
+                'background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); width: 160px;'
+        });
+
+        const saveBtn = new St.Button({
+            child: symbolicIcon('object-select-symbolic'),
+            style: 'background-color: rgba(46, 139, 87, 0.9); color: white; border-radius: 8px; padding: 6px;',
+            y_align: Clutter.ActorAlign.CENTER,
+            accessible_name: _('Save')
+        });
+        const cancelBtn = new St.Button({
+            child: symbolicIcon('window-close-symbolic'),
+            style: headerButtonStyle(false, false),
+            y_align: Clutter.ActorAlign.CENTER,
+            accessible_name: _('Cancel')
+        });
+
+        saveBtn.connectObject('clicked', () => this._commitRename(), this);
+        cancelBtn.connectObject('clicked', () => this._endRename(), this);
+        this._nameEntry.clutter_text.connectObject(
+            'activate', () => this._commitRename(),
+            'key-press-event', (_actor, event) => {
+                if (event.get_key_symbol() !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
+                this._endRename();
+                return Clutter.EVENT_STOP;
+            },
+            this
+        );
+
+        this._renameRow.add_child(this._nameEntry);
+        this._renameRow.add_child(saveBtn);
+        this._renameRow.add_child(cancelBtn);
+        return this._renameRow;
+    }
+
+    _beginRename() {
+        this._nameEntry.text = this.folderData.name;
+        this._displayRow.visible = false;
+        this._renameRow.visible = true;
+        this._showHint('');
+        this._nameEntry.grab_key_focus();
+        this._nameEntry.clutter_text.set_selection(0, -1);
+    }
+
+    _endRename() {
+        this._renameRow.visible = false;
+        this._displayRow.visible = true;
+        global.stage.set_key_focus(null);
+    }
+
+    _commitRename() {
+        const newName = this._nameEntry.get_text().trim();
+        if (newName && newName !== this.folderData.name) {
+            this.folderData.name = newName;
+            this._nameLabel.text = newName;
+            this.dockUI.folderManager.updateFolder(this.folderData.id, newName, this.folderData.icon);
+            this.folderMenu._saveFolderState();
+        }
+        this._endRename();
+    }
+
+    _makeSection() {
+        const section = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'margin: 2px 0 14px 0; spacing: 10px;',
+            visible: false
+        });
+        setBoxVertical(section, true);
+        this._sections.push(section);
+        return section;
+    }
+
+    _toggleSection(section) {
+        const willOpen = !section.visible;
+        this._sections.forEach(other => { other.visible = false; });
+
+        if (willOpen) {
+            section.opacity = 0;
+            section.visible = true;
+            section.ease({ opacity: 255, duration: SECTION_FADE_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+        }
+
+        this.folderMenu.gridMasterBox.visible = !willOpen;
+        this._updateHeaderState();
+    }
+
+    _buildSwatchRow(colors, selectedColor, onPick) {
+        const row = new St.BoxLayout({ x_align: Clutter.ActorAlign.CENTER, style: 'spacing: 8px; padding: 4px 2px;' });
+        setBoxVertical(row, false);
+
+        const swatches = colors.map(color => {
+            const swatch = new St.Button({
+                style: swatchStyle(color.hex, color.hex === selectedColor),
+                y_align: Clutter.ActorAlign.CENTER,
+                accessible_name: color.name
+            });
+            swatch.connectObject('clicked', () => {
+                swatches.forEach((other, i) => other.set_style(swatchStyle(colors[i].hex, other === swatch)));
+                onPick(color.hex);
+            }, this);
+            row.add_child(swatch);
+            return swatch;
+        });
+        return row;
+    }
+
+    _buildSlider(value, onChange) {
+        const slider = new Slider(Math.max(0, Math.min(1, value)));
+        slider.x_expand = true;
+        slider.x_align = Clutter.ActorAlign.FILL;
+        slider.y_align = Clutter.ActorAlign.CENTER;
+        slider.connectObject('notify::value', () => onChange(slider.value), this);
+        return slider;
+    }
+
+    _buildPlateSection() {
+        const section = this._makeSection();
+
+        section.add_child(this._buildSwatchRow(ACCENT_COLORS, this.folderData.plateColor || DEFAULT_PLATE_COLOR, hex => {
+            this.folderData.plateColor = hex;
+            this._saveStyle();
+        }));
+
+        const opacity = this.folderData.plateOpacity !== undefined ? this.folderData.plateOpacity : DEFAULT_PLATE_OPACITY;
+        const sliderRow = new St.BoxLayout({ x_expand: true, style: 'margin-top: 6px; padding: 0 2px; spacing: 8px;' });
+        setBoxVertical(sliderRow, false);
+        sliderRow.add_child(symbolicIcon('display-brightness-symbolic'));
+        sliderRow.add_child(this._buildSlider(opacity / 255, value => {
+            this.folderData.plateOpacity = Math.round(Math.max(MIN_PLATE_OPACITY, value) * 255);
+            this._saveStyleSoon();
+        }));
+        section.add_child(sliderRow);
+
+        return section;
+    }
+
+    _buildLetterSection() {
+        const section = this._makeSection();
+
+        section.add_child(this._buildSwatchRow(ACCENT_COLORS, this.folderData.folderTintColor || DEFAULT_PLATE_COLOR, hex => {
+            this.folderData.folderTintColor = hex;
+            this._saveStyle(true);
+        }));
+
+        const scale = this.folderData.letterScale !== undefined ? this.folderData.letterScale : DEFAULT_LETTER_SCALE;
+        const sliderRow = new St.BoxLayout({ x_expand: true, style: 'margin-top: 6px; padding: 0 4px; spacing: 8px;' });
+        setBoxVertical(sliderRow, false);
+        sliderRow.add_child(new St.Label({
+            text: 'A',
+            style: 'font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.7);',
+            y_align: Clutter.ActorAlign.CENTER
+        }));
+        sliderRow.add_child(this._buildSlider((scale - MIN_LETTER_SCALE) / (MAX_LETTER_SCALE - MIN_LETTER_SCALE), value => {
+            this.folderData.letterScale = parseFloat((MIN_LETTER_SCALE + value * (MAX_LETTER_SCALE - MIN_LETTER_SCALE)).toFixed(2));
+            this._saveStyleSoon();
+        }));
+        section.add_child(sliderRow);
+
+        section.add_child(this._buildSwatchRow(LETTER_COLORS, this.folderData.letterColor || LETTER_COLORS[0].hex, hex => {
+            this.folderData.letterColor = hex;
+            this._saveStyle();
+        }));
+
+        return section;
+    }
+
+    _saveStyle(fullRender = false) {
+        this.timers.remove(this._saveSoonId);
+        this._saveSoonId = 0;
+        this.folderMenu._saveFolderState();
+        if (fullRender) this.dockUI.queueRender('full', true);
+        if (this.folderMenu.actor) this._updateHeaderState();
+    }
+
+    _saveStyleSoon() {
+        if (this._saveSoonId) return;
+        this._saveSoonId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, SLIDER_SAVE_DELAY_MS, () => {
+            this._saveSoonId = 0;
+            this._saveStyle();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _setFolderIcon(icon) {
+        const oldIcon = this.folderData.icon;
+        this.folderData.icon = icon;
+        this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, icon);
+        this._saveStyle(true);
+        if (oldIcon !== icon) deleteCustomFolderIcon(this.dockUI, oldIcon);
+    }
+
+    _openLetterStyle() {
+        this._toggleSection(this._letterSection);
+        if (this._letterSection.visible && this.folderData.icon !== 'system-folder') this._setFolderIcon('system-folder');
+    }
+
+    _resetStyle() {
+        delete this.folderData.folderTintColor;
+        delete this.folderData.letterColor;
+        delete this.folderData.letterScale;
+        delete this.folderData.plateColor;
+        delete this.folderData.plateOpacity;
+
+        this._sections.forEach(section => { section.visible = false; });
+        this.folderMenu.gridMasterBox.visible = true;
+        this._setFolderIcon('folder');
+    }
+
+    _pickImageIcon() {
+        this.folderMenu.hide();
+        if (!GLib.find_program_in_path('zenity')) {
+            Main.notifyError('Dhruva', _('zenity is required for file selection dialogs.'));
+            return;
+        }
+
+        pickIconImage(_('Select Custom Folder Icon'), pickedPath => {
+            const ext = pickedPath.split('.').pop().toLowerCase();
+            const destPath = GLib.build_filenamev([iconConfigDir(this.dockUI), `folder_icon_${this.folderData.id}_${Date.now()}.${ext}`]);
+
+            Gio.File.new_for_path(pickedPath).copy_async(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, GLib.PRIORITY_DEFAULT, null, null, (f, copyRes) => {
+                try {
+                    f.copy_finish(copyRes);
+                } catch (err) {
+                    console.error('[Dhruva] Folder icon copy failed:', err);
+                    return;
+                }
+                if (!this.dockUI.folderManager) {
+                    Gio.File.new_for_path(destPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+                    return;
+                }
+                this._setFolderIcon(destPath);
+            });
+        });
+    }
+
+    _pickEmojiIcon() {
+        this.showEmojiPicker(selectedEmoji => {
+            try {
+                const destPath = GLib.build_filenamev([iconConfigDir(this.dockUI), `emoji_${this.folderData.id}_${Date.now()}.png`]);
+                renderEmojiToPng(selectedEmoji, destPath);
+                this._setFolderIcon(destPath);
+            } catch (e) {
+                console.error('[Dhruva] Emoji error:', e);
+            } finally {
+                this.folderMenu.hide();
+            }
+        });
+    }
+
     showEmojiPicker(onSelect) {
         const picker = new EmojiPicker(this.folderMenu, onSelect);
         picker.show().catch(() => { });
     }
 
+    _isPointerInsideMenu(px, py, margin = 18) {
+        if (!this.folderMenu || !this.folderMenu.menuContainer || !isActorAlive(this.folderMenu.menuContainer)) {
+            return false;
+        }
+        const [mx, my] = this.folderMenu.menuContainer.get_transformed_position();
+        const [mw, mh] = this.folderMenu.menuContainer.get_transformed_size();
+        return px >= mx - margin && px <= mx + mw + margin &&
+               py >= my - margin && py <= my + mh + margin;
+    }
+
+    _findClosestSlotIndex(px, py, slots) {
+        if (!slots || slots.length === 0) return -1;
+        let closestIdx = -1;
+        let minDistSq = Infinity;
+
+        slots.forEach((slot, i) => {
+            const dx = px - slot.cx;
+            const dy = py - slot.cy;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
+                closestIdx = i;
+            }
+        });
+        return closestIdx;
+    }
+
+    _applyVisualSlotShift(allFolderBtns, slots, startIdx, currentIdx, isOutsideMenu = false) {
+        allFolderBtns.forEach((b, i) => {
+            if (i === startIdx || !isActorAlive(b) || !slots[i]) return;
+
+            let targetSlotIdx = i;
+            if (isOutsideMenu) {
+                if (i > startIdx) targetSlotIdx = i - 1;
+            } else if (currentIdx !== -1 && startIdx !== -1) {
+                if (startIdx < currentIdx) {
+                    if (i > startIdx && i <= currentIdx) targetSlotIdx = i - 1;
+                } else if (startIdx > currentIdx) {
+                    if (i >= currentIdx && i < startIdx) targetSlotIdx = i + 1;
+                }
+            }
+
+            const targetSlot = slots[targetSlotIdx];
+            const homeSlot = slots[i];
+            if (!targetSlot || !homeSlot) return;
+
+            const tx = targetSlot.x - homeSlot.x;
+            const ty = targetSlot.y - homeSlot.y;
+
+            if (b._targetTx === tx && b._targetTy === ty) return;
+            b._targetTx = tx;
+            b._targetTy = ty;
+
+            b.remove_transition('translation-x');
+            b.remove_transition('translation-y');
+            b.ease({
+                translation_x: tx,
+                translation_y: ty,
+                duration: 190,
+                mode: Clutter.AnimationMode.EASE_OUT_CUBIC
+            });
+        });
+    }
+
+    _commitInternalReorder(srcAppId) {
+        if (!srcAppId) return false;
+        const toIndex = this.folderMenu._dragCurrentIndex;
+        const appsArray = [...this.folderData.apps];
+        const fromIndex = appsArray.indexOf(srcAppId);
+
+        this.folderMenu._dragCommitted = true;
+
+        if (fromIndex > -1 && toIndex !== undefined && toIndex > -1 && fromIndex !== toIndex) {
+            appsArray.splice(fromIndex, 1);
+            appsArray.splice(toIndex, 0, srcAppId);
+            this.folderData.apps = [...new Set(appsArray)];
+            this.folderMenu._saveFolderState();
+        }
+        this.folderMenu.forceRefresh(true);
+        return true;
+    }
+
+    _stopFolderDragMonitor() {
+        if (this._dragMonitor) {
+            DND.removeDragMonitor(this._dragMonitor);
+            this._dragMonitor = null;
+        }
+    }
+
     refreshGrid(skipEntryAnimation = false, animatedAppId = null) {
+        this._stopFolderDragMonitor();
         this.folderData = this.folderMenu.folderData;
         const oldPositions = new Map();
 
@@ -591,38 +629,35 @@ export class FolderMenuBuilder {
 
         this.folderMenu.gridMasterBox.destroy_all_children();
 
-        if (!this.folderMenu.gridMasterBox._delegate) {
-            this.folderMenu.gridMasterBox._delegate = {
-                handleDragOver: (source) => {
-                    if (source && source.inFolder && source.folderId === this.folderData.id) {
-                        return DND.DragMotionResult.MOVE_DROP;
-                    }
-                    return DND.DragMotionResult.CONTINUE;
-                },
-                acceptDrop: (source) => {
-                    const srcAppId = source.appId;
-                    if (!source || !source.inFolder || source.folderId !== this.folderData.id) return false;
-
-                    const toIndex = this.folderMenu._dragCurrentIndex;
-                    const appsArray = this.folderData.apps;
-                    const fromIndex = appsArray.indexOf(srcAppId);
-
-                    if (fromIndex > -1 && toIndex > -1 && fromIndex !== toIndex) {
-                        appsArray.splice(fromIndex, 1);
-                        appsArray.splice(toIndex, 0, srcAppId);
-                        this.folderData.apps = [...new Set(appsArray)];
-                        this.folderMenu._saveFolderState();
-                    }
-                    this.folderMenu.forceRefresh(true);
-                    return true;
+        const sharedGridDelegate = {
+            handleDragOver: (source) => {
+                if (!source) return DND.DragMotionResult.CONTINUE;
+                if (source.inFolder && source.folderId === this.folderData.id) {
+                    return DND.DragMotionResult.MOVE_DROP;
                 }
-            };
-        }
+                if (this.folderMenu._handleExternalAppDrop && !source.inFolder && !source.isFolder) {
+                    return DND.DragMotionResult.COPY_DROP;
+                }
+                return DND.DragMotionResult.CONTINUE;
+            },
+            acceptDrop: (source) => {
+                if (!source) return false;
+                if (source.inFolder && source.folderId === this.folderData.id) {
+                    return this._commitInternalReorder(source.appId);
+                }
+                if (this.folderMenu._handleExternalAppDrop) {
+                    return this.folderMenu._handleExternalAppDrop(source);
+                }
+                return false;
+            }
+        };
 
-        const iconSize = Settings.iconSize || 48;
+        this.folderMenu.gridMasterBox._delegate = sharedGridDelegate;
+
+        const iconSize = Settings.iconSize;
         let currentRow = new St.BoxLayout({ style: 'spacing: 8px;' });
         setBoxVertical(currentRow, false);
-        currentRow._delegate = this.folderMenu.gridMasterBox._delegate;
+        currentRow._delegate = sharedGridDelegate;
         this.folderMenu.gridMasterBox.add_child(currentRow);
 
         let count = 0;
@@ -636,7 +671,7 @@ export class FolderMenuBuilder {
             if (count > 0 && count % APPS_PER_ROW === 0) {
                 currentRow = new St.BoxLayout({ style: 'spacing: 8px;' });
                 setBoxVertical(currentRow, false);
-                currentRow._delegate = this.folderMenu.gridMasterBox._delegate;
+                currentRow._delegate = sharedGridDelegate;
                 this.folderMenu.gridMasterBox.add_child(currentRow);
             }
             count++;
@@ -669,12 +704,12 @@ export class FolderMenuBuilder {
                 const isFocused = Array.isArray(windows) && windows.some(w => w === focusWin);
 
                 const indStyle = Settings.indicatorStyle || 'dot';
-                const count = (indStyle === 'line' || indStyle === 'windows') ? 1 : Math.max(1, windows.length);
+                const indCount = (indStyle === 'line' || indStyle === 'windows') ? 1 : Math.max(1, windows.length);
                 const dotBox = createIndicatorBox(
                     this.dockUI.dockPosition,
                     false,
                     indProps,
-                    count,
+                    indCount,
                     iconSize,
                     isFocused
                 );
@@ -689,7 +724,7 @@ export class FolderMenuBuilder {
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 reactive: true,
-                style: 'border-radius: 10px; background-color: transparent;'
+                style: 'border-radius: 10px; background-color: transparent; transition-duration: 120ms;'
             });
 
             btn._appId = appId;
@@ -710,12 +745,10 @@ export class FolderMenuBuilder {
             }
 
             btn.connectObject('notify::hover', () => {
-                if (!isActorAlive(btn)) return;
-                if (!btn._isTargetHovered) {
-                    btn.set_style(btn.hover
-                        ? 'background-color: rgba(255,255,255,0.15); border-radius: 10px;'
-                        : 'background-color: transparent; border-radius: 10px;');
-                }
+                if (!isActorAlive(btn) || this.folderMenu._isInternalDragging) return;
+                btn.set_style(btn.hover
+                    ? 'background-color: rgba(255,255,255,0.15); border-radius: 10px; transition-duration: 120ms;'
+                    : 'background-color: transparent; border-radius: 10px; transition-duration: 120ms;');
             }, this);
 
             btn.connectObject('clicked', () => {
@@ -740,120 +773,139 @@ export class FolderMenuBuilder {
             }, this);
 
             btn._delegate = {
+                app,
                 appId,
                 isFolderItem: true,
                 inFolder: true,
                 folderId: this.folderData.id,
                 actor: btn,
+                button: btn,
                 getDragActor: () => {
                     const clone = new Clutter.Clone({ source: iconWrapper });
+                    clone.set_size(iconSize, iconSize);
                     clone.reactive = false;
                     return clone;
                 },
                 getDragActorSource: () => btn,
-                handleDragOver: (source) => {
-                    if (source.inFolder && source.folderId === this.folderData.id) {
-                        if (source.appId === btn._appId) return DND.DragMotionResult.NO_DROP;
-
-                        const toIndex = allFolderBtns.indexOf(btn);
-                        const fromIndex = this.folderMenu._dragCurrentIndex;
-
-                        if (toIndex !== -1 && this.folderMenu._dragStartIndex !== undefined && toIndex !== fromIndex) {
-                            this.folderMenu._dragCurrentIndex = toIndex;
-                            const start = this.folderMenu._dragStartIndex;
-                            const end = toIndex;
-
-                            allFolderBtns.forEach((b, i) => {
-                                if (i === start || !isActorAlive(b)) return;
-
-                                let visualIndex = i;
-                                if (start < end) {
-                                    if (i > start && i <= end) visualIndex = i - 1;
-                                } else if (start > end) {
-                                    if (i >= end && i < start) visualIndex = i + 1;
-                                }
-
-                                const targetBtn = allFolderBtns[visualIndex];
-                                if (targetBtn && isActorAlive(targetBtn) && targetBtn._startX !== undefined && b._startX !== undefined) {
-                                    b.remove_transition('translation-x');
-                                    b.remove_transition('translation-y');
-                                    b.ease({
-                                        translation_x: targetBtn._startX - b._startX,
-                                        translation_y: targetBtn._startY - b._startY,
-                                        duration: 220,
-                                        mode: Clutter.AnimationMode.EASE_OUT_QUAD
-                                    });
-                                }
-                            });
-                        }
-
-                        if (!btn._isTargetHovered) btn._isTargetHovered = true;
-                        return DND.DragMotionResult.MOVE_DROP;
-                    }
-                    return DND.DragMotionResult.CONTINUE;
-                },
-                handleDragOut: () => {
-                    if (isActorAlive(btn) && btn._isTargetHovered) btn._isTargetHovered = false;
-                },
-                acceptDrop: (source) => {
-                    if (!source.inFolder || source.folderId !== this.folderData.id || source.appId === btn._appId) {
-                        return false;
-                    }
-
-                    const appsArray = this.folderData.apps;
-                    const fromIndex = appsArray.indexOf(source.appId);
-                    const toIndex = allFolderBtns.indexOf(btn);
-
-                    if (fromIndex > -1 && toIndex > -1 && fromIndex !== toIndex) {
-                        appsArray.splice(fromIndex, 1);
-                        appsArray.splice(toIndex, 0, source.appId);
-                        this.folderData.apps = [...new Set(appsArray)];
-                        this.folderMenu._saveFolderState();
-                    }
-                    this.folderMenu.forceRefresh(true);
-                    return true;
-                }
+                handleDragOver: (source) => sharedGridDelegate.handleDragOver(source),
+                acceptDrop: (source) => sharedGridDelegate.acceptDrop(source)
             };
 
-            const draggable = DND.makeDraggable(btn, { restoreOnSuccess: true });
-
-            draggable.connectObject('drag-begin', () => {
-                if (isActorAlive(btn)) {
-                    btn._wasDragged = true;
-                    btn.opacity = 0;
-                }
-                this.folderMenu._dragStartIndex = allFolderBtns.indexOf(btn);
-                this.folderMenu._dragCurrentIndex = this.folderMenu._dragStartIndex;
-
-                allFolderBtns.forEach((b) => {
-                    if (!isActorAlive(b)) return;
-                    const [absX, absY] = b.get_transformed_position();
-                    b._startX = absX;
-                    b._startY = absY;
-                    b.remove_all_transitions();
+            if (!Settings.lockIcons) {
+                const draggable = DND.makeDraggable(btn, {
+                    restoreOnSuccess: false,
+                    dragActorOpacity: 235
                 });
-            }, this);
 
-            draggable.connectObject('drag-cancelled', () => {
-                if (isActorAlive(btn)) btn.opacity = 255;
-                allFolderBtns.forEach(b => {
-                    if (!isActorAlive(b)) return;
-                    b.remove_transition('translation-x');
-                    b.remove_transition('translation-y');
-                    b.ease({
-                        translation_x: 0,
-                        translation_y: 0,
-                        duration: 220,
-                        mode: Clutter.AnimationMode.EASE_OUT_QUAD
+                draggable.connectObject('drag-begin', () => {
+                    this._stopFolderDragMonitor();
+
+                    this.folderMenu._isInternalDragging = true;
+                    this.folderMenu._dragCommitted = false;
+                    this.folderMenu._draggedOutOfFolder = false;
+
+                    const startIdx = allFolderBtns.indexOf(btn);
+                    this.folderMenu._dragStartIndex = startIdx;
+                    this.folderMenu._dragCurrentIndex = startIdx;
+
+                    const slots = allFolderBtns.map(b => {
+                        if (!isActorAlive(b)) return null;
+                        b.remove_all_transitions();
+                        b.translation_x = 0;
+                        b.translation_y = 0;
+                        b._targetTx = 0;
+                        b._targetTy = 0;
+                        b.set_style('background-color: transparent; border-radius: 10px;');
+                        const [x, y] = b.get_transformed_position();
+                        const [w, h] = b.get_transformed_size();
+                        return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
                     });
-                });
-            }, this);
+                    this.folderMenu._dragSlots = slots;
 
-            draggable.connectObject('drag-end', () => {
-                if (isActorAlive(btn)) {
-                    btn.opacity = 255;
-                }
-            }, this);
+                    if (isActorAlive(btn)) {
+                        btn._wasDragged = true;
+                        btn.opacity = 0;
+                    }
+
+                    this._dragMonitor = {
+                        dragMotion: () => {
+                            if (!this.folderMenu || !this.folderMenu.actor || !isActorAlive(this.folderMenu.actor)) {
+                                return DND.DragMotionResult.CONTINUE;
+                            }
+                            const [px, py] = global.get_pointer();
+                            const insideMenu = this._isPointerInsideMenu(px, py, 20);
+
+                            if (!insideMenu) {
+                                this.folderMenu._draggedOutOfFolder = true;
+                                this._applyVisualSlotShift(allFolderBtns, slots, startIdx, startIdx, true);
+                                return DND.DragMotionResult.MOVE_DROP;
+                            }
+
+                            this.folderMenu._draggedOutOfFolder = false;
+                            const closestSlot = this._findClosestSlotIndex(px, py, slots);
+                            if (closestSlot !== -1 && closestSlot !== this.folderMenu._dragCurrentIndex) {
+                                this.folderMenu._dragCurrentIndex = closestSlot;
+                                this._applyVisualSlotShift(allFolderBtns, slots, startIdx, closestSlot, false);
+                            }
+                            return DND.DragMotionResult.MOVE_DROP;
+                        }
+                    };
+                    DND.addDragMonitor(this._dragMonitor);
+                }, this);
+
+                const finishFolderItemDrag = () => {
+                    this._stopFolderDragMonitor();
+                    this.folderMenu._isInternalDragging = false;
+
+                    if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
+                        draggable._dragActor.opacity = 0;
+                    }
+
+                    if (this.folderMenu._dragCommitted) {
+                        return;
+                    }
+
+                    const [px, py] = global.get_pointer();
+                    const insideMenu = this._isPointerInsideMenu(px, py, 24);
+
+                    if (!insideMenu && this.folderMenu._draggedOutOfFolder) {
+                        this.folderMenu._dragCommitted = true;
+                        const remainingCount = this.folderData.apps.length - 1;
+                        if (this.dockUI && this.dockUI.folderManager) {
+                            this.dockUI.folderManager.removeAppFromFolder(this.folderData.id, appId);
+                        }
+                        if (remainingCount <= 1) {
+                            this.folderMenu.hide();
+                        } else {
+                            this.folderMenu.forceRefresh(false);
+                        }
+                        return;
+                    }
+
+                    if (insideMenu) {
+                        this._commitInternalReorder(appId);
+                        return;
+                    }
+
+                    if (isActorAlive(btn)) btn.opacity = 255;
+                    allFolderBtns.forEach(b => {
+                        if (!isActorAlive(b)) return;
+                        b._targetTx = 0;
+                        b._targetTy = 0;
+                        b.remove_transition('translation-x');
+                        b.remove_transition('translation-y');
+                        b.ease({
+                            translation_x: 0,
+                            translation_y: 0,
+                            duration: 200,
+                            mode: Clutter.AnimationMode.EASE_OUT_CUBIC
+                        });
+                    });
+                };
+
+                draggable.connectObject('drag-cancelled', finishFolderItemDrag, this);
+                draggable.connectObject('drag-end', finishFolderItemDrag, this);
+            }
 
             allFolderBtns.push(btn);
             currentRow.add_child(btn);

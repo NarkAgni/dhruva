@@ -62,6 +62,8 @@ export const KaraokeLyricsWidget = GObject.registerClass({
         this._isDestroyed = false;
         this._tracker = new TimeoutTracker();
         this._fontDesc = Pango.FontDescription.from_string('Sans Bold 11');
+
+        this.connect('destroy', () => this._cleanup());
     }
 
     resetState() {
@@ -269,16 +271,6 @@ export const KaraokeLyricsWidget = GObject.registerClass({
 
     _cleanup() {
         this._isDestroyed = true;
-        this._stopSlide();
-        this._stopMarquee();
-        if (this._tracker) {
-            this._tracker.destroy();
-            this._tracker = null;
-        }
-    }
-
-    destroy() {
-        this._cleanup();
-        super.destroy();
+        this._tracker.destroy();
     }
 });

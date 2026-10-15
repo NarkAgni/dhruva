@@ -40,12 +40,6 @@ export function startDragLoop(dockActor, isVertical, settings) {
     stopDragLoop(dockActor);
     let dragWasOutside = false;
 
-    if (!dockActor._dragLoopDestroyId) {
-        dockActor._dragLoopDestroyId = dockActor.connectObject('destroy', () => {
-            stopDragLoop(dockActor);
-        }, dockActor);
-    }
-
     const loopTick = () => {
         if (!isActorAlive(dockActor) || !dockActor._isDragging) {
             dockActor._dragLoopId = null;
@@ -67,8 +61,19 @@ export function startDragLoop(dockActor, isVertical, settings) {
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     });
                 });
-                if (dockActor.bgActor) {
-                    dockActor.bgActor.set_pivot_point(0.5, 0.5);
+                if (dockActor.bgActor && !dockActor._isFullWidth) {
+                    const baseX = dockActor.bgActor._baseX !== undefined ? dockActor.bgActor._baseX : dockActor.bgActor.x;
+                    const baseY = dockActor.bgActor._baseY !== undefined ? dockActor.bgActor._baseY : dockActor.bgActor.y;
+                    const baseW = dockActor.bgActor._baseW || dockActor.bgActor.width;
+                    const baseH = dockActor.bgActor._baseH || dockActor.bgActor.height;
+                    dockActor.bgActor.ease({
+                        x: baseX,
+                        y: baseY,
+                        width: baseW,
+                        height: baseH,
+                        duration: RESET_DURATION_MS,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
                 }
                 dragWasOutside = true;
             }

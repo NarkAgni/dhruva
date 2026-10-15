@@ -47,6 +47,9 @@ const MARQUEE_MIN_DURATION_MS = 3500;
 const MARQUEE_MS_PER_PX = 42;
 const LYRICS_REVEAL_DELAY_MS = 1200;
 const DOUBLE_CLICK_TIMEOUT_MS = 250;
+const ART_DOWNLOAD_TIMEOUT_S = 4;
+const COLOR_SAMPLE_PX = 64;
+const MAX_ART_CACHE_FILES = 100;
 
 export const MusicPill = GObject.registerClass(
     class MusicPill extends St.Widget {
@@ -89,13 +92,15 @@ export const MusicPill = GObject.registerClass(
 
             this._cacheDir = GLib.build_filenamev([GLib.get_user_cache_dir(), 'dhruva-music-art']);
             GLib.mkdir_with_parents(this._cacheDir, 0o755);
+            this._pruneArtCache();
 
             this._httpSession = new Soup.Session();
-            this._httpSession.timeout = 10;
+            this._httpSession.timeout = ART_DOWNLOAD_TIMEOUT_S;
             this._httpSession.user_agent = 'Mozilla/5.0';
 
             this._service = new MusicPlayerService();
             this._lyricsClient = new LyricsClient();
+            this.connect('destroy', () => this._onDestroy());
 
             this._buildUI();
 
@@ -161,15 +166,8 @@ export const MusicPill = GObject.registerClass(
 
                 if (btn !== 1) return Clutter.EVENT_PROPAGATE;
 
-                const target = event.get_source ? event.get_source() : null;
-                const isControlBtn = (b) => {
-                    if (!b || !target) return false;
-                    if (target === b) return true;
-                    if (b.contains && target instanceof Clutter.Actor) {
-                        return b.contains(target);
-                    }
-                    return false;
-                };
+                const target = global.stage.get_event_actor(event);
+                const isControlBtn = b => Boolean(b && target && (target === b || (b.contains && b.contains(target))));
 
                 if (isControlBtn(this._prevBtn) || isControlBtn(this._playBtn) || isControlBtn(this._nextBtn)) {
                     return Clutter.EVENT_PROPAGATE;
@@ -637,15 +635,19 @@ export const MusicPill = GObject.registerClass(
             const isAllowed = Settings.showMusicPill;
 
             if (!hasPlayer || !isAllowed || !title) {
+                const hadTrack = this._hasValidTrack;
                 this._hasValidTrack = false;
                 this._stopLyricsSyncLoop();
                 if (this.visible) {
                     this.hide();
-                    if (this._dockUI && this._dockUI.queueRender) this._dockUI.queueRender();
+                    if (this._dockUI && this._dockUI.queueRender) this._dockUI.queueRender('full', true);
+                } else if (hadTrack && this._dockUI && this._dockUI.queueRender) {
+                    this._dockUI.queueRender('full', true);
                 }
                 return;
             }
 
+            const wasNotValid = !this._hasValidTrack;
             this._hasValidTrack = true;
 
             const safeTitle = title ? title.trim() : '';
@@ -699,9 +701,9 @@ export const MusicPill = GObject.registerClass(
                 console.warn('[Dhruva] Error loading artwork:', e.message);
             });
 
-            if (!this.visible) {
+            if (!this.visible || wasNotValid) {
                 this.show();
-                if (this._dockUI && this._dockUI.queueRender) this._dockUI.queueRender();
+                if (this._dockUI && this._dockUI.queueRender) this._dockUI.queueRender('full', true);
             }
 
             this._setSideButtonsVisible(this._isHovered);
@@ -905,10 +907,6 @@ export const MusicPill = GObject.registerClass(
                 const msg = Soup.Message.new('GET', url);
                 msg.request_headers.append('User-Agent', 'Mozilla/5.0');
                 
-                if (this._httpSession) {
-                    this._httpSession.timeout = 4;
-                }
-
                 const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
 
                 if (msg.status_code === 200 && bytes) {
@@ -931,7 +929,7 @@ export const MusicPill = GObject.registerClass(
             if (colors && colors.accent) {
                 const rgb = colors.accent.match(/\d+/g);
                 if (rgb && rgb.length >= 3) {
-                    borderRgba = `rgba(\({rgb[0]},\){rgb[1]}, ${rgb[2]}, 0.22)`;
+                    borderRgba = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.22)`;
                 }
             }
 
@@ -945,7 +943,7 @@ export const MusicPill = GObject.registerClass(
                 return;
             }
 
-            this._pillBg.style = `background-color: \({colors.background}; border: 1px solid\){borderRgba};`;
+            this._pillBg.style = `background-color: ${colors.background}; border: 1px solid ${borderRgba};`;
         }
 
         _applyArtStyle(filePath) {
@@ -955,7 +953,7 @@ export const MusicPill = GObject.registerClass(
             this._artBin.style = 'background-image: url("' + fileUri + '"); background-size: cover; background-position: center; border-radius: 999px;';
             if (isActorAlive(this._artFallbackIcon)) this._artFallbackIcon.visible = false;
 
-            const pixbuf = GdkPixbuf.Pixbuf.new_from_file(filePath);
+            const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(filePath, COLOR_SAMPLE_PX, COLOR_SAMPLE_PX, true);
             if (!pixbuf) return;
 
             const colors = extractColorsFromPixbuf(pixbuf);
@@ -978,7 +976,7 @@ export const MusicPill = GObject.registerClass(
             this._updatePillBgAppearance();
 
             if (isActorAlive(this._playBtn)) {
-                this._playBtn.style = `background-color: \({colors.accent}; color:\){iconColor};`;
+                this._playBtn.style = `background-color: ${colors.accent}; color: ${iconColor};`;
             }
             if (isActorAlive(this._playIcon)) {
                 this._playIcon.style = `color: ${iconColor};`;
@@ -1015,7 +1013,47 @@ export const MusicPill = GObject.registerClass(
             }
         }
 
-        destroy() {
+        _pruneArtCache() {
+            const dir = Gio.File.new_for_path(this._cacheDir);
+            dir.enumerate_children_async('standard::name,time::modified', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, null, (d, res) => {
+                let enumerator;
+                try {
+                    enumerator = d.enumerate_children_finish(res);
+                } catch (_e) {
+                    return;
+                }
+
+                const files = [];
+                const readMore = () => {
+                    enumerator.next_files_async(64, GLib.PRIORITY_LOW, null, (e, filesRes) => {
+                        let infos = [];
+                        try {
+                            infos = e.next_files_finish(filesRes);
+                        } catch (_err) {
+                            infos = [];
+                        }
+
+                        if (infos.length > 0) {
+                            for (const info of infos) {
+                                const name = info.get_name();
+                                const modified = info.get_modification_date_time();
+                                if (name.endsWith('.jpg') && modified) files.push({ name, time: modified.to_unix() });
+                            }
+                            readMore();
+                            return;
+                        }
+
+                        enumerator.close_async(GLib.PRIORITY_LOW, null, () => {});
+                        files.sort((a, b) => b.time - a.time);
+                        for (const { name } of files.slice(MAX_ART_CACHE_FILES))
+                            d.get_child(name).delete_async(GLib.PRIORITY_LOW, null, () => {});
+                    });
+                };
+                readMore();
+            });
+        }
+
+        _onDestroy() {
             this._isDestroyed = true;
 
             if (this._settings) {
@@ -1039,16 +1077,6 @@ export const MusicPill = GObject.registerClass(
             if (this._artistScroll) this._cancelMarquee(this._artistScroll);
             if (this._miniScroll) this._cancelMarquee(this._miniScroll);
 
-            if (this._karaokeWidget) {
-                this._karaokeWidget._cleanup();
-                this._karaokeWidget = null;
-            }
-
-            if (this._slider) {
-                this._slider.destroy();
-                this._slider = null;
-            }
-
             if (this._tracker) {
                 this._tracker.destroy();
                 this._tracker = null;
@@ -1068,8 +1096,6 @@ export const MusicPill = GObject.registerClass(
                 this._service.destroy();
                 this._service = null;
             }
-
-            super.destroy();
         }
     }
 );

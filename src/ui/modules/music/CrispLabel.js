@@ -66,7 +66,6 @@ export const CrispLabel = GObject.registerClass({
             single_line_mode: true,
         };
 
-        this.connect('notify::text', () => this.queue_repaint());
     }
 
     get text() {
@@ -77,7 +76,7 @@ export const CrispLabel = GObject.registerClass({
         const s = (v === null || v === undefined) ? '' : String(v);
         if (this._text === s) return;
         this._text = s;
-        this._remeasure();
+        this.queue_relayout();
         this.queue_repaint();
     }
 
@@ -94,8 +93,6 @@ export const CrispLabel = GObject.registerClass({
         const [logicalW, logicalH] = layout.get_pixel_size();
         this._measuredW = logicalW;
         this._measuredH = logicalH;
-
-        this.set_size(logicalW, logicalH);
     }
 
     vfunc_get_preferred_width(_forHeight) {

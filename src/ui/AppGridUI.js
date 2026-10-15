@@ -477,8 +477,8 @@ export default class AppGridUI {
             strokeRgba = 'rgba(255, 255, 255, 0.2)';
         } else if (this.dockUI.actor._tooltipBg) {
             const css = this.dockUI.actor._tooltipBg;
-            let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
-            if (!match) match = css.match(/background-color:\s*(rgba?\([^)]+\))/);
+            let match = css.match(/background-gradient-start:\s*(rgba?$[^)]+)/);
+            if (!match) match = css.match(/background-color:\s*(rgba?$[^)]+)/);
             if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent') {
                 bgRgba = match[1];
             }

@@ -64,7 +64,7 @@ export function buildAboutHero(prefs, page) {
         margin_bottom: 4
     }));
     heroBox.append(new Gtk.Label({
-        label: 'Version 1  •  GPL-3.0',
+        label: 'Version 4.0  •  GPL-3.0',
         css_classes: ['dim-label', 'caption']
     }));
 
@@ -114,7 +114,7 @@ export function buildAboutAuthor(prefs, page) {
 
     group.add(new Adw.ActionRow({
         title: _('Features'),
-        subtitle: _('Per-app running indicators · Hover zoom magnification · Window minimize effects (Magic Lamp, Snake, Vortex & more) · Icon click animations (Bounce, Jelly, Heartbeat & 20+ styles) · Intelligent auto-hide with edge pressure reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode · Multi-monitor support · Custom folders, Trash, Desktop button & App Grid · Workspace isolation · Aero Peek window previews · Lock icons to prevent accidental reorder'),
+        subtitle: _('Per-app running indicators · Hover zoom magnification · Window minimize effects (Magic Lamp, Snake, Vortex &amp; more) · Icon click animations (Bounce, Jelly, Heartbeat &amp; 20+ styles) · Intelligent auto-hide with edge pressure reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode · Multi-monitor support · Custom folders, Trash, Desktop button &amp; App Grid · Workspace isolation · Aero Peek window previews · Lock icons to prevent accidental reorder'),
         icon_name: 'starred-symbolic'
     }));
 

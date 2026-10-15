@@ -31,7 +31,6 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 const CLOCK_TICK_INTERVAL_MS = 1000;
 
 export function buildClockModule(dockUI) {
-    const settings = dockUI.settings;
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
 
     if (!Settings.showClock || isVertical) {
@@ -112,15 +111,15 @@ export function buildClockModule(dockUI) {
     clockBtn._timeoutId = null;
 
     const updateClock = () => {
-        const is24hClock = Settings.use24hClock;
-        const fmt = is24hClock ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
+        const fmt = Settings.use24hClock ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
+        const next = GLib.DateTime.new_now_local().format(fmt);
+        if (next === currentTimeString) return GLib.SOURCE_CONTINUE;
 
-        currentTimeString = GLib.DateTime.new_now_local().format(fmt);
+        currentTimeString = next;
         updateDimensions();
         clockLabel.queue_repaint();
         return GLib.SOURCE_CONTINUE;
     };
-    updateClock();
     
     clockBtn._timeoutId = clockBtn.timers.addTimeout(GLib.PRIORITY_DEFAULT, CLOCK_TICK_INTERVAL_MS, updateClock);
     

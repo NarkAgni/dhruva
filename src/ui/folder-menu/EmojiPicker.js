@@ -24,398 +24,498 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import emojisData from '../emojis.js';
+import { BlurPanel } from '../blur/BlurPanel.js';
+import { CrispLabel } from '../modules/music/CrispLabel.js';
 import { isActorAlive, setBoxVertical } from '../../core/Utils.js';
+import { resolvePopupBubbleColors } from '../dock/DockThemeResolver.js';
 
 
-const EMOJIS_PER_ROW = 8;
-const MAX_SHOWN_EMOJIS = 200;
-const SEARCH_DEBOUNCE_MS = 150;
-const CACHED_EMOJIS = emojisData.emojis || [];
-const CACHED_CATEGORIES = ['All', ...new Set(CACHED_EMOJIS.map(e => e.category).filter(Boolean))];
+const COLUMNS = 9;
+const CELL_SIZE = 52;
+const EMOJI_FONT_PX = 30;
+const VISIBLE_ROWS = 7;
+const CARD_PADDING = 16;
+const SCROLLBAR_GUTTER = CARD_PADDING;
+const CARD_RADIUS = 20;
+const TAB_SIZE = 40;
+const TAB_ICON_SIZE = 20;
+const MAX_SEARCH_RESULTS = 240;
+const MAX_RECENTS = COLUMNS * 4;
+const SEARCH_DEBOUNCE_MS = 120;
+const OPEN_MS = 180;
+const CLOSE_MS = 120;
+
+const RECENT_ID = 'recent';
+const SEARCH_ID = 'search';
+
+const CATEGORIES = [
+    { id: RECENT_ID, icon: 'emoji-recent-symbolic', title: () => _('Recently used') },
+    { id: 'Smileys & Emotion', icon: 'emoji-people-symbolic', title: () => _('Smileys & Emotion') },
+    { id: 'People & Body', icon: 'emoji-body-symbolic', title: () => _('People & Body') },
+    { id: 'Animals & Nature', icon: 'emoji-nature-symbolic', title: () => _('Animals & Nature') },
+    { id: 'Food & Drink', icon: 'emoji-food-symbolic', title: () => _('Food & Drink') },
+    { id: 'Travel & Places', icon: 'emoji-travel-symbolic', title: () => _('Travel & Places') },
+    { id: 'Activities', icon: 'emoji-activities-symbolic', title: () => _('Activities') },
+    { id: 'Objects', icon: 'emoji-objects-symbolic', title: () => _('Objects') },
+    { id: 'Symbols', icon: 'emoji-symbols-symbolic', title: () => _('Symbols') },
+    { id: 'Flags', icon: 'emoji-flags-symbolic', title: () => _('Flags') },
+];
+
+const ALL_EMOJIS = emojisData.emojis.filter(entry => CATEGORIES.some(cat => cat.id === entry.category));
+const EMOJIS_BY_CATEGORY = new Map(CATEGORIES.map(cat => [cat.id, ALL_EMOJIS.filter(entry => entry.category === cat.id)]));
+
+const recentEmojis = [];
+
+const CELL_STYLE = `width: ${CELL_SIZE}px; height: ${CELL_SIZE}px; border-radius: 14px; font-size: ${EMOJI_FONT_PX}px; ` +
+    'text-align: center; transition-duration: 90ms;';
+const CELL_IDLE = `${CELL_STYLE} background-color: transparent;`;
+const CELL_HIGHLIGHT = `${CELL_STYLE} background-color: rgba(255,255,255,0.18);`;
+
+
+function tabStyle(isActive, isHovered) {
+    let background = 'transparent';
+    if (isActive) background = 'rgba(255,255,255,0.20)';
+    else if (isHovered) background = 'rgba(255,255,255,0.10)';
+    return `width: ${TAB_SIZE}px; height: ${TAB_SIZE}px; padding: 0; border-radius: ${TAB_SIZE / 2}px; ` +
+        `background-color: ${background}; transition-duration: 120ms;`;
+}
+
+function tabIconStyle(isActive) {
+    return `color: rgba(255,255,255,${isActive ? 1.0 : 0.6});`;
+}
+
+function capitalize(text) {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function searchEmojis(query) {
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    return ALL_EMOJIS
+        .filter(entry => entry.emoji === query || words.every(word => entry.name.toLowerCase().includes(word)))
+        .slice(0, MAX_SEARCH_RESULTS);
+}
+
+function rememberRecent(entry) {
+    const index = recentEmojis.findIndex(recent => recent.emoji === entry.emoji);
+    if (index >= 0) recentEmojis.splice(index, 1);
+    recentEmojis.unshift(entry);
+    recentEmojis.length = Math.min(recentEmojis.length, MAX_RECENTS);
+}
+
 
 export class EmojiPicker {
     constructor(folderMenu, onSelect) {
         this.folderMenu = folderMenu;
-        this.onSelect = onSelect;
         this.dockUI = folderMenu.dockUI;
-        this.emojiList = CACHED_EMOJIS;
-        this.categories = CACHED_CATEGORIES;
-        this.currentCategory = 'All';
-        this.activeEmojiButtons = [];
-        this.currentFocusIndex = -1;
+        this.onSelect = onSelect;
         this.timers = folderMenu.timers;
-        this._searchTimerId = null;
+
+        this._entries = [];
+        this._cells = [];
+        this._highlight = -1;
+        this._categoryId = recentEmojis.length > 0 ? RECENT_ID : CATEGORIES[1].id;
+        this._lastCategoryId = this._categoryId;
+        this._tabs = new Map();
+        this._searchTimerId = 0;
+        this._blur = null;
+        this._isClosing = false;
     }
 
     async show() {
-        if (this.folderMenu.menuContainer && isActorAlive(this.folderMenu.menuContainer)) {
-            this.folderMenu.menuContainer.hide();
-        }
+        this.folderMenu.menuContainer.hide();
 
         this.overlay = new St.Widget({
             reactive: true,
-            style: 'background-color: rgba(0,0,0,0.6);'
+            style: 'background-color: rgba(0,0,0,0.35);'
         });
-        this.overlay.add_constraint(new Clutter.BindConstraint({
-            source: global.stage,
-            coordinate: Clutter.BindCoordinate.ALL
-        }));
-        this.overlay.set_layout_manager(new Clutter.BinLayout());
-
-        Main.layoutManager.addChrome(this.overlay, {
-            affectsStruts: false
-        });
-
+        this.overlay.set_position(0, 0);
+        this.overlay.set_size(global.stage.width, global.stage.height);
+        this.overlay.connectObject(
+            'button-release-event', (_actor, event) => {
+                if (event.get_button() === Clutter.BUTTON_PRIMARY) this.close();
+                return Clutter.EVENT_STOP;
+            },
+            'destroy', () => this._onDestroyed(),
+            this
+        );
         this.folderMenu._emojiOverlay = this.overlay;
-        this.overlay.connectObject('destroy', () => this.destroy(), this);
 
-        const tooltipCss = (this.dockUI.actor && this.dockUI.actor._tooltipBg) || 'background-color: rgba(20,20,30,0.97);';
+        this._card = this._buildCard();
+        this.overlay.add_child(this._card);
+        Main.layoutManager.addChrome(this.overlay, { affectsStruts: false });
 
-        const picker = new St.BoxLayout({
+        this._showCategory(this._categoryId);
+        this._placeCard();
+        this._searchEntry.grab_key_focus();
+
+        this._card.opacity = 0;
+        this._card.set_pivot_point(0.5, 0.5);
+        this._card.set_scale(0.96, 0.96);
+
+        this._applyBlur();
+
+        this._card.ease({
+            opacity: 255,
+            scale_x: 1.0,
+            scale_y: 1.0,
+            duration: OPEN_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_CUBIC,
+            onComplete: () => {
+                if (this._blur) this._blur.syncGeometry();
+            }
+        });
+    }
+
+    close() {
+        if (this._isClosing || !this.overlay) return;
+        this._isClosing = true;
+
+        if (this._blur) {
+            this._blur.destroy();
+            this._blur = null;
+        }
+
+        const overlay = this.overlay;
+        this._card.ease({
+            opacity: 0,
+            scale_x: 0.97,
+            scale_y: 0.97,
+            duration: CLOSE_MS,
+            mode: Clutter.AnimationMode.EASE_IN_QUAD,
+            onStopped: () => {
+                if (isActorAlive(overlay)) overlay.destroy();
+            }
+        });
+    }
+
+    _buildCard() {
+        const colors = resolvePopupBubbleColors(this.dockUI);
+        const blurOn = this.dockUI.settings.get_boolean('blur-enabled');
+        const bgFill = blurOn ? 'rgba(0, 0, 0, 0.18)' : colors.fill;
+
+        const card = new St.BoxLayout({
+            reactive: true,
+            style: `padding: ${CARD_PADDING}px 0 ${CARD_PADDING}px ${CARD_PADDING}px; spacing: 10px; ` +
+                `border-radius: ${CARD_RADIUS}px; background-color: ${bgFill}; ` +
+                `border: ${colors.strokeWidth}px solid ${colors.stroke};`
+        });
+        setBoxVertical(card, true);
+        card.connectObject(
+            'button-release-event', () => Clutter.EVENT_STOP,
+            'captured-event', (_actor, event) => {
+                if (event.type() !== Clutter.EventType.KEY_PRESS) return Clutter.EVENT_PROPAGATE;
+                return this._onKeyPress(event);
+            },
+            this
+        );
+
+        const search = this._buildSearch();
+        search.style += ` margin-right: ${CARD_PADDING}px;`;
+        card.add_child(search);
+
+        this._sectionTitle = new CrispLabel({ font_desc: 'Sans Bold 9', color: 'rgba(255,255,255,0.7)' });
+        card.add_child(this._sectionTitle);
+
+        this._scrollView = new St.ScrollView({
+            style: `height: ${CELL_SIZE * VISIBLE_ROWS}px; width: ${CELL_SIZE * COLUMNS + SCROLLBAR_GUTTER}px;`,
+            hscrollbar_policy: St.PolicyType.NEVER,
+            vscrollbar_policy: St.PolicyType.AUTOMATIC,
+            overlay_scrollbars: true
+        });
+        this._grid = new St.BoxLayout({ x_expand: true });
+        setBoxVertical(this._grid, true);
+        this._scrollView.add_child(this._grid);
+
+        this._emptyLabel = new St.Label({
+            text: _('No emojis found'),
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
-            style: `border-radius: 16px; padding: 16px 24px; border: 1px solid rgba(255,255,255,0.12); width: 680px; ${tooltipCss}`,
-            reactive: true
-        });
-        setBoxVertical(picker, true);
-
-        const headerBox = new St.BoxLayout({
-            style: 'margin-bottom: 12px; spacing: 8px;',
-            y_align: Clutter.ActorAlign.CENTER
-        });
-        setBoxVertical(headerBox, false);
-
-        const catBtn = new St.Button({
-            reactive: true,
-            style: 'padding: 8px 14px; border-radius: 8px; background-color: rgba(255,255,255,0.1);'
-        });
-        const catBox = new St.BoxLayout({
-            style: 'spacing: 8px;',
-            y_align: Clutter.ActorAlign.CENTER
-        });
-        setBoxVertical(catBox, false);
-        const catLabel = new St.Label({
-            text: 'All',
-            style: 'color: white; font-weight: bold; font-size: 14px;'
-        });
-        const catIcon = new St.Icon({
-            icon_name: 'pan-down-symbolic',
-            icon_size: 14,
-            style: 'color: white;'
-        });
-        catBox.add_child(catLabel);
-        catBox.add_child(catIcon);
-        catBtn.set_child(catBox);
-
-        const searchEntry = new St.Entry({
-            hint_text: _('Search emojis...'),
-            x_expand: true,
-            style: 'font-size: 15px; font-family: sans-serif; border-radius: 8px; padding: 8px 14px; color: white; background-color: rgba(255,255,255,0.1); border: none; box-shadow: none;'
+            style: 'color: rgba(255,255,255,0.6); font-size: 13px; padding: 24px 0;',
+            visible: false
         });
 
-        headerBox.add_child(catBtn);
-        headerBox.add_child(searchEntry);
-        picker.add_child(headerBox);
+        const gridStack = new St.Widget({ layout_manager: new Clutter.BinLayout() });
+        gridStack.add_child(this._scrollView);
+        gridStack.add_child(this._emptyLabel);
+        card.add_child(gridStack);
 
-        const dropdownBox = new St.BoxLayout({
-            style: `border-radius: 12px; padding: 6px; border: 1px solid rgba(255,255,255,0.15); ${tooltipCss}`,
-            visible: false,
-            reactive: true
-        });
-        setBoxVertical(dropdownBox, true);
-        dropdownBox.connectObject('button-release-event', () => Clutter.EVENT_STOP, this);
-
-        this.overlay.connectObject('button-release-event', () => {
-            if (dropdownBox.visible) {
-                dropdownBox.visible = false;
-                return Clutter.EVENT_STOP;
-            }
-            this.closePicker();
-            return Clutter.EVENT_STOP;
-        }, this);
-
-        picker.connectObject('button-release-event', () => {
-            if (dropdownBox.visible) dropdownBox.visible = false;
-            return Clutter.EVENT_STOP;
-        }, this);
-
-        const ddWrapper = new St.Widget({
-            layout_manager: new Clutter.FixedLayout()
-        });
-        ddWrapper.add_constraint(new Clutter.BindConstraint({
-            source: global.stage,
-            coordinate: Clutter.BindCoordinate.ALL
-        }));
-        ddWrapper.add_child(dropdownBox);
-
-        const ddScroll = new St.ScrollView({
-            style: 'max-height: 250px;',
-            vscrollbar_policy: St.PolicyType.NEVER,
-            hscrollbar_policy: St.PolicyType.NEVER
-        });
-        const ddInnerBox = new St.BoxLayout({});
-        setBoxVertical(ddInnerBox, true);
-        ddScroll.add_child(ddInnerBox);
-        dropdownBox.add_child(ddScroll);
-
-        this.categories.forEach(cat => {
-            const btn = new St.Button({
-                child: new St.Label({
-                    text: cat,
-                    style: 'color: white; font-size: 14px; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.5);'
-                }),
-                style: 'padding: 8px 14px; border-radius: 6px;',
-                reactive: true
-            });
-            btn.connectObject('notify::hover', () => {
-                btn.set_style(btn.hover
-                    ? 'padding: 8px 14px; border-radius: 6px; background-color: rgba(255,255,255,0.15);'
-                    : 'padding: 8px 14px; border-radius: 6px; background-color: transparent;');
-            }, this);
-            btn.connectObject('clicked', () => {
-                this.currentCategory = cat;
-                catLabel.set_text(cat);
-                dropdownBox.visible = false;
-                this.populateGrid(searchEntry.get_text(), this.currentCategory);
-            }, this);
-            ddInnerBox.add_child(btn);
-        });
-
-        catBtn.connectObject('clicked', () => {
-            dropdownBox.visible = !dropdownBox.visible;
-            if (dropdownBox.visible) {
-                const [px, py] = catBtn.get_transformed_position();
-                const [, ph] = catBtn.get_transformed_size();
-                dropdownBox.set_position(px, py + ph + 8);
-            }
-        }, this);
-
-        this.scrollView = new St.ScrollView({
-            style: 'height: 400px;',
-            x_expand: true,
-            y_expand: true,
-            hscrollbar_policy: St.PolicyType.NEVER,
-            vscrollbar_policy: St.PolicyType.NEVER
-        });
-
-        this.gridContainer = new St.BoxLayout({
-            x_expand: true,
-            style: 'padding-right: 0px; padding-bottom: 16px;'
-        });
-        setBoxVertical(this.gridContainer, true);
-        this.scrollView.add_child(this.gridContainer);
-        picker.add_child(this.scrollView);
-
-        const detailBox = new St.BoxLayout({
-            style: 'margin-top: 16px; padding: 10px 14px; border-radius: 10px; background-color: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.05);',
-            y_align: Clutter.ActorAlign.CENTER
-        });
-        setBoxVertical(detailBox, false);
-        this.bigEmojiLabel = new St.Label({
-            text: '✨',
-            style: 'font-size: 32px; margin-right: 14px;'
-        });
-        const textDetailBox = new St.BoxLayout({
-            x_expand: true
-        });
-        setBoxVertical(textDetailBox, true);
-        this.emojiNameLabel = new St.Label({
-            text: _('Hover an emoji'),
-            style: 'font-size: 14px; font-weight: bold; color: white;'
-        });
-        this.emojiCatLabel = new St.Label({
-            text: _('Category'),
-            style: 'font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px;'
-        });
-
-        textDetailBox.add_child(this.emojiNameLabel);
-        textDetailBox.add_child(this.emojiCatLabel);
-        detailBox.add_child(this.bigEmojiLabel);
-        detailBox.add_child(textDetailBox);
-        picker.add_child(detailBox);
-
-        this.overlay.connectObject('key-press-event', (_actor, event) => this.handleKeyPress(event), this);
-        searchEntry.connectObject('key-press-event', (_actor, event) => this.handleKeyPress(event), this);
-
-        this.populateGrid('', this.currentCategory);
-
-        searchEntry.clutter_text.connectObject('text-changed', () => {
-            if (this._searchTimerId) this.timers.remove(this._searchTimerId);
-            this._searchTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, SEARCH_DEBOUNCE_MS, () => {
-                this.populateGrid(searchEntry.get_text(), this.currentCategory);
-                this._searchTimerId = null;
-                return GLib.SOURCE_REMOVE;
-            });
-        }, this);
-
-        this.overlay.add_child(picker);
-        this.overlay.add_child(ddWrapper);
-        global.stage.set_key_focus(searchEntry);
+        card.add_child(this._buildPreview());
+        card.add_child(this._buildTabs());
+        return card;
     }
 
-    populateGrid(filterText, filterCat) {
-        this.gridContainer.destroy_all_children();
-        this.activeEmojiButtons = [];
-        this.currentFocusIndex = -1;
-        let filtered = this.emojiList.filter(e => (filterCat === 'All' || e.category === filterCat));
-
-        if (filterText) {
-            const q = filterText.toLowerCase();
-            filtered = filtered.filter(e => (e.name && e.name.toLowerCase().includes(q)) || (e.emoji && e.emoji.includes(q)));
-        }
-
-        const shown = filtered.slice(0, MAX_SHOWN_EMOJIS);
-        let currentRow = null;
-        shown.forEach((item, index) => {
-            if (index % EMOJIS_PER_ROW === 0) {
-                currentRow = new St.BoxLayout({
-                    x_align: Clutter.ActorAlign.CENTER,
-                    style: index > 0 ? 'margin-top: 8px;' : ''
-                });
-                setBoxVertical(currentRow, false);
-                this.gridContainer.add_child(currentRow);
-            }
-            const emoji = item.emoji;
-            const name = item.name.charAt(0).toUpperCase() + item.name.slice(1);
-
-            const baseStyle = 'font-size: 46px; border-radius: 10px; width: 72px; height: 72px; text-align: center; background-color: transparent;';
-            const btn = new St.Button({
-                label: emoji,
-                style: baseStyle + (index % EMOJIS_PER_ROW !== (EMOJIS_PER_ROW - 1) ? ' margin-right: 8px;' : ''),
-                reactive: true
-            });
-
-            btn._baseStyle = btn.style;
-            btn._emojiData = { emoji, name, category: item.category };
-            btn._btnIndex = index;
-
-            btn.connectObject('notify::hover', () => {
-                if (btn.hover) this.updateFocus(btn._btnIndex);
-            }, this);
-
-            btn.connectObject('clicked', () => {
-                this.onSelect(emoji);
-                this.closePicker();
-            }, this);
-
-            this.activeEmojiButtons.push(btn);
-            currentRow.add_child(btn);
+    _buildSearch() {
+        this._searchEntry = new St.Entry({
+            hint_text: _('Search emoji'),
+            can_focus: true,
+            x_expand: true,
+            primary_icon: new St.Icon({ icon_name: 'edit-find-symbolic', icon_size: 16, style: 'color: rgba(255,255,255,0.7);' }),
+            style: 'font-size: 14px; border-radius: 12px; padding: 8px 12px; color: white; ' +
+                'background-color: rgba(255,255,255,0.10); border: none; box-shadow: none;'
         });
 
-        if (this.activeEmojiButtons.length > 0) this.updateFocus(0);
+        this._searchEntry.clutter_text.connectObject('text-changed', () => this._queueSearch(), this);
+        return this._searchEntry;
     }
 
-    updateFocus(newIndex) {
-        if (this.activeEmojiButtons.length === 0) return;
+    _buildPreview() {
+        const row = new St.BoxLayout({ style: `spacing: 10px; padding: 2px ${CARD_PADDING}px 2px 4px;` });
+        setBoxVertical(row, false);
 
-        if (this.currentFocusIndex >= 0 && this.activeEmojiButtons[this.currentFocusIndex]) {
-            const oldBtn = this.activeEmojiButtons[this.currentFocusIndex];
-            if (isActorAlive(oldBtn)) {
-                oldBtn.set_style(oldBtn._baseStyle);
-            }
+        this._previewEmoji = new St.Label({ style: 'font-size: 22px;', y_align: Clutter.ActorAlign.CENTER });
+        this._previewName = new CrispLabel({
+            font_desc: 'Sans 10',
+            color: 'rgba(255,255,255,0.9)',
+            y_align: Clutter.ActorAlign.CENTER
+        });
+
+        row.add_child(this._previewEmoji);
+        row.add_child(this._previewName);
+        return row;
+    }
+
+    _buildTabs() {
+        const bar = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: `spacing: 4px; padding-top: 2px; margin-right: ${CARD_PADDING}px;`
+        });
+        setBoxVertical(bar, false);
+
+        for (const category of CATEGORIES) {
+            const icon = new St.Icon({
+                icon_name: category.icon,
+                fallback_icon_name: 'face-smile-symbolic',
+                icon_size: TAB_ICON_SIZE,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.CENTER,
+                style: tabIconStyle(false)
+            });
+            const tab = new St.Button({
+                child: icon,
+                style: tabStyle(false, false),
+                accessible_name: category.title()
+            });
+            tab._icon = icon;
+            tab.connectObject(
+                'notify::hover', () => this._styleTab(category.id),
+                'clicked', () => this._showCategory(category.id),
+                this
+            );
+            this._tabs.set(category.id, tab);
+            bar.add_child(tab);
         }
+        return bar;
+    }
 
-        if (newIndex >= 0 && this.activeEmojiButtons[newIndex]) {
-            this.currentFocusIndex = newIndex;
-            const newBtn = this.activeEmojiButtons[newIndex];
+    _styleTab(categoryId) {
+        const tab = this._tabs.get(categoryId);
+        const isActive = categoryId === this._categoryId;
+        tab.set_style(tabStyle(isActive, tab.hover));
+        tab._icon.set_style(tabIconStyle(isActive));
+    }
 
-            if (isActorAlive(newBtn)) {
-                newBtn.set_style(`${newBtn._baseStyle} background-color: rgba(255,255,255,0.25); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4);`);
+    _placeCard() {
+        const monitor = this.dockUI.monitorManager.getCurrentMonitor().monitor || Main.layoutManager.primaryMonitor;
+        const [, width] = this._card.get_preferred_width(-1);
+        const [, height] = this._card.get_preferred_height(width);
+        const x = Math.round(monitor.x + (monitor.width - width) / 2);
+        const y = Math.round(monitor.y + (monitor.height - height) / 2);
 
-                if (isActorAlive(this.bigEmojiLabel)) this.bigEmojiLabel.set_text(newBtn._emojiData.emoji);
-                if (isActorAlive(this.emojiNameLabel)) this.emojiNameLabel.set_text(newBtn._emojiData.name);
-                if (isActorAlive(this.emojiCatLabel)) this.emojiCatLabel.set_text(newBtn._emojiData.category);
+        this._card.set_position(x, y);
+        this._cardRect = {
+            x,
+            y,
+            width: Math.round(width),
+            height: Math.round(height)
+        };
+    }
 
-                let adj = null;
-                if (this.scrollView.get_vadjustment) {
-                    adj = this.scrollView.get_vadjustment();
-                } else if (this.scrollView.get_vscroll_bar) {
-                    adj = this.scrollView.get_vscroll_bar().get_adjustment();
-                }
-
-                if (adj) {
-                    const rowIndex = Math.floor(newIndex / EMOJIS_PER_ROW);
-                    const rowHeight = 80;
-
-                    const targetTop = rowIndex * rowHeight;
-                    const targetBottom = targetTop + rowHeight;
-
-                    const viewTop = adj.get_value();
-                    const pageSize = adj.get_page_size();
-                    const viewBottom = viewTop + pageSize;
-
-                    if (pageSize > 0) {
-                        if (targetTop < viewTop) {
-                            adj.set_value(targetTop);
-                        } else if (targetBottom > viewBottom) {
-                            adj.set_value(targetBottom - pageSize + 16);
-                        }
-                    } else {
-                        adj.set_value(targetTop);
-                    }
-                }
-            }
+    _applyBlur() {
+        if (!this.dockUI.settings.get_boolean('blur-enabled')) return;
+        this._blur = new BlurPanel(this._card, this.dockUI.settings, CARD_RADIUS, this._card, null, true);
+        this._blur.contentActor = this.overlay;
+        if (this._cardRect) {
+            this._blur.setTargetRect(this._cardRect);
         }
     }
 
-    handleKeyPress(event) {
+    _showCategory(categoryId) {
+        this._categoryId = categoryId;
+        this._lastCategoryId = categoryId;
+        this._searchEntry.set_text('');
+        this.timers.remove(this._searchTimerId);
+        this._searchTimerId = 0;
+
+        this._tabs.forEach((_tab, id) => this._styleTab(id));
+        const category = CATEGORIES.find(cat => cat.id === categoryId);
+        const entries = categoryId === RECENT_ID ? recentEmojis : EMOJIS_BY_CATEGORY.get(categoryId);
+        this._populate(entries, category.title(), _('Pick an emoji to use it often'));
+    }
+
+    _queueSearch() {
+        this.timers.remove(this._searchTimerId);
+        this._searchTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, SEARCH_DEBOUNCE_MS, () => {
+            this._searchTimerId = 0;
+            this._runSearch();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _runSearch() {
+        const query = this._searchEntry.get_text().trim();
+        if (!query) {
+            this._showCategory(this._lastCategoryId);
+            return;
+        }
+
+        if (this._categoryId !== SEARCH_ID) this._lastCategoryId = this._categoryId;
+        this._categoryId = SEARCH_ID;
+        this._tabs.forEach((_tab, id) => this._styleTab(id));
+        this._populate(searchEmojis(query), _('Search results'), _('No emojis found'));
+    }
+
+    _populate(entries, title, emptyText) {
+        this._grid.destroy_all_children();
+        this._entries = entries;
+        this._cells = [];
+        this._highlight = -1;
+
+        this._sectionTitle.text = title;
+        this._emptyLabel.text = emptyText;
+        this._emptyLabel.visible = entries.length === 0;
+
+        let row = null;
+        entries.forEach((entry, index) => {
+            if (index % COLUMNS === 0) {
+                row = new St.BoxLayout();
+                setBoxVertical(row, false);
+                this._grid.add_child(row);
+            }
+
+            const cell = new St.Button({ label: entry.emoji, style: CELL_IDLE, accessible_name: entry.name });
+            cell.connectObject(
+                'notify::hover', () => {
+                    if (cell.hover) this._setHighlight(index, false);
+                },
+                'clicked', () => this._choose(index),
+                this
+            );
+            this._cells.push(cell);
+            row.add_child(cell);
+        });
+
+        this._scrollAdjustment().set_value(0);
+        this._setHighlight(entries.length > 0 ? 0 : -1, false);
+    }
+
+    _setHighlight(index, scrollIntoView = true) {
+        if (this._highlight >= 0) this._cells[this._highlight].set_style(CELL_IDLE);
+        this._highlight = index;
+
+        if (index < 0) {
+            this._previewEmoji.text = '';
+            this._previewName.text = '';
+            return;
+        }
+
+        const entry = this._entries[index];
+        this._cells[index].set_style(CELL_HIGHLIGHT);
+        this._previewEmoji.text = entry.emoji;
+        this._previewName.text = capitalize(entry.name);
+        if (scrollIntoView) this._scrollToRow(Math.floor(index / COLUMNS));
+    }
+
+    _scrollAdjustment() {
+        return this._scrollView.vadjustment || this._scrollView.get_vscroll_bar().get_adjustment();
+    }
+
+    _scrollToRow(rowIndex) {
+        const adjustment = this._scrollAdjustment();
+        const rowTop = rowIndex * CELL_SIZE;
+        const rowBottom = rowTop + CELL_SIZE;
+        const viewTop = adjustment.value;
+        const viewBottom = viewTop + adjustment.page_size;
+
+        if (rowTop < viewTop) adjustment.set_value(rowTop);
+        else if (rowBottom > viewBottom) adjustment.set_value(rowBottom - adjustment.page_size);
+    }
+
+    _choose(index) {
+        const entry = this._entries[index];
+        rememberRecent(entry);
+        this.onSelect(entry.emoji);
+        this.close();
+    }
+
+    _moveHighlight(delta) {
+        const count = this._cells.length;
+        if (count === 0) return;
+
+        let next = this._highlight + delta;
+        if (next < 0) next = Math.abs(delta) >= COLUMNS ? this._highlight % COLUMNS : 0;
+        if (next >= count) next = count - 1;
+        this._setHighlight(next);
+    }
+
+    _cycleCategory(step) {
+        const ids = CATEGORIES.map(cat => cat.id);
+        const index = ids.indexOf(this._lastCategoryId);
+        this._showCategory(ids[(index + step + ids.length) % ids.length]);
+    }
+
+    _onKeyPress(event) {
         const key = event.get_key_symbol();
-        if (this.activeEmojiButtons.length === 0) return Clutter.EVENT_PROPAGATE;
+        const isCtrl = (event.get_state() & Clutter.ModifierType.CONTROL_MASK) !== 0;
 
-        if (key === Clutter.KEY_Escape) {
-            this.closePicker();
-            return Clutter.EVENT_STOP;
-        }
-
-        if (key === Clutter.KEY_Return || key === Clutter.KEY_KP_Enter) {
-            if (this.currentFocusIndex >= 0) this.activeEmojiButtons[this.currentFocusIndex].emit('clicked', 0);
-            return Clutter.EVENT_STOP;
-        }
-
-        if (key === Clutter.KEY_Right) {
-            this.updateFocus((this.currentFocusIndex + 1) % this.activeEmojiButtons.length);
-            return Clutter.EVENT_STOP;
-        }
-
-        if (key === Clutter.KEY_Left) {
-            this.updateFocus((this.currentFocusIndex - 1 + this.activeEmojiButtons.length) % this.activeEmojiButtons.length);
-            return Clutter.EVENT_STOP;
-        }
-
-        if (key === Clutter.KEY_Down) {
-            this.updateFocus(Math.min(this.currentFocusIndex + EMOJIS_PER_ROW, this.activeEmojiButtons.length - 1));
-            return Clutter.EVENT_STOP;
-        }
-
-        if (key === Clutter.KEY_Up) {
-            this.updateFocus(Math.max(this.currentFocusIndex - EMOJIS_PER_ROW, 0));
-            return Clutter.EVENT_STOP;
-        }
-
-        return Clutter.EVENT_PROPAGATE;
-    }
-
-    closePicker() {
-        if (this.overlay) {
-            const overlayActor = this.overlay;
-            this.overlay = null;
-            if (isActorAlive(overlayActor)) {
-                overlayActor.destroy();
-            }
+        switch (key) {
+            case Clutter.KEY_Escape:
+                if (this._searchEntry.get_text()) this._searchEntry.set_text('');
+                else this.close();
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Return:
+            case Clutter.KEY_KP_Enter:
+                if (this._highlight >= 0) this._choose(this._highlight);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Right:
+                this._moveHighlight(1);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Left:
+                this._moveHighlight(-1);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Down:
+                this._moveHighlight(COLUMNS);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Up:
+                this._moveHighlight(-COLUMNS);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Page_Down:
+                if (isCtrl) this._cycleCategory(1);
+                else this._moveHighlight(COLUMNS * VISIBLE_ROWS);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Page_Up:
+                if (isCtrl) this._cycleCategory(-1);
+                else this._moveHighlight(-COLUMNS * VISIBLE_ROWS);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_Tab:
+                this._cycleCategory(1);
+                return Clutter.EVENT_STOP;
+            case Clutter.KEY_ISO_Left_Tab:
+                this._cycleCategory(-1);
+                return Clutter.EVENT_STOP;
+            default:
+                return Clutter.EVENT_PROPAGATE;
         }
     }
 
-    destroy() {
-        if (this._searchTimerId) {
-            this.timers.remove(this._searchTimerId);
-            this._searchTimerId = null;
+    _onDestroyed() {
+        this.timers.remove(this._searchTimerId);
+        this._searchTimerId = 0;
+        if (this._blur) {
+            this._blur.destroy();
+            this._blur = null;
         }
-        if (this.folderMenu && this.folderMenu._emojiOverlay === this.overlay) {
-            this.folderMenu._emojiOverlay = null;
-        }
-        if (this.folderMenu && this.folderMenu.menuContainer && isActorAlive(this.folderMenu.menuContainer)) {
-            this.folderMenu.menuContainer.show();
-        }
+        if (this.folderMenu._emojiOverlay === this.overlay) this.folderMenu._emojiOverlay = null;
+        if (isActorAlive(this.folderMenu.menuContainer)) this.folderMenu.menuContainer.show();
         this.overlay = null;
     }
 }

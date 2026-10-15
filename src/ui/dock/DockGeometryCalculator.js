@@ -18,10 +18,11 @@
 
 
 const SCREEN_EDGE_SAFETY_MARGIN = 16;
+const VERTICAL_CORRIDOR_MARGIN = 56;
 
-
-export function calculateScale(_isVertical, baseContentSize, maxZoomFactor, iconSize, availableSpace) {
-    const usableSpace = Math.max(100, availableSpace - (SCREEN_EDGE_SAFETY_MARGIN * 2));
+export function calculateScale(isVertical, baseContentSize, maxZoomFactor, iconSize, availableSpace) {
+    const edgeMargin = isVertical ? VERTICAL_CORRIDOR_MARGIN : SCREEN_EDGE_SAFETY_MARGIN;
+    const usableSpace = Math.max(100, availableSpace - (edgeMargin * 2));
 
     const actualMax = 1.0 + (maxZoomFactor - 1.0) * 2.0;
     const dynamicZoomPush = actualMax > 1.0 ? Math.round(iconSize * (actualMax - 1.0) * 1.6) : 0;

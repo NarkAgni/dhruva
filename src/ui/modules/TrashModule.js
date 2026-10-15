@@ -17,23 +17,46 @@
 */
 
 
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+
+import { isActorAlive } from '../../core/Utils.js';
 
 
-export function buildTrashModule(createBtn, toggleAppWindow) {
-    let trashIconName = 'user-trash';
-    const trashFile = Gio.File.new_for_uri('trash:///');
-    
-    if (trashFile.query_exists(null)) {
-        const enumerator = trashFile.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-        if (enumerator) {
-            if (enumerator.next_file(null)) {
-                trashIconName = 'user-trash-full';
-            }
-            enumerator.close(null);
+export function refreshTrashState(dockUI) {
+    const trash = Gio.File.new_for_uri('trash:///');
+    trash.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, null, (file, res) => {
+        let enumerator;
+        try {
+            enumerator = file.enumerate_children_finish(res);
+        } catch (_e) {
+            return;
         }
-    }
+        enumerator.next_files_async(1, GLib.PRIORITY_LOW, null, (e, filesRes) => {
+            let isFull = false;
+            try {
+                isFull = e.next_files_finish(filesRes).length > 0;
+            } catch (_err) {
+                isFull = false;
+            }
+            enumerator.close_async(GLib.PRIORITY_LOW, null, () => {});
 
-    return createBtn(trashIconName, _('Recycle Bin'), (btn) => toggleAppWindow('trash:///', null, _('Recycle Bin'), btn), null);
+            if (isFull === dockUI._trashIsFull) return;
+            dockUI._trashIsFull = isFull;
+            if (isActorAlive(dockUI.actor)) dockUI.queueRender('incremental', true);
+        });
+    });
+}
+
+export function buildTrashModule(dockUI, createBtn, toggleAppWindow) {
+    const iconName = dockUI._trashIsFull ? 'user-trash-full' : 'user-trash';
+    const btn = createBtn(iconName, _('Recycle Bin'), (button) => toggleAppWindow('trash:///', null, _('Recycle Bin'), button), null);
+    btn._isTrash = true;
+
+    if (dockUI._trashIsFull === undefined) {
+        dockUI._trashIsFull = false;
+        refreshTrashState(dockUI);
+    }
+    return btn;
 }

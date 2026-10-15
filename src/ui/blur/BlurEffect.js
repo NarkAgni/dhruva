@@ -78,6 +78,8 @@ class BlurEffect extends BlurShaderBase {
         this._ch = 80.0;
         this._mw = 400.0;
         this._mh = 80.0;
+        this._mx = 0.0;
+        this._my = 0.0;
 
         this._radius = 20.0;
         this._blurIntensity = 24.0;
@@ -90,6 +92,7 @@ class BlurEffect extends BlurShaderBase {
         this._tintB = 1.0;
         this._colorTintOpacity = 0.30;
         this._refraction = 0.0;
+        this._arrow = { side: 0, pos: 0, width: 0, height: 0 };
 
         this._pushAllUniforms();
     }
@@ -113,6 +116,8 @@ class BlurEffect extends BlurShaderBase {
         this._setFloatUniform('u_ch', this._ch);
         this._setFloatUniform('u_mw', this._mw);
         this._setFloatUniform('u_mh', this._mh);
+        this._setFloatUniform('u_mx', this._mx);
+        this._setFloatUniform('u_my', this._my);
     }
 
     _pushAllUniforms() {
@@ -132,7 +137,21 @@ class BlurEffect extends BlurShaderBase {
         this._setFloatUniform('u_tint_b', this._tintB);
         this._setFloatUniform('u_color_tint_opacity', Math.min(Math.max(0.0, this._colorTintOpacity), 1.0));
         this._setFloatUniform('u_refraction', Math.max(0.0, this._refraction));
+        this._pushArrowUniforms(scaleFactor);
 
+        this.queue_repaint();
+    }
+
+    _pushArrowUniforms(scaleFactor) {
+        this._setIntUniform('u_arrow_side', this._arrow.side);
+        this._setFloatUniform('u_arrow_pos', this._arrow.pos * scaleFactor);
+        this._setFloatUniform('u_arrow_w', this._arrow.width * scaleFactor);
+        this._setFloatUniform('u_arrow_h', this._arrow.height * scaleFactor);
+    }
+
+    setArrow(side, pos, width, height) {
+        this._arrow = { side, pos, width, height };
+        this._pushArrowUniforms(St.ThemeContext.get_for_stage(global.stage).scale_factor);
         this.queue_repaint();
     }
 
@@ -171,7 +190,7 @@ class BlurEffect extends BlurShaderBase {
             colorTintOpacity: this._colorTintOpacity,
             refraction: this._refraction,
         });
-        this._chained_effect.updateDimensions(this._cw, this._ch, this._mw, this._mh);
+        this._chained_effect.updateDimensions(this._cw, this._ch, this._mw, this._mh, this._mx, this._my);
     }
 
     setParams(p = {}) {
@@ -191,16 +210,18 @@ class BlurEffect extends BlurShaderBase {
             this._syncChained();
     }
 
-    updateDimensions(cw, ch, mw, mh) {
+    updateDimensions(cw, ch, mw, mh, mx = 0, my = 0) {
         this._cw = cw;
         this._ch = ch;
         this._mw = mw;
         this._mh = mh;
+        this._mx = mx;
+        this._my = my;
 
         this._pushDimensionUniforms();
         this.queue_repaint();
 
         if (this._direction === 0)
-            this._chained_effect.updateDimensions(cw, ch, mw, mh);
+            this._chained_effect.updateDimensions(cw, ch, mw, mh, mx, my);
     }
 });

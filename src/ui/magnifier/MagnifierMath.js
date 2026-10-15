@@ -119,21 +119,37 @@ export function getFixedSlots(dockActor, isVertical, btns) {
 }
 
 export function isPointerWithinDockBounds(dockActor, px, py, isVertical, settings) {
-    const [dx, dy] = dockActor.get_transformed_position();
-    const [dw, dh] = dockActor.get_transformed_size();
+    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
 
-    let boundsLeft = dx;
-    let boundsRight = dx + dw;
-    let boundsTop = dy;
-    let boundsBottom = dy + dh;
+    let boundsLeft, boundsRight, boundsTop, boundsBottom;
 
-    if (dockActor.bgActor) {
-        const [bx, by] = dockActor.bgActor.get_transformed_position();
-        const [bw, bh] = dockActor.bgActor.get_transformed_size();
-        boundsLeft = Math.min(boundsLeft, bx);
-        boundsRight = Math.max(boundsRight, bx + bw);
-        boundsTop = Math.min(boundsTop, by);
-        boundsBottom = Math.max(boundsBottom, by + bh);
+    if (isFullBar && dockActor.boxActor && isActorAlive(dockActor.boxActor)) {
+        const [bx, by] = dockActor.boxActor.get_transformed_position();
+        const [bw, bh] = dockActor.boxActor.get_transformed_size();
+        const iconSize = Settings.iconSize || 48;
+        const extraReach = iconSize * (Settings.hoverZoomRadius || 3.0);
+
+        boundsLeft = isVertical ? bx : bx - extraReach;
+        boundsRight = isVertical ? bx + bw : bx + bw + extraReach;
+        boundsTop = isVertical ? by - extraReach : by;
+        boundsBottom = isVertical ? by + bh + extraReach : by + bh;
+    } else {
+        const [dx, dy] = dockActor.get_transformed_position();
+        const [dw, dh] = dockActor.get_transformed_size();
+
+        boundsLeft = dx;
+        boundsRight = dx + dw;
+        boundsTop = dy;
+        boundsBottom = dy + dh;
+
+        if (dockActor.bgActor) {
+            const [bx, by] = dockActor.bgActor.get_transformed_position();
+            const [bw, bh] = dockActor.bgActor.get_transformed_size();
+            boundsLeft = Math.min(boundsLeft, bx);
+            boundsRight = Math.max(boundsRight, bx + bw);
+            boundsTop = Math.min(boundsTop, by);
+            boundsBottom = Math.max(boundsBottom, by + bh);
+        }
     }
 
     const pos = settings ? (Settings.dockPosition || 'BOTTOM') : 'BOTTOM';

@@ -55,6 +55,7 @@ export class MusicPillPopup {
 
         this._isOpen = false;
         this._isDragging = false;
+        this._sliderGrab = null;
         this._box = null;
         this._overlay = null;
 
@@ -244,6 +245,7 @@ export class MusicPillPopup {
 
         this._sliderCanvas.connectObject('button-press-event', (_actor, event) => {
             this._isDragging = true;
+            this._sliderGrab = global.stage.grab(this._sliderCanvas);
             const pct = this._getPercentFromCoord(event);
             this._positionSec = pct * this._durationSec;
             this._timeElapsedLabel.text = formatTime(this._positionSec);
@@ -262,7 +264,7 @@ export class MusicPillPopup {
 
         this._sliderCanvas.connectObject('button-release-event', (_actor, event) => {
             if (!this._isDragging) return Clutter.EVENT_PROPAGATE;
-            this._isDragging = false;
+            this._endSliderDrag();
             const pct = this._getPercentFromCoord(event);
             this._positionSec = pct * this._durationSec;
             this._timeElapsedLabel.text = formatTime(this._positionSec);
@@ -400,6 +402,14 @@ export class MusicPillPopup {
         this._overlay.add_child(this._box);
     }
 
+    _endSliderDrag() {
+        this._isDragging = false;
+        if (this._sliderGrab) {
+            this._sliderGrab.dismiss();
+            this._sliderGrab = null;
+        }
+    }
+
     _getPercentFromCoord(event) {
         const [x] = event.get_coords();
         const [absX] = this._sliderCanvas.get_transformed_position();
@@ -477,7 +487,7 @@ export class MusicPillPopup {
 
         if (!colors && artPath && GLib.file_test(artPath, GLib.FileTest.EXISTS)) {
             try {
-                const pixbuf = GdkPixbuf.Pixbuf.new_from_file(artPath);
+                const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(artPath, 64, 64, true);
                 if (pixbuf) {
                     colors = extractColorsFromPixbuf(pixbuf);
                 }
@@ -669,7 +679,7 @@ export class MusicPillPopup {
 
         this._overlay.set_position(0, 0);
         this._overlay.set_size(global.stage.width, global.stage.height);
-        Main.layoutManager.uiGroup.add_child(this._overlay);
+        if (!this._overlay.get_parent()) Main.layoutManager.uiGroup.add_child(this._overlay);
 
         this._positionPopup();
 
@@ -698,7 +708,7 @@ export class MusicPillPopup {
             return GLib.SOURCE_CONTINUE;
         });
 
-        this._stageClickId = global.stage.connectObject('captured-event', (_stage, event) => {
+        global.stage.connectObject('captured-event', (_stage, event) => {
             if (event.type() === Clutter.EventType.BUTTON_PRESS) {
                 const [cx, cy] = event.get_coords();
                 const [bx, by] = this._box.get_transformed_position();
@@ -730,6 +740,7 @@ export class MusicPillPopup {
     hide() {
         if (!this._isOpen) return;
         this._isOpen = false;
+        this._endSliderDrag();
 
         if (this._loopId) {
             this._tracker.remove(this._loopId);
@@ -745,10 +756,9 @@ export class MusicPillPopup {
             scale_y: 0.9,
             duration: 160,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onComplete: () => {
-                if (isActorAlive(this._overlay) && this._overlay.get_parent()) {
-                    Main.layoutManager.uiGroup.remove_child(this._overlay);
-                }
+            onStopped: () => {
+                if (this._isOpen || !isActorAlive(this._overlay)) return;
+                if (this._overlay.get_parent()) Main.layoutManager.uiGroup.remove_child(this._overlay);
             },
         });
     }
@@ -767,10 +777,7 @@ export class MusicPillPopup {
             this._tracker.destroy();
             this._tracker = null;
         }
-        if (this._artBackground && this._artBlurEffect) {
-            try { this._artBackground.remove_effect(this._artBlurEffect); } catch (_e) { }
-            this._artBlurEffect = null;
-        }
+        this._artBlurEffect = null;
         if (isActorAlive(this._overlay)) {
             this._overlay.destroy();
         }

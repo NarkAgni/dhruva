@@ -17,7 +17,6 @@
 */
 
 
-import Gio from 'gi://Gio';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
@@ -34,7 +33,63 @@ import { ensureExternalDrop, dockOrderKeys, isSlotButton, saveDockLayout, source
 
 
 const DRAG_SWAP_THROTTLE_MS = 60;
+const REORDER_SLIDE_MS = 200;
 let lastSwapTime = 0;
+
+function _closestByVisual(buttons, isVertical) {
+    const [px, py] = global.get_pointer();
+    const cursor = isVertical ? py : px;
+    let closest = -1;
+    let minDiff = Infinity;
+
+    buttons.forEach((b, i) => {
+        const [bx, by] = b.get_transformed_position();
+        const [bw, bh] = b.get_transformed_size();
+        const diff = Math.abs((isVertical ? by + bh / 2 : bx + bw / 2) - cursor);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = i;
+        }
+    });
+    return closest;
+}
+
+function _closestByLayout(buttons, box, isVertical) {
+    const [px, py] = global.get_pointer();
+    const [, lx, ly] = box.transform_stage_point(px, py);
+    const cursor = isVertical ? ly : lx;
+    let closest = -1;
+    let minDiff = Infinity;
+
+    buttons.forEach((b, i) => {
+        const diff = Math.abs((isVertical ? b.y + b.height / 2 : b.x + b.width / 2) - cursor);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = i;
+        }
+    });
+    return closest;
+}
+
+function _moveWithSlide(box, moved, index, isVertical) {
+    const prop = isVertical ? 'translation_y' : 'translation_x';
+    const transitionName = isVertical ? 'translation-y' : 'translation-x';
+    const children = box.get_children();
+    const before = children.map(c => (isVertical ? c.y : c.x));
+
+    box.set_child_at_index(moved, index);
+    box.get_allocation_box();
+
+    children.forEach((c, i) => {
+        if (c === moved) return;
+        const delta = before[i] - (isVertical ? c.y : c.x);
+        if (Math.abs(delta) < 1) return;
+
+        c.remove_transition(transitionName);
+        c[prop] += delta;
+        c.ease({ [prop]: 0, duration: REORDER_SLIDE_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+    });
+}
 
 function _sourceButton(source) {
     const delegate = sourceDelegate(source);
@@ -143,7 +198,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
                     } else {
                         const targetAppId = (app && app.get_id) ? app.get_id() : null;
                         if (targetAppId && targetAppId !== draggedId) {
-                            const folderId = dockUI.folderManager.createFolder(_('New Folder'));
+                            const folderId = dockUI.folderManager.createFolder(_('New Folder'), 'folder', targetAppId);
                             dockUI.folderManager.addAppToFolder(folderId, targetAppId);
                             dockUI.folderManager.addAppToFolder(folderId, draggedId);
                         }
@@ -207,34 +262,17 @@ export function setupDragAndDrop(btn, app, dockUI) {
             if (now - lastSwapTime < DRAG_SWAP_THROTTLE_MS) return DND.DragMotionResult.MOVE_DROP;
 
             const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-            const [px, py] = global.get_pointer();
+            const hoverZoom = Settings.hoverZoom;
+            const closestIndex = hoverZoom
+                ? _closestByVisual(allBtns, isVertical)
+                : _closestByLayout(allBtns, dockUI.boxActor, isVertical);
 
-            let closestIndex = draggedIndex;
-            let minDiff = Infinity;
+            if (closestIndex === -1 || closestIndex === draggedIndex) return DND.DragMotionResult.MOVE_DROP;
 
-            for (let i = 0; i < allBtns.length; i++) {
-                const targetBtn = allBtns[i];
-                const [bx, by] = targetBtn.get_transformed_position();
-                const [bw, bh] = targetBtn.get_transformed_size();
-
-                const visualCenter = isVertical ? (by + bh / 2) : (bx + bw / 2);
-                const cursorCoord = isVertical ? py : px;
-
-                const diff = Math.abs(visualCenter - cursorCoord);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestIndex = i;
-                }
-            }
-
-            if (closestIndex === draggedIndex) return DND.DragMotionResult.MOVE_DROP;
-
-            const targetBtn = allBtns[closestIndex];
-            const realBoxChildren = dockUI.boxActor.get_children();
-            const realTargetIndex = realBoxChildren.indexOf(targetBtn);
-
+            const realTargetIndex = dockUI.boxActor.get_children().indexOf(allBtns[closestIndex]);
             if (realTargetIndex !== -1) {
-                dockUI.boxActor.set_child_at_index(draggedBtn, realTargetIndex);
+                if (hoverZoom) dockUI.boxActor.set_child_at_index(draggedBtn, realTargetIndex);
+                else _moveWithSlide(dockUI.boxActor, draggedBtn, realTargetIndex, isVertical);
                 mainActor._fixedSlots = null;
                 mainActor._structureChanged = true;
             }
@@ -249,30 +287,15 @@ export function setupDragAndDrop(btn, app, dockUI) {
         manualMode: false
     });
 
+    let dragFinished = true;
+
     draggable.connect('drag-cancelled', () => {
-        if (dockUI.actor._mergeTargetButton) {
-            _clearMergeHint(dockUI.actor._mergeTargetButton, dockUI);
-        }
-
-        if (draggable._dragActor) {
-            draggable._dragActor.opacity = 0;
-        }
-
-        if (isActorAlive(btn)) {
-            btn.opacity = 255;
-            btn.scale_x = 1.0;
-            btn.scale_y = 1.0;
-            btn.translation_x = 0;
-            btn.translation_y = 0;
-            btn.rotation_angle_z = 0;
-            btn.rotation_angle_y = 0;
-            btn.rotation_angle_x = 0;
-        }
-
-        resetMagnification(dockUI.actor, 150, false);
+        if (draggable._dragActor) draggable._dragActor.opacity = 0;
+        finishDrag();
     });
 
     draggable.connect('drag-begin', () => {
+        dragFinished = false;
         btn._wasDragged = true;
         btn.opacity = 0;
         const mainActor = dockUI.actor;
@@ -291,10 +314,21 @@ export function setupDragAndDrop(btn, app, dockUI) {
             b._flipOffset = 0;
             b._flipStartTime = null;
         });
-        startDragLoop(mainActor, isVertical, dockUI.settings);
+        if (Settings.hoverZoom) startDragLoop(mainActor, isVertical, dockUI.settings);
     });
 
     draggable.connect('drag-end', () => {
+        if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
+            draggable._dragActor.opacity = 0;
+            draggable._dragActor.destroy();
+        }
+        finishDrag();
+    });
+
+    function finishDrag() {
+        if (dragFinished) return;
+        dragFinished = true;
+
         const mainActor = dockUI.actor;
         mainActor._isDragging = false;
         mainActor._lastIconClickTime = Date.now();
@@ -305,21 +339,30 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
         stopDragLoop(mainActor);
 
-        if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
-            draggable._dragActor.opacity = 0;
-            draggable._dragActor.destroy();
-        }
-
         const [px, py] = global.get_pointer();
         const [bx, by] = dockUI.boxActor.get_transformed_position();
         const [bw, bh] = dockUI.boxActor.get_transformed_size();
         const isOutside = px < bx - 50 || px > bx + bw + 50 || py < by - 50 || py > by + bh + 50;
 
         const entityId = btn._isFolder ? btn._folderData.id : (app && app.get_id ? app.get_id() : null);
+        const entityKey = btn._isFolder ? `folder:${entityId}` : entityId;
 
         const [dx, dy] = mainActor.get_transformed_position();
         const [dw, dh] = mainActor.get_transformed_size();
         const isInsideMain = px >= dx - 20 && px <= dx + dw + 20 && py >= dy - 20 && py <= dy + dh + 20;
+
+        const activeMenu = dockUI._activeFolderMenu;
+        if (!btn._wasMerged && !btn._isFolder && activeMenu && activeMenu.menuContainer && isActorAlive(activeMenu.menuContainer)) {
+            const [mx, my] = activeMenu.menuContainer.get_transformed_position();
+            const [mw, mh] = activeMenu.menuContainer.get_transformed_size();
+            const isInsideFolderBox = px >= mx - 12 && px <= mx + mw + 12 && py >= my - 12 && py <= my + mh + 12;
+
+            if (isInsideFolderBox && activeMenu._handleExternalAppDrop) {
+                if (activeMenu._handleExternalAppDrop(btn)) {
+                    btn._wasMerged = true;
+                }
+            }
+        }
 
         if (btn._wasMerged) {
             btn._wasMerged = false;
@@ -329,28 +372,10 @@ export function setupDragAndDrop(btn, app, dockUI) {
         }
 
         if (isOutside && !isInsideMain && entityId) {
-            dockUI._draggedOutKey = entityId;
+            dockUI._draggedOutKey = entityKey;
 
-            if (btn._isFolder) {
-                dockUI.folderManager.deleteFolder(entityId);
-            } else {
-                dockUI.appManager.removeApp(app);
-
-                const isIndependent = Settings.independentDock;
-                if (!isIndependent && app && app.get_id) {
-                    try {
-                        const appId = app.get_id();
-                        const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-                        const currentFavs = shellSettings.get_strv('favorite-apps') || [];
-                        if (currentFavs.includes(appId)) {
-                            const newFavs = currentFavs.filter(id => id !== appId);
-                            shellSettings.set_strv('favorite-apps', newFavs);
-                        }
-                    } catch (e) {
-                        console.error(`[Dhruva] Failed to unpin: ${e.message}`);
-                    }
-                }
-            }
+            if (btn._isFolder) dockUI.folderManager.deleteFolder(entityId);
+            else dockUI.appManager.removeApp(app);
 
             btn.opacity = 0;
             if (btn._isFolder || (app && app.get_state() !== Shell.AppState.RUNNING)) {
@@ -381,18 +406,18 @@ export function setupDragAndDrop(btn, app, dockUI) {
             dockUI.appManager.addApp(app);
         }
 
-        saveDockLayout(dockUI, dockOrderKeys(dockUI.boxActor), entityId);
+        saveDockLayout(dockUI, dockOrderKeys(dockUI.boxActor), entityKey);
 
         mainActor._fixedSlots = null;
         mainActor._structureChanged = true;
 
         if (!isInsideMain) {
             resetMagnification(mainActor, 180, false);
-        } else {
+        } else if (Settings.hoverZoom) {
             const isVert = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
             applyRealtimeFrame(mainActor, px, py, isVert, dockUI.settings, Date.now());
         }
 
         dockUI.queueRender('incremental');
-    });
+    }
 }

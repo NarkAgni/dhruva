@@ -19,282 +19,314 @@
 
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
+import cairo from 'gi://cairo';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { addComboRow, addColorRow, addSwitchRow, addSegmentedRow, addCustomSpinRow } from './PrefsWidgets.js';
+import { onSettingChanged } from './SettingsSignals.js';
+import {
+    fmt, addGroup, addGroupReset, showWhen, addSwitchRow, addSliderRow, addComboRow, addSegmentedRow,
+    addColorRow, addToggleExpander, parseColor, roundedRect, paintBackdrop, MOCK_ICON_COLORS,
+} from './PrefsWidgets.js';
 
 
-export function buildAppearancePage(window, settings, createResetBtn, createGroupReset) {
+const THEMES = () => [
+    { name: _('Custom Color'), value: 'default' },
+    { name: _('Wallpaper Color'), value: 'chameleon' },
+    { name: _('Carbon'), value: 'carbon' },
+    { name: _('Nord'), value: 'nord' },
+    { name: _('Catppuccin Mocha'), value: 'catppuccin' },
+    { name: _('Gruvbox Dark'), value: 'gruvbox' },
+    { name: _('Ash Glass'), value: 'ash' },
+    { name: _('Dracula'), value: 'dracula' },
+    { name: _('Tokyo Night'), value: 'tokyo-night' },
+    { name: _('Aurora'), value: 'aurora' },
+    { name: _('Sunset'), value: 'sunset' },
+    { name: _('Slate Ocean'), value: 'slate-ocean' },
+];
+
+const BACKGROUND_KEYS = ['background-color', 'use-gradient', 'background-gradient-color', 'gradient-direction', 'background-opacity'];
+const SHAPE_KEYS = ['border-radius', 'stroke-width', 'stroke-color', 'stroke-opacity'];
+const INDICATOR_KEYS = ['indicator-style', 'indicator-color-mode', 'indicator-color', 'indicator-size', 'indicator-glow'];
+
+const RUNNING_ICONS = new Set([0, 2, 3]);
+const BADGE_ICON = 2;
+const APP_SEPARATOR_AFTER = 4;
+const MODULE_SEPARATOR_AFTER = 5;
+
+const PREVIEW_HEIGHT = 150;
+const PREVIEW_INDICATOR_GAP = 6;
+
+class DockPreview {
+    constructor(settings) {
+        this._settings = settings;
+        this.widget = new Gtk.DrawingArea({ content_height: PREVIEW_HEIGHT, hexpand: true });
+        this.widget.set_draw_func((_area, cr, w, h) => this._draw(cr, w, h));
+    }
+
+    redraw() {
+        this.widget.queue_draw();
+    }
+
+    _num(key) {
+        return this._settings.get_value(key).unpack();
+    }
+
+    _draw(cr, w, h) {
+        const s = this._settings;
+        roundedRect(cr, 0, 0, w, h, 14);
+        cr.clip();
+        paintBackdrop(cr, w, h);
+
+        const isBar = s.get_boolean('full-width') || s.get_boolean('hybrid-panel-mode');
+        const iconSize = 32;
+        const gap = 10;
+        const count = MOCK_ICON_COLORS.length;
+        const separatorRoom = 2 * (gap + 2);
+        const contentW = count * iconSize + (count - 1) * gap + separatorRoom;
+        const dockH = iconSize + 26;
+        const dockW = isBar ? w : contentW + 36;
+        const dockX = (w - dockW) / 2;
+        const dockY = isBar ? h - dockH : h - dockH - 20;
+        const radius = isBar ? 0 : Math.min(this._num('border-radius'), dockH / 2);
+
+        this._paintBackground(cr, dockX, dockY, dockW, dockH, radius, isBar);
+        this._paintIcons(cr, (w - contentW) / 2, dockY + (dockH - iconSize) / 2 - 2, iconSize, gap);
+    }
+
+    _paintBackground(cr, x, y, w, h, r, isBar) {
+        const s = this._settings;
+        roundedRect(cr, x, y, w, h, r);
+
+        if (s.get_boolean('blur-enabled')) {
+            cr.setSourceRGBA(1, 1, 1, 0.16);
+            cr.fillPreserve();
+        } else if (s.get_string('dock-theme') === 'default') {
+            const opacity = this._num('background-opacity') / 100;
+            const start = parseColor(s.get_string('background-color'));
+            if (s.get_boolean('use-gradient')) {
+                const end = parseColor(s.get_string('background-gradient-color'));
+                const isVertical = s.get_string('gradient-direction') === 'vertical';
+                const gradient = new cairo.LinearGradient(x, y, isVertical ? x : x + w, isVertical ? y + h : y);
+                gradient.addColorStopRGBA(0, start.red, start.green, start.blue, opacity);
+                gradient.addColorStopRGBA(1, end.red, end.green, end.blue, opacity);
+                cr.setSource(gradient);
+            } else {
+                cr.setSourceRGBA(start.red, start.green, start.blue, opacity);
+            }
+            cr.fillPreserve();
+        } else {
+            cr.setSourceRGBA(0.1, 0.1, 0.13, 0.8);
+            cr.fillPreserve();
+        }
+
+        const strokeWidth = isBar ? 0 : this._num('stroke-width');
+        if (strokeWidth > 0) {
+            const stroke = parseColor(s.get_string('stroke-color'));
+            cr.setSourceRGBA(stroke.red, stroke.green, stroke.blue, this._num('stroke-opacity') / 100);
+            cr.setLineWidth(strokeWidth);
+            cr.stroke();
+        } else {
+            cr.newPath();
+        }
+    }
+
+    _paintIcons(cr, startX, y, size, gap) {
+        const s = this._settings;
+        let x = startX;
+
+        MOCK_ICON_COLORS.forEach(([r, g, b], index) => {
+            roundedRect(cr, x, y, size, size, 8);
+            cr.setSourceRGB(r, g, b);
+            cr.fill();
+
+            if (RUNNING_ICONS.has(index) && s.get_boolean('show-running-indicators'))
+                this._paintIndicator(cr, x + size / 2, y + size, [r, g, b], index === 0);
+            if (index === BADGE_ICON && s.get_boolean('show-notification-badges'))
+                this._paintBadge(cr, x + size - 4, y + 4);
+
+            x += size + gap;
+            if (index === APP_SEPARATOR_AFTER - 1 && s.get_boolean('show-app-separator')) {
+                this._paintSeparator(cr, x - gap / 2 + 1, y, size, 'running-separator');
+                x += gap + 2;
+            } else if (index === MODULE_SEPARATOR_AFTER - 1 && s.get_boolean('show-module-separator')) {
+                this._paintSeparator(cr, x - gap / 2 + 1, y, size, 'separator');
+                x += gap + 2;
+            } else if (index === APP_SEPARATOR_AFTER - 1 || index === MODULE_SEPARATOR_AFTER - 1) {
+                x += gap + 2;
+            }
+        });
+    }
+
+    _paintSeparator(cr, centerX, iconY, size, prefix) {
+        const s = this._settings;
+        const width = Math.max(1, this._num(`${prefix}-width`));
+        const length = size * this._num(`${prefix}-height`) / 100;
+        const color = parseColor(s.get_string(`${prefix}-color`));
+        roundedRect(cr, centerX - width / 2, iconY + (size - length) / 2, width, length, width / 2);
+        cr.setSourceRGBA(color.red, color.green, color.blue, this._num(`${prefix}-opacity`) / 100);
+        cr.fill();
+    }
+
+    _paintIndicator(cr, centerX, iconBottom, iconColor, isFocused) {
+        const s = this._settings;
+        const style = s.get_string('indicator-style');
+        const size = this._num('indicator-size');
+        const top = iconBottom + PREVIEW_INDICATOR_GAP;
+
+        let color = { red: iconColor[0], green: iconColor[1], blue: iconColor[2] };
+        if (s.get_string('indicator-color-mode') === 'custom') color = parseColor(s.get_string('indicator-color'));
+
+        let w = size;
+        let h = size;
+        let r = size / 2;
+        if (style === 'dash') w = size * 2.5;
+        else if (style === 'line') {
+            w = 22;
+            h = Math.max(2, size / 2);
+        } else if (style === 'square') r = 1;
+        else if (style === 'windows') {
+            w = isFocused ? 18 : 8;
+            h = Math.max(2, size / 2);
+        }
+
+        if (s.get_boolean('indicator-glow')) {
+            roundedRect(cr, centerX - w / 2 - 2, top - 2, w + 4, h + 4, r + 2);
+            cr.setSourceRGBA(color.red, color.green, color.blue, 0.35);
+            cr.fill();
+        }
+        roundedRect(cr, centerX - w / 2, top, w, h, Math.min(r, h / 2));
+        cr.setSourceRGBA(color.red, color.green, color.blue, 1);
+        cr.fill();
+    }
+
+    _paintBadge(cr, centerX, centerY) {
+        cr.arc(centerX, centerY, 7, 0, 2 * Math.PI);
+        cr.setSourceRGB(0.9, 0.22, 0.24);
+        cr.fill();
+        cr.setSourceRGB(1, 1, 1);
+        cr.selectFontFace('Sans', 0, 1);
+        cr.setFontSize(9);
+        cr.moveTo(centerX - 2.7, centerY + 3.2);
+        cr.showText('3');
+    }
+}
+
+
+export function buildAppearancePage(window, settings) {
     const page = new Adw.PreferencesPage({
         title: _('Appearance'),
-        icon_name: 'preferences-desktop-wallpaper-symbolic'
-    });
-    window.add(page);
-
-    const colorsGroup = new Adw.PreferencesGroup({
-        title: _('Panel Style'),
-        description: _('Background colors and borders')
-    });
-    page.add(colorsGroup);
-
-    const themeOptions = [
-        { name: _('Custom Color'), value: 'default' },
-        { name: _('Wallpaper Color'), value: 'chameleon' },
-        { name: _('Carbon'), value: 'carbon' },
-        { name: _('Nord'), value: 'nord' },
-        { name: _('Catppuccin Mocha'), value: 'catppuccin' },
-        { name: _('Gruvbox Dark'), value: 'gruvbox' },
-        { name: _('Ash Glass'), value: 'ash' },
-        { name: _('Dracula'), value: 'dracula' },
-        { name: _('Tokyo Night'), value: 'tokyo-night' },
-        { name: _('Aurora'), value: 'aurora' },
-        { name: _('Sunset'), value: 'sunset' },
-        { name: _('Slate Ocean'), value: 'slate-ocean' },
-    ];
-
-    addComboRow(colorsGroup, settings, 'dock-theme', _('Dock Theme'), _('Choose a preset theme or use custom colors'), 'preferences-desktop-theme-symbolic', themeOptions, null);
-
-    const chameleonBanner = new Adw.ActionRow({
-        title: _('Chameleon Active'),
-        subtitle: _('Dock color &amp; indicator auto-update from your wallpaper'),
         icon_name: 'preferences-desktop-wallpaper-symbolic',
-        css_classes: ['success']
     });
-    colorsGroup.add(chameleonBanner);
 
-    const bgColorRow = addColorRow(colorsGroup, settings, 'background-color', _('Primary Color'), 'preferences-desktop-appearance-symbolic');
-    const useGradRow = addSwitchRow(colorsGroup, settings, 'use-gradient', _('Use Gradient'), _('Blend with a second color'), 'view-continuous-symbolic', null);
-    const bgGradColorRow = addColorRow(colorsGroup, settings, 'background-gradient-color', _('Secondary Color'), 'preferences-desktop-appearance-symbolic');
-    const gradDirRow = addSegmentedRow(colorsGroup, settings, 'gradient-direction', _('Gradient Direction'), _('Flow of the gradient'), 'view-refresh-symbolic', [
+    const preview = new DockPreview(settings);
+    const isBlur = () => settings.get_boolean('blur-enabled');
+    const isFullBar = () => settings.get_boolean('full-width') || settings.get_boolean('hybrid-panel-mode');
+
+    const heroGroup = addGroup(page, _('Your Dock'), _('Changes show up here as you make them'));
+    heroGroup.add(preview.widget);
+
+    const themeGroup = addGroup(page, _('Background'));
+    addGroupReset(themeGroup, settings, ['dock-theme', ...BACKGROUND_KEYS]);
+    addComboRow(themeGroup, settings, 'dock-theme', _('Theme'), _('A ready palette, or your own colours'), THEMES());
+
+    const chameleonRow = new Adw.ActionRow({
+        title: _('Matching your wallpaper'),
+        subtitle: _('Dock and indicator colours follow the current wallpaper'),
+        css_classes: ['success'],
+    });
+    themeGroup.add(chameleonRow);
+
+    const isCustom = () => settings.get_string('dock-theme') === 'default';
+    const useGradient = () => isCustom() && settings.get_boolean('use-gradient');
+
+    const colorRow = addColorRow(themeGroup, settings, 'background-color', _('Colour'));
+    const gradientRow = addSwitchRow(themeGroup, settings, 'use-gradient', _('Gradient'), _('Blend into a second colour'));
+    const secondColorRow = addColorRow(themeGroup, settings, 'background-gradient-color', _('Second Colour'));
+    const directionRow = addSegmentedRow(themeGroup, settings, 'gradient-direction', _('Direction'), null, [
         { name: _('Vertical'), value: 'vertical' },
-        { name: _('Horizontal'), value: 'horizontal' }
+        { name: _('Horizontal'), value: 'horizontal' },
     ]);
+    addSliderRow(themeGroup, settings, 'background-opacity', _('Opacity'), null, { lower: 0, upper: 100, step: 5 }, fmt.percent);
 
-    addCustomSpinRow(colorsGroup, settings, 'background-opacity', _('Background Opacity'), _('0 = Invisible, 100 = Solid'), 'view-reveal-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
+    showWhen(chameleonRow, settings, ['dock-theme'], () => settings.get_string('dock-theme') === 'chameleon');
+    showWhen(colorRow, settings, ['dock-theme'], isCustom);
+    showWhen(gradientRow, settings, ['dock-theme'], isCustom);
+    showWhen(secondColorRow, settings, ['dock-theme', 'use-gradient'], useGradient);
+    showWhen(directionRow, settings, ['dock-theme', 'use-gradient'], useGradient);
+    showWhen(themeGroup, settings, ['blur-enabled'], () => !isBlur());
 
-    const tooltipOpacityRow = addCustomSpinRow(colorsGroup, settings, 'tooltip-opacity', _('Hover Box Opacity'), _('App preview box background opacity (0-100)'), 'dialog-information-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
+    const glassNote = addGroup(page, _('Background'));
+    glassNote.add(new Adw.ActionRow({
+        title: _('Blur is on'),
+        subtitle: _('The dock is made of glass now. Its look is set on the Blur page'),
+    }));
+    showWhen(glassNote, settings, ['blur-enabled'], isBlur);
 
-    const syncTooltipVisibility = () => {
-        const hoverZoom = settings.get_boolean('hover-zoom');
-        tooltipOpacityRow.set_visible(!hoverZoom);
-    };
-    settings.connect('changed::hover-zoom', syncTooltipVisibility);
-    syncTooltipVisibility();
+    const shapeGroup = addGroup(page, _('Shape'));
+    addGroupReset(shapeGroup, settings, SHAPE_KEYS);
+    addSliderRow(shapeGroup, settings, 'border-radius', _('Corner Radius'), null, { lower: 0, upper: 50, step: 1 }, fmt.px);
+    addSliderRow(shapeGroup, settings, 'stroke-width', _('Outline'), _('Line around the dock, 0 hides it'),
+        { lower: 0, upper: 10, step: 1 }, fmt.px);
+    const strokeColorRow = addColorRow(shapeGroup, settings, 'stroke-color', _('Outline Colour'));
+    const strokeOpacityRow = addSliderRow(shapeGroup, settings, 'stroke-opacity', _('Outline Opacity'), null,
+        { lower: 0, upper: 100, step: 5 }, fmt.percent);
+    const hasStroke = () => preview._num('stroke-width') > 0;
+    showWhen(strokeColorRow, settings, ['stroke-width'], hasStroke);
+    showWhen(strokeOpacityRow, settings, ['stroke-width'], hasStroke);
+    showWhen(shapeGroup, settings, ['full-width', 'hybrid-panel-mode'], () => !isFullBar());
 
-    const radiusRow = addCustomSpinRow(colorsGroup, settings, 'border-radius', _('Border Radius'), _('Corner roundness'), 'media-record-symbolic', {
-        lower: 0,
-        upper: 50,
-        step_increment: 1
-    }, createResetBtn);
-
-    const strokeExpander = new Adw.ExpanderRow({
-        title: _('Border Outline (Stroke)'),
-        subtitle: _('Draw an outer line around the dock'),
-        icon_name: 'format-text-strikethrough-symbolic',
-        show_enable_switch: false
-    });
-    strokeExpander.add_suffix(createGroupReset(['stroke-width', 'stroke-color', 'stroke-opacity']));
-    colorsGroup.add(strokeExpander);
-
-    const desktopBtnExp = new Adw.ExpanderRow({
-        title: _('Show Desktop Button Style'),
-        subtitle: _('Customize the right-edge desktop button'),
-        icon_name: 'computer-symbolic'
-    });
-
-    const masterDeskReset = createGroupReset(['desktop-btn-width', 'desktop-btn-opacity', 'desktop-btn-color']);
-    masterDeskReset.valign = Gtk.Align.CENTER;
-    desktopBtnExp.add_suffix(masterDeskReset);
-    colorsGroup.add(desktopBtnExp);
-
-    addCustomSpinRow(desktopBtnExp, settings, 'desktop-btn-width', _('Thickness'), _('Width in pixels'), 'format-text-strikethrough-symbolic', {
-        lower: 2,
-        upper: 100,
-        step_increment: 1
-    }, createResetBtn);
-
-    addCustomSpinRow(desktopBtnExp, settings, 'desktop-btn-opacity', _('Opacity'), _('0 = Invisible, 100 = Solid'), 'view-reveal-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
-
-    addColorRow(desktopBtnExp, settings, 'desktop-btn-color', _('Color'), 'preferences-desktop-appearance-symbolic');
-
-    const syncDesktopBtnVisibility = () => {
-        const isFull = settings.get_boolean('full-width');
-        desktopBtnExp.set_visible(isFull);
-    };
-    settings.connect('changed::full-width', syncDesktopBtnVisibility);
-    syncDesktopBtnVisibility();
-
-    addCustomSpinRow(strokeExpander, settings, 'stroke-width', _('Stroke Width'), _('Thickness in pixels (0 to disable)'), 'format-text-strikethrough-symbolic', {
-        lower: 0,
-        upper: 10,
-        step_increment: 1
-    }, createResetBtn);
-
-    addColorRow(strokeExpander, settings, 'stroke-color', _('Stroke Color'), 'preferences-desktop-appearance-symbolic');
-
-    addCustomSpinRow(strokeExpander, settings, 'stroke-opacity', _('Stroke Opacity'), _('0 = Invisible, 100 = Solid'), 'view-reveal-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
-
-    const syncRadiusVisibility = () => {
-        const isFull = settings.get_boolean('full-width');
-        radiusRow.set_visible(!isFull);
-        strokeExpander.set_visible(!isFull);
-    };
-    settings.connect('changed::full-width', syncRadiusVisibility);
-    syncRadiusVisibility();
-
-    const sepGroup = new Adw.PreferencesGroup({
-        title: _('Separators'),
-        description: _('Divider lines between dock items')
-    });
-    page.add(sepGroup);
-
-    const modSepExp = new Adw.ExpanderRow({
-        title: _('Module Separator'),
-        subtitle: _('Divides clock, grid, and system icons'),
-        icon_name: 'format-text-strikethrough-symbolic'
-    });
-
-    const masterModSepReset = createGroupReset(['show-module-separator', 'separator-width', 'separator-height', 'separator-color', 'separator-opacity']);
-    masterModSepReset.valign = Gtk.Align.CENTER;
-    modSepExp.add_suffix(masterModSepReset);
-    sepGroup.add(modSepExp);
-
-    addSwitchRow(modSepExp, settings, 'show-module-separator', _('Enable Module Separator'), _('Show a divider for system modules'), 'view-more-horizontal-symbolic', createResetBtn);
-
-    addCustomSpinRow(modSepExp, settings, 'separator-width', _('Thickness'), _('Width in pixels'), 'format-text-strikethrough-symbolic', {
-        lower: 0,
-        upper: 10,
-        step_increment: 1
-    }, createResetBtn);
-    addCustomSpinRow(modSepExp, settings, 'separator-height', _('Height / Length'), _('Percentage of dock size (10-100)'), 'format-justify-fill-symbolic', {
-        lower: 10,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
-    addColorRow(modSepExp, settings, 'separator-color', _('Color'), 'preferences-desktop-appearance-symbolic');
-    addCustomSpinRow(modSepExp, settings, 'separator-opacity', _('Opacity'), _('0 = Invisible, 100 = Solid'), 'view-reveal-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
-
-    const appSepExp = new Adw.ExpanderRow({
-        title: _('App Separator'),
-        subtitle: _('Divides pinned apps from running apps'),
-        icon_name: 'format-justify-center-symbolic'
-    });
-
-    const masterAppSepReset = createGroupReset(['show-app-separator', 'running-separator-width', 'running-separator-height', 'running-separator-color', 'running-separator-opacity']);
-    masterAppSepReset.valign = Gtk.Align.CENTER;
-    appSepExp.add_suffix(masterAppSepReset);
-    sepGroup.add(appSepExp);
-
-    addSwitchRow(appSepExp, settings, 'show-app-separator', _('Enable App Separator'), _('Show a divider between pinned and unpinned apps'), 'view-more-horizontal-symbolic', createResetBtn);
-
-    addCustomSpinRow(appSepExp, settings, 'running-separator-width', _('Thickness'), _('Width in pixels'), 'format-text-strikethrough-symbolic', {
-        lower: 0,
-        upper: 10,
-        step_increment: 1
-    }, createResetBtn);
-    addCustomSpinRow(appSepExp, settings, 'running-separator-height', _('Height / Length'), _('Percentage of dock size (10-100)'), 'format-justify-fill-symbolic', {
-        lower: 10,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
-    addColorRow(appSepExp, settings, 'running-separator-color', _('Color'), 'preferences-desktop-appearance-symbolic');
-    addCustomSpinRow(appSepExp, settings, 'running-separator-opacity', _('Opacity'), _('0 = Invisible, 100 = Solid'), 'view-reveal-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 5
-    }, createResetBtn);
-
-    const badgesGroup = new Adw.PreferencesGroup({
-        title: _('App Notifications'),
-        description: _('Unread message counters')
-    });
-    page.add(badgesGroup);
-    addSwitchRow(badgesGroup, settings, 'show-notification-badges', _('Show Notification Badges'), _('Display unread message counts on app icons'), 'user-available-symbolic');
-
-    const indGroup = new Adw.PreferencesGroup({
-        title: _('Indicators'),
-        description: _('Styles for currently active applications')
-    });
-    page.add(indGroup);
-
-    const indExpander = new Adw.ExpanderRow({
-        title: _('Running Indicators'),
-        subtitle: _('Settings for the active app dots/lines'),
-        icon_name: 'media-record-symbolic',
-        expanded: true
-    });
-    const masterIndReset = createGroupReset(['show-running-indicators', 'indicator-style', 'indicator-color', 'indicator-size', 'indicator-spacing', 'indicator-glow', 'indicator-color-mode']);
-    masterIndReset.valign = Gtk.Align.CENTER;
-    indExpander.add_suffix(masterIndReset);
-    indGroup.add(indExpander);
-
-    addSwitchRow(indExpander, settings, 'show-running-indicators', _('Show Indicators'), _('Display active marks under icons'), 'media-record-symbolic', createResetBtn);
-
-    addComboRow(indExpander, settings, 'indicator-style', _('Indicator Style'), _('Shape of the indicator'), 'view-list-symbolic', [
+    const indicatorGroup = addGroup(page, _('Running Apps'));
+    addGroupReset(indicatorGroup, settings, INDICATOR_KEYS);
+    const indicatorExpander = addToggleExpander(indicatorGroup, settings, 'show-running-indicators',
+        _('Indicators'), _('Marks under apps that are open'));
+    addComboRow(indicatorExpander, settings, 'indicator-style', _('Style'), null, [
         { name: _('Dot'), value: 'dot' },
         { name: _('Dash'), value: 'dash' },
         { name: _('Line'), value: 'line' },
         { name: _('Square'), value: 'square' },
-        { name: _('Dynamic'), value: 'windows' }
-    ], null);
+        { name: _('Dynamic'), value: 'windows' },
+    ]);
+    const colorModeRow = addSegmentedRow(indicatorExpander, settings, 'indicator-color-mode', _('Colour'), null, [
+        { name: _('From Icon'), value: 'dominant' },
+        { name: _('Custom'), value: 'custom' },
+    ]);
+    const indicatorColorRow = addColorRow(indicatorExpander, settings, 'indicator-color', _('Custom Colour'));
+    addSliderRow(indicatorExpander, settings, 'indicator-size', _('Size'), null, { lower: 2, upper: 12, step: 1 }, fmt.px);
+    addSwitchRow(indicatorExpander, settings, 'indicator-glow', _('Glow'), _('A soft light around the indicator'));
 
-    const colorModeRow = addComboRow(indExpander, settings, 'indicator-color-mode', _('Color Mode'), _('Match indicator color with icon or use custom'), 'preferences-desktop-appearance-symbolic', [
-        { name: _('Match Icon Color'), value: 'dominant' },
-        { name: _('Custom Color'), value: 'custom' }
-    ], null);
+    const isChameleon = () => settings.get_string('dock-theme') === 'chameleon' && !isBlur();
+    showWhen(colorModeRow, settings, ['dock-theme', 'blur-enabled'], () => !isChameleon());
+    showWhen(indicatorColorRow, settings, ['dock-theme', 'blur-enabled', 'indicator-color-mode'],
+        () => !isChameleon() && settings.get_string('indicator-color-mode') === 'custom');
 
-    const indColorRow = addColorRow(indExpander, settings, 'indicator-color', _('Indicator Color'), 'preferences-desktop-appearance-symbolic');
+    addSwitchRow(indicatorGroup, settings, 'show-notification-badges', _('Notification Badges'),
+        _('Unread counts on app icons'));
+    const hoverRow = addSliderRow(indicatorGroup, settings, 'tooltip-opacity', _('Preview Box Opacity'),
+        _('Background of the hover preview and app highlight'), { lower: 0, upper: 100, step: 5 }, fmt.percent);
+    showWhen(hoverRow, settings, ['hover-zoom', 'hybrid-panel-mode'],
+        () => !settings.get_boolean('hover-zoom') || settings.get_boolean('hybrid-panel-mode'));
 
-    addCustomSpinRow(indExpander, settings, 'indicator-size', _('Indicator Size'), _('Limit: 2px to 12px'), 'zoom-in-symbolic', {
-        lower: 2,
-        upper: 12,
-        step_increment: 1
-    }, createResetBtn);
-    addCustomSpinRow(indExpander, settings, 'indicator-spacing', _('Indicator Spacing'), _('Gap between icon and indicator'), 'format-indent-more-symbolic', {
-        lower: 0,
-        upper: 20,
-        step_increment: 1
-    }, createResetBtn);
-    addSwitchRow(indExpander, settings, 'indicator-glow', _('Indicator Glow'), _('Add a shining shadow effect'), 'display-brightness-symbolic', null);
-
-    const syncThemeVisibility = () => {
-        const theme = settings.get_string('dock-theme');
-        const isDefault = theme === 'default';
-        const isChameleon = theme === 'chameleon';
-        const useGrad = settings.get_boolean('use-gradient');
-        const colorMode = settings.get_string('indicator-color-mode');
-
-        chameleonBanner.set_visible(isChameleon);
-        bgColorRow.set_visible(isDefault);
-        useGradRow.set_visible(isDefault);
-        bgGradColorRow.set_visible(isDefault && useGrad);
-        gradDirRow.set_visible(isDefault && useGrad);
-        colorModeRow.set_visible(!isChameleon);
-        indColorRow.set_visible(!isChameleon && colorMode === 'custom');
+    const separatorGroup = addGroup(page, _('Separators'));
+    const addSeparatorRows = (expander, prefix) => {
+        addSliderRow(expander, settings, `${prefix}-width`, _('Thickness'), null, { lower: 0, upper: 10, step: 1 }, fmt.px);
+        addSliderRow(expander, settings, `${prefix}-height`, _('Length'), _('Share of the dock height'),
+            { lower: 10, upper: 100, step: 5 }, fmt.percent);
+        addColorRow(expander, settings, `${prefix}-color`, _('Colour'));
+        addSliderRow(expander, settings, `${prefix}-opacity`, _('Opacity'), null, { lower: 0, upper: 100, step: 5 }, fmt.percent);
     };
+    addSeparatorRows(addToggleExpander(separatorGroup, settings, 'show-app-separator',
+        _('Between Pinned and Running'), _('Divides your pinned apps from other open apps')), 'running-separator');
+    addSeparatorRows(addToggleExpander(separatorGroup, settings, 'show-module-separator',
+        _('Before Modules'), _('Divides apps from clock, launcher and folders')), 'separator');
 
-    settings.connect('changed::dock-theme', syncThemeVisibility);
-    settings.connect('changed::use-gradient', syncThemeVisibility);
-    settings.connect('changed::indicator-color-mode', syncThemeVisibility);
-    syncThemeVisibility();
+    const previewKeys = [
+        'blur-enabled', 'full-width', 'hybrid-panel-mode', 'dock-theme', ...BACKGROUND_KEYS, ...SHAPE_KEYS,
+        ...INDICATOR_KEYS, 'show-running-indicators', 'show-notification-badges',
+        'show-app-separator', 'running-separator-width', 'running-separator-height', 'running-separator-color',
+        'running-separator-opacity', 'show-module-separator', 'separator-width', 'separator-height',
+        'separator-color', 'separator-opacity',
+    ];
+    for (const key of previewKeys) onSettingChanged(settings, key, () => preview.redraw());
+
+    window.add(page);
 }

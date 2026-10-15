@@ -24,8 +24,8 @@ import Clutter from 'gi://Clutter';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-import { setBoxVertical } from '../../core/Utils.js';
 import { addSeparator } from './ContextMenuItems.js';
+import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 
 const TRASH_BATCH_SIZE = 10;
@@ -103,51 +103,63 @@ export function attachTrashActions(contextMenu) {
     contextMenu.panel.add_child(emptyBtn);
     addSeparator(contextMenu.panel);
 
+    const cancellable = new Gio.Cancellable();
+    emptyBtn.connectObject('destroy', () => cancellable.cancel(), emptyBtn);
+
+    const showState = hasItems => {
+        if (!isActorAlive(emptyBtn)) return;
+
+        if (hasItems) {
+            emptyBtn.reactive = true;
+            emptyBtn.style_class = 'context-menu-action-btn-destructive';
+            label.set_text(_('Empty Trash'));
+            label.style_class = 'context-menu-action-label-destructive';
+            label.set_style('');
+            emptyBtn.connectObject('clicked', () => {
+                contextMenu.hide();
+                confirmEmptyTrash();
+            }, emptyBtn);
+        } else {
+            emptyBtn.reactive = false;
+            emptyBtn.set_opacity(100);
+            label.set_text(_('Trash is Empty'));
+            label.set_style('color: rgba(255,255,255,0.25);');
+        }
+    };
+
     const trashFile = Gio.File.new_for_uri('trash:///');
-    trashFile.query_info_async(
-        'trash::item-count',
-        Gio.FileQueryInfoFlags.NONE,
-        GLib.PRIORITY_DEFAULT,
-        null,
-        (file, res) => {
-            let hasItems = false;
+
+    const checkFirstChild = () => {
+        trashFile.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable, (file, res) => {
+            let enumerator;
             try {
-                const info = file.query_info_finish(res);
-                if (info.has_attribute('trash::item-count')) {
-                    hasItems = info.get_attribute_uint32('trash::item-count') > 0;
-                } else {
-                    const iter = file.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                    hasItems = iter.next_file(null) !== null;
-                    iter.close(null);
-                }
+                enumerator = file.enumerate_children_finish(res);
             } catch (_e) {
+                showState(false);
+                return;
+            }
+            enumerator.next_files_async(1, GLib.PRIORITY_DEFAULT, cancellable, (e, filesRes) => {
+                let hasItems = false;
                 try {
-                    const iter = file.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                    hasItems = iter.next_file(null) !== null;
-                    iter.close(null);
+                    hasItems = e.next_files_finish(filesRes).length > 0;
                 } catch (_err) {
                     hasItems = false;
                 }
-            }
+                enumerator.close_async(GLib.PRIORITY_DEFAULT, null, () => {});
+                showState(hasItems);
+            });
+        });
+    };
 
-            if (!contextMenu.panel || !emptyBtn.get_parent()) return;
-
-            if (hasItems) {
-                emptyBtn.reactive = true;
-                emptyBtn.style_class = 'context-menu-action-btn-destructive';
-                label.set_text(_('Empty Trash'));
-                label.style_class = 'context-menu-action-label-destructive';
-                label.set_style('');
-                emptyBtn.connectObject('clicked', () => {
-                    contextMenu.hide();
-                    confirmEmptyTrash();
-                }, emptyBtn);
-            } else {
-                emptyBtn.reactive = false;
-                emptyBtn.set_opacity(100);
-                label.set_text(_('Trash is Empty'));
-                label.set_style('color: rgba(255,255,255,0.25);');
-            }
+    trashFile.query_info_async('trash::item-count', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable, (file, res) => {
+        let info;
+        try {
+            info = file.query_info_finish(res);
+        } catch (_e) {
+            if (!cancellable.is_cancelled()) checkFirstChild();
+            return;
         }
-    );
+        if (info.has_attribute('trash::item-count')) showState(info.get_attribute_uint32('trash::item-count') > 0);
+        else checkFirstChild();
+    });
 }

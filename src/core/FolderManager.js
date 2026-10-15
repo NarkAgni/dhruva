@@ -20,300 +20,153 @@
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 
+let folderIdCounter = 0;
+
 export default class FolderManager {
-    constructor(settings, uuid, appManager = null, dockUI = null) {
-        this.settings = settings;
-        this.uuid = uuid || 'dhruva@narkagni';
+    constructor(appManager) {
         this.appManager = appManager;
-        this.dockUI = dockUI;
-
-        this.folders = [];
-        this._stateListeners = new Set();
-        if (this.appManager) {
-            this._loadFolders();
-        }
-    }
-
-    setDockUI(dockUI) {
-        this.dockUI = dockUI;
-    }
-
-    setAppManager(appManager) {
-        this.appManager = appManager;
-        this._loadFolders();
-    }
-
-    onStateChanged(callback) {
-        this.addStateListener(callback);
     }
 
     addStateListener(callback) {
-        if (callback) this._stateListeners.add(callback);
+        this.appManager.addStateListener(callback);
     }
 
     removeStateListener(callback) {
-        this._stateListeners.delete(callback);
+        this.appManager.removeStateListener(callback);
     }
 
-    _notifyStateChanged() {
-        this._stateListeners.forEach(cb => {
-            if (cb) cb();
-        });
-    }
-
-    _loadFolders() {
-        this.folders = [];
-
-        if (this.appManager) {
-            this.folders = [...(this.appManager.getFolders() || [])];
-        } else if (this.settings) {
-            try {
-                const raw = this.settings.get_string('app-folders');
-                this.folders = raw ? JSON.parse(raw) : [];
-            } catch (_e) {
-                this.folders = [];
-            }
-        }
-
-        if (!Array.isArray(this.folders)) {
-            this.folders = [];
-        }
-
-        let updated = false;
-        this.folders.forEach(f => {
-            if (!f.icon || f.icon === 'folder-symbolic') {
-                f.icon = 'folder';
-                updated = true;
-            }
-        });
-
-        if (updated) {
-            this._saveFolders();
-        }
-
-        this._notifyStateChanged();
-    }
-
-    _saveFolders() {
-        if (!Array.isArray(this.folders)) this.folders = [];
-
-        if (this.appManager) {
-            this.appManager.saveFolders(this.folders);
-        }
-
-        this._notifyStateChanged();
+    getFolders() {
+        return this.appManager.getFolders();
     }
 
     saveFolders() {
-        this._saveFolders();
+        this._save(this.getFolders());
     }
 
-    createFolder(name = _('New Folder'), icon = 'folder') {
-        const id = `dhruva-folder-${Date.now()}`;
-        const newFolder = {
+    _save(folders) {
+        this.appManager.saveFolders(folders);
+        this.appManager.notifyStateChanged();
+    }
+
+    _findFolder(folderId) {
+        return this.getFolders().find(f => f.id === folderId);
+    }
+
+    _getUniqueFolderName(requestedName) {
+        const baseName = (requestedName && requestedName.trim()) ? requestedName.trim() : _('New Folder');
+        const existingNames = new Set(this.getFolders().map(f => {
+            if (!f.name) return '';
+            return (f.name === 'New Folder' || f.name === 'Новая папка') ? _('New Folder') : f.name.trim();
+        }));
+
+        if (!existingNames.has(baseName)) return baseName;
+
+        let counter = 2;
+        while (existingNames.has(`${baseName} ${counter}`)) counter++;
+        return `${baseName} ${counter}`;
+    }
+
+    createFolder(name = _('New Folder'), icon = 'folder', anchorAppId = null) {
+        folderIdCounter += 1;
+        const id = `dhruva-folder-${Date.now()}-${folderIdCounter}`;
+        const folderKey = `folder:${id}`;
+
+        const order = this.appManager.getDockOrder().filter(key => key !== folderKey);
+        const anchorIndex = anchorAppId ? order.indexOf(anchorAppId) : -1;
+        if (anchorIndex !== -1) order.splice(anchorIndex, 0, folderKey);
+        else order.push(folderKey);
+        this.appManager.saveDockOrder(order);
+
+        this._save([...this.getFolders(), {
             id,
-            name,
+            name: this._getUniqueFolderName(name),
             icon,
             apps: []
-        };
-        this.folders.push(newFolder);
-
-        if (this.appManager) {
-            const currentPinned = this.appManager.getCurrentPinnedList();
-            const currentOrder = [...this.appManager.getDockOrder()];
-            const newFolderKey = `folder:${id}`;
-
-            const baseOrder = [];
-
-            currentOrder.forEach(key => {
-                if (key !== newFolderKey && !baseOrder.includes(key)) {
-                    baseOrder.push(key);
-                }
-            });
-
-            currentPinned.forEach(appId => {
-                if (!baseOrder.includes(appId)) {
-                    baseOrder.push(appId);
-                }
-            });
-
-            this.folders.forEach(f => {
-                const fKey = `folder:${f.id}`;
-                if (fKey !== newFolderKey && !baseOrder.includes(fKey)) {
-                    baseOrder.push(fKey);
-                }
-            });
-
-            baseOrder.push(newFolderKey);
-            this.appManager.saveDockOrder(baseOrder);
-        }
-
-        this._saveFolders();
-        if (this.dockUI && this.dockUI.queueRender) {
-            this.dockUI.queueRender('incremental');
-        }
-        return newFolder.id;
+        }]);
+        return id;
     }
 
     addAppToFolder(folderId, appId) {
-        const folder = this.folders.find(f => f.id === folderId);
-        if (folder && !folder.apps.includes(appId)) {
-            folder.apps.push(appId);
+        const folder = this._findFolder(folderId);
+        if (!folder || folder.apps.includes(appId)) return false;
 
-            if (this.appManager) {
-                if (this.appManager.isIndependent()) {
-                    this.appManager.pinnedApps = (this.appManager.pinnedApps || []).filter(id => id !== appId);
-                } else {
-                    if (this.appManager.favManager && this.appManager.favManager.isFavorite(appId)) {
-                        this.appManager.favManager.removeFavorite(appId);
-                    }
-                }
-                this.appManager.dockOrder = (this.appManager.dockOrder || []).filter(id => id !== appId);
-            }
+        folder.apps.push(appId);
 
-            this._saveFolders();
-            if (this.dockUI && this.dockUI.queueRender) {
-                this.dockUI.queueRender('incremental');
-            }
-            return true;
+        const folderKey = `folder:${folderId}`;
+        const prevOrder = this.appManager.dockOrder;
+        const nextOrder = prevOrder.filter(key => key !== appId);
+        if (!nextOrder.includes(folderKey)) {
+            const prevIdx = prevOrder.indexOf(appId);
+            if (prevIdx !== -1) nextOrder.splice(prevIdx, 0, folderKey);
+            else nextOrder.push(folderKey);
         }
-        return false;
+        this.appManager.saveDockOrder(nextOrder);
+
+        this._save(this.getFolders());
+        return true;
     }
 
     removeAppFromFolder(folderId, appId) {
-        const folder = this.folders.find(f => f.id === folderId);
+        const folders = this.getFolders();
+        const folder = folders.find(f => f.id === folderId);
         if (!folder) return false;
+
+        const folderKey = `folder:${folderId}`;
+        const currentOrder = [...this.appManager.getDockOrder()];
+        const folderIdx = currentOrder.indexOf(folderKey);
 
         folder.apps = folder.apps.filter(id => id !== appId);
 
-        if (this.appManager) {
+        if (folder.apps.length <= 1) {
+            const restored = [folder.apps[0], appId].filter(Boolean);
+            const nextOrder = currentOrder.filter(key => key !== folderKey && !restored.includes(key));
+            const insertAt = folderIdx !== -1 ? Math.min(folderIdx, nextOrder.length) : nextOrder.length;
+            nextOrder.splice(insertAt, 0, ...restored);
+
+            this._save(folders.filter(f => f.id !== folderId));
+            restored.forEach(id => this.appManager.addApp(id));
+            this.appManager.saveDockOrder(nextOrder);
+        } else {
+            this._save(folders);
             this.appManager.addApp(appId);
 
-            if (Array.isArray(this.appManager.dockOrder)) {
-                const folderKey = `folder:${folderId}`;
-                const order = this.appManager.dockOrder.filter(k => k !== appId);
-                const folderIdx = order.indexOf(folderKey);
-
-                if (folderIdx !== -1) {
-                    order.splice(folderIdx, 0, appId);
-                } else {
-                    order.unshift(appId);
-                }
-
-                order.sort((a, b) => {
-                    const isFA = Boolean(a && a.startsWith && a.startsWith('folder:'));
-                    const isFB = Boolean(b && b.startsWith && b.startsWith('folder:'));
-                    if (isFA && !isFB) return 1;
-                    if (!isFA && isFB) return -1;
-                    return 0;
-                });
-
-                this.appManager.dockOrder = order;
-                if (this.appManager.saveDockOrder) {
-                    this.appManager.saveDockOrder(order);
-                }
-            }
+            const nextOrder = currentOrder.filter(key => key !== appId);
+            const newFolderIdx = nextOrder.indexOf(folderKey);
+            if (newFolderIdx !== -1) nextOrder.splice(newFolderIdx + 1, 0, appId);
+            else nextOrder.push(appId);
+            this.appManager.saveDockOrder(nextOrder);
         }
 
-        if (folder.apps.length <= 1) {
-            const lastApp = folder.apps[0];
-            this.folders = this.folders.filter(f => f.id !== folderId);
-
-            if (this.appManager) {
-                this.appManager.dockOrder = (this.appManager.dockOrder || []).filter(k => k !== `folder:${folderId}`);
-
-                if (lastApp) {
-                    this.appManager.addApp(lastApp);
-                }
-                this.appManager.saveDockState ? this.appManager.saveDockState() : this._saveFolders();
-            } else {
-                this._saveFolders();
-            }
-        } else {
-            this._saveFolders();
-        }
-
-        if (this.dockUI && this.dockUI.queueRender) {
-            this.dockUI.queueRender('full', true);
-        }
+        this.appManager.queueRender('full', true);
         return true;
     }
 
     updateFolder(folderId, newName, newIcon) {
-        const folderList = this.appManager ? this.appManager.getFolders() : this.folders;
-        const folder = (folderList || []).find(f => f.id === folderId);
+        const folder = this._findFolder(folderId);
+        if (!folder) return false;
 
-        if (folder) {
-            if (newName !== undefined) folder.name = newName;
-            if (newIcon !== undefined) {
-                folder.icon = (newIcon === 'folder-symbolic') ? 'folder' : newIcon;
-            }
+        if (newName !== undefined) folder.name = newName;
+        if (newIcon !== undefined) folder.icon = newIcon === 'folder-symbolic' ? 'folder' : newIcon;
 
-            this.folders = folderList;
-            this._saveFolders();
-
-            if (this.dockUI && this.dockUI.queueRender) {
-                this.dockUI.queueRender('full', true);
-            }
-            return true;
-        }
-        return false;
+        this._save(this.getFolders());
+        this.appManager.queueRender('full', true);
+        return true;
     }
 
     deleteFolder(folderId) {
-        const targetFolder = (this.getFolders() || []).find(f => f.id === folderId);
-        const appsToRestore = targetFolder && Array.isArray(targetFolder.apps) ? [...targetFolder.apps] : [];
+        const folders = this.getFolders();
+        const target = folders.find(f => f.id === folderId);
+        const appsToRestore = target ? [...target.apps] : [];
 
-        this.folders = (this.getFolders() || []).filter(f => f.id !== folderId);
+        const folderKey = `folder:${folderId}`;
+        const prevOrder = [...this.appManager.getDockOrder()];
+        const folderIdx = prevOrder.indexOf(folderKey);
+        const nextOrder = prevOrder.filter(key => key !== folderKey && !appsToRestore.includes(key));
+        const insertAt = folderIdx !== -1 ? Math.min(folderIdx, nextOrder.length) : nextOrder.length;
+        nextOrder.splice(insertAt, 0, ...appsToRestore);
 
-        if (this.appManager) {
-            let currentOrder = (this.appManager.dockOrder || []).filter(k => k !== `folder:${folderId}`);
-
-            if (this.appManager.isIndependent()) {
-                if (!Array.isArray(this.appManager.pinnedApps)) this.appManager.pinnedApps = [];
-                
-                appsToRestore.forEach(appId => {
-                    if (!this.appManager.pinnedApps.includes(appId)) {
-                        this.appManager.pinnedApps.push(appId);
-                    }
-                    if (!currentOrder.includes(appId)) {
-                        currentOrder.push(appId);
-                    }
-                });
-
-                this.appManager.dockOrder = currentOrder;
-                this.appManager.independentFolders = [...this.folders];
-                this.appManager.saveDockState();
-            } else {
-                appsToRestore.forEach(appId => {
-                    this.appManager.addApp(appId);
-                });
-                this.appManager.dockOrder = currentOrder;
-                this._saveFolders();
-            }
-        } else {
-            this._saveFolders();
-        }
-
-        if (this.dockUI && this.dockUI.queueRender) {
-            this.dockUI.queueRender('incremental');
-        }
-    }
-
-    getFolders() {
-        if (this.appManager) {
-            return this.appManager.getFolders() || [];
-        }
-        return this.folders || [];
-    }
-
-    destroy() {
-        if (this.settings) {
-            this.settings.disconnectObject(this);
-        }
-        this.folders = [];
-        this.appManager = null;
-        this.dockUI = null;
-        this._stateListeners.clear();
+        this._save(folders.filter(f => f.id !== folderId));
+        appsToRestore.forEach(appId => this.appManager.addApp(appId));
+        this.appManager.saveDockOrder(nextOrder);
     }
 }

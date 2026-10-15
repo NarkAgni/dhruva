@@ -19,93 +19,89 @@
 
 import St from 'gi://St';
 import GLib from 'gi://GLib';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+import Meta from 'gi://Meta';
 
 import { hexToRgba } from '../../core/Utils.js';
-import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { fadeMinimize, fadeRestore } from '../effects/WindowEffects.js';
 
 
-const CLICK_ANIM_TIMEOUT_MS = 150;
-const WINDOW_CASCADE_DELAY_MS = 40;
+const STAGGER_MS = 40;
+const CLICK_FEEDBACK_MS = 150;
 
-export function toggleDesktop(dockUI) {
-    if (!dockUI._desktopTimers) {
-        dockUI._desktopTimers = new TimeoutTracker();
-        dockUI._desktopTimeoutKeys = new Map();
+class DesktopToggle {
+    constructor() {
+        this._timers = new TimeoutTracker();
+        this._hiddenWindows = [];
     }
-    
-    for (const id of dockUI._desktopTimeoutKeys.values()) {
-        dockUI._desktopTimers.remove(id);
+
+    toggle() {
+        this._cancelPending();
+
+        const windows = this._workspaceWindows();
+        const visible = windows.filter(win => !win.minimized);
+        const restorable = this._hiddenWindows.filter(win => win.get_compositor_private() && win.minimized);
+
+        if (visible.length === 0 && restorable.length > 0) this._restore(restorable);
+        else this._showDesktop(visible);
     }
-    dockUI._desktopTimeoutKeys.clear();
 
-    const addTrackedTimeout = (key, delay, callback) => {
-        if (dockUI._desktopTimeoutKeys.has(key)) {
-            dockUI._desktopTimers.remove(dockUI._desktopTimeoutKeys.get(key));
-        }
-        const id = dockUI._desktopTimers.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
-            dockUI._desktopTimeoutKeys.delete(key);
-            callback();
-            return GLib.SOURCE_REMOVE;
-        });
-        dockUI._desktopTimeoutKeys.set(key, id);
-    };
+    destroy() {
+        this._timers.destroy();
+        this._hiddenWindows = [];
+    }
 
-    const workspace = global.workspace_manager.get_active_workspace();
-    const windows = workspace.list_windows().filter(w =>
-        w.get_window_type() === 0 && !w.is_skip_taskbar() && !w.is_always_on_all_workspaces()
-    );
-    const visibleWindows = windows.filter(w => !w.minimized);
+    _cancelPending() {
+        this._timers.destroy();
+        this._timers = new TimeoutTracker();
+    }
 
-    if (visibleWindows.length === 0 && dockUI._hiddenWindowsByDesktopBtn && dockUI._hiddenWindowsByDesktopBtn.length > 0) {
-        dockUI._hiddenWindowsByDesktopBtn.forEach((w, index) => {
-            addTrackedTimeout(`restore-${index}`, index * WINDOW_CASCADE_DELAY_MS, () => {
-                if (w.minimized && w.unminimize) fadeRestore(w);
+    _workspaceWindows() {
+        const workspace = global.workspace_manager.get_active_workspace();
+        const windows = workspace.list_windows().filter(win =>
+            win.get_window_type() === Meta.WindowType.NORMAL &&
+            !win.is_skip_taskbar() &&
+            !win.is_always_on_all_workspaces()
+        );
+        return global.display.sort_windows_by_stacking(windows);
+    }
+
+    _showDesktop(visible) {
+        this._hiddenWindows = visible;
+        [...visible].reverse().forEach((win, index) => {
+            this._timers.addTimeout(GLib.PRIORITY_DEFAULT, index * STAGGER_MS, () => {
+                if (!win.minimized) fadeMinimize(win);
+                return GLib.SOURCE_REMOVE;
             });
         });
+    }
 
-        const topWin = dockUI._hiddenWindowsByDesktopBtn[0];
-        if (topWin) {
-            addTrackedTimeout('activate-top', dockUI._hiddenWindowsByDesktopBtn.length * WINDOW_CASCADE_DELAY_MS, () => {
-                Main.activateWindow(topWin);
-            });
-        }
-        dockUI._hiddenWindowsByDesktopBtn = [];
-    } else {
-        dockUI._hiddenWindowsByDesktopBtn = visibleWindows;
-        visibleWindows.forEach((w, index) => {
-            addTrackedTimeout(`minimize-${index}`, index * WINDOW_CASCADE_DELAY_MS, () => {
-                if (!w.minimized && w.minimize) fadeMinimize(w);
+    _restore(windows) {
+        this._hiddenWindows = [];
+        windows.forEach((win, index) => {
+            this._timers.addTimeout(GLib.PRIORITY_DEFAULT, index * STAGGER_MS, () => {
+                if (win.minimized) fadeRestore(win);
+                return GLib.SOURCE_REMOVE;
             });
         });
     }
 }
 
-export function buildDesktopButtonModule(dockUI) {
-    if (!dockUI._hiddenWindowsByDesktopBtn) dockUI._hiddenWindowsByDesktopBtn = [];
+export function toggleDesktop(dockUI) {
+    if (!dockUI._desktopToggle) dockUI._desktopToggle = new DesktopToggle();
+    dockUI._desktopToggle.toggle();
+}
 
+export function buildDesktopButtonModule(dockUI) {
     const btn = new St.Button({
         reactive: true,
         can_focus: false,
         track_hover: true
     });
 
-    btn._delegate = {
-        app: {
-            is_module: true,
-            get_id: () => 'dhruva-module-desktop-button',
-            get_name: () => _('Show Desktop'),
-            get_state: () => 0,
-            get_windows: () => []
-        }
-    };
-
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-    const colorHex = Settings.desktopBtnColor || '#ffffff';
-    const opacity = Settings.desktopBtnOpacity;
+    const colorHex = dockUI.settings.get_string('desktop-btn-color') || '#ffffff';
+    const opacity = dockUI.settings.get_int('desktop-btn-opacity');
 
     const baseRgba = hexToRgba(colorHex, opacity / 100.0);
     const hoverRgba = hexToRgba(colorHex, Math.min(1.0, (opacity + 15) / 100.0));
@@ -130,29 +126,23 @@ export function buildDesktopButtonModule(dockUI) {
         btn.set_style(btn.hover ? hoverStyle : defaultStyle);
     }, btn);
 
-    btn.timers = new TimeoutTracker();
+    const feedbackTimers = new TimeoutTracker();
+    let feedbackId = 0;
 
     btn.connectObject('clicked', () => {
         btn.set_style(activeStyle);
-        
-        btn.timers.remove(btn._clickTimeoutId);
-        btn._clickTimeoutId = btn.timers.addTimeout(GLib.PRIORITY_DEFAULT, CLICK_ANIM_TIMEOUT_MS, () => {
-            btn._clickTimeoutId = null;
+
+        feedbackTimers.remove(feedbackId);
+        feedbackId = feedbackTimers.addTimeout(GLib.PRIORITY_DEFAULT, CLICK_FEEDBACK_MS, () => {
+            feedbackId = 0;
             btn.set_style(btn.hover ? hoverStyle : defaultStyle);
             return GLib.SOURCE_REMOVE;
         });
-        
+
         toggleDesktop(dockUI);
     }, btn);
 
-    btn.connectObject('destroy', () => {
-        btn.timers.destroy();
-
-        if (dockUI._desktopTimers) {
-            dockUI._desktopTimers.destroy();
-            dockUI._desktopTimeoutKeys.clear();
-        }
-    }, btn);
+    btn.connectObject('destroy', () => feedbackTimers.destroy(), btn);
 
     return btn;
 }

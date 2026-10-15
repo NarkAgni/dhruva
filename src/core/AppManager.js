@@ -43,68 +43,182 @@ export default class AppManager {
         this.dockOrder = [];
         this.independentFolders = [];
         this.nonIndependentFolders = [];
+        this._unpinnedOrder = [];
         this._isLoaded = false;
+        this._docks = new Set();
+        this._stateListeners = new Set();
 
         this.extConfigDir = GLib.build_filenamev([GLib.get_user_config_dir(), this.uuid]);
         this.dbPath = GLib.build_filenamev([this.extConfigDir, 'dhruva-dock-items.json']);
+        this.orderPath = GLib.build_filenamev([this.extConfigDir, 'dhruva-dock-order.json']);
 
         this.favManager = AppFavorites.getAppFavorites();
+
+        this._loadState();
+        this.settings.connectObject('changed::independent-dock', () => {
+            this._loadState();
+            this.notifyStateChanged();
+        }, this);
+    }
+
+    _loadState() {
+        this.dockOrder = [];
+        this._unpinnedOrder = [];
 
         if (this.isIndependent()) {
             this.loadDockState();
         } else {
             this.loadNonIndependentFolders();
+            this._loadDockOrderFile();
+            this._syncFolderAppsToPinned();
         }
+
+        let iconFixed = false;
+        this.getFolders().forEach(folder => {
+            if (!folder.icon || folder.icon === 'folder-symbolic') {
+                folder.icon = 'folder';
+                iconFixed = true;
+            }
+        });
+        if (iconFixed) this.saveFolders(this.getFolders());
     }
 
-    setDockUI(dockUI) {
-        this.dockUI = dockUI;
+    attachDock(dockUI) {
+        this._docks.add(dockUI);
+    }
+
+    detachDock(dockUI) {
+        this._docks.delete(dockUI);
+    }
+
+    queueRender(mode, force = false) {
+        this._docks.forEach(dock => dock.queueRender(mode, force));
+    }
+
+    addStateListener(callback) {
+        this._stateListeners.add(callback);
+    }
+
+    removeStateListener(callback) {
+        this._stateListeners.delete(callback);
+    }
+
+    notifyStateChanged() {
+        this._stateListeners.forEach(callback => callback());
+        this.queueRender('incremental');
     }
 
     isIndependent() {
-        return this.settings ? this.settings.get_boolean('independent-dock') : false;
+        return this.settings.get_boolean('independent-dock');
     }
 
-    onStateChanged(callback) {
-        this._onStateChangedCallback = callback;
+    getFolderAppIds() {
+        const set = new Set();
+        this.getFolders().forEach(folder => {
+            if (!Array.isArray(folder.apps)) return;
+            folder.apps.forEach(appId => {
+                if (appId) set.add(appId);
+            });
+        });
+        return set;
+    }
+
+    isAppInFolder(appId) {
+        if (!appId) return false;
+        const id = appId.get_id ? appId.get_id() : appId;
+        return this.getFolderAppIds().has(id);
+    }
+
+    _syncFolderAppsToPinned() {
+        const folderApps = [...this.getFolderAppIds()];
+
+        if (this.isIndependent()) {
+            const standalone = this.pinnedApps.filter(id => !folderApps.includes(id));
+            this.pinnedApps = [...standalone, ...folderApps];
+            return;
+        }
+
+        try {
+            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+            const currentFavs = shellSettings.get_strv('favorite-apps');
+            const nextFavs = [...currentFavs.filter(id => !folderApps.includes(id)), ...folderApps];
+
+            const isSame = currentFavs.length === nextFavs.length &&
+                currentFavs.every((id, index) => id === nextFavs[index]);
+
+            if (!isSame) shellSettings.set_strv('favorite-apps', nextFavs);
+        } catch (e) {
+            console.error(`[Dhruva] Failed to sync folder apps with GNOME Dash: ${e.message}`);
+        }
     }
 
     getCurrentPinnedList() {
-        if (this.isIndependent()) {
-            return [...(this.pinnedApps || [])];
-        }
-        const favorites = this.favManager.getFavorites();
-        return favorites.map(a => (a.get_id ? a.get_id() : '')).filter(Boolean);
+        const ids = this.isIndependent()
+            ? [...this.pinnedApps]
+            : this.favManager.getFavorites().map(app => app.get_id());
+
+        this.getFolderAppIds().forEach(id => {
+            if (!ids.includes(id)) ids.push(id);
+        });
+        return ids;
     }
 
     loadNonIndependentFolders() {
-        if (!this.settings) {
-            this.nonIndependentFolders = [];
-            return;
-        }
         try {
             const raw = this.settings.get_string('app-folders');
-            this.nonIndependentFolders = raw ? JSON.parse(raw) : [];
-            if (!Array.isArray(this.nonIndependentFolders)) this.nonIndependentFolders = [];
+            const parsed = raw ? JSON.parse(raw) : [];
+            this.nonIndependentFolders = Array.isArray(parsed) ? parsed : [];
         } catch (_e) {
             this.nonIndependentFolders = [];
         }
     }
 
-    loadDockState() {
-        if (!this.isIndependent()) {
-            this.loadNonIndependentFolders();
-            return;
-        }
+    _loadDockOrderFile() {
+        const file = Gio.File.new_for_path(this.orderPath);
+        if (!file.query_exists(null)) return;
 
+        try {
+            const [, contents] = file.load_contents(null);
+            const parsed = JSON.parse(new TextDecoder('utf-8').decode(contents));
+            if (Array.isArray(parsed)) this.dockOrder = parsed;
+        } catch (e) {
+            console.error(`[Dhruva] Failed to read dock order JSON: ${e.message}`);
+        }
+    }
+
+    _writeJson(path, data) {
+        GLib.mkdir_with_parents(this.extConfigDir, 0o755);
+
+        const bytes = new GLib.Bytes(new TextEncoder().encode(JSON.stringify(data, null, 2)));
+        Gio.File.new_for_path(path).replace_contents_bytes_async(
+            bytes,
+            null,
+            false,
+            Gio.FileCreateFlags.REPLACE_DESTINATION,
+            null,
+            (obj, res) => {
+                try {
+                    obj.replace_contents_finish(res);
+                } catch (e) {
+                    console.error(`[Dhruva] Failed to write ${path}: ${e.message}`);
+                }
+            }
+        );
+    }
+
+    _saveOrder() {
+        if (this.isIndependent()) this.saveDockState();
+        else this._writeJson(this.orderPath, this.dockOrder);
+    }
+
+    loadDockState() {
         const file = Gio.File.new_for_path(this.dbPath);
 
         if (file.query_exists(null)) {
             try {
                 const [success, contents] = file.load_contents(null);
                 if (success && contents) {
-                    const decoder = new TextDecoder('utf-8');
-                    const parsed = JSON.parse(decoder.decode(contents));
+                    const parsed = JSON.parse(new TextDecoder('utf-8').decode(contents));
 
                     if (Array.isArray(parsed)) {
                         this.pinnedApps = parsed.filter(id => !id.startsWith('folder:'));
@@ -116,6 +230,7 @@ export default class AppManager {
                         this.independentFolders = Array.isArray(parsed.folders) ? parsed.folders : [];
                     }
 
+                    this._syncFolderAppsToPinned();
                     this._isLoaded = true;
                     return;
                 }
@@ -136,148 +251,129 @@ export default class AppManager {
     saveDockState() {
         if (!this.isIndependent()) return;
 
-        GLib.mkdir_with_parents(this.extConfigDir, 0o755);
-
-        const payload = {
-            apps: this.pinnedApps || [],
-            order: this.dockOrder || [],
-            folders: this.independentFolders || []
-        };
-
-        const dataStr = JSON.stringify(payload, null, 2);
-        const file = Gio.File.new_for_path(this.dbPath);
-        const bytes = new GLib.Bytes(new TextEncoder().encode(dataStr));
-
-        file.replace_contents_bytes_async(
-            bytes,
-            null,
-            false,
-            Gio.FileCreateFlags.REPLACE_DESTINATION,
-            null,
-            (obj, res) => {
-                try {
-                    obj.replace_contents_finish(res);
-                } catch (e) {
-                    console.error(`[Dhruva] Failed to write dock state JSON: ${e.message}`);
-                }
-            }
-        );
+        this._writeJson(this.dbPath, {
+            apps: this.pinnedApps,
+            order: this.dockOrder,
+            folders: this.independentFolders
+        });
     }
 
     savePinnedApps(newArray = null) {
-        if (Array.isArray(newArray)) {
-            this.pinnedApps = [...newArray];
-            this.saveDockState();
-        }
+        if (!Array.isArray(newArray)) return;
+
+        const merged = [...newArray];
+        this.getFolderAppIds().forEach(id => {
+            if (!merged.includes(id)) merged.push(id);
+        });
+        this.pinnedApps = merged;
+        this.saveDockState();
     }
 
     getDockOrder() {
-        const currentPinned = this.getCurrentPinnedList();
-        const currentFolders = this.getFolders();
-        const currentFolderKeys = (currentFolders || []).map(f => `folder:${f.id}`);
-        const existingOrder = [...(this.dockOrder || [])];
+        const folderApps = this.getFolderAppIds();
+        const currentPinned = this.getCurrentPinnedList().filter(id => !folderApps.has(id));
+        const currentFolderKeys = this.getFolders().map(f => `folder:${f.id}`);
+        const existingOrder = [...this.dockOrder];
 
         const finalOrder = [];
-
         existingOrder.forEach(key => {
-            if (key.startsWith('folder:')) {
-                if (currentFolderKeys.includes(key) && !finalOrder.includes(key)) {
-                    finalOrder.push(key);
-                }
-            } else if (currentPinned.includes(key) && !finalOrder.includes(key)) {
+            if (finalOrder.includes(key)) return;
+            if (key.startsWith('folder:') ? currentFolderKeys.includes(key) : currentPinned.includes(key)) {
                 finalOrder.push(key);
             }
         });
 
-        currentPinned.forEach(appId => {
-            if (!finalOrder.includes(appId)) {
-                finalOrder.push(appId);
-            }
+        [...currentPinned, ...currentFolderKeys].forEach(key => {
+            if (!finalOrder.includes(key)) finalOrder.push(key);
         });
 
-        currentFolderKeys.forEach(fKey => {
-            if (!finalOrder.includes(fKey)) {
-                finalOrder.push(fKey);
-            }
-        });
+        const orderChanged = existingOrder.length !== finalOrder.length ||
+            existingOrder.some((k, idx) => k !== finalOrder[idx]);
 
         this.dockOrder = finalOrder;
+        if (orderChanged) this._saveOrder();
         return this.dockOrder;
     }
 
     saveDockOrder(newOrderArray = null) {
-        if (Array.isArray(newOrderArray)) {
-            this.dockOrder = [...newOrderArray];
-            if (this.isIndependent()) {
-                this.saveDockState();
-            }
+        if (!Array.isArray(newOrderArray)) return;
+
+        const folderApps = this.getFolderAppIds();
+        const currentFolderKeys = new Set(this.getFolders().map(f => `folder:${f.id}`));
+        const prevOrder = [...this.dockOrder];
+
+        const incomingHasFolders = newOrderArray.some(k => k.startsWith('folder:'));
+        const nextOrder = newOrderArray.filter(k => k.startsWith('folder:') || !folderApps.has(k));
+
+        if (!incomingHasFolders && currentFolderKeys.size > 0) {
+            prevOrder.forEach((key, idx) => {
+                if (key.startsWith('folder:') && currentFolderKeys.has(key) && !nextOrder.includes(key)) {
+                    nextOrder.splice(Math.min(idx, nextOrder.length), 0, key);
+                }
+            });
         }
+
+        this.dockOrder = nextOrder;
+        this._saveOrder();
     }
 
     getFolders() {
-        return this.isIndependent()
-            ? (this.independentFolders || [])
-            : (this.nonIndependentFolders || []);
+        return this.isIndependent() ? this.independentFolders : this.nonIndependentFolders;
     }
 
     saveFolders(foldersList) {
         if (!Array.isArray(foldersList)) return;
 
+        foldersList.forEach(f => {
+            const key = `folder:${f.id}`;
+            if (!this.dockOrder.includes(key)) this.dockOrder.push(key);
+        });
+
         if (this.isIndependent()) {
             this.independentFolders = foldersList;
+            this._syncFolderAppsToPinned();
             this.saveDockState();
-        } else {
-            this.nonIndependentFolders = foldersList;
-            if (this.settings) {
-                try {
-                    this.settings.set_string('app-folders', JSON.stringify(foldersList));
-                } catch (e) {
-                    console.error(`[Dhruva] Failed to save non-independent folders: ${e.message}`);
-                }
-            }
+            return;
         }
+
+        this.nonIndependentFolders = foldersList;
+        try {
+            this.settings.set_string('app-folders', JSON.stringify(foldersList));
+        } catch (e) {
+            console.error(`[Dhruva] Failed to save non-independent folders: ${e.message}`);
+        }
+        this._syncFolderAppsToPinned();
+        this._writeJson(this.orderPath, this.dockOrder);
     }
 
     hasApp(app) {
         if (!app) return false;
         const id = app.get_id ? app.get_id() : app;
-        if (this.isIndependent()) {
-            return (this.pinnedApps || []).includes(id);
-        }
+        if (this.isAppInFolder(id)) return true;
+        if (this.isIndependent()) return this.pinnedApps.includes(id);
         return this.favManager.isFavorite(id);
     }
 
     addApp(app) {
         if (!app) return false;
         const id = app.get_id ? app.get_id() : app;
+        const inFolder = this.isAppInFolder(id);
 
         if (this.isIndependent()) {
-            if (!this.pinnedApps.includes(id)) {
-                this.pinnedApps.push(id);
-                if (!this.dockOrder.includes(id)) {
-                    this.dockOrder.push(id);
-                }
-                this.saveDockState();
-                if (this.dockUI && this.dockUI.queueRender) {
-                    this.dockUI.queueRender('incremental');
-                } else if (this._onStateChangedCallback) {
-                    this._onStateChangedCallback();
-                }
+            if (!this.pinnedApps.includes(id)) this.pinnedApps.push(id);
+            if (!inFolder && !this.dockOrder.includes(id)) this.dockOrder.push(id);
+            this._syncFolderAppsToPinned();
+            this.saveDockState();
+        } else {
+            if (!this.favManager.isFavorite(id)) this.favManager.addFavorite(id);
+            this._syncFolderAppsToPinned();
+            if (!inFolder && !this.dockOrder.includes(id)) {
+                this.dockOrder.push(id);
+                this._writeJson(this.orderPath, this.dockOrder);
             }
-            return true;
         }
 
-        if (!this.hasApp(app)) {
-            this.favManager.addFavorite(id);
-            if (!this.dockOrder.includes(id)) {
-                this.dockOrder.push(id);
-            }
-            if (this.dockUI && this.dockUI.queueRender) {
-                this.dockUI.queueRender('incremental');
-            } else if (this._onStateChangedCallback) {
-                this._onStateChangedCallback();
-            }
-        }
+        this.queueRender('incremental');
         return true;
     }
 
@@ -285,104 +381,87 @@ export default class AppManager {
         if (!app) return false;
         const id = app.get_id ? app.get_id() : app;
 
-        this.dockOrder = (this.dockOrder || []).filter(itemId => itemId !== id);
+        this.dockOrder = this.dockOrder.filter(itemId => itemId !== id);
 
         if (this.isIndependent()) {
-            if (this.pinnedApps.includes(id)) {
-                this.pinnedApps = this.pinnedApps.filter(pinnedId => pinnedId !== id);
-                this.saveDockState();
-                if (this.dockUI && this.dockUI.queueRender) {
-                    this.dockUI.queueRender('incremental');
-                } else if (this._onStateChangedCallback) {
-                    this._onStateChangedCallback();
-                }
-                return true;
-            }
-            return false;
+            if (!this.pinnedApps.includes(id)) return false;
+            this.pinnedApps = this.pinnedApps.filter(pinnedId => pinnedId !== id);
+            this.saveDockState();
+            this.queueRender('incremental');
+            return true;
         }
 
-        if (this.hasApp(app)) {
-            this.favManager.removeFavorite(id);
-        }
+        if (this.favManager.isFavorite(id)) this.favManager.removeFavorite(id);
 
         try {
             const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-            const currentFavs = shellSettings.get_strv('favorite-apps') || [];
+            const currentFavs = shellSettings.get_strv('favorite-apps');
             if (currentFavs.includes(id)) {
-                const newFavs = currentFavs.filter(favId => favId !== id);
-                shellSettings.set_strv('favorite-apps', newFavs);
+                shellSettings.set_strv('favorite-apps', currentFavs.filter(favId => favId !== id));
             }
         } catch (e) {
             console.error(`[Dhruva] Failed to sync unpin with GNOME Dash: ${e.message}`);
         }
 
-        if (this.dockUI && this.dockUI.queueRender) {
-            this.dockUI.queueRender('incremental');
-        } else if (this._onStateChangedCallback) {
-            this._onStateChangedCallback();
-        }
+        this._writeJson(this.orderPath, this.dockOrder);
+        this.queueRender('incremental');
         return true;
     }
 
-    getDisplayApps() {
-        const showUnpinned = Settings.showUnpinnedApps;
+    _collectUnpinned(activeRunningAppMap, excluded, folderApps, displayApps) {
+        this._unpinnedOrder = this._unpinnedOrder.filter(id =>
+            !excluded.has(id) && !folderApps.has(id) && activeRunningAppMap.has(id)
+        );
 
-        if (!this.isIndependent()) {
-            const favorites = this.favManager.getFavorites();
-            const runningApps = this.appSystem.get_running();
-            const favIds = new Set(favorites.map(a => a.get_id()));
-
-            const displayApps = [...favorites];
-
-            if (showUnpinned) {
-                runningApps.forEach(app => {
-                    if (!favIds.has(app.get_id())) {
-                        const activeWins = app.get_windows().filter(w => !w.is_skip_taskbar());
-                        if (activeWins.length > 0) {
-                            displayApps.push(app);
-                        }
-                    }
-                });
-            }
-            return displayApps;
-        }
-
-        const runningApps = this.appSystem.get_running();
-        const runningIds = new Set(runningApps.map(a => a.get_id()));
-        const displayApps = [];
-
-        (this.pinnedApps || []).forEach(id => {
-            const app = this.appSystem.lookup_app(id);
-            if (app) {
-                displayApps.push(app);
-                runningIds.delete(id);
+        activeRunningAppMap.forEach((_app, id) => {
+            if (!excluded.has(id) && !folderApps.has(id) && !this._unpinnedOrder.includes(id)) {
+                this._unpinnedOrder.push(id);
             }
         });
 
-        if (showUnpinned) {
-            runningApps.forEach(app => {
-                if (runningIds.has(app.get_id())) {
-                    const activeWins = app.get_windows().filter(w => !w.is_skip_taskbar());
-                    if (activeWins.length > 0) {
-                        displayApps.push(app);
-                    }
-                }
-            });
+        this._unpinnedOrder.forEach(id => displayApps.push(activeRunningAppMap.get(id)));
+    }
+
+    getDisplayApps() {
+        const folderApps = this.getFolderAppIds();
+        const activeRunningAppMap = new Map();
+
+        this.appSystem.get_running().forEach(app => {
+            if (app.get_windows().some(w => !w.is_skip_taskbar())) {
+                activeRunningAppMap.set(app.get_id(), app);
+            }
+        });
+
+        let displayApps;
+        let pinnedIds;
+
+        if (this.isIndependent()) {
+            const standalonePinned = this.pinnedApps.filter(id => !folderApps.has(id));
+            pinnedIds = new Set(standalonePinned);
+            displayApps = standalonePinned
+                .map(id => this.appSystem.lookup_app(id))
+                .filter(app => app !== null);
+        } else {
+            displayApps = this.favManager.getFavorites().filter(app => !folderApps.has(app.get_id()));
+            pinnedIds = new Set(displayApps.map(app => app.get_id()));
         }
 
+        if (Settings.showUnpinnedApps) {
+            this._collectUnpinned(activeRunningAppMap, pinnedIds, folderApps, displayApps);
+        }
         return displayApps;
     }
 
     destroy() {
-        if (this.settings) {
-            this.settings.disconnectObject(this);
-        }
+        this.settings.disconnectObject(this);
+        this._docks.clear();
+        this._stateListeners.clear();
         this.pinnedApps = [];
         this.dockOrder = [];
+        this._unpinnedOrder = [];
         this.independentFolders = [];
         this.nonIndependentFolders = [];
         this.appSystem = null;
         this.favManager = null;
-        this.dockUI = null;
     }
 }

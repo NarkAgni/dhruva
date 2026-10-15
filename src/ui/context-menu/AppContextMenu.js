@@ -26,14 +26,15 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import PeekManager from '../../core/PeekManager.js';
-import { applyThemeStyle } from './ContextMenuStyle.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { attachTrashActions } from './TrashActionsHandler.js';
+import { applyMenuThemeStyle } from '../shared/MenuThemeStyle.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 import { createThumbnailScroll } from './WindowThumbnailBuilder.js';
 import { resetMagnification } from '../magnifier/MagnifierReset.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
+import { deleteCustomFolderIcon } from '../folder-menu/FolderIconFiles.js';
 import { createIconMenuItem, createMenuItem, addSeparator } from './ContextMenuItems.js';
 
 
@@ -41,6 +42,17 @@ const DEFAULT_PANEL_WIDTH = 280;
 const POS_TRACKER_INTERVAL_MS = 16;
 const IGNORE_EXPIRY_MS = 2000;
 const ARROW_HEIGHT = 12;
+const ARROW_WIDTH = 24;
+
+const DOCK_ICON_GAP = 22;
+const FOLDER_ICON_GAP = -8;
+const POPUP_ICON_GAP = 6;
+
+function folderDisplayName(name) {
+    if (name === 'New Folder' || name === 'Новая папка') return _('New Folder');
+    if (name === 'Stack') return _('Stack');
+    return name;
+}
 
 export default class AppContextMenu {
     constructor(dockUI, app, buttonActor, isCtrlPressed = false, openPrefsCallback = null, disablePeek = false) {
@@ -70,8 +82,17 @@ export default class AppContextMenu {
         global.stage.set_key_focus(null);
 
         this.actor.connectObject(
-            'button-release-event', () => { this.hide(); return Clutter.EVENT_STOP; },
+            'button-release-event', (_a, event) => {
+                if (event.get_button() === Clutter.BUTTON_PRIMARY) this.hide();
+                return Clutter.EVENT_STOP;
+            },
+            'button-press-event', (_a, event) => {
+                if (!this._isOnOverlay(event)) return Clutter.EVENT_PROPAGATE;
+                if (event.get_button() === Clutter.BUTTON_SECONDARY) this._forwardSecondaryPress(event);
+                return Clutter.EVENT_STOP;
+            },
             'touch-event', (_a, event) => {
+                if (!this._isOnOverlay(event)) return Clutter.EVENT_PROPAGATE;
                 if (event.type() === Clutter.EventType.TOUCH_END) this.hide();
                 return Clutter.EVENT_STOP;
             },
@@ -113,7 +134,7 @@ export default class AppContextMenu {
 
         this.menuContainer.add_child(this.panel);
         this._buildMenu();
-        applyThemeStyle(this, this.panel);
+        applyMenuThemeStyle(this, this.panel);
         this.actor.add_child(this.menuContainer);
     }
 
@@ -126,7 +147,7 @@ export default class AppContextMenu {
             this._blurPanel = null;
         }
 
-        if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
         }
         if (this.dockUI && this.dockUI._activeContextMenu === this) {
@@ -137,6 +158,9 @@ export default class AppContextMenu {
             this.peekManager = null;
         }
 
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
+            this.dockUI.actor.disconnectObject(this);
+        }
         if (this.actor) this.actor.disconnectObject(this);
         if (this.panel) this.panel.disconnectObject(this);
         if (this.buttonActor) this.buttonActor.disconnectObject(this);
@@ -145,19 +169,20 @@ export default class AppContextMenu {
     _buildMenu() {
         if (!this.app && this.buttonActor && this.buttonActor._isFolder) {
             const fData = this.buttonActor._folderData;
-            const folderDisplayName = (fData.name === 'New Folder' || fData.name === 'Новая папка') ? _('New Folder') : fData.name;
+            const folderName = folderDisplayName(fData.name);
             const titleBox = new St.BoxLayout({
                 x_align: Clutter.ActorAlign.CENTER,
                 y_align: Clutter.ActorAlign.CENTER,
                 style_class: 'context-menu-header-box'
             });
             setBoxVertical(titleBox, false);
-            titleBox.add_child(new St.Label({ text: folderDisplayName, style_class: 'context-menu-header-title' }));
+            titleBox.add_child(new St.Label({ text: folderName, style_class: 'context-menu-header-title' }));
             this.panel.add_child(titleBox);
             addSeparator(this.panel);
 
             this.panel.add_child(createIconMenuItem(_('Unpack Stack'), () => {
                 fData.apps.forEach(appId => this.dockUI.appManager.addApp(appId));
+                deleteCustomFolderIcon(this.dockUI, fData.icon);
                 this.dockUI.folderManager.deleteFolder(fData.id);
                 this.dockUI.queueRender('incremental');
                 this.hide();
@@ -172,8 +197,9 @@ export default class AppContextMenu {
             }, false, this));
 
             addSeparator(this.panel);
-            const deleteLabel = _('Delete %s').format(folderDisplayName);
+            const deleteLabel = _('Delete %s').format(folderName);
             this.panel.add_child(createIconMenuItem(deleteLabel, () => {
+                deleteCustomFolderIcon(this.dockUI, fData.icon);
                 this.dockUI.folderManager.deleteFolder(fData.id);
                 this.dockUI.queueRender('incremental');
                 this.hide();
@@ -207,13 +233,44 @@ export default class AppContextMenu {
         if (this.buttonActor && !this.buttonActor._inFolder && this.dockUI.folderManager && !this.app.is_module) {
             const folders = this.dockUI.folderManager.getFolders();
             let addedFolder = false;
+
+            const nameTotals = new Map();
             folders.forEach(f => {
+                const base = folderDisplayName(f.name);
+                nameTotals.set(base, (nameTotals.get(base) || 0) + 1);
+            });
+            const nameSeen = new Map();
+
+            folders.forEach(f => {
+                const baseName = folderDisplayName(f.name);
+                const seenCount = (nameSeen.get(baseName) || 0) + 1;
+                nameSeen.set(baseName, seenCount);
+
                 if (!f.apps.includes(this.app.get_id())) {
-                    const targetFolderName = (f.name === 'New Folder' || f.name === 'Новая папка') ? _('New Folder') : f.name;
+                    const targetFolderName = (nameTotals.get(baseName) > 1)
+                        ? `${baseName} (#${seenCount})`
+                        : baseName;
                     const addLabel = _('Add to %s').format(targetFolderName);
+                    const folderId = f.id;
+
                     const btn = createIconMenuItem(addLabel, () => {
                         const appId = this.app.get_id();
                         const targetBtn = this.buttonActor;
+
+                        const dockUI = this.dockUI;
+                        const commitAdd = () => {
+                            if (!dockUI.folderManager) return;
+                            dockUI.folderManager.addAppToFolder(folderId, appId);
+
+                            const activeFMenu = dockUI._activeFolderMenu;
+                            if (activeFMenu && isActorAlive(activeFMenu.actor) && activeFMenu.folderData && activeFMenu.folderData.id === folderId) {
+                                activeFMenu._suppressSync = false;
+                                if (!activeFMenu.folderData.apps.includes(appId)) {
+                                    activeFMenu.folderData.apps.push(appId);
+                                }
+                                activeFMenu.forceRefresh(false, appId);
+                            }
+                        };
 
                         if (targetBtn && isActorAlive(targetBtn)) {
                             targetBtn.remove_all_transitions();
@@ -223,24 +280,11 @@ export default class AppContextMenu {
                                 scale_x: 0.1,
                                 scale_y: 0.1,
                                 duration: 150,
-                                mode: Clutter.AnimationMode.EASE_IN_CUBIC
+                                mode: Clutter.AnimationMode.EASE_IN_CUBIC,
+                                onStopped: commitAdd
                             });
-                        }
-
-                        const activeFMenu = this.dockUI._activeFolderMenu;
-                        const isFolderMenuOpen = Boolean(activeFMenu && activeFMenu.folderData && activeFMenu.folderData.id === f.id);
-
-                        if (isFolderMenuOpen) {
-                            this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 160, () => {
-                                if (activeFMenu && isActorAlive(activeFMenu.actor) && activeFMenu.folderData && activeFMenu.folderData.id === f.id) {
-                                    activeFMenu._suppressSync = false;
-                                    if (!activeFMenu.folderData.apps.includes(appId)) {
-                                        activeFMenu.folderData.apps.push(appId);
-                                    }
-                                    activeFMenu.forceRefresh(false, appId);
-                                }
-                                return GLib.SOURCE_REMOVE;
-                            });
+                        } else {
+                            commitAdd();
                         }
 
                         this.hide();
@@ -312,19 +356,15 @@ export default class AppContextMenu {
 
         if (this.buttonActor && this.buttonActor._inFolder) {
             const folderId = this.buttonActor._folderId;
-            const rawName = this.buttonActor._folderName || 'Stack';
-            const folderDisplayName = (rawName === 'New Folder' || rawName === 'Новая папка') ? _('New Folder') : (rawName === 'Stack' ? _('Stack') : rawName);
+            const liveFolder = this.dockUI.folderManager.getFolders().find(f => f.id === folderId);
+            const rawName = liveFolder ? liveFolder.name : (this.buttonActor._folderName || 'Stack');
             const targetBtn = this.buttonActor;
 
-            const removeLabel = _('Remove from %s').format(folderDisplayName);
+            const removeLabel = _('Remove from %s').format(folderDisplayName(rawName));
             this.panel.add_child(createIconMenuItem(removeLabel, () => {
                 const appId = this.app.get_id();
 
                 this.dockUI.folderManager.removeAppFromFolder(folderId, appId);
-
-                if (this.dockUI.folderManager.saveFolders) this.dockUI.folderManager.saveFolders();
-                else if (this.dockUI.folderManager._saveFolders) this.dockUI.folderManager._saveFolders();
-                else this.dockUI.settings.set_string('app-folders', JSON.stringify(this.dockUI.folderManager.getFolders()));
 
                 if (targetBtn && isActorAlive(targetBtn)) {
                     targetBtn.remove_all_transitions();
@@ -373,7 +413,9 @@ export default class AppContextMenu {
             this.panel.add_child(createMenuItem(_('Dhruva Settings'), () => {
                 this.hide();
                 const res = this.openPrefsCallback();
-                if (res instanceof Promise) res.catch(e => console.warn('[Dhruva]', e.message));
+                if (res && res.catch) {
+                    res.catch(e => console.warn('[Dhruva]', e.message));
+                }
             }, false, this));
         }
     }
@@ -388,6 +430,30 @@ export default class AppContextMenu {
             if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    _isOnOverlay(event) {
+        return global.stage.get_event_actor(event) === this.actor;
+    }
+
+    _forwardSecondaryPress(event) {
+        const icon = this._iconUnderOverlay(event);
+        if (!icon || icon === this.buttonActor) return;
+
+        this.hide();
+        icon.event(event, false);
+    }
+
+    _iconUnderOverlay(event) {
+        const [x, y] = event.get_coords();
+        this.actor.reactive = false;
+        let actor = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+        this.actor.reactive = true;
+
+        for (; actor; actor = actor.get_parent()) {
+            if (actor._delegate || actor._inFolder || actor._inPopup) return actor;
+        }
+        return null;
     }
 
     _updatePosition() {
@@ -434,9 +500,12 @@ export default class AppContextMenu {
         if (this._lastStateStr === stateStr) return;
         this._lastStateStr = stateStr;
 
-        const isInsideFolder = this.buttonActor && this.buttonActor._inFolder;
-        const isAppGrid = !this.peekManager && !isInsideFolder;
-        const gap = isInsideFolder ? -8 : (isAppGrid ? -8 : 22);
+        const isInsideFolder = this.buttonActor._inFolder;
+        const isInsidePopup = this.buttonActor._inPopup;
+        const isAppGrid = !this.peekManager && !isInsideFolder && !isInsidePopup;
+        let gap = DOCK_ICON_GAP;
+        if (isInsidePopup) gap = POPUP_ICON_GAP;
+        else if (isInsideFolder || isAppGrid) gap = FOLDER_ICON_GAP;
 
         let posX = btnX + (btnW / 2) - (panelW / 2);
         let posY = btnY;
@@ -479,13 +548,9 @@ export default class AppContextMenu {
         }
 
         if (this._blurPanel) {
-            const basePad = (this._blurPanel.basePad !== undefined) ? this._blurPanel.basePad : 2;
-            const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
-            if (dockPos === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
-            else if (dockPos === 'TOP') insets.top += ARROW_HEIGHT;
-            else if (dockPos === 'LEFT') insets.left += ARROW_HEIGHT;
-            else if (dockPos === 'RIGHT') insets.right += ARROW_HEIGHT;
-            this._blurPanel.setCustomInsets(insets);
+            const basePad = this._blurPanel.basePad;
+            this._blurPanel.setCustomInsets({ top: basePad, bottom: basePad, left: basePad, right: basePad });
+            this._blurPanel.setArrow({ side: dockPos, center: this.bgDrawingArea._arrowCenter, width: ARROW_WIDTH, height: ARROW_HEIGHT });
         }
     }
 
@@ -493,7 +558,7 @@ export default class AppContextMenu {
         this._dockPos = dockPosition;
         this._isFirstPosition = true;
 
-        if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', true);
         }
 
@@ -521,6 +586,11 @@ export default class AppContextMenu {
                     const siblingParent = sibling && sibling.get_parent ? sibling.get_parent() : null;
                     if (parent && sibling && parent === siblingParent) parent.set_child_below_sibling(this.actor, sibling);
                 }
+
+                this.dockUI.actor.connectObject('button-press-event', (_a, event) => {
+                    if (event.get_button() === Clutter.BUTTON_PRIMARY) this.hide();
+                    return Clutter.EVENT_STOP;
+                }, this);
             }
 
             this.actor.set_position(0, 0);
@@ -573,7 +643,8 @@ export default class AppContextMenu {
         this.timers.remove(this._posTrackerId);
         this._posTrackerId = null;
 
-        if (this.dockUI && isActorAlive(this.dockUI.actor) && setMagnifierPauseState) {
+        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
+            this.dockUI.actor.disconnectObject(this);
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
         }
         if (this.dockUI && this.dockUI._activeContextMenu === this) {
@@ -593,24 +664,30 @@ export default class AppContextMenu {
             }
         }
 
-        if (this.actor && isActorAlive(this.actor) && this.actor.get_parent()) {
-            Main.layoutManager.removeChrome(this.actor);
-        }
+        const actor = this.actor;
+        actor.reactive = false;
 
-        if (this.menuContainer && isActorAlive(this.menuContainer)) {
+        const dispose = () => {
+            if (!isActorAlive(actor)) return;
+            if (global.stage.get_key_focus() === actor) {
+                global.stage.set_key_focus(isActorAlive(this._previousFocus) ? this._previousFocus : null);
+            }
+            if (actor.get_parent()) Main.layoutManager.removeChrome(actor);
+            actor.destroy();
+        };
+
+        if (isActorAlive(this.menuContainer) && actor.get_stage()) {
+            this.menuContainer.remove_all_transitions();
             this.menuContainer.ease({
                 opacity: 0,
                 scale_x: 0.95,
                 scale_y: 0.95,
                 duration: 120,
                 mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onComplete: () => {
-                    if (global.stage.get_key_focus() === this.actor) global.stage.set_key_focus(this._previousFocus || null);
-                    if (this.actor && isActorAlive(this.actor)) this.actor.destroy();
-                }
+                onStopped: dispose
             });
-        } else if (this.actor && isActorAlive(this.actor)) {
-            this.actor.destroy();
+        } else {
+            dispose();
         }
     }
 }

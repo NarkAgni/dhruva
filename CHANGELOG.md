@@ -1,3 +1,56 @@
+## [4.0] - 15-10-2026
+
+### New
+* **Panel Mode (#73):** An optional mode that brings the GNOME top bar into the dock. The bar holds a workspace indicator, an extension tray, Quick Settings, and the clock with its calendar. Notification banners appear next to the dock. It works on all four screen edges, and every extra monitor gets its own clock.
+panel_mode.png
+* **Extension Tray:** In Panel mode, small icons from other extensions sit behind an arrow. Each icon can be pinned to the bar or reordered, and a single reset in preferences tidies the tray back to its default order.
+extension_tray.png
+* **Overflow Menu:** In Panel mode, apps that no longer fit on the bar move into an overflow menu instead of being cut off.
+overflow_menu.png
+* **Folder Customization:** Folders can be renamed inline. Each folder can have its own plate colour, letter style and letter size, or use a custom image or emoji as its icon. A reset brings back the default look. Apps inside a folder can be reordered by dragging.
+folder_style.png
+* **New Emoji Picker:** Adds search, categories, recently used emojis, a preview, and full keyboard navigation.
+emoji_picker.png
+* **Redesigned Preferences:** Adds a new Panel page and a live dock preview on the Appearance page. Includes a visual screen-edge picker and a reset button on each group. Options that do not apply to the current setup are hidden.
+layout.png
+panel.png
+appearance.png
+blur.png
+* **Empty Trash Confirmation:** Emptying the Trash now asks for confirmation, and the files are deleted in the background.
+* **Trash Animation:** Dragging an icon off the dock now plays a short puff animation.
+
+### Improved
+* **Unpinned App Order (#74):** Running apps that are not pinned now keep their launch order. Clicking or focusing an app no longer swaps it with its neighbours, so repeated clicks cycle through the windows of the same app.
+* **Docks on a Shared Monitor Edge (#75):** When the dock sits on an edge shared with another monitor, it no longer adds an edge barrier or reserves screen space there. The pointer can move freely to the other monitor. While a window is being dragged, the dock steps aside so the window can cross to the other screen.
+* **Music Pill (#76):** The pill now appears as soon as a track starts playing, and artwork colours are applied correctly. The player connection no longer blocks the shell. The Music Pill currently supports Spotify only, and the preferences now say so.
+* **Hover Zoom (#71):** Icons and the dock background now settle back to their resting state when the pointer leaves the icons, including in full-width and Panel mode. Frame timing is smoother, and clicks go to the nearest icon even while zoomed.
+* **Magic Lamp:** The effect is rewritten with a smoother bend and slide toward the dock icon.
+* **Dynamic Indicator:** The running indicator now animates its length when an app gains or loses focus.
+* **Show Desktop:** Only windows on the current workspace are affected. A second click restores exactly the windows that were hidden.
+* **Menus and Popups:** Context menus, the folder menu, the tray and the overflow menu share one style. The blur behind them follows the arrow shape.
+* **Responsiveness:** Blocking file and D-Bus calls were replaced with asynchronous ones, covering Trash checks, the music player, lyrics and album art. The album art cache is capped at 100 files, and the lyrics cache at 300 songs.
+* **Independent Mode Shortcut:** A new shortcut takes effect as soon as it is changed in preferences.
+* **GNOME Dash:** The overview dash is hidden and restored from one place, so it comes back correctly when switching modes or monitors.
+
+### Fixed
+* **App Folders Losing Position (#82):** With docks on more than one monitor, each dock kept its own copy of the folders and dock order. One dock could write an old copy back and move all folders to the end. All docks now share one copy.
+* **Folder Name Reset:** Renamed folders no longer go back to "New Folder" after the dock refreshes.
+* **Add to Folder:** The "Add to …" entry in the app context menu now always adds the app, and it shows the real folder name.
+* **Extension Failing to Enable on Login (#81):** The Trash monitor now starts after a short delay and retries if the Trash backend is still mounting. It also reconnects after an unmount, and an error there no longer stops the dock from loading.
+* **Icon Click Effect and Version Text (#80):** Click animations are no longer cancelled by the hover zoom reset. The About page shows the correct version.
+* **Missing Settings Keys (#79):** The schema includes `autohide-animation-speed` and `window-effect-speed`, so preferences open without errors.
+
+### Changed Defaults
+* Panel mode is on by default.
+* Running indicator style is now Dynamic, and the glow is off.
+* Icon size is 32 px, the dock height is 8 px, and the end padding and edge gap are 0.
+* Corner radius is 18 px, the outline is 1 px at 10% opacity, and the background opacity is 75%.
+* The App Grid button sits at the start, and the clock sits at the end.
+* Home, Trash, mounted drives and the pinned/running separator are off by default.
+* Separators are thinner (1 px) and lighter.
+* Minimize animation duration is 450 ms.
+* The unused `indicator-spacing` setting has been removed.
+
 ## [3.1] - 05-10-2026
 
 ### New
@@ -56,4 +109,3 @@ hover_preview.png
 * **Dock Height Inflation:** Fixed dock expanding vertically when icon hover backgrounds are rendered.
 * **Vertical Clipping:** Fixed height truncation on app hover backgrounds when hover zoom magnification is disabled.
 * **Hover State Reset:** Fixed App Grid background remaining active on open or click interactions.
-

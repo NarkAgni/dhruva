@@ -77,6 +77,9 @@ class SettingsManager {
     set toggleIndependentDockShortcut(arr) { if (this._settings) this._settings.set_strv('toggle-independent-dock-shortcut', arr); }
     get showIndependentInOverview() { return this._settings ? this._settings.get_boolean('show-independent-in-overview') : false; }
     get fullWidth() { return this._settings ? this._settings.get_boolean('full-width') : false; }
+    set fullWidth(v) { if (this._settings) this._settings.set_boolean('full-width', v); }
+    get hybridPanelMode() { return this._settings ? this._settings.get_boolean('hybrid-panel-mode') : false; }
+    set hybridPanelMode(v) { if (this._settings) this._settings.set_boolean('hybrid-panel-mode', v); }
     get iconAlignment() { return this._settings ? this._settings.get_string('icon-alignment') : 'CENTER'; }
     get dockMargin() { return this._settings ? this._settings.get_int('dock-margin') : 0; }
     get iconSize() { return this._settings ? this._settings.get_int('icon-size') : 48; }
@@ -127,7 +130,7 @@ class SettingsManager {
     get scrollActionApp() { return this._settings ? this._settings.get_boolean('scroll-action-app') : true; }
     get showUnpinnedApps() { return this._settings ? this._settings.get_boolean('show-unpinned-apps') : true; }
     get newWindowAction() { return this._settings ? this._settings.get_string('new-window-action') : 'new'; }
-    get hoverZoom() { return this._settings ? this._settings.get_boolean('hover-zoom') : false; }
+    get hoverZoom() { return this._settings ? this._settings.get_boolean('hover-zoom') && !this._settings.get_boolean('hybrid-panel-mode') : false; }
     get hoverZoomFactor() { return this._settings ? this._settings.get_double('hover-zoom-factor') : 1.4; }
     get hoverZoomStyle() { return this._settings ? this._settings.get_string('hover-zoom-style') : 'default'; }
     get hoverZoomRise() { return this._settings ? this._settings.get_int('hover-zoom-rise') : 0; }

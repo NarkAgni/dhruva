@@ -20,316 +20,227 @@
 import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
+import Gio from 'gi://Gio';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { Settings } from '../core/SettingsManager.js';
-import { addSegmentedRow, addSwitchRow, addCustomSpinRow } from './PrefsWidgets.js';
+import { onSettingChanged } from './SettingsSignals.js';
+import {
+    fmt, addGroup, addGroupReset, showWhen, addSwitchRow, addSliderRow, addSegmentedRow, addChoiceCards,
+    roundedRect,
+} from './PrefsWidgets.js';
 
 
-export function buildLayoutPage(window, settings, createResetBtn) {
-    const page = new Adw.PreferencesPage({
-        title: _('Layout'),
-        icon_name: 'view-grid-symbolic'
+const SHORTCUT_KEY = 'toggle-independent-dock-shortcut';
+const SIZE_KEYS = ['icon-size', 'icon-spacing', 'dock-height', 'dock-padding', 'dock-margin'];
+
+const MODIFIER_KEYS = [
+    Gdk.KEY_Shift_L, Gdk.KEY_Shift_R, Gdk.KEY_Control_L, Gdk.KEY_Control_R,
+    Gdk.KEY_Alt_L, Gdk.KEY_Alt_R, Gdk.KEY_Super_L, Gdk.KEY_Super_R, Gdk.KEY_Meta_L, Gdk.KEY_Meta_R,
+];
+
+function edgeArt(edge) {
+    const area = new Gtk.DrawingArea({ content_width: 84, content_height: 54, halign: Gtk.Align.CENTER });
+    area.set_draw_func((_area, cr, w, h) => {
+        roundedRect(cr, 1, 1, w - 2, h - 2, 6);
+        cr.setSourceRGBA(1, 1, 1, 0.08);
+        cr.fillPreserve();
+        cr.setSourceRGBA(1, 1, 1, 0.3);
+        cr.setLineWidth(1);
+        cr.stroke();
+
+        const thick = 7;
+        const gap = 4;
+        const isVertical = edge === 'LEFT' || edge === 'RIGHT';
+        const long = isVertical ? h * 0.6 : w * 0.6;
+        let x = (w - long) / 2;
+        let y = (h - long) / 2;
+        if (edge === 'BOTTOM') y = h - thick - gap;
+        else if (edge === 'TOP') y = gap;
+        else if (edge === 'LEFT') x = gap;
+        else x = w - thick - gap;
+
+        roundedRect(cr, x, y, isVertical ? thick : long, isVertical ? long : thick, 3);
+        cr.setSourceRGBA(1, 1, 1, 0.85);
+        cr.fill();
     });
-    window.add(page);
+    return area;
+}
 
-    const posGroup = new Adw.PreferencesGroup({
-        title: _('Screen Placement'),
-        description: _('Where to place the dock on your display')
-    });
-    page.add(posGroup);
-
-    addSegmentedRow(posGroup, settings, 'dock-position', _('Screen Edge'), _('Which edge to attach to'), 'go-bottom-symbolic', [
-        { name: _('Left'), value: 'LEFT' },
-        { name: _('Bottom'), value: 'BOTTOM' },
-        { name: _('Top'), value: 'TOP' },
-        { name: _('Right'), value: 'RIGHT' }
-    ]);
-
-    const display = Gdk.Display.get_default();
-    const monitorsModel = display.get_monitors();
-    let monitorOptions = [];
-
-    for (let i = 0; i < monitorsModel.get_n_items(); i++) {
-        const m = monitorsModel.get_item(i);
-        const name = m.get_description() || m.get_connector() || `${_('Monitor')} ${i + 1}`;
-        if (i === 0) {
-            monitorOptions.push(_('Primary Monitor (%s)').replace('%s', name));
-        } else {
-            monitorOptions.push(name);
-        }
+function addMonitorRow(group, settings) {
+    const monitors = Gdk.Display.get_default().get_monitors();
+    const names = [_('Primary monitor')];
+    for (let i = 0; i < monitors.get_n_items(); i++) {
+        const monitor = monitors.get_item(i);
+        names.push(monitor.get_description() || monitor.get_connector() || `${_('Monitor')} ${i + 1}`);
     }
 
-    const monitorModel = Gtk.StringList.new(monitorOptions);
-    const monitorRow = new Adw.ComboRow({
-        title: _('Preferred Monitor'),
-        subtitle: _('Choose display for the dock'),
-        icon_name: 'video-display-symbolic',
-        model: monitorModel
+    const row = new Adw.ComboRow({
+        title: _('Monitor'),
+        subtitle: _('Screen that shows the dock'),
+        model: Gtk.StringList.new(names),
     });
-
-    const syncMonitor = () => {
-        const val = Settings.preferredMonitor;
-        monitorRow.set_selected(val === -1 ? 0 : val);
+    const sync = () => {
+        const index = settings.get_int('preferred-monitor');
+        const selected = index >= 0 && index + 1 < names.length ? index + 1 : 0;
+        if (row.get_selected() !== selected) row.set_selected(selected);
     };
-    syncMonitor();
+    row.connect('notify::selected', () => {
+        const value = row.get_selected() - 1;
+        if (value !== settings.get_int('preferred-monitor')) settings.set_int('preferred-monitor', value);
+    });
+    onSettingChanged(settings, 'preferred-monitor', sync);
+    sync();
+    group.add(row);
+    return row;
+}
 
-    monitorRow.connect('notify::selected', () => {
-        const idx = monitorRow.get_selected();
-        settings.set_string('preferred-monitor', idx === 0 ? -1 : idx);
+function openShortcutDialog(window, settings) {
+    const dialog = new Adw.Window({
+        transient_for: window,
+        modal: true,
+        title: _('Set Shortcut'),
+        default_width: 380,
+        default_height: 220,
+        resizable: false,
     });
 
-    settings.connect('changed::preferred-monitor', syncMonitor);
-    posGroup.add(monitorRow);
-
-    addSwitchRow(posGroup, settings, 'show-on-all-monitors', _('Show on All Monitors'), _('Display the dock on every connected screen'), 'video-display-symbolic', null);
-    addSwitchRow(posGroup, settings, 'isolate-monitors', _('Isolate Monitors'), _('Only show apps running on the current monitor'), 'video-display-symbolic', null);
-
-    addSwitchRow(
-        posGroup,
-        settings,
-        'independent-dock',
-        _('Independent Dock Mode'),
-        _('Use completely separate pinned apps and custom app launcher'),
-        'system-run-symbolic',
-        null
-    );
-
-    const indepShortcutRow = new Adw.ActionRow({
-        title: _('Toggle Shortcut'),
-        subtitle: _('Keyboard shortcut to switch independent dock mode'),
-        icon_name: 'preferences-desktop-keyboard-shortcuts-symbolic'
-    });
-
-    const shortcutBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 8,
-        valign: Gtk.Align.CENTER
-    });
-
-    const shortcutBtn = new Gtk.Button({
-        valign: Gtk.Align.CENTER,
-        css_classes: ['flat']
-    });
-
-    const shortcutLabel = new Gtk.ShortcutLabel({
-        disabled_text: _('None'),
-        valign: Gtk.Align.CENTER
-    });
-    shortcutBtn.set_child(shortcutLabel);
-
-    const divider = new Gtk.Separator({
+    const content = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
+        spacing: 16,
+        margin_top: 24,
+        margin_bottom: 24,
+        margin_start: 24,
+        margin_end: 24,
         valign: Gtk.Align.CENTER,
-        margin_top: 6,
-        margin_bottom: 6
+        halign: Gtk.Align.CENTER,
     });
+    content.append(new Gtk.Image({ icon_name: 'preferences-desktop-keyboard-shortcuts-symbolic', pixel_size: 48 }));
+    content.append(new Gtk.Label({
+        label: _('Press a key combination, e.g. Super+Alt+I\nEsc cancels, Backspace clears'),
+        justify: Gtk.Justification.CENTER,
+    }));
+    dialog.set_content(content);
 
-    const resetShortcutBtn = new Gtk.Button({
-        icon_name: 'edit-undo-symbolic',
-        tooltip_text: _('Reset Shortcut'),
-        valign: Gtk.Align.CENTER,
-        css_classes: ['flat', 'circular']
-    });
+    const keys = new Gtk.EventControllerKey();
+    keys.connect('key-pressed', (_controller, keyval, keycode, state) => {
+        const mask = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK |
+            Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK);
 
-    const updateShortcutBtnText = () => {
-        const val = Settings.toggleIndependentDockShortcut;
-        const hasKey = Boolean(val && val.length > 0 && val[0].trim() !== '');
-        if (hasKey) {
-            shortcutLabel.set_accelerator(val[0]);
-            divider.set_visible(true);
-            resetShortcutBtn.set_visible(true);
-        } else {
-            shortcutLabel.set_accelerator('');
-            divider.set_visible(false);
-            resetShortcutBtn.set_visible(false);
-        }
-    };
-
-    resetShortcutBtn.connect('clicked', () => {
-        Settings.toggleIndependentDockShortcut = [];
-        updateShortcutBtnText();
-    });
-
-    updateShortcutBtnText();
-
-    const openShortcutDialog = () => {
-        const dialog = new Adw.Window({
-            transient_for: window,
-            modal: true,
-            title: _('Set Shortcut'),
-            default_width: 380,
-            default_height: 220,
-            resizable: false
-        });
-
-        const rootBox = new Gtk.Box({
-            orientation: Gtk.Orientation.VERTICAL,
-            spacing: 16,
-            margin_top: 24,
-            margin_bottom: 24,
-            margin_start: 24,
-            margin_end: 24,
-            valign: Gtk.Align.CENTER,
-            halign: Gtk.Align.CENTER
-        });
-
-        const icon = new Gtk.Image({
-            icon_name: 'preferences-desktop-keyboard-shortcuts-symbolic',
-            pixel_size: 48
-        });
-
-        const instructionLabel = new Gtk.Label({
-            label: _('Press keys combo (e.g. Super+Alt+I or Ctrl+Alt+D)\n(Esc to Cancel, Backspace to Clear)'),
-            justify: Gtk.Justification.CENTER
-        });
-
-        const clearBtn = new Gtk.Button({
-            label: _('Clear Shortcut'),
-            halign: Gtk.Align.CENTER,
-            css_classes: ['destructive-action']
-        });
-
-        clearBtn.connect('clicked', () => {
-            Settings.toggleIndependentDockShortcut = [];
-            updateShortcutBtnText();
+        if (keyval === Gdk.KEY_Escape && mask === 0) {
             dialog.close();
-        });
+            return Gdk.EVENT_STOP;
+        }
+        if ((keyval === Gdk.KEY_BackSpace || keyval === Gdk.KEY_Delete) && mask === 0) {
+            settings.set_strv(SHORTCUT_KEY, []);
+            dialog.close();
+            return Gdk.EVENT_STOP;
+        }
+        if (MODIFIER_KEYS.includes(keyval)) return Gdk.EVENT_PROPAGATE;
 
-        rootBox.append(icon);
-        rootBox.append(instructionLabel);
-        rootBox.append(clearBtn);
-        dialog.set_content(rootBox);
+        const lower = Gdk.keyval_to_lower(keyval);
+        const accel = Gtk.accelerator_name_with_keycode(null, lower, keycode, mask);
+        if (!accel || !Gtk.accelerator_valid(lower, mask)) return Gdk.EVENT_PROPAGATE;
 
-        const dialogKeyController = new Gtk.EventControllerKey();
-        dialogKeyController.connect('key-pressed', (_controller, keyval, keycode, state) => {
-            const cleanMask = state & (
-                Gdk.ModifierType.CONTROL_MASK |
-                Gdk.ModifierType.SHIFT_MASK |
-                Gdk.ModifierType.ALT_MASK |
-                Gdk.ModifierType.SUPER_MASK
-            );
+        settings.set_strv(SHORTCUT_KEY, [accel]);
+        dialog.close();
+        return Gdk.EVENT_STOP;
+    });
+    dialog.add_controller(keys);
+    dialog.present();
+}
 
-            if (keyval === Gdk.KEY_Escape && cleanMask === 0) {
-                dialog.close();
-                return Gdk.EVENT_STOP;
-            }
+function addShortcutRow(group, window, settings) {
+    const row = new Adw.ActionRow({
+        title: _('Toggle Shortcut'),
+        subtitle: _('Switch independent mode from the keyboard'),
+    });
 
-            if ((keyval === Gdk.KEY_BackSpace || keyval === Gdk.KEY_Delete) && cleanMask === 0) {
-                Settings.toggleIndependentDockShortcut = [];
-                updateShortcutBtnText();
-                dialog.close();
-                return Gdk.EVENT_STOP;
-            }
+    const label = new Gtk.ShortcutLabel({ disabled_text: _('None'), valign: Gtk.Align.CENTER });
+    const setBtn = new Gtk.Button({ child: label, valign: Gtk.Align.CENTER, css_classes: ['flat'] });
+    const clearBtn = new Gtk.Button({
+        icon_name: 'edit-clear-symbolic',
+        tooltip_text: _('Remove shortcut'),
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat', 'circular'],
+    });
 
-            const isModifierKey = [
-                Gdk.KEY_Shift_L, Gdk.KEY_Shift_R,
-                Gdk.KEY_Control_L, Gdk.KEY_Control_R,
-                Gdk.KEY_Alt_L, Gdk.KEY_Alt_R,
-                Gdk.KEY_Super_L, Gdk.KEY_Super_R,
-                Gdk.KEY_Meta_L, Gdk.KEY_Meta_R
-            ].includes(keyval);
-
-            if (isModifierKey) {
-                return Gdk.EVENT_PROPAGATE;
-            }
-
-            const lowerKeyval = Gdk.keyval_to_lower(keyval);
-            const accel = Gtk.accelerator_name_with_keycode(null, lowerKeyval, keycode, cleanMask);
-
-            if (accel && Gtk.accelerator_valid(lowerKeyval, cleanMask)) {
-                Settings.toggleIndependentDockShortcut = [accel];
-                updateShortcutBtnText();
-                dialog.close();
-                return Gdk.EVENT_STOP;
-            }
-
-            return Gdk.EVENT_PROPAGATE;
-        });
-
-        dialog.add_controller(dialogKeyController);
-        dialog.present();
+    const sync = () => {
+        const [accel] = settings.get_strv(SHORTCUT_KEY);
+        const hasKey = Boolean(accel) && accel.trim() !== '';
+        label.set_accelerator(hasKey ? accel : '');
+        clearBtn.set_visible(hasKey);
     };
+    setBtn.connect('clicked', () => openShortcutDialog(window, settings));
+    clearBtn.connect('clicked', () => settings.set_strv(SHORTCUT_KEY, []));
+    onSettingChanged(settings, SHORTCUT_KEY, sync);
+    sync();
 
-    shortcutBtn.connect('clicked', openShortcutDialog);
-    settings.connect('changed::toggle-independent-dock-shortcut', updateShortcutBtnText);
+    row.add_suffix(setBtn);
+    row.add_suffix(clearBtn);
+    group.add(row);
+    return row;
+}
 
-    shortcutBox.append(shortcutBtn);
-    shortcutBox.append(divider);
-    shortcutBox.append(resetShortcutBtn);
-    indepShortcutRow.add_suffix(shortcutBox);
-    posGroup.add(indepShortcutRow);
 
-    const showIndepOverviewRow = addSwitchRow(
-        posGroup,
-        settings,
-        'show-independent-in-overview',
-        _('Show Independent Dock in Overview'),
-        _('Shows dock on the left side during overview'),
-        'view-grid-symbolic',
-        null
-    );
+export function buildLayoutPage(window, settings) {
+    const page = new Adw.PreferencesPage({
+        title: _('Layout'),
+        icon_name: 'view-grid-symbolic',
+    });
 
-    addSwitchRow(posGroup, settings, 'full-width', _('Full Screen Width'), _('Extend dock edge to edge'), 'view-fullscreen-symbolic', null);
+    const isPanel = () => settings.get_boolean('hybrid-panel-mode');
+    const isFullBar = () => settings.get_boolean('full-width') || isPanel();
 
-    const alignmentRow = addSegmentedRow(posGroup, settings, 'icon-alignment', _('Icon Alignment'), _('Justification when Full Width is active'), 'format-justify-center-symbolic', [
-        { name: _('Start'), value: 'START' }, 
-        { name: _('Center'), value: 'CENTER' },
-        { name: _('End'), value: 'END' }
+    const edgeGroup = addGroup(page, _('Screen Edge'), _('Where the dock lives'));
+    addChoiceCards(edgeGroup, settings, 'dock-position', [
+        { value: 'BOTTOM', title: _('Bottom'), art: edgeArt('BOTTOM') },
+        { value: 'LEFT', title: _('Left'), art: edgeArt('LEFT') },
+        { value: 'RIGHT', title: _('Right'), art: edgeArt('RIGHT') },
+        { value: 'TOP', title: _('Top'), art: edgeArt('TOP') },
     ]);
 
-    addCustomSpinRow(posGroup, settings, 'dock-margin', _('Edge Margin'), _('Distance from screen edge'), 'format-indent-less-symbolic', {
-        lower: 0,
-        upper: 50,
-        step_increment: 1
-    }, createResetBtn);
+    const screenGroup = addGroup(page, _('Monitors'));
+    addSwitchRow(screenGroup, settings, 'show-on-all-monitors', _('Every Monitor'), _('Show a dock on each connected screen'));
+    const monitorRow = addMonitorRow(screenGroup, settings);
+    const isolateRow = addSwitchRow(screenGroup, settings, 'isolate-monitors', _('Apps per Monitor'),
+        _('Each dock shows only the apps open on its own screen'));
+    const onAll = () => settings.get_boolean('show-on-all-monitors');
+    showWhen(monitorRow, settings, ['show-on-all-monitors'], () => !onAll());
+    showWhen(isolateRow, settings, ['show-on-all-monitors'], onAll);
 
-    const sizeGroup = new Adw.PreferencesGroup({
-        title: _('Sizing &amp; Spacing'),
-        description: _('Base dimensions for dock and icons')
-    });
-    page.add(sizeGroup);
+    const shapeGroup = addGroup(page, _('Shape'), _('Floating dock or a bar across the whole edge'));
+    addSwitchRow(shapeGroup, settings, 'full-width', _('Full Width'), _('Stretch the dock from edge to edge'));
+    const alignRow = addSegmentedRow(shapeGroup, settings, 'icon-alignment', _('Icon Alignment'),
+        _('Where icons sit along the full-width bar'), [
+            { name: _('Start'), value: 'START' },
+            { name: _('Center'), value: 'CENTER' },
+            { name: _('End'), value: 'END' },
+        ]);
+    showWhen(alignRow, settings, ['full-width'], () => settings.get_boolean('full-width'));
+    showWhen(shapeGroup, settings, ['hybrid-panel-mode'], () => !isPanel());
 
-    addCustomSpinRow(sizeGroup, settings, 'icon-size', _('Base Icon Size'), _('Normal size of app icons'), 'zoom-original-symbolic', {
-        lower: 16,
-        upper: 128,
-        step_increment: 2
-    }, createResetBtn);
+    const sizeGroup = addGroup(page, _('Size &amp; Spacing'));
+    addGroupReset(sizeGroup, settings, SIZE_KEYS);
+    addSliderRow(sizeGroup, settings, 'icon-size', _('Icon Size'), null, { lower: 16, upper: 128, step: 2 }, fmt.px);
+    addSliderRow(sizeGroup, settings, 'icon-spacing', _('Icon Gap'), null, { lower: 0, upper: 30, step: 1 }, fmt.px);
+    addSliderRow(sizeGroup, settings, 'dock-height', _('Thickness'), _('Extra room above and below the icons'),
+        { lower: 0, upper: 100, step: 2 }, fmt.px);
+    const paddingRow = addSliderRow(sizeGroup, settings, 'dock-padding', _('End Padding'),
+        _('Room at both ends of the dock'), { lower: 0, upper: 150, step: 2 }, fmt.px);
+    const marginRow = addSliderRow(sizeGroup, settings, 'dock-margin', _('Edge Gap'),
+        _('Distance from the screen edge'), { lower: 0, upper: 50, step: 1 }, fmt.px);
+    showWhen(paddingRow, settings, ['full-width', 'hybrid-panel-mode'], () => !isFullBar());
+    showWhen(marginRow, settings, ['hybrid-panel-mode'], () => !isPanel());
 
-    addCustomSpinRow(sizeGroup, settings, 'icon-spacing', _('Icon Gap'), _('Distance between icons'), 'format-indent-more-symbolic', {
-        lower: 0,
-        upper: 30,
-        step_increment: 1
-    }, createResetBtn);
+    const indepGroup = addGroup(page, _('Independent Dock'),
+        _('Its own pinned apps and launcher, separate from GNOME favourites'));
+    const indepSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+    settings.bind('independent-dock', indepSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
+    indepGroup.set_header_suffix(indepSwitch);
+    const overviewRow = addSwitchRow(indepGroup, settings, 'show-independent-in-overview', _('Show in Overview'),
+        _('Keep the dock on the left side during the overview'));
+    addShortcutRow(indepGroup, window, settings);
+    showWhen(overviewRow, settings, ['independent-dock'], () => settings.get_boolean('independent-dock'));
 
-    const sidePaddingRow = addCustomSpinRow(sizeGroup, settings, 'dock-padding', _('Side Padding'), _('Extra gap inside dock ends'), 'format-justify-fill-symbolic', {
-        lower: 0,
-        upper: 150,
-        step_increment: 2
-    }, createResetBtn);
-
-    addCustomSpinRow(sizeGroup, settings, 'dock-height', _('Dock Height / Thickness'), _('Extra padding on top/bottom (or left/right)'), 'format-justify-center-symbolic', {
-        lower: 0,
-        upper: 100,
-        step_increment: 2
-    }, createResetBtn);
-
-    const syncLayoutVisibility = () => {
-        const isFullWidth = settings.get_boolean('full-width');
-        const showOnAll = settings.get_boolean('show-on-all-monitors');
-        const isIndep = settings.get_boolean('independent-dock');
-
-        alignmentRow.set_visible(isFullWidth);
-        monitorRow.set_visible(!showOnAll);
-        sidePaddingRow.set_visible(!isFullWidth);
-
-        indepShortcutRow.set_visible(isIndep);
-        showIndepOverviewRow.set_visible(isIndep);
-    };
-
-    settings.connect('changed::full-width', syncLayoutVisibility);
-    settings.connect('changed::show-on-all-monitors', syncLayoutVisibility);
-    settings.connect('changed::independent-dock', syncLayoutVisibility);
-
-    syncLayoutVisibility();
+    window.add(page);
 }

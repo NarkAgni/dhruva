@@ -35,7 +35,9 @@ import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { hexToRgba, isActorAlive, setBoxVertical } from '../../core/Utils.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
-import { createBaseButtonContainer, createIndicatorBox, attachHoverBackground } from './DockButtonBase.js';
+import {
+    createBaseButtonContainer, createIndicatorBox, attachHoverBackground, stripIndicatorSize, syncDynamicIndicator,
+} from './DockButtonBase.js';
 
 
 const DRAG_CANCEL_DELTA_PX = 15;
@@ -136,7 +138,7 @@ export function createSeparator(dockUI, iconSize, isVerticalDock, type = 'module
     return sep;
 }
 
-export function buildAppButton(dockUI, app, isRunning, finalActiveWindows) {
+export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFocused) {
     const indProps = getIndicatorProps(dockUI, app);
     const iconSize = Settings.iconSize;
     const showIndicators = Settings.showRunningIndicators;
@@ -205,9 +207,6 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows) {
     if (isIndicatorActive) {
         const indStyle = Settings.indicatorStyle || 'dot';
         const count = (indStyle === 'line' || indStyle === 'windows') ? 1 : finalActiveWindows.length;
-        const focusWin = global.display.get_focus_window();
-        const isFocused = Array.isArray(finalActiveWindows) && finalActiveWindows.some(w => w === focusWin);
-
         dotBox = createIndicatorBox(dockUI.dockPosition, isVerticalDock, indProps, count, expandedDim, isFocused);
         appBox.add_child(dotBox);
     }
@@ -225,20 +224,13 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows) {
 
     attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, indProps, dims);
 
+    btn._updateRunningState = (running, activeWindows = [], focused = false) => {
+        attachHoverBackground.updateState(btn, running, activeWindows, getIndicatorProps(dockUI, app), dockUI, focused);
+    };
     btn._delegate = {
         app,
         get_parent: () => (btn.get_parent ? btn.get_parent() : null),
-        updateRunningState: (running, activeWindows = [], isFocused = false) => {
-            const currentIndProps = getIndicatorProps(dockUI, app);
-            attachHoverBackground.updateState(
-                btn,
-                running,
-                finalActiveWindows ? activeWindows : [],
-                currentIndProps,
-                dockUI,
-                isFocused
-            );
-        }
+        updateRunningState: btn._updateRunningState,
     };
 
     setupDragAndDrop(btn, app, dockUI);
@@ -270,14 +262,15 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows) {
                 dockUI.actor._launchTimeoutId = null;
                 if (!isActorAlive(dockUI.actor)) return GLib.SOURCE_REMOVE;
 
-                const tempUnpauseTarget = {};
+                const owner = dockUI._launchUnpause;
+                global.stage.disconnectObject(owner);
                 global.stage.connectObject('captured-event', (_stage, event) => {
                     if (event.type() === Clutter.EventType.MOTION) {
+                        global.stage.disconnectObject(owner);
                         setMagnifierPauseState(dockUI.actor, 'app-launch', false);
-                        global.stage.disconnectObject(tempUnpauseTarget);
                     }
                     return Clutter.EVENT_PROPAGATE;
-                }, tempUnpauseTarget);
+                }, owner);
 
                 return GLib.SOURCE_REMOVE;
             });
@@ -819,7 +812,7 @@ export function buildFolderButton(dockUI, folder) {
             dots.forEach((dot, idx) => {
                 const appForDot = folderRunningApps[idx] || folderRunningApps[0];
                 const dotProps = getIndicatorProps(dockUI, appForDot);
-                dot.set_style(dotProps.style);
+                dot.set_style(stripIndicatorSize(dotProps.style));
             });
         }
 
@@ -853,64 +846,45 @@ export function buildFolderButton(dockUI, folder) {
         folderData: folder,
         button: btn,
         get_parent: () => (btn.get_parent ? btn.get_parent() : null),
-        updateRunningState: (rApps = [], isFoc = false, focApp = null) => {
-            let appsList = rApps;
-            let focused = isFoc;
-            let targetFocusedApp = focApp;
+        updateRunningState: () => {
+            const currentFocusWin = global.display.get_focus_window();
+            const appsList = [];
+            let focusedApp = null;
 
-            if (arguments.length === 0 || !Array.isArray(rApps) || rApps.length === 0) {
-                appsList = [];
-                focused = false;
-                const currentFocusWin = global.display.get_focus_window();
-                folder.apps.forEach(appId => {
-                    const a = dockUI.appManager.appSystem.lookup_app(appId);
-                    if (a && (a.get_state() === Shell.AppState.RUNNING || a.get_windows().length > 0)) {
-                        const wins = WorkspaceFilter.filterWindows(a.get_windows());
-                        if (wins.length > 0) {
-                            appsList.push(a);
-                            if (wins.some(w => w === currentFocusWin)) {
-                                focused = true;
-                                targetFocusedApp = a;
-                            }
-                        }
-                    }
-                });
-            }
+            folder.apps.forEach(appId => {
+                const a = dockUI.appManager.appSystem.lookup_app(appId);
+                if (!a) return;
+                const wins = WorkspaceFilter.filterWindows(a.get_windows());
+                if (wins.length === 0) return;
+                appsList.push(a);
+                if (!focusedApp && wins.some(w => w === currentFocusWin)) focusedApp = a;
+            });
 
             const isRunningNow = appsList.length > 0;
-            const activeApp = focused ? (targetFocusedApp || appsList[0]) : (appsList[0] || null);
-            const currentProps = activeApp ? getIndicatorProps(dockUI, activeApp) : getIndicatorProps(dockUI, iconName);
+            const isFocused = focusedApp !== null;
+            const activeApp = focusedApp || appsList[0];
+            const currentProps = getIndicatorProps(dockUI, activeApp || iconName);
 
-            if (hasCustomIcon && attachHoverBackground && attachHoverBackground.updateState) {
-                attachHoverBackground.updateState(
-                    btn,
-                    isRunningNow,
-                    appsList,
-                    currentProps,
-                    dockUI,
-                    focused
-                );
+            if (hasCustomIcon) {
+                attachHoverBackground.updateState(btn, isRunningNow, appsList, currentProps, dockUI, isFocused);
             }
 
-            if (isRunningNow && btn._indicatorActor && isActorAlive(btn._indicatorActor)) {
-                const dots = btn._indicatorActor.get_children();
-                const curStyle = Settings.indicatorStyle || 'dot';
+            if (!isRunningNow || !btn._indicatorActor || !isActorAlive(btn._indicatorActor)) return;
 
-                if (focused || curStyle === 'line' || curStyle === 'windows' || appsList.length <= 1) {
-                    dots.forEach(dot => {
-                        if (isActorAlive(dot)) dot.set_style(currentProps.style);
-                    });
-                } else {
-                    dots.forEach((dot, idx) => {
-                        if (!isActorAlive(dot)) return;
-                        const dotApp = appsList[idx] || appsList[0];
-                        const p = getIndicatorProps(dockUI, dotApp);
-                        dot.set_style(p.style);
-                    });
-                }
+            const curStyle = Settings.indicatorStyle || 'dot';
+            if (curStyle === 'windows') {
+                if (!hasCustomIcon) syncDynamicIndicator(btn._indicatorActor, currentProps, isVerticalDock, isFocused);
+                return;
             }
+
+            const perAppColour = !isFocused && curStyle !== 'line' && appsList.length > 1;
+            btn._indicatorActor.get_children().forEach((dot, idx) => {
+                const props = perAppColour ? getIndicatorProps(dockUI, appsList[idx] || appsList[0]) : currentProps;
+                dot.set_style(stripIndicatorSize(props.style));
+            });
         }
     };
+    btn._updateRunningState = btn._delegate.updateRunningState;
 
     setupDragAndDrop(btn, null, dockUI);
 

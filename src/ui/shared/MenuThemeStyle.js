@@ -21,7 +21,7 @@ import cairo from 'gi://cairo';
 
 import { hexToRgba } from '../../core/Utils.js';
 import { BlurPanel } from '../blur/BlurPanel.js';
-import { traceMenuPath } from '../shared/MenuShape.js';
+import { traceMenuPath } from './MenuShape.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { resolveTooltipColors } from '../dock/DockThemeResolver.js';
 
@@ -35,32 +35,25 @@ function parseRgba(str) {
     return m ? m.map(Number) : [0, 0, 0, 0];
 }
 
-export function applyThemeStyle(contextMenu, panel) {
-    if (!contextMenu || !contextMenu.dockUI || !contextMenu.dockUI.settings) return;
-
-    const settings = contextMenu.dockUI.settings;
+export function applyMenuThemeStyle(menu, panel) {
+    const settings = menu.dockUI.settings;
     const isBlurEnabled = settings.get_boolean('blur-enabled');
 
     panel.set_style('background-color: transparent !important; border: none !important; box-shadow: none !important;');
 
-    if (isBlurEnabled && !contextMenu._blurPanel && contextMenu.menuContainer) {
+    if (isBlurEnabled && !menu._blurPanel && menu.menuContainer) {
         const basePad = 2;
         const insets = { top: basePad, bottom: basePad, left: basePad, right: basePad };
-        const dockPos = contextMenu._dockPos || 'BOTTOM';
-        if (dockPos === 'BOTTOM') insets.bottom += ARROW_HEIGHT;
-        else if (dockPos === 'TOP') insets.top += ARROW_HEIGHT;
-        else if (dockPos === 'LEFT') insets.left += ARROW_HEIGHT;
-        else if (dockPos === 'RIGHT') insets.right += ARROW_HEIGHT;
 
-        contextMenu._blurPanel = new BlurPanel(
-            contextMenu.menuContainer,
+        menu._blurPanel = new BlurPanel(
+            menu.menuContainer,
             settings,
             CORNER_RADIUS - basePad,
-            contextMenu.menuContainer,
+            menu.menuContainer,
             insets
         );
-        contextMenu._blurPanel.basePad = basePad;
-        contextMenu._blurPanel.contentActor = panel;
+        menu._blurPanel.basePad = basePad;
+        menu._blurPanel.contentActor = panel;
     }
 
     const themeId = Settings.dockTheme || 'default';
@@ -73,29 +66,29 @@ export function applyThemeStyle(contextMenu, panel) {
     if (isBlurEnabled) {
         bgRgba = 'rgba(0, 0, 0, 0)';
     } else {
-        const resolved = resolveTooltipColors(contextMenu.dockUI, themeId);
-        const css = resolved.css || '';
+        const resolved = resolveTooltipColors(menu.dockUI, themeId);
+        const css = (resolved && resolved.css) ? resolved.css : '';
 
-        let match = css.match(/background-gradient-start:\s*(rgba?\([^)]+\))/);
-        if (!match) match = css.match(/background-color:\s*(rgba?\([^)]+\))/);
+        let match = css.match(/background-gradient-start:\s*([^;]+)/i);
+        if (!match) match = css.match(/background-color:\s*([^;]+)/i);
 
-        if (match && match[1] !== 'rgba(0, 0, 0, 0)' && match[1] !== 'transparent') {
-            bgRgba = match[1];
+        if (match && match[1] && match[1].trim() !== 'transparent' && match[1].trim() !== 'rgba(0, 0, 0, 0)') {
+            bgRgba = match[1].trim();
         } else {
             const opacity = Math.min(1.0, (Settings.backgroundOpacity / 100.0) + 0.10);
-            bgRgba = hexToRgba(Settings.backgroundColor || '#000000', opacity);
+            bgRgba = hexToRgba(Settings.backgroundColor || '#241F31', opacity);
         }
     }
 
-    contextMenu.bgDrawingArea._bgRgba = bgRgba;
-    contextMenu.bgDrawingArea._strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'rgba(255, 255, 255, 0.22)';
-    contextMenu.bgDrawingArea._sWidth = sWidth;
+    menu.bgDrawingArea._bgRgba = bgRgba;
+    menu.bgDrawingArea._strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'rgba(255, 255, 255, 0.22)';
+    menu.bgDrawingArea._sWidth = sWidth;
 
-    if (contextMenu.bgDrawingArea._repaintConnected) return;
-    contextMenu.bgDrawingArea._repaintConnected = true;
+    if (menu.bgDrawingArea._repaintConnected) return;
+    menu.bgDrawingArea._repaintConnected = true;
 
-    contextMenu.bgDrawingArea.connectObject('repaint', (area) => {
-        if (!contextMenu._dockPos) return;
+    menu.bgDrawingArea.connectObject('repaint', (area) => {
+        if (!menu._dockPos) return;
 
         const cr = area.get_context();
         const [fullW, fullH] = area.get_surface_size();
@@ -113,7 +106,7 @@ export function applyThemeStyle(contextMenu, panel) {
         cr.restore();
 
         cr.translate(half, half);
-        traceMenuPath(cr, w, h, CORNER_RADIUS, ARROW_HEIGHT, ARROW_WIDTH, contextMenu._dockPos, ax, ay);
+        traceMenuPath(cr, w, h, CORNER_RADIUS, ARROW_HEIGHT, ARROW_WIDTH, menu._dockPos, ax, ay);
 
         const [br, bg, bb, ba] = parseRgba(area._bgRgba);
         if (ba > 0) {
@@ -128,5 +121,5 @@ export function applyThemeStyle(contextMenu, panel) {
         cr.stroke();
 
         cr.$dispose();
-    }, contextMenu);
+    }, menu);
 }
