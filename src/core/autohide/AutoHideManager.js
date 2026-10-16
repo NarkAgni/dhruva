@@ -425,7 +425,7 @@ export default class AutoHideManager {
     }
 
     show() {
-        if (this._isGrabPassThrough) return;
+        if (this._isGrabPassThrough || this.dockUI._originalPosForOverview) return;
         const isOverviewOpen = Boolean(Main.overview && (Main.overview.visible || Main.overview.visibleTarget));
         const isFullscreen = this._isCurrentMonitorFullscreen();
 

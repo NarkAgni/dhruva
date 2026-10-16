@@ -240,7 +240,8 @@ export function buildLayoutPage(window, settings) {
     const overviewRow = addSwitchRow(indepGroup, settings, 'show-independent-in-overview', _('Show in Overview'),
         _('Keep the dock on the left side during the overview'));
     addShortcutRow(indepGroup, window, settings);
-    showWhen(overviewRow, settings, ['independent-dock'], () => settings.get_boolean('independent-dock'));
+    showWhen(overviewRow, settings, ['independent-dock', 'hybrid-panel-mode'],
+        () => settings.get_boolean('independent-dock') && !isPanel());
 
     window.add(page);
 }

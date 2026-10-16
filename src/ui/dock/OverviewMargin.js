@@ -41,7 +41,7 @@ export function scheduleOverviewMarginRetry(dockUI) {
 export function applyOverviewDockMargin(dockUI) {
     if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor)) return;
 
-    if (Settings.independentDock) return;
+    if (Settings.independentDock && !Settings.hybridPanelMode) return;
 
     const currentMon = dockUI.monitorManager.getCurrentMonitor();
     if (!currentMon || currentMon.index !== Main.layoutManager.primaryIndex) return;

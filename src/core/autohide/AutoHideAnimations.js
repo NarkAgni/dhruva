@@ -61,7 +61,6 @@ export function animateShow(dockUI, onComplete) {
 
     dockUI.actor._isAutohiding = false;
     dockUI.actor.remove_all_transitions();
-    dockUI.actor.opacity = 255;
     dockUI.actor.show();
     dockUI.actor.ease({
         translation_x: 0,

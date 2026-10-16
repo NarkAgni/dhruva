@@ -131,6 +131,7 @@ class SettingsManager {
     get showUnpinnedApps() { return this._settings ? this._settings.get_boolean('show-unpinned-apps') : true; }
     get newWindowAction() { return this._settings ? this._settings.get_string('new-window-action') : 'new'; }
     get hoverZoom() { return this._settings ? this._settings.get_boolean('hover-zoom') && !this._settings.get_boolean('hybrid-panel-mode') : false; }
+    get hoverAnimation() { return this._settings ? this._settings.get_boolean('hover-animation') : true; }
     get hoverZoomFactor() { return this._settings ? this._settings.get_double('hover-zoom-factor') : 1.4; }
     get hoverZoomStyle() { return this._settings ? this._settings.get_string('hover-zoom-style') : 'default'; }
     get hoverZoomRise() { return this._settings ? this._settings.get_int('hover-zoom-rise') : 0; }

@@ -60,7 +60,7 @@
     </key>
 
     <key name="dock-padding" type="i">
-      <default>0</default>
+      <default>8</default>
       <summary>Dock Side Padding</summary>
     </key>
 
@@ -70,7 +70,7 @@
     </key>
 
     <key name="dock-theme" type="s">
-      <default>'chameleon'</default>
+      <default>'default'</default>
       <summary>Dock Theme Preset</summary>
     </key>
 
@@ -152,7 +152,7 @@
         <choice value='square'/>
         <choice value='windows'/>
       </choices>
-      <default>'windows'</default>
+      <default>'dot'</default>
       <summary>Running Indicator Style</summary>
     </key>
 
@@ -161,7 +161,7 @@
         <choice value='custom'/>
         <choice value='dominant'/>
       </choices>
-      <default>'dominant'</default>
+      <default>'custom'</default>
       <summary>Running App Indicator Color Source</summary>
       <description>Use custom static color or match with icon dominant color.</description>
     </key>
@@ -172,7 +172,7 @@
     </key>
 
     <key name="indicator-size" type="i">
-      <default>6</default>
+      <default>4</default>
       <summary>Indicator Size</summary>
     </key>
 
@@ -227,7 +227,7 @@
     </key>
 
     <key name="click-effect" type="s">
-      <default>'squish'</default>
+      <default>'none'</default>
       <summary>Icon Click Effect</summary>
     </key>
 
@@ -241,13 +241,18 @@
         <choice value='origami'/>
         <choice value='jelly'/>
       </choices>
-      <default>'magic-lamp'</default>
+      <default>'none'</default>
       <summary>Minimize Effect</summary>
     </key>
 
     <key name="hover-zoom" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Magnify icons on hover</summary>
+    </key>
+
+    <key name="hover-animation" type="b">
+      <default>false</default>
+      <summary>Animate icon hover background when hover zoom is off</summary>
     </key>
 
     <key name="hover-zoom-factor" type="d">
@@ -264,7 +269,7 @@
         <choice value='jelly'/>
         <choice value='coverflow'/>
       </choices>
-      <default>'coverflow'</default>
+      <default>'fluid'</default>
       <summary>Hover Zoom Animation Style</summary>
     </key>
 
@@ -324,7 +329,7 @@
     </key>
 
     <key name="show-apps-preview" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show App Previews</summary>
     </key>
 
@@ -339,7 +344,7 @@
     </key>
 
     <key name="peek-effect" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Aero Peek effect on context menu hover</summary>
     </key>
 
@@ -380,7 +385,7 @@
     </key>
 
     <key name="show-desktop-button" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Desktop Button</summary>
     </key>
 
@@ -450,7 +455,7 @@
     </key>
 
     <key name="show-notification-badges" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Notification Badges</summary>
     </key>
 
@@ -572,7 +577,7 @@
     </key>
 
     <key name="show-music-pill" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show Music Pill</summary>
       <description>Display MPRIS media controller pill on the dock.</description>
     </key>
@@ -666,7 +671,7 @@
     </key>
 
     <key name="hybrid-panel-mode" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Hybrid Panel Mode</summary>
       <description>Integrate GNOME top bar panel into Dhruva dock.</description>
     </key>

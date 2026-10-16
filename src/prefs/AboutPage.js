@@ -64,7 +64,7 @@ export function buildAboutHero(prefs, page) {
         margin_bottom: 4
     }));
     heroBox.append(new Gtk.Label({
-        label: 'Version 4.0  •  GPL-3.0',
+        label: 'Version 4.1  •  GPL-3.0',
         css_classes: ['dim-label', 'caption']
     }));
 

@@ -53,6 +53,9 @@ const RENDER_DEBOUNCE_MS = 5;
 const PANEL_OVERFLOW_DEBOUNCE_MS = 40;
 const LAUNCH_EXPIRY_MS = 8000;
 const CURSOR_BURST_DELAYS = [50, 150, 300, 600, 1000, 1500, 2000];
+const OVERVIEW_FADE_OUT_MS = 120;
+const OVERVIEW_FADE_IN_MS = 180;
+const STRUT_SETTLE_MS = 60;
 
 const BLUR_SETTING_KEYS = [
     'blur-enabled',
@@ -650,15 +653,96 @@ export default class DockUI {
 
     _syncDashVisibility() {
         if (Main.overview && Main.overview.dash) {
-            if (Settings.independentDock) {
+            if (this._hidesGnomeDash()) {
+                Main.overview.dash.opacity = 0;
+                Main.overview.dash.reactive = false;
+            } else {
                 Main.overview.dash.show();
                 Main.overview.dash.opacity = 255;
                 Main.overview.dash.reactive = true;
-            } else {
-                Main.overview.dash.opacity = 0;
-                Main.overview.dash.reactive = false;
             }
         }
+    }
+
+    _hidesGnomeDash() {
+        return !Settings.independentDock || Settings.hybridPanelMode;
+    }
+
+    _holdStruts() {
+        if (this._strutRestoreId) {
+            this.registry.remove(this._strutRestoreId);
+            this._strutRestoreId = null;
+        }
+        if (!this.actor._affectsStruts || this._strutHolder) return;
+        const [x, y] = this.actor.get_transformed_position();
+        const [width, height] = this.actor.get_transformed_size();
+        this._strutHolder = new Clutter.Actor({ reactive: false, x, y, width, height });
+        Main.layoutManager.addChrome(this._strutHolder, { affectsStruts: true });
+    }
+
+    _releaseStrutHolder() {
+        if (!this._strutHolder) return;
+        Main.layoutManager.removeChrome(this._strutHolder);
+        this._strutHolder.destroy();
+        this._strutHolder = null;
+    }
+
+    _enterOverviewPosition() {
+        this._isOverviewActive = true;
+        this._updateStruts();
+        this.dockPosition = 'LEFT';
+        setBoxVertical(this.boxActor, true);
+
+        this.actor.remove_all_transitions();
+        this.actor.opacity = 0;
+        this.actor.show();
+
+        this._renderDock('full', true);
+        this._updateLayout();
+        this._applyOverviewLeftPosition();
+
+        this.actor.ease({
+            opacity: 255,
+            duration: OVERVIEW_FADE_IN_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    _fadeOutForOverview() {
+        this.actor.remove_all_transitions();
+        this.actor.ease({
+            opacity: 0,
+            duration: OVERVIEW_FADE_OUT_MS,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    _leaveOverviewPosition() {
+        const wasMoved = Boolean(this._originalPosForOverview);
+        if (wasMoved) {
+            this.dockPosition = this._originalPosForOverview;
+            this._originalPosForOverview = null;
+            this._isOverviewActive = false;
+            setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
+            this._renderDock('full', true);
+        }
+        this._updateLayout();
+        if (this.dockManager) this.dockManager.updatePosition();
+        if (wasMoved && this.autoHideManager) this.autoHideManager.forceHideImmediately();
+    }
+
+    _queueStrutRestore() {
+        if (!this._strutHolder || this._strutRestoreId) return;
+        this._strutRestoreId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, Settings.autohideAnimationSpeed + STRUT_SETTLE_MS, () => {
+            this._strutRestoreId = null;
+            this._updateStruts();
+            this._releaseStrutHolder();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _showsInOverview() {
+        return Settings.independentDock && Settings.showIndependentInOverview && !Settings.hybridPanelMode;
     }
 
     _applyOverviewLeftPosition() {
@@ -863,29 +947,20 @@ export default class DockUI {
         if (this.actor._affectsStruts === shouldAffectStruts) return;
         this.actor._affectsStruts = shouldAffectStruts;
 
-        const savedTx = this.actor.translation_x;
-        const savedTy = this.actor.translation_y;
-
-        Main.layoutManager.removeChrome(this.actor);
-
-        Main.layoutManager.addChrome(this.actor, {
+        Main.layoutManager._untrackActor(this.actor);
+        Main.layoutManager._trackActor(this.actor, {
             affectsStruts: shouldAffectStruts,
             trackFullscreen: true,
         });
 
         if (this.dockManager && !this._isOverviewActive && !this._isWindowGrabbed) {
             this.dockManager.updatePosition();
-        } else {
-            this.actor.translation_x = savedTx;
-            this.actor.translation_y = savedTy;
         }
 
         const activeWorkspace = global.display.get_workspace_manager().get_active_workspace();
         if (activeWorkspace && activeWorkspace.check_unfocused_window_drag) {
             activeWorkspace.check_unfocused_window_drag();
         }
-
-        Main.layoutManager._queueUpdateRegions();
     }
 
     isPreviewTooltipVisible() {
@@ -971,6 +1046,17 @@ export default class DockUI {
             this._geomResizeTimeoutId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 30, () => {
                 this._geomResizeTimeoutId = null;
                 if (!isActorAlive(this.actor)) return GLib.SOURCE_REMOVE;
+
+                const current = this.monitorManager.getCurrentMonitor();
+                if (current && current.monitor) {
+                    const mon = current.monitor;
+                    const area = Main.layoutManager.getWorkAreaForMonitor(current.index);
+                    const geometryKey = [mon.x, mon.y, mon.width, mon.height,
+                        area.x, area.y, area.width, area.height].join(',');
+                    if (geometryKey === this._lastGeometryKey) return GLib.SOURCE_REMOVE;
+                    this._lastGeometryKey = geometryKey;
+                }
+
                 this._updateLayout();
                 if (this.dockManager && !this._isOverviewActive) {
                     this.dockManager.updatePosition();
@@ -1004,36 +1090,21 @@ export default class DockUI {
                 this.actor.translation_y = 0;
             }
 
-            if (Settings.independentDock) {
+            if (!this._hidesGnomeDash()) {
                 if (Main.overview.dash) {
                     Main.overview.dash.show();
                     Main.overview.dash.opacity = 255;
                 }
 
-                if ((Settings.independentDock && Settings.showIndependentInOverview)) {
-                    this._isOverviewActive = true;
+                if (this._showsInOverview()) {
                     if (!this._originalPosForOverview) {
                         this._originalPosForOverview = Settings.dockPosition || this.dockPosition;
                     }
-
-                    this.dockPosition = 'LEFT';
-                    setBoxVertical(this.boxActor, true);
-
-                    if (isActorAlive(this.actor)) {
-                        this.actor.opacity = 0;
-                        this.actor.show();
-                    }
-
-                    this._renderDock('full', true);
-                    this._updateLayout();
-                    this._applyOverviewLeftPosition();
-
-                    if (isActorAlive(this.actor)) {
-                        this.actor.ease({
-                            opacity: 255,
-                            duration: 200,
-                            mode: Clutter.AnimationMode.EASE_OUT_QUAD
-                        });
+                    if (this._isOverviewActive) {
+                        this.actor.ease({ opacity: 255, duration: OVERVIEW_FADE_IN_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                    } else {
+                        this._holdStruts();
+                        this._fadeOutForOverview();
                     }
                 } else if (isActorAlive(this.actor)) {
                     this.actor.opacity = 0;
@@ -1054,13 +1125,9 @@ export default class DockUI {
         }, this);
 
         Main.overview.connectObject('shown', () => {
-            if ((Settings.independentDock && Settings.showIndependentInOverview)) {
-                if (isActorAlive(this.actor)) {
-                    this.actor.show();
-                    this.actor.opacity = 255;
-                    this._applyOverviewLeftPosition();
-                }
-            } else if (!Settings.independentDock) {
+            if (this._originalPosForOverview && !this._isOverviewActive) {
+                if (isActorAlive(this.actor)) this._enterOverviewPosition();
+            } else if (this._hidesGnomeDash()) {
                 applyOverviewDockMargin(this);
             }
         }, this);
@@ -1069,9 +1136,9 @@ export default class DockUI {
         if (controls && controls._stateAdjustment) {
             controls._stateAdjustment.connectObject('notify::value', () => {
                 if (Main.overview.visible || Main.overview.visibleTarget) {
-                    if ((Settings.independentDock && Settings.showIndependentInOverview) && this._isOverviewActive) {
+                    if (this._showsInOverview() && this._isOverviewActive) {
                         this._applyOverviewLeftPosition();
-                    } else if (!Settings.independentDock) {
+                    } else if (this._hidesGnomeDash()) {
                         applyOverviewDockMargin(this);
                     }
                 }
@@ -1079,59 +1146,35 @@ export default class DockUI {
         }
 
         Main.overview.connectObject('hiding', () => {
-            clearOverviewDockMargin(this);
-
-            if ((Settings.independentDock && Settings.showIndependentInOverview)) {
-                if (isActorAlive(this.actor)) {
-                    this.actor.remove_all_transitions();
-                    this.actor.ease({
-                        opacity: 0,
-                        duration: 180,
-                        mode: Clutter.AnimationMode.EASE_OUT_QUAD
-                    });
-                }
-            } else if (Settings.independentDock) {
+            if (this._originalPosForOverview) {
+                if (isActorAlive(this.actor)) this._fadeOutForOverview();
+            } else if (!this._hidesGnomeDash()) {
                 if (isActorAlive(this.actor)) {
                     this.actor.opacity = 0;
                 }
             }
-
-            if (!Settings.independentDock && Main.overview.dash) {
-                Main.overview.dash.opacity = 0;
-            }
         }, this);
 
         Main.overview.connectObject('hidden', () => {
-            clearOverviewDockMargin(this);
+            if (this._hidesGnomeDash()) clearOverviewDockMargin(this);
             this._syncDashVisibility();
-
-            if ((Settings.independentDock && Settings.showIndependentInOverview) && this._originalPosForOverview) {
-                this.dockPosition = this._originalPosForOverview;
-                this._originalPosForOverview = null;
-                this._isOverviewActive = false;
-
-                setBoxVertical(this.boxActor, this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT');
-                this._renderDock('full', true);
-            }
 
             if (isActorAlive(this.actor)) {
                 this.actor.remove_all_transitions();
-                this._updateLayout();
-                if (this.dockManager) this.dockManager.updatePosition();
-
-                this.actor.opacity = 255;
+                this._leaveOverviewPosition();
                 this.actor.show();
             }
 
             if (this.autoHideManager) {
                 this.autoHideManager.checkVisibility();
             }
+            this._queueStrutRestore();
         }, this);
 
         if (Main.overview.visible) {
             this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 this._updateLayout();
-                if (!Settings.independentDock && !Main.overview.animationInProgress) {
+                if (this._hidesGnomeDash() && !Main.overview.animationInProgress) {
                     applyOverviewDockMargin(this);
                 }
                 return GLib.SOURCE_REMOVE;
@@ -1276,6 +1319,7 @@ export default class DockUI {
             Main.layoutManager.removeChrome(this.actor);
             this.actor.destroy();
         }
+        this._releaseStrutHolder();
 
         clearOverviewDockMargin(this);
         cancelIconPicker();

@@ -20,6 +20,7 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -75,16 +76,18 @@ export class BlurPanel {
         this._arrow = null;
         this._targetRect = null;
         this._unlockDelayId = 0;
+        this._showLaterId = 0;
         this._timeouts = new TimeoutTracker();
 
         this._effect = new BlurEffect();
-        this._bgClone = new Clutter.Clone({ source: Main.layoutManager._backgroundGroup });
-        this._winClone = new Clutter.Clone({ source: global.window_group });
+        this._bgClone = new Clutter.Clone();
+        this._winClone = new Clutter.Clone();
 
         this.blurActor = new Clutter.Actor({ reactive: false, clip_to_allocation: true, visible: false });
         this.blurActor.add_child(this._bgClone);
         this.blurActor.add_child(this._winClone);
         this.blurActor.add_effect(this._effect);
+        this.blurActor.connectObject('notify::visible', () => this._syncCloneSources(), this);
 
         this._ensureHierarchy();
         this._setupListeners();
@@ -94,6 +97,12 @@ export class BlurPanel {
             this.syncGeometry();
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    _syncCloneSources() {
+        const isLive = this.blurActor.visible && !this._isStaticMode();
+        this._bgClone.source = isLive ? Main.layoutManager._backgroundGroup : null;
+        this._winClone.source = isLive ? global.window_group : null;
     }
 
     _isStaticMode() {
@@ -262,6 +271,7 @@ export class BlurPanel {
         const isStatic = this._isStaticMode();
         this._bgClone.visible = !isStatic;
         this._winClone.visible = !isStatic;
+        this._syncCloneSources();
         this.blurActor.set_content(null);
         this._hasContent = !isStatic;
 
@@ -343,7 +353,16 @@ export class BlurPanel {
             this._loadStaticPreset(this.blurActor.width, this.blurActor.height);
             return;
         }
-        this.blurActor.show();
+        this._queueShow();
+    }
+
+    _queueShow() {
+        if (this.blurActor.visible || this._showLaterId) return;
+        this._showLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._showLaterId = 0;
+            if (this._lastKey && this._isShowable()) this.blurActor.show();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     queueCapture(force = false) {
@@ -405,7 +424,7 @@ export class BlurPanel {
             if (content && !this._destroyed) {
                 this.blurActor.set_content(content);
                 this._hasContent = true;
-                if (this._lastKey) this.blurActor.show();
+                this._queueShow();
             }
         };
 
@@ -426,6 +445,10 @@ export class BlurPanel {
         Main.sessionMode.disconnectObject(this);
         if (Main.screenShield) Main.screenShield.disconnectObject(this);
         this._timeouts.destroy();
+        if (this._showLaterId) {
+            global.compositor.get_laters().remove(this._showLaterId);
+            this._showLaterId = 0;
+        }
 
         if (isActorAlive(this.targetActor)) this.targetActor.disconnectObject(this);
         if (isActorAlive(this.rootContainer)) this.rootContainer.disconnectObject(this);

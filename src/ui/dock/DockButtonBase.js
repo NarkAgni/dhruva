@@ -26,7 +26,29 @@ import { hexToRgba, setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 const DEFAULT_HOVER_DURATION_MS = 200;
 const INDICATOR_EASE_MS = 160;
+const HOVER_BG_SCALE = 1.12;
 const INDICATOR_SIZE_RE = /width:\s*\d+px;\s*height:\s*\d+px;\s*/i;
+
+export function hoverBgStyle(color, radius) {
+    const duration = Settings.hoverAnimation ? 150 : 0;
+    return 'background-color: ' + color + '; border-radius: ' + radius + 'px; transition-duration: ' + duration + 'ms;';
+}
+
+export function setHoverBgLength(hoverBg, isVerticalDock, length) {
+    const prop = isVerticalDock ? 'height' : 'width';
+    hoverBg.remove_transition(prop);
+    if (Settings.hoverAnimation) {
+        hoverBg.ease({ [prop]: length, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+    } else {
+        hoverBg[prop] = length;
+    }
+}
+
+export function scaleHoverBg(hoverBg) {
+    hoverBg.set_scale(HOVER_BG_SCALE, HOVER_BG_SCALE);
+    hoverBg._baseScaleX = HOVER_BG_SCALE;
+    hoverBg._baseScaleY = HOVER_BG_SCALE;
+}
 
 export function getHoverBgRadius(iconSize) {
     return Math.max(6, Math.min(10, Math.round(iconSize * 0.18)));
@@ -171,14 +193,11 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
 
     hoverBg._isHoverBg = true;
     hoverBg.set_pivot_point(0.5, 0.5);
+    scaleHoverBg(hoverBg);
     hoverBg.set_size(targetW, targetH);
     hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
     hoverBg.set_y_align(Clutter.ActorAlign.CENTER);
-    hoverBg.set_style(
-        'background-color: ' + baseBg + '; ' +
-        'border-radius: ' + radius + 'px; ' +
-        'transition-duration: 150ms;'
-    );
+    hoverBg.set_style(hoverBgStyle(baseBg, radius));
 
     appBox.insert_child_at_index(hoverBg, 0);
 
@@ -195,13 +214,8 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
 
         if (Settings.hoverZoom) return;
 
-        const expanded = btn._hasRunningIndicator || btn.hover;
-        const dim = expanded ? btn._compactExpanded : btn._compactCollapsed;
-
-        if (isVerticalDock) {
-            hoverBg.ease({ height: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-        } else {
-            hoverBg.ease({ width: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+        if (Settings.hoverAnimation) {
+            setHoverBgLength(hoverBg, isVerticalDock, (btn._hasRunningIndicator || btn.hover) ? btn._compactExpanded : btn._compactCollapsed);
         }
 
         const activeIndProps = btn._indProps || indProps;
@@ -211,11 +225,9 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
             const activeColor = btn._hasRunningIndicator
                 ? safeHexToRgba(activeIndProps ? activeIndProps.indColor : '#ffffff', hoverAlpha)
                 : 'rgba(255, 255, 255, ' + Math.max(0.18, baseAlpha * 0.70) + ')';
-            const styleStr = 'background-color: ' + activeColor + '; border-radius: ' + curRadius + 'px; transition-duration: 150ms;';
-            hoverBg.set_style(styleStr);
+            hoverBg.set_style(hoverBgStyle(activeColor, curRadius));
         } else {
-            const styleStr = 'background-color: ' + btn._baseBg + '; border-radius: ' + curRadius + 'px; transition-duration: 150ms;';
-            hoverBg.set_style(styleStr);
+            hoverBg.set_style(hoverBgStyle(btn._baseBg, curRadius));
         }
     }, btn);
 }
@@ -287,19 +299,11 @@ attachHoverBackground.updateState = function (btn, isRunning, windows = [], indP
         }
 
         if (!btn.hover) {
-            btn._hoverBg.set_style(
-                'background-color: ' + baseBg + '; ' +
-                'border-radius: ' + curRadius + 'px; ' +
-                'transition-duration: 150ms;'
-            );
+            btn._hoverBg.set_style(hoverBgStyle(baseBg, curRadius));
         }
         if (!hoverZoom) {
-            const currentDim = (isIndicatorActive || btn.hover) ? compactExpanded : compactCollapsed;
-            if (isVerticalDock) {
-                btn._hoverBg.ease({ height: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-            } else {
-                btn._hoverBg.ease({ width: currentDim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-            }
+            const isHoverExpanded = btn.hover && Settings.hoverAnimation;
+            setHoverBgLength(btn._hoverBg, isVerticalDock, (isIndicatorActive || isHoverExpanded) ? compactExpanded : compactCollapsed);
         }
     }
 };

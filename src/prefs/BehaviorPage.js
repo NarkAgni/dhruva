@@ -106,6 +106,10 @@ export function buildBehaviorPage(window, settings) {
     const minimizeSpeedRow = addSliderRow(animGroup, settings, 'window-effect-speed', _('Minimize Duration'), null,
         { lower: 100, upper: 1500, step: 25 }, fmt.ms);
     showWhen(minimizeSpeedRow, settings, ['minimize-effect'], () => settings.get_string('minimize-effect') !== 'none');
+    const highlightRow = addSwitchRow(animGroup, settings, 'hover-animation', _('Hover Animation'),
+        _('Animate the icon background under the pointer'));
+    showWhen(highlightRow, settings, ['hover-zoom', 'hybrid-panel-mode'],
+        () => !settings.get_boolean('hover-zoom') || settings.get_boolean('hybrid-panel-mode'));
 
     const isPanel = () => settings.get_boolean('hybrid-panel-mode');
     const isZoom = () => settings.get_boolean('hover-zoom') && !isPanel();

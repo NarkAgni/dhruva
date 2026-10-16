@@ -33,6 +33,11 @@ export default class DockManager {
         if (!this.dockUI || !this.dockUI.actor || !this.dockUI.boxActor || !this.dockUI.actor.visible) return;
         if (!this.dockUI.actor.is_mapped()) return;
 
+        if (this.dockUI._isOverviewActive) {
+            this.dockUI._applyOverviewLeftPosition();
+            return;
+        }
+
         const isAutohideActive = this.dockUI.autoHideManager && (this.dockUI.autoHideManager.isAnimating || this.dockUI.autoHideManager.isHidden);
         if (!isAutohideActive) {
             this.dockUI.actor.remove_all_transitions();

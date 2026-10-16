@@ -26,6 +26,10 @@ import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { NativeActorState } from './NativeActorState.js';
 
 
+function isPlaced(actor) {
+    return isActorAlive(actor) && actor.is_mapped() && actor.has_allocation();
+}
+
 function stageRect(actor) {
     const [x, y] = actor.get_transformed_position();
     const box = actor.get_allocation_box();
@@ -51,13 +55,15 @@ export default class NotificationBannerManager {
         this._state.connect(bin,
             'notify::y', () => this._sync(),
             'notify::allocation', () => this._sync());
+        this._state.connect(anchor, 'notify::allocation', () => this._sync());
+        this._state.connect(this.dockUI.bgActor, 'notify::allocation', () => this._sync());
         this._sync();
     }
 
     _sync() {
         const bin = Main.messageTray._bannerBin;
         const dock = this.dockUI.bgActor;
-        if (!isActorAlive(this._anchor) || !isActorAlive(dock)) return;
+        if (!isPlaced(this._anchor) || !isPlaced(dock) || !isPlaced(bin)) return;
 
         const anchor = stageRect(this._anchor);
         const d = stageRect(dock);

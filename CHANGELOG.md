@@ -1,3 +1,35 @@
+## [4.1] - 16-10-2026
+
+### New
+* **Hover Animation Setting:** A new switch under Behavior → Animations turns off the hover animation when Hover Zoom is off. The icon background still appears under the pointer, but it no longer stretches or fades, and neighbouring icons stay perfectly still.
+
+### Improved
+* **Hover Background:** The background behind hovered and running icons is slightly larger, without changing the dock size or icon spacing.
+* **App Grid Button:** The App Grid button now follows the Hover Animation setting and uses the same hover background size as the other icons.
+* **Independent Dock in the Overview:** When the overview closes, the dock fades out of the overview position right away and then slides up into its own place from the screen edge. Windows next to the dock edge are no longer pushed aside, and maximized windows no longer resize while the overview opens or closes.
+* **Overview Animation:** The dock no longer rebuilds itself while the overview is animating, so opening and closing the overview stays smooth.
+* **Independent Dock with Panel Mode:** In Panel mode the panel stays in place during the overview and the GNOME dash stays hidden. The "Show in Overview" option is hidden in Panel mode, since it only applies to the dock.
+* **Auto-Hide Reveal:** The dock now fades in while it slides into view, instead of appearing at full opacity at once.
+* **Blur Performance:** The background blur only follows windows and wallpaper while it is visible, which saves work when the dock or its popups are hidden.
+
+### Fixed
+* **Windows Moved After the Overview:** With the independent dock shown in the overview, windows on the left edge were pushed to the right and stayed there after the overview closed.
+* **Dock Stuck at the Bottom in the Overview:** The independent dock sometimes stayed at its normal place instead of moving to the left side of the overview.
+* **Dock Blink:** The dock and its blur no longer blink once after returning to their place.
+* **Notification Banners in Panel Mode:** Banner positioning no longer runs before the clock has been placed in the panel, which caused errors at login.
+* **Log Warnings:** Repeated "Can't update stage views" warnings from the blur and invalid position warnings at login are gone.
+* **Overview Jumps:** The overview no longer jumps right before it closes, and windows that touch the dock no longer resize after the overview opens.
+
+### Changed Defaults
+Dhruva now starts minimal, and every effect can be turned on in preferences.
+* Panel mode is off.
+* Hover Zoom, Hover Animation, window previews and Peek are off.
+* Icon click effect and minimize animation are set to None.
+* The Music Pill, Show Desktop button and notification badges are off.
+* The dock theme is Default instead of Chameleon.
+* Running indicators are small white dots (Dot style, custom colour, size 4).
+* When Hover Zoom is turned on, it starts with the Fluid motion.
+
 ## [4.0] - 15-10-2026
 
 ### New

@@ -26,12 +26,11 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { getHoverBgRadius } from '../dock/DockButtonBase.js';
+import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 
 
-const DEFAULT_HOVER_DURATION_MS = 200;
 const OVERVIEW_APPS_EASE_DURATION_MS = 250;
 
 export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
@@ -138,14 +137,11 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     hoverBg._isHoverBg = true;
     hoverBg.set_pivot_point(0.5, 0.5);
+    scaleHoverBg(hoverBg);
     hoverBg.set_size(targetW, targetH);
     hoverBg.set_x_align(Clutter.ActorAlign.CENTER);
     hoverBg.set_y_align(Clutter.ActorAlign.CENTER);
-    hoverBg.set_style(
-        'background-color: transparent; ' +
-        'border-radius: ' + radius + 'px; ' +
-        'transition-duration: 150ms;'
-    );
+    hoverBg.set_style(hoverBgStyle('transparent', radius));
 
     appBox.insert_child_at_index(hoverBg, 0);
     appBox.add_child(gridIconBin);
@@ -167,12 +163,8 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     gridModule.connectObject('notify::hover', () => {
         if (Settings.hoverZoom) return;
 
-        const dim = gridModule.hover ? compactExpanded : compactCollapsed;
-
-        if (isVerticalDock) {
-            hoverBg.ease({ height: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
-        } else {
-            hoverBg.ease({ width: dim, duration: DEFAULT_HOVER_DURATION_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+        if (Settings.hoverAnimation) {
+            setHoverBgLength(hoverBg, isVerticalDock, gridModule.hover ? compactExpanded : compactCollapsed);
         }
 
         const curRadius = getHoverBgRadius(iconSize);
@@ -180,17 +172,9 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
             const rawOp = Settings.tooltipOpacity;
             const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
             const alpha = Math.max(0.18, (boxOp / 100.0) * 0.75);
-            hoverBg.set_style(
-                'background-color: rgba(255, 255, 255, ' + alpha + '); ' +
-                'border-radius: ' + curRadius + 'px; ' +
-                'transition-duration: 150ms;'
-            );
+            hoverBg.set_style(hoverBgStyle('rgba(255, 255, 255, ' + alpha + ')', curRadius));
         } else {
-            hoverBg.set_style(
-                'background-color: transparent; ' +
-                'border-radius: ' + curRadius + 'px; ' +
-                'transition-duration: 150ms;'
-            );
+            hoverBg.set_style(hoverBgStyle('transparent', curRadius));
         }
     }, gridModule);
 
