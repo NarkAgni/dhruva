@@ -283,6 +283,20 @@ export default class AutoHideManager {
         });
     }
 
+    _isPopupOrDragActive() {
+        if (!this.dockUI) return false;
+        const d = this.dockUI;
+        return Boolean(
+            d._activeContextMenu ||
+            d._activeFolderMenu ||
+            d._activeTrayMenu ||
+            (d._overflowMenu && d._overflowMenu._isOpen) ||
+            (d.actor && d.actor._isDragging) ||
+            this._isTrayDragging ||
+            (d.panelIntegrator && d.panelIntegrator.hasOpenPopupOrDrag && d.panelIntegrator.hasOpenPopupOrDrag())
+        );
+    }
+
     checkVisibility() {
         if (!this.dockUI || !isActorAlive(this.dockUI.actor) || !isActorAlive(this.dockUI.boxActor)) {
             return;
@@ -317,7 +331,7 @@ export default class AutoHideManager {
                     return;
                 }
 
-                if (this.dockUI._activeContextMenu || this.dockUI._activeFolderMenu) {
+                if (this._isPopupOrDragActive()) {
                     this.show();
                     return;
                 }
@@ -354,7 +368,7 @@ export default class AutoHideManager {
             return;
         }
 
-        if (this.dockUI._activeContextMenu || this.dockUI._activeFolderMenu) {
+        if (this._isPopupOrDragActive()) {
             this.show();
             return;
         }
@@ -478,7 +492,7 @@ export default class AutoHideManager {
 
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
         if (this.isHidden && !this.isAnimating) return;
-        if (this._isHovered) return;
+        if (this._isHovered || this._isPopupOrDragActive()) return;
 
         if (Main.overview && (Main.overview.visible || Main.overview.visibleTarget)) {
             this.show();

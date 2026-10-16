@@ -29,6 +29,7 @@ import PangoCairo from 'gi://PangoCairo';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import { onSettingChanged } from './SettingsSignals.js';
+import { userDataDir } from '../core/DataPaths.js';
 import {
     fmt, addGroup, addGroupReset, showWhen, bindChoice, addChoiceCards, addSliderRow, addColorRow,
     parseColor, roundedRect, paintBackdrop, MOCK_ICON_COLORS,
@@ -36,7 +37,6 @@ import {
 
 
 const EXTENSION_DIR = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
-const UUID = 'dhruva@narkagni';
 
 const PREVIEW_HEIGHT = 180;
 const PREVIEW_RADIUS = 14;
@@ -456,7 +456,7 @@ function replaceCustomPhoto(settings, newPath) {
     const oldPath = settings.get_string('blur-custom-photo');
     settings.set_string('blur-custom-photo', newPath);
 
-    const ownDir = GLib.build_filenamev([GLib.get_user_config_dir(), UUID, 'blur_bg']);
+    const ownDir = userDataDir('blur_bg');
     if (oldPath && oldPath !== newPath && oldPath.startsWith(`${ownDir}/`)) {
         Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
     }
@@ -481,7 +481,7 @@ function pickCustomPhoto(window, settings) {
         if (!path) return;
 
         showCropDialog(window, settings, path, cropped => {
-            const dir = GLib.build_filenamev([GLib.get_user_config_dir(), UUID, 'blur_bg']);
+            const dir = userDataDir('blur_bg');
             GLib.mkdir_with_parents(dir, 0o755);
             const destPath = GLib.build_filenamev([dir, `custom_blur_${Date.now()}.png`]);
             cropped.savev(destPath, 'png', [], []);

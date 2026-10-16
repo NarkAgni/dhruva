@@ -108,6 +108,9 @@ export class DockOverflowMenu {
     open() {
         if (this._isOpen || this._items.length === 0) return;
         this._isOpen = true;
+        if (this._dockUI.autoHideManager) {
+            this._dockUI.autoHideManager.show();
+        }
 
         const dockPos = this._dockUI.dockPosition;
         this._populateGrid();
@@ -147,6 +150,10 @@ export class DockOverflowMenu {
         this.button.checked = false;
         if (global.stage.get_key_focus() === this._overlay) global.stage.set_key_focus(null);
 
+        if (this._dockUI.autoHideManager) {
+            this._dockUI.autoHideManager.scheduleCheck(100);
+        }
+
         const [ax, ay] = awayFromDock(this._dockUI.dockPosition);
         this._container.remove_all_transitions();
         this._container.ease({
@@ -169,6 +176,9 @@ export class DockOverflowMenu {
             this._isOpen = false;
             this._unwatchAnchor();
             setMagnifierPauseState(this._dockUI.actor, MAGNIFIER_PAUSE_KEY, false);
+            if (this._dockUI.autoHideManager) {
+                this._dockUI.autoHideManager.scheduleCheck(100);
+            }
         }
         this._container.remove_all_transitions();
         this._detachPopup();

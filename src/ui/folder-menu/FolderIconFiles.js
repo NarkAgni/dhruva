@@ -20,12 +20,13 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
+import { userDataDir } from '../../core/DataPaths.js';
+
 
 let activePicker = null;
 
-export function iconConfigDir(dockUI) {
-    const uuid = dockUI.appManager.uuid || 'dhruva@narkagni';
-    const dir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
+export function iconConfigDir(_dockUI) {
+    const dir = userDataDir('icon');
     GLib.mkdir_with_parents(dir, 0o755);
     return dir;
 }
