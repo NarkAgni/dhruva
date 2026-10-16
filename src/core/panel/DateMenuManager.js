@@ -24,6 +24,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import ClockBox from './ClockBox.js';
 import { isActorAlive } from '../Utils.js';
+import { TimeoutTracker } from '../TimeoutTracker.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
 import { NativeActorState, stylePanelItem } from './NativeActorState.js';
 
@@ -39,6 +40,7 @@ export default class DateMenuManager {
         this._clock = null;
         this._isVertical = false;
         this._relayoutId = 0;
+        this._timeouts = new TimeoutTracker();
 
         this._clockSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
         this._clockSettings.connectObject(
@@ -122,7 +124,7 @@ export default class DateMenuManager {
 
     _queueRelayout() {
         if (this._relayoutId) return;
-        this._relayoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RELAYOUT_DELAY_MS, () => {
+        this._relayoutId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, RELAYOUT_DELAY_MS, () => {
             this._relayoutId = 0;
             if (isActorAlive(this.actor)) {
                 this._clock.actor.queue_relayout();
@@ -139,7 +141,7 @@ export default class DateMenuManager {
 
     restore() {
         if (this._relayoutId) {
-            GLib.source_remove(this._relayoutId);
+            this._timeouts.remove(this._relayoutId);
             this._relayoutId = 0;
         }
         if (!this.indicator) return;
@@ -160,6 +162,10 @@ export default class DateMenuManager {
 
     destroy() {
         this.restore();
+        if (this._timeouts) {
+            this._timeouts.destroy();
+            this._timeouts = null;
+        }
         this._clockSettings.disconnectObject(this);
         this._clockSettings = null;
     }

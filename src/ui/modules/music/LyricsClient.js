@@ -21,6 +21,8 @@ import Gio from 'gi://Gio';
 import Soup from 'gi://Soup';
 import GLib from 'gi://GLib';
 
+import { userCacheDir, lyricsCachePath } from '../../../core/DataPaths.js';
+
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
 Gio._promisify(Gio.File.prototype, 'load_bytes_async', 'load_bytes_finish');
@@ -38,9 +40,8 @@ export class LyricsClient {
         this._httpSession.timeout = 6;
         this._httpSession.user_agent = 'Mozilla/5.0 (X11; Linux x86_64)';
 
-        this._cacheDir = GLib.build_filenamev([GLib.get_user_cache_dir(), 'dhruva-music-art']);
-        GLib.mkdir_with_parents(this._cacheDir, 0o755);
-        this._cacheFilePath = GLib.build_filenamev([this._cacheDir, 'lyrics_cache.json']);
+        GLib.mkdir_with_parents(userCacheDir(), 0o755);
+        this._cacheFilePath = lyricsCachePath();
 
         this._cache = new Map();
         this._loadDiskCache().catch(() => { });

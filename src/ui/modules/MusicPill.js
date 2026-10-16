@@ -29,6 +29,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { CrispLabel } from './music/CrispLabel.js';
 import { LyricsClient } from './music/LyricsClient.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { userCacheDir } from '../../core/DataPaths.js';
 import { MusicPillPopup } from './music/MusicPillPopup.js';
 import { MusicPillSlider } from './music/MusicPillSlider.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
@@ -90,7 +91,7 @@ export const MusicPill = GObject.registerClass(
             this._modeTransitionTimeoutId = null;
             this._lyricsReadyForTrack = false;
 
-            this._cacheDir = GLib.build_filenamev([GLib.get_user_cache_dir(), 'dhruva-music-art']);
+            this._cacheDir = userCacheDir('music-art');
             GLib.mkdir_with_parents(this._cacheDir, 0o755);
             this._pruneArtCache();
 

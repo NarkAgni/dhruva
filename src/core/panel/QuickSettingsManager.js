@@ -24,6 +24,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { TimeoutTracker } from '../TimeoutTracker.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
 import { NativeActorState, stylePanelItem } from './NativeActorState.js';
@@ -62,6 +63,7 @@ export default class QuickSettingsManager {
         this._hookedActors = null;
         this._isVertical = false;
         this._relayoutId = 0;
+        this._timeouts = new TimeoutTracker();
     }
 
     steal(targetSide, isVertical) {
@@ -198,8 +200,8 @@ export default class QuickSettingsManager {
     }
 
     _queueRelayout() {
-        if (this._relayoutId) GLib.source_remove(this._relayoutId);
-        this._relayoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RELAYOUT_DELAY_MS, () => {
+        this._timeouts.remove(this._relayoutId);
+        this._relayoutId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, RELAYOUT_DELAY_MS, () => {
             this._relayoutId = 0;
             if (isActorAlive(this.actor)) {
                 this._relayoutChain(this.indicator._indicators);
@@ -215,7 +217,7 @@ export default class QuickSettingsManager {
 
     restore() {
         if (this._relayoutId) {
-            GLib.source_remove(this._relayoutId);
+            this._timeouts.remove(this._relayoutId);
             this._relayoutId = 0;
         }
         if (!this.indicator) return;
@@ -231,5 +233,9 @@ export default class QuickSettingsManager {
 
     destroy() {
         this.restore();
+        if (this._timeouts) {
+            this._timeouts.destroy();
+            this._timeouts = null;
+        }
     }
 }

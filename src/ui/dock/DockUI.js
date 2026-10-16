@@ -256,6 +256,10 @@ export default class DockUI {
                 this._activeFolderMenu.hide();
                 this._activeFolderMenu = null;
             }
+            if (this._activeTrayMenu) {
+                this._activeTrayMenu.hide();
+                this._activeTrayMenu = null;
+            }
         }, this);
 
         const handleEmptySpaceClick = (_actor, event) => {

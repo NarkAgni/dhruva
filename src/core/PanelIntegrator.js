@@ -85,6 +85,33 @@ export default class PanelIntegrator {
         return this.dockUI.dockPosition === 'LEFT' || this.dockUI.dockPosition === 'RIGHT';
     }
 
+    hasOpenPopupOrDrag() {
+        if (!this._isIntegrated) return false;
+
+        if (Main.panel && Main.panel.menuManager && Main.panel.menuManager.activeMenu) {
+            return true;
+        }
+
+        if (Main.panel && Main.panel.statusArea) {
+            for (const indicator of Object.values(Main.panel.statusArea)) {
+                if (indicator && indicator.menu && indicator.menu.isOpen) {
+                    return true;
+                }
+            }
+        }
+
+        if (this.isPanelHost && this.extensionApplets) {
+            if (this.extensionApplets._isTrayOpen || this.extensionApplets._trayMenu) {
+                return true;
+            }
+            if (this.extensionApplets._reorder && this.extensionApplets._reorder._drag) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     _syncOrientation() {
         const isVertical = this._isVertical();
         setBoxVertical(this.leftContainer, isVertical);
@@ -228,7 +255,7 @@ export default class PanelIntegrator {
             if (depth < 2 && actor.get_child) {
                 center(actor.get_child(), depth + 1);
             }
-            if (actor.name === 'DhruvaStolenExtensionsBox') {
+            if (actor._isAppletZone) {
                 actor.get_children().forEach(c => center(c, 1));
             }
         };
@@ -265,6 +292,7 @@ export default class PanelIntegrator {
                     if (trayParent) trayParent.remove_child(trayBox);
                     this.container.add_child(trayBox);
                 }
+                this.leftContainer.add_child(this.extensionApplets.leftBox);
             }
 
             const qsActor = this.quickSettings.steal(targetSide, isVertical);

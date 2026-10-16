@@ -24,6 +24,7 @@ import GLib from 'gi://GLib';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import { onSettingChanged } from './SettingsSignals.js';
+import { userDataDir } from '../core/DataPaths.js';
 import {
     fmt, addGroup, addGroupReset, showWhen, addSwitchRow, addSliderRow, addSegmentedRow, addColorRow,
 } from './PrefsWidgets.js';
@@ -123,7 +124,7 @@ export function buildModulesPage(prefs, window, settings) {
     });
 
     const uuid = prefs.metadata.uuid;
-    const iconDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'icon']);
+    const iconDir = userDataDir('icon');
     const isFullBar = () => settings.get_boolean('full-width') || settings.get_boolean('hybrid-panel-mode');
 
     const gridGroup = addGroup(page, _('App Launcher'), _('Opens your list of applications'));
@@ -355,12 +356,11 @@ export function buildModulesPage(prefs, window, settings) {
                         return;
                     }
 
-                    const uuid = prefs.metadata.uuid || 'dhruva@narkagni';
-                    const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid, 'folder_icons']);
-                    GLib.mkdir_with_parents(configDir, 0o755);
+                    const iconsDir = userDataDir('folder_icons');
+                    GLib.mkdir_with_parents(iconsDir, 0o755);
 
                     const timestamp = Date.now();
-                    const destPath = GLib.build_filenamev([configDir, `custom_folder_${timestamp}.${ext}`]);
+                    const destPath = GLib.build_filenamev([iconsDir, `custom_folder_${timestamp}.${ext}`]);
                     const destFile = Gio.File.new_for_path(destPath);
 
                     try {

@@ -60,7 +60,7 @@
     </key>
 
     <key name="dock-padding" type="i">
-      <default>8</default>
+      <default>0</default>
       <summary>Dock Side Padding</summary>
     </key>
 
@@ -686,6 +686,11 @@
       <default>[]</default>
       <summary>Tray icon order</summary>
       <description>Order of the icons inside the tray popup.</description>
+    </key>
+
+    <key name="panel-applet-order" type="as">
+      <default>[]</default>
+      <summary>Order of extension applets on the panel, changed with Ctrl + drag</summary>
     </key>
 
   </schema>

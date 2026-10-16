@@ -30,6 +30,40 @@ import { resetMagnification, teardownMagnification } from './MagnifierReset.js';
 import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
 
+const TOOLTIP_EXIT_PAD = 4;
+const TOOLTIP_WATCH_MS = 50;
+
+
+function _watchTooltipPointer(dockActor, settings) {
+    if (dockActor._tooltipWatchId) return;
+    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+
+    dockActor._tooltipWatchId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, TOOLTIP_WATCH_MS, () => {
+        const tooltip = dockActor._magTooltip;
+        if (!isActorAlive(dockActor) || !tooltip || !tooltip.visible) {
+            dockActor._tooltipWatchId = null;
+            return GLib.SOURCE_REMOVE;
+        }
+        if (dockActor._isDragging || isContextMenuOpen()) return GLib.SOURCE_CONTINUE;
+
+        const [px, py] = global.get_pointer();
+        const isVertical = getBoxVertical(dockActor.boxActor);
+        const isNear = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings) ||
+            isInsideTooltip(dockActor, px, py, TOOLTIP_EXIT_PAD) ||
+            isPointerInDockTooltipBridge(dockActor, px, py, settings);
+        if (isNear) return GLib.SOURCE_CONTINUE;
+
+        dockActor._tooltipWatchId = null;
+        hideTooltip(dockActor);
+        if (!dockActor._isResetting) {
+            dockActor._isResetting = true;
+            resetMagnification(dockActor, 180);
+        }
+        return GLib.SOURCE_REMOVE;
+    });
+}
+
+
 function _checkPointerLeave(dockActor, settings) {
     if (dockActor._leaveCheckId && dockActor._magTimers) {
         dockActor._magTimers.remove(dockActor._leaveCheckId);
@@ -43,7 +77,7 @@ function _checkPointerLeave(dockActor, settings) {
     const px = coords[0];
     const py = coords[1];
     const onDock = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings);
-    const insideTooltip = isInsideTooltip(dockActor, px, py, 16);
+    const insideTooltip = isInsideTooltip(dockActor, px, py, TOOLTIP_EXIT_PAD);
     const insideBridge = isPointerInDockTooltipBridge(dockActor, px, py, settings);
 
     if (!onDock && !insideTooltip && !insideBridge) {
@@ -68,7 +102,7 @@ function _checkPointerLeave(dockActor, settings) {
         const cx = currentCoords[0];
         const cy = currentCoords[1];
         const stillInside = isPointerWithinDockBounds(dockActor, cx, cy, isVertical, settings);
-        const stillInsideTooltip = isInsideTooltip(dockActor, cx, cy, 16);
+        const stillInsideTooltip = isInsideTooltip(dockActor, cx, cy, TOOLTIP_EXIT_PAD);
         const stillInsideBridge = isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
 
         if (!stillInside && !stillInsideTooltip && !stillInsideBridge) {
@@ -96,6 +130,7 @@ function _checkPointerLeave(dockActor, settings) {
 export function setupMagnification(dockActor, settings, dockPositionGetter) {
     if (!isActorAlive(dockActor)) return;
     teardownMagnification(dockActor);
+    dockActor._tooltipWatchId = null;
     if (!isActorAlive(dockActor)) return;
 
     dockActor._lastMagMotionFrameTs = 0;
@@ -151,9 +186,10 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             const isVertical = getBoxVertical(dockActor.boxActor);
             const onDock = isPointerWithinDockBounds(dockActor, ex, ey, isVertical, settings);
 
-            const insideTooltip = isInsideTooltip(dockActor, ex, ey, 20);
+            const insideTooltip = isInsideTooltip(dockActor, ex, ey, TOOLTIP_EXIT_PAD);
             const insideBridge = isPointerInDockTooltipBridge(dockActor, ex, ey, settings);
             const pos = Settings.dockPosition || 'BOTTOM';
+            if (dockActor._magTooltip && dockActor._magTooltip.visible) _watchTooltipPointer(dockActor, settings);
 
             if (!onDock && !insideTooltip && !insideBridge) {
                 dockActor._tooltipBridgeActive = false;

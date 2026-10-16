@@ -24,6 +24,9 @@ import { Settings } from '../../core/SettingsManager.js';
 
 const HIDE_ANIMATION_MS = 180;
 const DEFAULT_TOOLTIP_PADDING = 20;
+const ICON_REACH_PX = 4;
+
+export const TOOLTIP_GAP = 24;
 
 export function clearTooltipDelay(dockActor) {
     if (!dockActor) return;
@@ -90,20 +93,20 @@ export function isPointerInDockTooltipBridge(dockActor, px, py, settings) {
         left = tx - lateralPad;
         right = tx + tw + lateralPad;
         top = ty + th - bridgePad;
-        bottom = day - 2;
+        bottom = Math.max(day - 2, ty + th + TOOLTIP_GAP + ICON_REACH_PX);
     } else if (dockPos === 'TOP') {
         left = tx - lateralPad;
         right = tx + tw + lateralPad;
-        top = day + dah + 2;
+        top = Math.min(day + dah + 2, ty - TOOLTIP_GAP - ICON_REACH_PX);
         bottom = ty + bridgePad;
     } else if (dockPos === 'LEFT') {
-        left = dax + daw - bridgePad;
+        left = Math.min(dax + daw - bridgePad, tx - TOOLTIP_GAP - ICON_REACH_PX);
         right = tx + bridgePad;
         top = ty - lateralPad;
         bottom = ty + th + lateralPad;
     } else {
         left = tx + tw - bridgePad;
-        right = dax + bridgePad;
+        right = Math.max(dax + bridgePad, tx + tw + TOOLTIP_GAP + ICON_REACH_PX);
         top = ty - lateralPad;
         bottom = ty + th + lateralPad;
     }

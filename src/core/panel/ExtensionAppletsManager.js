@@ -23,7 +23,8 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import TrayMenu from './TrayMenu.js';
-import { WIDE_INDICATOR_PX } from './TrayManager.js';
+import AppletReorder from './AppletReorder.js';
+import { isSingleIcon } from './TrayManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { isActorAlive, setBoxVertical } from '../Utils.js';
@@ -33,6 +34,7 @@ import { NativeActorState, panelItemMetrics, stylePanelItem } from './NativeActo
 
 const CFG = HYBRID_PANEL_CONFIG;
 const EXTENSION_SETTLE_MS = 120;
+const ORDER_KEY = 'panel-applet-order';
 
 const TRAY_ARROW_ICONS = {
     BOTTOM: ['pan-up-symbolic', 'pan-down-symbolic'],
@@ -56,6 +58,8 @@ export default class ExtensionAppletsManager {
         this.timers = new TimeoutTracker();
 
         this.box = null;
+        this.leftBox = null;
+        this._reorder = new AppletReorder(() => this._saveOrder(), this.dockUI);
         this._state = new NativeActorState();
         this._applets = [];
         this._trayMenu = null;
@@ -69,8 +73,18 @@ export default class ExtensionAppletsManager {
         if (isActorAlive(this.box)) return this.box;
 
         this.box = new St.BoxLayout({ name: 'DhruvaStolenExtensionsBox', style: 'spacing: 4px;', reactive: true });
+        this.box._isAppletZone = true;
         setBoxVertical(this.box, isVertical);
         this._anchorBox(isVertical);
+
+        this.leftBox = new St.BoxLayout({
+            style: 'spacing: 4px;',
+            reactive: true,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this.leftBox._isAppletZone = true;
+        setBoxVertical(this.leftBox, isVertical);
 
         let lastWidth = -1;
         this.box.connectObject('notify::allocation', () => {
@@ -100,6 +114,9 @@ export default class ExtensionAppletsManager {
         this._styleArrowButton();
         this._setTrayOpen(false);
 
+        this._reorder.watch(this.box, child => child !== this._arrowButton);
+        this._reorder.watch(this.leftBox, () => true);
+
         this._populate();
         return this.box;
     }
@@ -114,6 +131,7 @@ export default class ExtensionAppletsManager {
     syncOrientation(isVertical) {
         if (!isActorAlive(this.box)) return;
         setBoxVertical(this.box, isVertical);
+        setBoxVertical(this.leftBox, isVertical);
         this._anchorBox(isVertical);
         this._syncArrowIcon();
     }
@@ -152,9 +170,22 @@ export default class ExtensionAppletsManager {
     }
 
     _collectApplets() {
+        const order = this.dockUI.settings.get_strv(ORDER_KEY);
+        const rank = name => {
+            const index = order.indexOf(name);
+            return index === -1 ? order.length : index;
+        };
         return this.trayManager.getPanelIndicators()
             .filter(item => isActorAlive(item.actor))
-            .sort((a, b) => Number(b.actor.get_width() > WIDE_INDICATOR_PX) - Number(a.actor.get_width() > WIDE_INDICATOR_PX));
+            .sort((a, b) => rank(a.name) - rank(b.name));
+    }
+
+    _saveOrder() {
+        const names = new Map(this._applets.map(item => [item.actor, item.name]));
+        const order = [...this.leftBox.get_children(), ...this.box.get_children()]
+            .map(actor => names.get(actor))
+            .filter(Boolean);
+        this.dockUI.settings.set_strv(ORDER_KEY, order);
     }
 
     _populate() {
@@ -162,8 +193,9 @@ export default class ExtensionAppletsManager {
         this._applets = this._collectApplets();
 
         for (const { actor, indicator } of this._applets) {
-            const isSmallIcon = actor.get_width() <= WIDE_INDICATOR_PX;
+            const isSmallIcon = isSingleIcon(actor);
             const parent = actor.get_parent();
+            const zone = parent === Main.panel._leftBox ? this.leftBox : this.box;
             if (parent) {
                 this._state.rememberPlace(actor);
                 parent.remove_child(actor);
@@ -182,14 +214,22 @@ export default class ExtensionAppletsManager {
             stylePanelItem(this._state, actor, isSmallIcon);
 
             if (indicator.menu) {
-                this._state.setArrowSide(indicator.menu._boxPointer, ARROW_SIDES[dockPos]);
-                hookPopupGap(this.dockUI, indicator.menu);
+                this._state.connect(indicator.menu, 'open-state-changed', (_menu, isOpen) => {
+                    if (!this.dockUI || !this.dockUI.autoHideManager) return;
+                    if (isOpen) this.dockUI.autoHideManager.show();
+                    else this.dockUI.autoHideManager.scheduleCheck(100);
+                });
+                if (indicator.menu._boxPointer) {
+                    this._state.setArrowSide(indicator.menu._boxPointer, ARROW_SIDES[dockPos]);
+                    hookPopupGap(this.dockUI, indicator.menu);
+                }
             }
 
-            this.box.add_child(actor);
+            zone.add_child(actor);
         }
 
         this.box.add_child(this._arrowButton);
+        this.leftBox.visible = this.leftBox.get_n_children() > 0;
     }
 
     _compactTree(actor) {
@@ -236,11 +276,14 @@ export default class ExtensionAppletsManager {
 
     restore() {
         this._closeTray();
+        this._reorder.release();
         this._releaseApplets();
 
         if (isActorAlive(this.box)) this.box.destroy();
+        if (isActorAlive(this.leftBox)) this.leftBox.destroy();
         if (isActorAlive(this._arrowButton)) this._arrowButton.destroy();
         this.box = null;
+        this.leftBox = null;
         this._arrowButton = null;
         this._arrowIcon = null;
     }

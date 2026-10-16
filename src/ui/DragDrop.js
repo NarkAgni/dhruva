@@ -71,7 +71,7 @@ function _closestByLayout(buttons, box, isVertical) {
     return closest;
 }
 
-function _moveWithSlide(box, moved, index, isVertical) {
+export function moveWithSlide(box, moved, index, isVertical) {
     const prop = isVertical ? 'translation_y' : 'translation_x';
     const transitionName = isVertical ? 'translation-y' : 'translation-x';
     const children = box.get_children();
@@ -272,7 +272,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             const realTargetIndex = dockUI.boxActor.get_children().indexOf(allBtns[closestIndex]);
             if (realTargetIndex !== -1) {
                 if (hoverZoom) dockUI.boxActor.set_child_at_index(draggedBtn, realTargetIndex);
-                else _moveWithSlide(dockUI.boxActor, draggedBtn, realTargetIndex, isVertical);
+                else moveWithSlide(dockUI.boxActor, draggedBtn, realTargetIndex, isVertical);
                 mainActor._fixedSlots = null;
                 mainActor._structureChanged = true;
             }
@@ -302,6 +302,10 @@ export function setupDragAndDrop(btn, app, dockUI) {
         mainActor._isDragging = true;
         mainActor._mergeDropActive = false;
         mainActor._mergeTargetButton = null;
+
+        if (dockUI.autoHideManager) {
+            dockUI.autoHideManager.show();
+        }
 
         const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
         const allBtns = getDockButtons(mainActor);
@@ -350,6 +354,11 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const [dx, dy] = mainActor.get_transformed_position();
         const [dw, dh] = mainActor.get_transformed_size();
         const isInsideMain = px >= dx - 20 && px <= dx + dw + 20 && py >= dy - 20 && py <= dy + dh + 20;
+
+        if (dockUI.autoHideManager) {
+            dockUI.autoHideManager._isHovered = isInsideMain;
+            dockUI.autoHideManager.scheduleCheck(150);
+        }
 
         const activeMenu = dockUI._activeFolderMenu;
         if (!btn._wasMerged && !btn._isFolder && activeMenu && activeMenu.menuContainer && isActorAlive(activeMenu.menuContainer)) {

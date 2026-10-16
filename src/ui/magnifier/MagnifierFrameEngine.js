@@ -30,13 +30,14 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
 import { getDockButtons, getFixedSlots, easeOutCirc } from './MagnifierMath.js';
 import { createTooltipActor, populateTooltipContent } from './MagnifierTooltipRenderer.js';
-import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
+import { TOOLTIP_GAP, clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
 
 const FLIP_DURATION = 300;
 const GAP_EASE_MS = 70;
 const TOOLTIP_DELAY_MS = 600;
 const MIN_ARROW_PADDING = 18;
+const HOVER_EDGE_PX = 8;
 
 function smoothstep(edge0, edge1, x) {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -162,6 +163,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     const crossCursor = isVertical ? cx - dx : cy - dy;
 
     if (crossCursor < -10 || crossCursor > dockThickness + 10) {
+        if (isInsideTooltip(dockActor, cx, cy, 0) || isPointerInDockTooltipBridge(dockActor, cx, cy, settings)) return;
         if (!dockActor._isDragging && !isContextMenuOpen() && !dockActor._isResetting) {
             resetMagnification(dockActor, 180, false);
             dockActor._isResetting = true;
@@ -823,9 +825,18 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     let isHovering = false;
     if (closestIndex !== -1) {
         const targetBtn = btns[closestIndex];
-        const bSz = targetBtn.get_transformed_size();
-        const reach = isVertical ? (bSz[1] / 2 + 8) : (bSz[0] / 2 + 8);
-        isHovering = minDiff <= reach;
+        const [tbx, tby] = targetBtn.get_transformed_position();
+        const [tbw, tbh] = targetBtn.get_transformed_size();
+        const reach = (isVertical ? tbh : tbw) / 2 + HOVER_EDGE_PX;
+
+        let isOverIcon;
+        switch (Settings.dockPosition || 'BOTTOM') {
+            case 'TOP': isOverIcon = cy <= tby + tbh + HOVER_EDGE_PX; break;
+            case 'LEFT': isOverIcon = cx <= tbx + tbw + HOVER_EDGE_PX; break;
+            case 'RIGHT': isOverIcon = cx >= tbx - HOVER_EDGE_PX; break;
+            default: isOverIcon = cy >= tby - HOVER_EDGE_PX; break;
+        }
+        isHovering = minDiff <= reach && isOverIcon;
     }
 
     if (isHovering) {
@@ -937,7 +948,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
                     let tx = 0;
                     let ty = 0;
-                    const gap = 24;
+                    const gap = TOOLTIP_GAP;
                     const iconCenterX = bx + bw / 2;
                     const iconCenterY = by + bh / 2;
 
@@ -1023,7 +1034,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             }
         }
     } else {
-        const keepTooltipAlive = isInsideTooltip(dockActor, cx, cy, 24) || isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
+        const keepTooltipAlive = isInsideTooltip(dockActor, cx, cy, 0) || isPointerInDockTooltipBridge(dockActor, cx, cy, settings);
         if (!keepTooltipAlive) hideTooltip(dockActor);
     }
 }

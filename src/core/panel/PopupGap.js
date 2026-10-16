@@ -132,9 +132,21 @@ export function hookPopupGap(dockUI, menu) {
     };
     menu._dhruvaGapState = state;
 
+    menu.connectObject('open-state-changed', (_menu, isOpen) => {
+        if (!dockUI || !dockUI.autoHideManager) return;
+        if (isOpen) {
+            dockUI.autoHideManager.show();
+        } else {
+            dockUI.autoHideManager.scheduleCheck(100);
+        }
+    }, state);
+
     const originalOpen = boxPointer.open;
     const originalClose = boxPointer.close;
     boxPointer.open = function (_animate, onComplete) {
+        if (dockUI && dockUI.autoHideManager) {
+            dockUI.autoHideManager.show();
+        }
         this.translation_x = 0;
         this.translation_y = 0;
         applyGap(state, menu);
@@ -156,6 +168,9 @@ export function hookPopupGap(dockUI, menu) {
         this.disconnectObject(state);
         state.timers.remove(state.measureId);
         state.measureId = 0;
+        if (dockUI && dockUI.autoHideManager) {
+            dockUI.autoHideManager.scheduleCheck(100);
+        }
         return originalClose.call(this, NO_ANIMATION, onComplete);
     };
 }
@@ -165,6 +180,7 @@ export function unhookPopupGap(menu) {
     if (!state) return;
 
     state.timers.destroy();
+    menu.disconnectObject(state);
     menu.box.disconnectObject(state);
     const boxPointer = state.boxPointer;
     if (isActorAlive(boxPointer)) {

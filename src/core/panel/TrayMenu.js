@@ -87,6 +87,10 @@ export default class TrayMenu {
         }
         this._shown = true;
         this._dockPos = dockPosition;
+        this.dockUI._activeTrayMenu = this;
+        if (this.dockUI.autoHideManager) {
+            this.dockUI.autoHideManager.show();
+        }
 
         this.overlay = new St.Widget({
             style_class: 'context-menu-overlay',
@@ -169,6 +173,11 @@ export default class TrayMenu {
     }
 
     _detachMovedActors() {
+        for (const item of this.trayManager.getTrayIndicators()) {
+            if (item.indicator && item.indicator.menu) {
+                delete item.indicator.menu._dhruvaTrayAutohideHooked;
+            }
+        }
         this._movedState.restore();
     }
 
@@ -339,6 +348,14 @@ export default class TrayMenu {
 
                 const indicator = entry.indicator;
                 const menu = indicator.menu;
+                if (menu && !menu._dhruvaTrayAutohideHooked) {
+                    menu._dhruvaTrayAutohideHooked = true;
+                    this._movedState.connect(menu, 'open-state-changed', (_m, isOpen) => {
+                        if (!this.dockUI || !this.dockUI.autoHideManager) return;
+                        if (isOpen) this.dockUI.autoHideManager.show();
+                        else this.dockUI.autoHideManager.scheduleCheck(100);
+                    });
+                }
                 const wasOpen = menu ? menu.isOpen : false;
                 indicator.event(pressEvent, false);
                 indicator.event(Clutter.get_current_event(), false);
@@ -397,6 +414,10 @@ export default class TrayMenu {
                 pill._wasDragged = true;
                 pill._isDraggingActive = true;
                 pill.opacity = 0;
+                if (this.dockUI && this.dockUI.autoHideManager) {
+                    this.dockUI.autoHideManager._isTrayDragging = true;
+                    this.dockUI.autoHideManager.show();
+                }
                 this._dragStartIndex = allPills.indexOf(pill);
                 this._dragCurrentIndex = this._dragStartIndex;
 
@@ -412,6 +433,9 @@ export default class TrayMenu {
             draggable.connect('drag-cancelled', () => {
                 pill.opacity = 255;
                 pill._isDraggingActive = false;
+                if (this.dockUI && this.dockUI.autoHideManager) {
+                    this.dockUI.autoHideManager._isTrayDragging = false;
+                }
                 for (let p = 0; p < allPills.length; p++) {
                     const b = allPills[p];
                     b.remove_transition('translation-x');
@@ -422,6 +446,9 @@ export default class TrayMenu {
 
             draggable.connect('drag-end', () => {
                 pill.opacity = 255;
+                if (this.dockUI && this.dockUI.autoHideManager) {
+                    this.dockUI.autoHideManager._isTrayDragging = false;
+                }
                 this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
                     pill._isDraggingActive = false;
                     return GLib.SOURCE_REMOVE;
@@ -595,6 +622,16 @@ export default class TrayMenu {
 
         this.menuContainer = null;
         this._isHiding = false;
+
+        if (this.dockUI) {
+            if (this.dockUI._activeTrayMenu === this) {
+                this.dockUI._activeTrayMenu = null;
+            }
+            if (this.dockUI.autoHideManager) {
+                this.dockUI.autoHideManager._isTrayDragging = false;
+                this.dockUI.autoHideManager.scheduleCheck(100);
+            }
+        }
 
         this.onClose();
     }

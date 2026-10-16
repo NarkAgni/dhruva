@@ -1,3 +1,21 @@
+## [4.2] - 16-10-2026
+
+### New
+* **Reorder Panel Applets:** In Panel mode, hold Ctrl and drag an extension applet to move it among the others. The applet lifts up, follows the pointer and the others slide aside, just like icons on the dock. The order is saved, and applets always stay before the tray arrow.
+
+### Improved
+* **Tray Contents:** Only applets that are a single small icon go behind the tray arrow. Applets with text or a graph, like weather or system monitors, always stay on the panel.
+* **Applet Hover:** Single icon applets on the panel now get the same rounded square hover as the other icons.
+* **Applets on the Left:** Applets that their extension places on the left of the top bar now appear on the left of the panel, next to the workspace indicator.
+* **Tidier Files:** Dhruva now keeps its files in the standard places: settings in `~/.config/dhruva@narkagni`, your custom icons and blur photos in `~/.local/share/dhruva@narkagni`, and album art, lyrics and emoji images in `~/.cache/dhruva@narkagni`. Existing files are moved there automatically on the first start, and the old `~/.cache/dhruva-music-art` folder is gone.
+* **Blur Performance:** The background blur only follows windows and wallpaper while it is visible, which saves work when the dock or its popups are hidden.
+
+### Fixed
+* **Window Preview Closing on the Way (#85):** With Hover Zoom on, the preview no longer closes while the pointer moves from the icon up to it, even while the zoom animation is still settling or when the app has several windows.
+* **Window Preview Staying Open:** The preview now closes as soon as the pointer leaves it to the top or the sides, including when an app window is underneath, and it no longer stays open while the pointer is in the empty space above the dock.
+* **Panel Mode with Menu less Applets (#84):** Applets without a popup menu (for example WeatherOrNot) no longer stop the dock from loading in Panel mode. They now appear on the panel like the other applets.
+* **Auto-Hide on Popups and Drag & Drop:** Fixed an issue where the dock or panel would incorrectly auto-hide when opening the Tray Menu, Overflow Menu, Quick Settings, Date Menu, Extension Applet popups, or while performing icon/applet drag and drop operations.
+
 ## [4.1] - 16-10-2026
 
 ### New
@@ -10,7 +28,6 @@
 * **Overview Animation:** The dock no longer rebuilds itself while the overview is animating, so opening and closing the overview stays smooth.
 * **Independent Dock with Panel Mode:** In Panel mode the panel stays in place during the overview and the GNOME dash stays hidden. The "Show in Overview" option is hidden in Panel mode, since it only applies to the dock.
 * **Auto-Hide Reveal:** The dock now fades in while it slides into view, instead of appearing at full opacity at once.
-* **Blur Performance:** The background blur only follows windows and wallpaper while it is visible, which saves work when the dock or its popups are hidden.
 
 ### Fixed
 * **Windows Moved After the Overview:** With the independent dock shown in the overview, windows on the left edge were pushed to the right and stayed there after the overview closed.
@@ -18,7 +35,6 @@
 * **Dock Blink:** The dock and its blur no longer blink once after returning to their place.
 * **Notification Banners in Panel Mode:** Banner positioning no longer runs before the clock has been placed in the panel, which caused errors at login.
 * **Log Warnings:** Repeated "Can't update stage views" warnings from the blur and invalid position warnings at login are gone.
-* **Overview Jumps:** The overview no longer jumps right before it closes, and windows that touch the dock no longer resize after the overview opens.
 
 ### Changed Defaults
 Dhruva now starts minimal, and every effect can be turned on in preferences.

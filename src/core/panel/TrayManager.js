@@ -22,8 +22,6 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { isActorAlive } from '../Utils.js';
 
 
-export const WIDE_INDICATOR_PX = 80;
-
 const SYSTEM_INDICATORS = new Set([
     'activities', 'aggregateMenu', 'quickSettings', 'dateMenu', 'appMenu',
     'keyboard', 'a11y', 'screenShield', 'dwellClick', 'screenRecording',
@@ -69,9 +67,33 @@ export function hasRealVisualContent(actor) {
     }
     if ('clutter_text' in actor && actor.text && actor.text.trim()) return true;
     if (actor.content && (actor.content.get_texture || actor.content.paint)) return true;
-    if ('get_context' in actor || 'source' in actor) return true;
+    if ('get_surface_size' in actor || 'source' in actor) return true;
 
     return actor.get_children().some(child => hasRealVisualContent(child));
+}
+
+function countContent(actor, counts) {
+    if (!isActorAlive(actor) || !actor.visible) return;
+
+    if ('icon_size' in actor) {
+        if ((actor.icon_name && actor.icon_name.trim()) || actor.gicon) counts.icons++;
+        return;
+    }
+    if ('clutter_text' in actor) {
+        if (actor.text && actor.text.trim()) counts.other++;
+        return;
+    }
+    if ('get_surface_size' in actor || 'source' in actor) {
+        counts.other++;
+        return;
+    }
+    for (const child of actor.get_children()) countContent(child, counts);
+}
+
+export function isSingleIcon(actor) {
+    const counts = { icons: 0, other: 0 };
+    countContent(actor, counts);
+    return counts.icons === 1 && counts.other === 0;
 }
 
 export function indicatorDisplayName(name, indicator) {
@@ -101,14 +123,8 @@ export default class TrayManager {
         return list;
     }
 
-    _isSmall(actor) {
-        const w = actor.get_width();
-        const naturalW = w > 0 ? w : actor.get_preferred_width(-1)[1];
-        return naturalW <= WIDE_INDICATOR_PX;
-    }
-
     isInTray(name, actor) {
-        return this._isSmall(actor) && !this._panelChoices.has(name);
+        return isSingleIcon(actor) && !this._panelChoices.has(name);
     }
 
     getTrayIndicators() {
@@ -127,7 +143,7 @@ export default class TrayManager {
 
     getPinnedIndicators() {
         const pinned = this._panelChoices;
-        return this._liveIndicators().filter(item => this._isSmall(item.actor) && pinned.has(item.name));
+        return this._liveIndicators().filter(item => isSingleIcon(item.actor) && pinned.has(item.name));
     }
 
     moveToPanel(name) {

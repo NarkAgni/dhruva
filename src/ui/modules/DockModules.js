@@ -34,6 +34,7 @@ import { buildTrashModule } from './TrashModule.js';
 import { buildAppGridModule } from './AppGridModule.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { userCacheDir } from '../../core/DataPaths.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { getIndicatorProps } from '../dock/DockRenderer.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
@@ -83,11 +84,11 @@ function isWindowForFolder(w, folderPath, folderName) {
 }
 
 function getCrispEmojiIcon(emojiText, renderSize) {
-    const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), 'dhruva@narkagni', 'icon']);
-    GLib.mkdir_with_parents(configDir, 0o755);
+    const emojiDir = userCacheDir('emoji');
+    GLib.mkdir_with_parents(emojiDir, 0o755);
 
     const hash = GLib.compute_checksum_for_string(GLib.ChecksumType.MD5, emojiText, -1);
-    const emojiFile = Gio.File.new_for_path(GLib.build_filenamev([configDir, `emoji_${hash}.png`]));
+    const emojiFile = Gio.File.new_for_path(GLib.build_filenamev([emojiDir, `emoji_${hash}.png`]));
 
     if (!emojiFile.query_exists(null)) {
         try {

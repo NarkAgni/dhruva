@@ -24,6 +24,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { destroyUtils } from './src/core/Utils.js';
+import { migrateLegacyPaths } from './src/core/DataPaths.js';
 import { Settings } from './src/core/SettingsManager.js';
 import { TimeoutTracker } from './src/core/TimeoutTracker.js';
 import QuickLaunchManager from './src/core/QuickLaunchManager.js';
@@ -38,6 +39,7 @@ const RELOAD_KEYS = ['dock-position', 'independent-dock', 'full-width', 'hybrid-
 export default class DhruvaExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
+        migrateLegacyPaths(this._settings);
         Settings.init(this._settings);
         this._timers = new TimeoutTracker();
         this._isShortcutRegistered = false;
