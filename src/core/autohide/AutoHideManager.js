@@ -49,6 +49,7 @@ export default class AutoHideManager {
         this._hideTimeoutId = 0;
         this._showTimeoutId = 0;
         this._checkDebounceId = 0;
+        this._initSyncTimeoutId = 0;
         this._trackedWindows = new Set();
 
         this.overlapDetection = new WindowOverlapDetection(this.dockUI);
@@ -71,7 +72,12 @@ export default class AutoHideManager {
             this.syncMode();
         }, this);
 
-        this.timers.addTimeout(GLib.PRIORITY_DEFAULT, INIT_SYNC_DELAY_MS, () => {
+        if (this._initSyncTimeoutId) {
+            this.timers.remove(this._initSyncTimeoutId);
+            this._initSyncTimeoutId = 0;
+        }
+        this._initSyncTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, INIT_SYNC_DELAY_MS, () => {
+            this._initSyncTimeoutId = 0;
             if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return GLib.SOURCE_REMOVE;
             this.syncMode();
             return GLib.SOURCE_REMOVE;
@@ -227,6 +233,10 @@ export default class AutoHideManager {
     }
 
     _clearTimers() {
+        if (this._initSyncTimeoutId) {
+            this.timers.remove(this._initSyncTimeoutId);
+            this._initSyncTimeoutId = 0;
+        }
         if (this._hideTimeoutId) {
             this.timers.remove(this._hideTimeoutId);
             this._hideTimeoutId = 0;

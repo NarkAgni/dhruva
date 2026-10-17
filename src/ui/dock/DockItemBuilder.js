@@ -43,17 +43,12 @@ import {
 const DRAG_CANCEL_DELTA_PX = 15;
 const LAUNCH_PAUSE_TIMEOUT_MS = 150;
 
-let _extRootDir = null;
-
 function _getExtensionDir() {
-    if (!_extRootDir) {
-        _extRootDir = Gio.File.new_for_uri(import.meta.url)
-            .get_parent()
-            .get_parent()
-            .get_parent()
-            .get_parent();
-    }
-    return _extRootDir;
+    return Gio.File.new_for_uri(import.meta.url)
+        .get_parent()
+        .get_parent()
+        .get_parent()
+        .get_parent();
 }
 
 function _getBundledIcon(fileName) {
@@ -255,11 +250,11 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
 
             if (dockUI.actor._launchTimeoutId) {
                 dockUI.registry.remove(dockUI.actor._launchTimeoutId);
-                dockUI.actor._launchTimeoutId = null;
+                dockUI.actor._launchTimeoutId = 0;
             }
 
             dockUI.actor._launchTimeoutId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, LAUNCH_PAUSE_TIMEOUT_MS, () => {
-                dockUI.actor._launchTimeoutId = null;
+                dockUI.actor._launchTimeoutId = 0;
                 if (!isActorAlive(dockUI.actor)) return GLib.SOURCE_REMOVE;
 
                 const owner = dockUI._launchUnpause;

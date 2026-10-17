@@ -76,6 +76,9 @@ export default class TrayMenu {
         this._isManaging = false;
         this._dragStartIndex = -1;
         this._dragCurrentIndex = -1;
+        this._changeIdleId = 0;
+        this._settleId = 0;
+        this._dragEndTimeoutId = 0;
         this._trayBlur = null;
         this._movedState = new NativeActorState();
     }
@@ -99,10 +102,10 @@ export default class TrayMenu {
             y_expand: true
         });
 
-        this.overlay.connect('button-release-event', (_actor, event) => {
+        this.overlay.connectObject('button-release-event', (_actor, event) => {
             if (event.get_button() === Clutter.BUTTON_PRIMARY) this.hide();
             return Clutter.EVENT_STOP;
-        });
+        }, this);
 
         this.menuContainer = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
@@ -120,7 +123,7 @@ export default class TrayMenu {
             style_class: 'dhruva-tray-panel',
         });
         setBoxVertical(this.panel, true);
-        this.panel.connect('button-release-event', () => Clutter.EVENT_STOP);
+        this.panel.connectObject('button-release-event', () => Clutter.EVENT_STOP, this);
         this.menuContainer.add_child(this.panel);
         this.overlay.add_child(this.menuContainer);
 
@@ -155,7 +158,7 @@ export default class TrayMenu {
         }
 
         const colors = resolvePopupBubbleColors(this.dockUI);
-        this.bgDrawingArea.connect('repaint', area => {
+        this.bgDrawingArea.connectObject('repaint', area => {
             const [fullW, fullH] = area.get_surface_size();
             const isVertical = this._dockPos === 'LEFT' || this._dockPos === 'RIGHT';
             const fallbackCenter = isVertical ? fullH / 2 : fullW / 2;
@@ -165,7 +168,7 @@ export default class TrayMenu {
                 arrowWidth: BUBBLE_ARROW_WIDTH,
                 arrowCenter: area._arrowCenter || fallbackCenter,
             });
-        });
+        }, this);
     }
 
     _blurInsets() {
@@ -231,7 +234,7 @@ export default class TrayMenu {
             track_hover: true,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        button.connect('clicked', onClick);
+        button.connectObject('clicked', onClick, this);
         return button;
     }
 
@@ -242,7 +245,7 @@ export default class TrayMenu {
             can_focus: false,
             track_hover: true,
         });
-        button.connect('clicked', onClick);
+        button.connectObject('clicked', onClick, this);
         return button;
     }
 
@@ -329,38 +332,40 @@ export default class TrayMenu {
             pill._pressTime = 0;
 
 
-            pill.connect('button-press-event', (_actor, event) => {
-                pill._pressTime = GLib.get_monotonic_time();
-                pill._pressEvent = event;
-                return Clutter.EVENT_PROPAGATE;
-            });
+            pill.connectObject(
+                'button-press-event', (_actor, event) => {
+                    pill._pressTime = GLib.get_monotonic_time();
+                    pill._pressEvent = event;
+                    return Clutter.EVENT_PROPAGATE;
+                },
+                'clicked', () => {
+                    if (pill._isDraggingActive || pill._wasDragged) {
+                        pill._wasDragged = false;
+                        return;
+                    }
+                    if (pill._pressTime > 0 && (GLib.get_monotonic_time() - pill._pressTime) > 350000) return;
 
-            pill.connect('clicked', () => {
-                if (pill._isDraggingActive || pill._wasDragged) {
-                    pill._wasDragged = false;
-                    return;
-                }
-                if (pill._pressTime > 0 && (GLib.get_monotonic_time() - pill._pressTime) > 350000) return;
+                    const pressEvent = pill._pressEvent;
+                    pill._pressEvent = null;
+                    if (!pressEvent) return;
 
-                const pressEvent = pill._pressEvent;
-                pill._pressEvent = null;
-                if (!pressEvent) return;
-
-                const indicator = entry.indicator;
-                const menu = indicator.menu;
-                if (menu && !menu._dhruvaTrayAutohideHooked) {
-                    menu._dhruvaTrayAutohideHooked = true;
-                    this._movedState.connect(menu, 'open-state-changed', (_m, isOpen) => {
-                        if (!this.dockUI || !this.dockUI.autoHideManager) return;
-                        if (isOpen) this.dockUI.autoHideManager.show();
-                        else this.dockUI.autoHideManager.scheduleCheck(100);
-                    });
-                }
-                const wasOpen = menu ? menu.isOpen : false;
-                indicator.event(pressEvent, false);
-                indicator.event(Clutter.get_current_event(), false);
-                if (menu && menu.isOpen === wasOpen) menu.toggle();
-            });
+                    const indicator = entry.indicator;
+                    const menu = indicator.menu;
+                    if (menu && !menu._dhruvaTrayAutohideHooked) {
+                        menu._dhruvaTrayAutohideHooked = true;
+                        this._movedState.connect(menu, 'open-state-changed', (_m, isOpen) => {
+                            if (!this.dockUI || !this.dockUI.autoHideManager) return;
+                            if (isOpen) this.dockUI.autoHideManager.show();
+                            else this.dockUI.autoHideManager.scheduleCheck(100);
+                        });
+                    }
+                    const wasOpen = menu ? menu.isOpen : false;
+                    indicator.event(pressEvent, false);
+                    indicator.event(Clutter.get_current_event(), false);
+                    if (menu && menu.isOpen === wasOpen) menu.toggle();
+                },
+                this
+            );
 
             pill._delegate = {
                 entryName: entry.name,
@@ -410,50 +415,56 @@ export default class TrayMenu {
             };
 
             const draggable = DND.makeDraggable(pill, { restoreOnSuccess: true });
-            draggable.connect('drag-begin', () => {
-                pill._wasDragged = true;
-                pill._isDraggingActive = true;
-                pill.opacity = 0;
-                if (this.dockUI && this.dockUI.autoHideManager) {
-                    this.dockUI.autoHideManager._isTrayDragging = true;
-                    this.dockUI.autoHideManager.show();
-                }
-                this._dragStartIndex = allPills.indexOf(pill);
-                this._dragCurrentIndex = this._dragStartIndex;
+            draggable.connectObject(
+                'drag-begin', () => {
+                    pill._wasDragged = true;
+                    pill._isDraggingActive = true;
+                    pill.opacity = 0;
+                    if (this.dockUI && this.dockUI.autoHideManager) {
+                        this.dockUI.autoHideManager._isTrayDragging = true;
+                        this.dockUI.autoHideManager.show();
+                    }
+                    this._dragStartIndex = allPills.indexOf(pill);
+                    this._dragCurrentIndex = this._dragStartIndex;
 
-                for (let p = 0; p < allPills.length; p++) {
-                    const b = allPills[p];
-                    const [absX, absY] = b.get_transformed_position();
-                    b._startX = absX;
-                    b._startY = absY;
-                    b.remove_all_transitions();
-                }
-            });
-
-            draggable.connect('drag-cancelled', () => {
-                pill.opacity = 255;
-                pill._isDraggingActive = false;
-                if (this.dockUI && this.dockUI.autoHideManager) {
-                    this.dockUI.autoHideManager._isTrayDragging = false;
-                }
-                for (let p = 0; p < allPills.length; p++) {
-                    const b = allPills[p];
-                    b.remove_transition('translation-x');
-                    b.remove_transition('translation-y');
-                    b.ease({ translation_x: 0, translation_y: 0, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-                }
-            });
-
-            draggable.connect('drag-end', () => {
-                pill.opacity = 255;
-                if (this.dockUI && this.dockUI.autoHideManager) {
-                    this.dockUI.autoHideManager._isTrayDragging = false;
-                }
-                this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+                    for (let p = 0; p < allPills.length; p++) {
+                        const b = allPills[p];
+                        const [absX, absY] = b.get_transformed_position();
+                        b._startX = absX;
+                        b._startY = absY;
+                        b.remove_all_transitions();
+                    }
+                },
+                'drag-cancelled', () => {
+                    pill.opacity = 255;
                     pill._isDraggingActive = false;
-                    return GLib.SOURCE_REMOVE;
-                });
-            });
+                    if (this.dockUI && this.dockUI.autoHideManager) {
+                        this.dockUI.autoHideManager._isTrayDragging = false;
+                    }
+                    for (let p = 0; p < allPills.length; p++) {
+                        const b = allPills[p];
+                        b.remove_transition('translation-x');
+                        b.remove_transition('translation-y');
+                        b.ease({ translation_x: 0, translation_y: 0, duration: 200, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+                    }
+                },
+                'drag-end', () => {
+                    pill.opacity = 255;
+                    if (this.dockUI && this.dockUI.autoHideManager) {
+                        this.dockUI.autoHideManager._isTrayDragging = false;
+                    }
+                    if (this._dragEndTimeoutId) {
+                        this.timers.remove(this._dragEndTimeoutId);
+                        this._dragEndTimeoutId = 0;
+                    }
+                    this._dragEndTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+                        this._dragEndTimeoutId = 0;
+                        pill._isDraggingActive = false;
+                        return GLib.SOURCE_REMOVE;
+                    });
+                },
+                this
+            );
 
             allPills.push(pill);
             currentRow.add_child(pill);
@@ -536,10 +547,21 @@ export default class TrayMenu {
         this._detachMovedActors();
         change();
 
-        this.timers.remove(this._changeIdleId);
+        if (this._changeIdleId) {
+            this.timers.remove(this._changeIdleId);
+            this._changeIdleId = 0;
+        }
+        if (this._settleId) {
+            this.timers.remove(this._settleId);
+            this._settleId = 0;
+        }
         this._changeIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._changeIdleId = 0;
             this.refresh();
+            if (this._settleId) {
+                this.timers.remove(this._settleId);
+                this._settleId = 0;
+            }
             this._settleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 this._settleId = 0;
                 if (this._shown) this._updatePosition();
@@ -605,6 +627,18 @@ export default class TrayMenu {
 
     _cleanup() {
         this._detachMovedActors();
+        if (this._dragEndTimeoutId && this.timers) {
+            this.timers.remove(this._dragEndTimeoutId);
+            this._dragEndTimeoutId = 0;
+        }
+        if (this._changeIdleId && this.timers) {
+            this.timers.remove(this._changeIdleId);
+            this._changeIdleId = 0;
+        }
+        if (this._settleId && this.timers) {
+            this.timers.remove(this._settleId);
+            this._settleId = 0;
+        }
         this.timers.destroy();
 
         if (this._trayBlur) {
@@ -612,10 +646,13 @@ export default class TrayMenu {
             this._trayBlur = null;
         }
 
+        if (this.bgDrawingArea) this.bgDrawingArea.disconnectObject(this);
+        if (this.panel) this.panel.disconnectObject(this);
         if (this.overlay && this.overlay.get_parent()) {
             Main.layoutManager.removeChrome(this.overlay);
         }
         if (this.overlay) {
+            this.overlay.disconnectObject(this);
             this.overlay.destroy();
             this.overlay = null;
         }

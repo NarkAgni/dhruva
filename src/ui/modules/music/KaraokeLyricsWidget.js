@@ -63,7 +63,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
         this._tracker = new TimeoutTracker();
         this._fontDesc = Pango.FontDescription.from_string('Sans Bold 11');
 
-        this.connect('destroy', () => this._cleanup());
+        this.connectObject('destroy', () => this._cleanup(), this);
     }
 
     resetState() {

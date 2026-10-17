@@ -160,10 +160,10 @@ function addClockFormatRow(group, clockSettings) {
         const is24h = clockSettings.get_string('clock-format') === '24h';
         if (row.get_active() !== is24h) row.set_active(is24h);
     };
-    row.connect('notify::active', () => {
+    row.connectObject('notify::active', () => {
         const value = row.get_active() ? '24h' : '12h';
         if (clockSettings.get_string('clock-format') !== value) clockSettings.set_string('clock-format', value);
-    });
+    }, row);
     onSettingChanged(clockSettings, 'clock-format', sync);
     sync();
     group.add(row);
@@ -211,10 +211,10 @@ export function buildPanelPage(window, settings) {
             settings.get_strv('tray-order').length === 0;
         resetBtn.set_sensitive(!isDefault);
     };
-    resetBtn.connect('clicked', () => {
+    resetBtn.connectObject('clicked', () => {
         settings.set_strv('tray-panel-indicators', []);
         settings.set_strv('tray-order', []);
-    });
+    }, page);
     onSettingChanged(settings, 'tray-panel-indicators', syncReset);
     onSettingChanged(settings, 'tray-order', syncReset);
     syncReset();

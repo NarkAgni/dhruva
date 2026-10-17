@@ -23,20 +23,16 @@ import GLib from 'gi://GLib';
 export class TimeoutTracker {
     constructor() {
         this._sources = new Set();
-        this._destroyed = false;
     }
 
     addTimeout(priority, interval, callback) {
-        if (this._destroyed) return 0;
+        if (!this._sources) return 0;
         let id = 0;
         id = GLib.timeout_add(priority, interval, () => {
-            if (this._destroyed) {
-                this._sources.delete(id);
-                return GLib.SOURCE_REMOVE;
-            }
+            if (!this._sources) return GLib.SOURCE_REMOVE;
             const result = callback();
             if (result === GLib.SOURCE_REMOVE || result === false) {
-                this._sources.delete(id);
+                if (this._sources) this._sources.delete(id);
                 return GLib.SOURCE_REMOVE;
             }
             return GLib.SOURCE_CONTINUE;
@@ -46,16 +42,13 @@ export class TimeoutTracker {
     }
 
     addIdle(priority, callback) {
-        if (this._destroyed) return 0;
+        if (!this._sources) return 0;
         let id = 0;
         id = GLib.idle_add(priority, () => {
-            if (this._destroyed) {
-                this._sources.delete(id);
-                return GLib.SOURCE_REMOVE;
-            }
+            if (!this._sources) return GLib.SOURCE_REMOVE;
             const result = callback();
             if (result === GLib.SOURCE_REMOVE || result === false) {
-                this._sources.delete(id);
+                if (this._sources) this._sources.delete(id);
                 return GLib.SOURCE_REMOVE;
             }
             return GLib.SOURCE_CONTINUE;
@@ -65,7 +58,7 @@ export class TimeoutTracker {
     }
 
     remove(id) {
-        if (!id) return;
+        if (!id || !this._sources) return;
         if (this._sources.has(id)) {
             GLib.source_remove(id);
             this._sources.delete(id);
@@ -73,13 +66,13 @@ export class TimeoutTracker {
     }
 
     destroy() {
-        if (this._destroyed) return;
-        this._destroyed = true;
+        if (!this._sources) return;
         this._sources.forEach(id => {
             if (id) {
                 GLib.source_remove(id);
             }
         });
         this._sources.clear();
+        this._sources = null;
     }
 }

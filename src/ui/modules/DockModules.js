@@ -150,11 +150,27 @@ export function buildModules(dockUI, iconSize) {
         } else {
             Gio.AppInfo.launch_default_for_uri(uri, null);
 
+            if (!dockUI._launchTimeoutIds) {
+                dockUI._launchTimeoutIds = [];
+            } else {
+                for (let i = 0; i < dockUI._launchTimeoutIds.length; i++) {
+                    if (dockUI._launchTimeoutIds[i]) {
+                        dockUI.registry.remove(dockUI._launchTimeoutIds[i]);
+                    }
+                }
+                dockUI._launchTimeoutIds = [];
+            }
+
             APP_LAUNCH_RENDER_DELAYS.forEach(delay => {
-                dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
+                const tid = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, delay, () => {
+                    if (dockUI._launchTimeoutIds) {
+                        const idx = dockUI._launchTimeoutIds.indexOf(tid);
+                        if (idx !== -1) dockUI._launchTimeoutIds.splice(idx, 1);
+                    }
                     dockUI.queueRender();
                     return GLib.SOURCE_REMOVE;
                 });
+                dockUI._launchTimeoutIds.push(tid);
             });
         }
     };

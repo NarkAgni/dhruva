@@ -18,12 +18,20 @@
 
 
 const handlers = [];
+const _signalTracker = {};
 
 export function onSettingChanged(settings, key, callback) {
-    handlers.push({ settings, id: settings.connect(`changed::${key}`, callback) });
+    settings.connectObject(`changed::${key}`, callback, _signalTracker);
+    if (!handlers.includes(settings)) {
+        handlers.push(settings);
+    }
 }
 
 export function disconnectSettingSignals() {
-    for (const { settings, id } of handlers) settings.disconnect(id);
+    for (let i = 0; i < handlers.length; i++) {
+        if (handlers[i]) {
+            handlers[i].disconnectObject(_signalTracker);
+        }
+    }
     handlers.length = 0;
 }

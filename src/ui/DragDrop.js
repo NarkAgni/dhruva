@@ -166,10 +166,10 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
     const externalDrop = ensureExternalDrop(dockUI);
 
-    btn.connect('button-press-event', () => {
+    btn.connectObject('button-press-event', () => {
         btn._wasDragged = false;
         return Clutter.EVENT_PROPAGATE;
-    });
+    }, btn);
 
     btn._delegate = {
         app,
@@ -289,45 +289,46 @@ export function setupDragAndDrop(btn, app, dockUI) {
 
     let dragFinished = true;
 
-    draggable.connect('drag-cancelled', () => {
-        if (draggable._dragActor) draggable._dragActor.opacity = 0;
-        finishDrag();
-    });
+    draggable.connectObject(
+        'drag-cancelled', () => {
+            if (draggable._dragActor) draggable._dragActor.opacity = 0;
+            finishDrag();
+        },
+        'drag-begin', () => {
+            dragFinished = false;
+            btn._wasDragged = true;
+            btn.opacity = 0;
+            const mainActor = dockUI.actor;
+            mainActor._isDragging = true;
+            mainActor._mergeDropActive = false;
+            mainActor._mergeTargetButton = null;
 
-    draggable.connect('drag-begin', () => {
-        dragFinished = false;
-        btn._wasDragged = true;
-        btn.opacity = 0;
-        const mainActor = dockUI.actor;
-        mainActor._isDragging = true;
-        mainActor._mergeDropActive = false;
-        mainActor._mergeTargetButton = null;
+            if (dockUI.autoHideManager) {
+                dockUI.autoHideManager.show();
+            }
 
-        if (dockUI.autoHideManager) {
-            dockUI.autoHideManager.show();
-        }
+            const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+            const allBtns = getDockButtons(mainActor);
 
-        const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
-        const allBtns = getDockButtons(mainActor);
+            mainActor._fixedSlots = null;
+            getFixedSlots(mainActor, isVertical, allBtns);
 
-        mainActor._fixedSlots = null;
-        getFixedSlots(mainActor, isVertical, allBtns);
-
-        allBtns.forEach(b => {
-            if (b.remove_all_transitions) b.remove_all_transitions();
-            b._flipOffset = 0;
-            b._flipStartTime = null;
-        });
-        if (Settings.hoverZoom) startDragLoop(mainActor, isVertical, dockUI.settings);
-    });
-
-    draggable.connect('drag-end', () => {
-        if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
-            draggable._dragActor.opacity = 0;
-            draggable._dragActor.destroy();
-        }
-        finishDrag();
-    });
+            allBtns.forEach(b => {
+                if (b.remove_all_transitions) b.remove_all_transitions();
+                b._flipOffset = 0;
+                b._flipStartTime = null;
+            });
+            if (Settings.hoverZoom) startDragLoop(mainActor, isVertical, dockUI.settings);
+        },
+        'drag-end', () => {
+            if (draggable._dragActor && isActorAlive(draggable._dragActor)) {
+                draggable._dragActor.opacity = 0;
+                draggable._dragActor.destroy();
+            }
+            finishDrag();
+        },
+        btn
+    );
 
     function finishDrag() {
         if (dragFinished) return;

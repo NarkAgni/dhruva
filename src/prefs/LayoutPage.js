@@ -84,10 +84,10 @@ function addMonitorRow(group, settings) {
         const selected = index >= 0 && index + 1 < names.length ? index + 1 : 0;
         if (row.get_selected() !== selected) row.set_selected(selected);
     };
-    row.connect('notify::selected', () => {
+    row.connectObject('notify::selected', () => {
         const value = row.get_selected() - 1;
         if (value !== settings.get_int('preferred-monitor')) settings.set_int('preferred-monitor', value);
-    });
+    }, row);
     onSettingChanged(settings, 'preferred-monitor', sync);
     sync();
     group.add(row);
@@ -122,7 +122,7 @@ function openShortcutDialog(window, settings) {
     dialog.set_content(content);
 
     const keys = new Gtk.EventControllerKey();
-    keys.connect('key-pressed', (_controller, keyval, keycode, state) => {
+    keys.connectObject('key-pressed', (_controller, keyval, keycode, state) => {
         const mask = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK |
             Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK);
 
@@ -144,7 +144,7 @@ function openShortcutDialog(window, settings) {
         settings.set_strv(SHORTCUT_KEY, [accel]);
         dialog.close();
         return Gdk.EVENT_STOP;
-    });
+    }, dialog);
     dialog.add_controller(keys);
     dialog.present();
 }
@@ -170,8 +170,8 @@ function addShortcutRow(group, window, settings) {
         label.set_accelerator(hasKey ? accel : '');
         clearBtn.set_visible(hasKey);
     };
-    setBtn.connect('clicked', () => openShortcutDialog(window, settings));
-    clearBtn.connect('clicked', () => settings.set_strv(SHORTCUT_KEY, []));
+    setBtn.connectObject('clicked', () => openShortcutDialog(window, settings), row);
+    clearBtn.connectObject('clicked', () => settings.set_strv(SHORTCUT_KEY, []), row);
     onSettingChanged(settings, SHORTCUT_KEY, sync);
     sync();
 

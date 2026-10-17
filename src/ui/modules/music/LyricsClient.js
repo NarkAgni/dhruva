@@ -51,7 +51,8 @@ export class LyricsClient {
         try {
             const file = Gio.File.new_for_path(this._cacheFilePath);
             if (file.query_exists(null)) {
-                const [bytes] = await file.load_bytes_async(null);
+                const loadResult = await file.load_bytes_async(null);
+                const bytes = loadResult ? loadResult[0] : null;
                 if (bytes) {
                     const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
                     if (data && !Array.isArray(data)) {

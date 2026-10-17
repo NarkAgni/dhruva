@@ -51,7 +51,7 @@ export function makeResetBtn(settings) {
             btn.set_opacity(isDef ? 0.3 : 1.0);
         };
 
-        btn.connect('clicked', () => settings.reset(key));
+        btn.connectObject('clicked', () => settings.reset(key), box);
         onSettingChanged(settings, key, update);
         update();
 
@@ -91,13 +91,13 @@ export function makeGroupResetBtn(settings) {
             btn.set_opacity(anyChanged ? 1.0 : 0.3);
         };
 
-        btn.connect('clicked', () => {
+        btn.connectObject('clicked', () => {
             keys.forEach(k => {
                 if (settings.settings_schema.has_key(k)) {
                     settings.reset(k);
                 }
             });
-        });
+        }, box);
 
         keys.forEach(k => {
             if (settings.settings_schema.has_key(k)) {

@@ -66,15 +66,29 @@ export default class FolderMenu {
 
         this.actor.connectObject('destroy', () => {
             Main.sessionMode.disconnectObject(this);
-            this.timers.destroy();
-            if (this.builder && this.builder._stopFolderDragMonitor) {
-                this.builder._stopFolderDragMonitor();
+            if (this._internalSaveResetId) {
+                this.timers.remove(this._internalSaveResetId);
+                this._internalSaveResetId = 0;
             }
+            if (this._showDelayId) {
+                this.timers.remove(this._showDelayId);
+                this._showDelayId = 0;
+            }
+            if (this._posTrackerId) {
+                this.timers.remove(this._posTrackerId);
+                this._posTrackerId = 0;
+            }
+            if (this.builder && this.builder.destroy) {
+                this.builder.destroy();
+            }
+            this.timers.destroy();
             if (this._blurPanel) {
                 this._blurPanel.destroy();
                 this._blurPanel = null;
             }
             if (this.buttonActor) this.buttonActor.disconnectObject(this);
+            if (this.bgDrawingArea) this.bgDrawingArea.disconnectObject(this);
+            if (this.menuContainer) this.menuContainer.disconnectObject(this);
             if (this.panel) this.panel.disconnectObject(this);
             if (this._folderChangeHandler) {
                 this._folderManager.removeStateListener(this._folderChangeHandler);
@@ -290,8 +304,13 @@ export default class FolderMenu {
             this.dockUI.folderManager.saveFolders();
         }
         this.dockUI.queueRender('incremental');
-        
-        this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 100, () => {
+
+        if (this._internalSaveResetId) {
+            this.timers.remove(this._internalSaveResetId);
+            this._internalSaveResetId = 0;
+        }
+        this._internalSaveResetId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 100, () => {
+            this._internalSaveResetId = 0;
             this._isInternalSave = false;
             return GLib.SOURCE_REMOVE;
         });
@@ -305,7 +324,10 @@ export default class FolderMenu {
             setMagnifierPauseState(this.dockUI.actor, 'folder-menu', true);
         }
 
-        this.timers.remove(this._showDelayId);
+        if (this._showDelayId) {
+            this.timers.remove(this._showDelayId);
+            this._showDelayId = 0;
+        }
         this._showDelayId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, SHOW_MENU_DELAY_MS, () => {
             this._showDelayId = null;
             if (!this.actor) return GLib.SOURCE_REMOVE;
@@ -350,7 +372,10 @@ export default class FolderMenu {
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD
             });
 
-            this.timers.remove(this._posTrackerId);
+            if (this._posTrackerId) {
+                this.timers.remove(this._posTrackerId);
+                this._posTrackerId = 0;
+            }
             this._posTrackerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, POSITION_TRACKER_INTERVAL_MS, () => {
                 if (!this.actor || !isActorAlive(this.actor) || !this.actor.get_stage()) {
                     this._posTrackerId = null;
@@ -368,11 +393,15 @@ export default class FolderMenu {
     hide() {
         if (!this.actor) return;
 
-        this.timers.remove(this._showDelayId);
-        this._showDelayId = null;
+        if (this._showDelayId) {
+            this.timers.remove(this._showDelayId);
+            this._showDelayId = 0;
+        }
 
-        this.timers.remove(this._posTrackerId);
-        this._posTrackerId = null;
+        if (this._posTrackerId) {
+            this.timers.remove(this._posTrackerId);
+            this._posTrackerId = 0;
+        }
         
         if (this._emojiOverlay && isActorAlive(this._emojiOverlay)) {
             this._emojiOverlay.destroy();

@@ -123,20 +123,22 @@ export default class AppGridUI {
             reactive: true,
         });
 
-        this.toggleViewBtn.connect('notify::hover', () => {
-            const isHovered = this.toggleViewBtn.hover;
-            const bgOpacity = isHovered ? '0.25' : '0.1';
-            this.toggleViewBtn.set_style(`padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,${bgOpacity}); transition-duration: 150ms;`);
-        });
-
-        this.toggleViewBtn.connect('clicked', () => {
-            this.isGridView = !this.isGridView;
-            this.toggleViewBtn.get_child().set_icon_name(
-                this.isGridView ? 'view-list-symbolic' : 'view-grid-symbolic'
-            );
-            this._filterApps(this.searchEntry.get_text());
-            this._updatePosition();
-        });
+        this.toggleViewBtn.connectObject(
+            'notify::hover', () => {
+                const isHovered = this.toggleViewBtn.hover;
+                const bgOpacity = isHovered ? '0.25' : '0.1';
+                this.toggleViewBtn.set_style(`padding: 6px; border-radius: 6px; background-color: rgba(255,255,255,${bgOpacity}); transition-duration: 150ms;`);
+            },
+            'clicked', () => {
+                this.isGridView = !this.isGridView;
+                this.toggleViewBtn.get_child().set_icon_name(
+                    this.isGridView ? 'view-list-symbolic' : 'view-grid-symbolic'
+                );
+                this._filterApps(this.searchEntry.get_text());
+                this._updatePosition();
+            },
+            this
+        );
 
         const rightContainer = new St.BoxLayout({
             x_expand: true,
@@ -162,11 +164,11 @@ export default class AppGridUI {
             this.searchEntry.clutter_text.set_justify(false);
         }
 
-        this.searchEntry.clutter_text.connect('text-changed', () => {
-            this._filterApps(this.searchEntry.get_text());
-        });
-
-        this.searchEntry.clutter_text.connect('key-press-event', (_actor, event) => {
+        this.searchEntry.clutter_text.connectObject(
+            'text-changed', () => {
+                this._filterApps(this.searchEntry.get_text());
+            },
+            'key-press-event', (_actor, event) => {
             const symbol = event.get_key_symbol();
             const visibleRows = this.appRows;
             if (visibleRows.length === 0) return Clutter.EVENT_PROPAGATE;
@@ -198,7 +200,9 @@ export default class AppGridUI {
                 }
             }
             return Clutter.EVENT_PROPAGATE;
-        });
+            },
+            this
+        );
 
         this.panel.add_child(this.searchEntry);
 
@@ -281,9 +285,9 @@ export default class AppGridUI {
         content.add_child(nameLabel);
         btn.set_child(content);
 
-        btn.connect('notify::hover', () => {
+        btn.connectObject('notify::hover', () => {
             btn.set_style(btn.hover ? 'background-color: rgba(255,255,255,0.15); border-radius: 8px;' : 'border-radius: 8px;');
-        });
+        }, this);
 
         this._attachAppClickEvents(btn, app);
         return btn;
@@ -310,47 +314,49 @@ export default class AppGridUI {
         content.add_child(nameLabel);
         btn.set_child(content);
 
-        btn.connect('notify::hover', () => {
+        btn.connectObject('notify::hover', () => {
             btn.set_style(btn.hover ? 'background-color: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px 4px;' : 'border-radius: 12px; padding: 12px 4px;');
-        });
+        }, this);
 
         this._attachAppClickEvents(btn, app);
         return btn;
     }
 
     _attachAppClickEvents(btn, app) {
-        btn.connect('button-press-event', (_actor, event) => {
-            if (event.get_button() === 3) {
-                if (this.dockUI._activeContextMenu) {
-                    this.dockUI._activeContextMenu.hide();
+        btn.connectObject(
+            'button-press-event', (_actor, event) => {
+                if (event.get_button() === 3) {
+                    if (this.dockUI._activeContextMenu) {
+                        this.dockUI._activeContextMenu.hide();
+                    }
+
+                    const state = event.get_state();
+                    const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
+
+                    this.dockUI._activeContextMenu = new AppContextMenu(
+                        this.dockUI,
+                        app,
+                        btn,
+                        isCtrl,
+                        this.dockUI.openPrefsCallback,
+                        true
+                    );
+
+                    const [, y] = btn.get_transformed_position();
+                    const dynamicDockPos = (y > (global.stage.height / 2)) ? 'BOTTOM' : 'TOP';
+
+                    this.dockUI._activeContextMenu.show(dynamicDockPos);
+                    return Clutter.EVENT_STOP;
                 }
-
-                const state = event.get_state();
-                const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
-
-                this.dockUI._activeContextMenu = new AppContextMenu(
-                    this.dockUI,
-                    app,
-                    btn,
-                    isCtrl,
-                    this.dockUI.openPrefsCallback,
-                    true
-                );
-
-                const [, y] = btn.get_transformed_position();
-                const dynamicDockPos = (y > (global.stage.height / 2)) ? 'BOTTOM' : 'TOP';
-
-                this.dockUI._activeContextMenu.show(dynamicDockPos);
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        });
-
-        btn.connect('clicked', () => {
-            app.activate();
-            Main.overview.hide();
-            this.hide();
-        });
+                return Clutter.EVENT_PROPAGATE;
+            },
+            'clicked', () => {
+                app.activate();
+                Main.overview.hide();
+                this.hide();
+            },
+            this
+        );
     }
 
     _filterApps(searchText) {
@@ -581,14 +587,21 @@ export default class AppGridUI {
 
     destroy() {
         this.appManager.appSystem.disconnectObject(this);
+        if (this.toggleViewBtn) this.toggleViewBtn.disconnectObject(this);
+        if (this.searchEntry && this.searchEntry.clutter_text) {
+            this.searchEntry.clutter_text.disconnectObject(this);
+        }
         this.actor.disconnectObject(this);
         this.panel.disconnectObject(this);
 
+        if (this._scrollIdleId && this._timers) {
+            this._timers.remove(this._scrollIdleId);
+            this._scrollIdleId = 0;
+        }
         if (this._timers) {
             this._timers.destroy();
             this._timers = null;
         }
-        this._scrollIdleId = 0;
         
         this.hide();
 

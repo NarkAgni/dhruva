@@ -56,7 +56,7 @@ export default class FolderManager {
         const baseName = (requestedName && requestedName.trim()) ? requestedName.trim() : _('New Folder');
         const existingNames = new Set(this.getFolders().map(f => {
             if (!f.name) return '';
-            return (f.name === 'New Folder' || f.name === 'Новая папка') ? _('New Folder') : f.name.trim();
+            return f.name === 'New Folder' ? _('New Folder') : f.name.trim();
         }));
 
         if (!existingNames.has(baseName)) return baseName;

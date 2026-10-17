@@ -42,9 +42,9 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         buildMusicPillPage(window, settings);
         buildAboutPage(this, window);
 
-        window.connect('close-request', () => {
+        window.connectObject('close-request', () => {
             disconnectSettingSignals();
             return false;
-        });
+        }, window);
     }
 }

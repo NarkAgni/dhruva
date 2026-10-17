@@ -30,29 +30,42 @@ const DEFAULT_RGB_CHANNEL = 20;
 const DEFAULT_FALLBACK_COLOR = '#ffffff';
 const SAMPLE_ICON_SIZE = 32;
 
-const _disposedActors = new WeakSet();
-const _iconColorCache = new Map();
+let _disposedActors = null;
+let _iconColorCache = null;
+
+function _getDisposedActors() {
+    if (!_disposedActors) _disposedActors = new WeakSet();
+    return _disposedActors;
+}
+
+function _getIconColorCache() {
+    if (!_iconColorCache) _iconColorCache = new Map();
+    return _iconColorCache;
+}
 
 let _ifaceSettings = null;
-let _ifaceSettingsChangedId = 0;
+const _ifaceTracker = {};
 
 function _getIfaceSettings() {
     if (!_ifaceSettings) {
         _ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
-        _ifaceSettingsChangedId = _ifaceSettings.connect('changed::icon-theme', () => {
-            _iconColorCache.clear();
-        });
+        _ifaceSettings.connectObject('changed::icon-theme', () => {
+            if (_iconColorCache) _iconColorCache.clear();
+        }, _ifaceTracker);
     }
     return _ifaceSettings;
 }
 
 export function destroyUtils() {
     if (_ifaceSettings) {
-        if (_ifaceSettingsChangedId) _ifaceSettings.disconnect(_ifaceSettingsChangedId);
+        _ifaceSettings.disconnectObject(_ifaceTracker);
         _ifaceSettings = null;
-        _ifaceSettingsChangedId = 0;
     }
-    _iconColorCache.clear();
+    if (_iconColorCache) {
+        _iconColorCache.clear();
+        _iconColorCache = null;
+    }
+    _disposedActors = null;
 }
 
 function _getActiveIconTheme() {
@@ -100,27 +113,28 @@ function _resolvePathFromGicon(gicon) {
 }
 
 export function markActorDisposed(actor) {
-    if (actor) _disposedActors.add(actor);
+    if (actor) _getDisposedActors().add(actor);
 }
 
 export function isActorAlive(actor) {
-    if (!actor || _disposedActors.has(actor)) return false;
+    const disposed = _getDisposedActors();
+    if (!actor || disposed.has(actor)) return false;
 
     try {
         const str = GObject.Object.prototype.toString.call(actor);
         if (!str || str.includes('DISPOSED') || str.includes('finalized') || str.includes('disposed')) {
-            _disposedActors.add(actor);
+            disposed.add(actor);
             return false;
         }
 
         if (!actor.get_stage) {
-            _disposedActors.add(actor);
+            disposed.add(actor);
             return false;
         }
 
         return true;
     } catch (_e) {
-        try { _disposedActors.add(actor); } catch (_err) {}
+        try { disposed.add(actor); } catch (_err) {}
         return false;
     }
 }
@@ -158,21 +172,27 @@ export function captureActorRect(actor, fallbackWin = null) {
 
 export function debounce(func, wait) {
     const timers = new TimeoutTracker();
-    let timeoutId = null;
+    let timeoutId = 0;
 
     const wrapper = function (...args) {
-        if (timeoutId) timers.remove(timeoutId);
+        if (timeoutId) {
+            timers.remove(timeoutId);
+            timeoutId = 0;
+        }
 
         timeoutId = timers.addTimeout(GLib.PRIORITY_DEFAULT, wait, () => {
-            timeoutId = null;
+            timeoutId = 0;
             func.apply(this, args);
             return GLib.SOURCE_REMOVE;
         });
     };
 
     wrapper.cancel = () => {
+        if (timeoutId) {
+            timers.remove(timeoutId);
+            timeoutId = 0;
+        }
         timers.destroy();
-        timeoutId = null;
     };
 
     return wrapper;
@@ -228,7 +248,7 @@ export function getBoxVertical(box) {
 }
 
 export function clearIconColorCache() {
-    _iconColorCache.clear();
+    if (_iconColorCache) _iconColorCache.clear();
 }
 
 function _findIconFilePath(iconName) {
@@ -342,8 +362,9 @@ export function extractIconDominantColor(iconSource, fallbackColor = DEFAULT_FAL
         resolvedPath = _findIconFilePath(iconSource.icon_name);
     }
 
-    if (cacheKey && _iconColorCache.has(cacheKey)) {
-        return _iconColorCache.get(cacheKey);
+    const cache = _getIconColorCache();
+    if (cacheKey && cache.has(cacheKey)) {
+        return cache.get(cacheKey);
     }
 
     try {
@@ -439,7 +460,7 @@ export function extractIconDominantColor(iconSource, fallbackColor = DEFAULT_FAL
             hex = `#${_toHex(r)}${_toHex(g)}${_toHex(b)}`;
         }
 
-        if (cacheKey) _iconColorCache.set(cacheKey, hex);
+        if (cacheKey) cache.set(cacheKey, hex);
         return hex;
     } catch (_e) {
         return fallbackColor;

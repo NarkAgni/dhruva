@@ -30,14 +30,20 @@ export const TOOLTIP_GAP = 24;
 
 export function clearTooltipDelay(dockActor) {
     if (!dockActor) return;
-    if (dockActor._magTimers) dockActor._magTimers.remove(dockActor._tooltipDelayId);
-    dockActor._tooltipDelayId = null;
+    if (dockActor._tooltipDelayId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._tooltipDelayId);
+        dockActor._tooltipDelayId = 0;
+    }
     dockActor._tooltipReady = false;
 }
 
 export function hideTooltip(dockActor) {
     clearTooltipDelay(dockActor);
     if (!dockActor) return;
+    if (dockActor._tooltipLeaveIdleId && dockActor._magTimers) {
+        dockActor._magTimers.remove(dockActor._tooltipLeaveIdleId);
+        dockActor._tooltipLeaveIdleId = 0;
+    }
     dockActor._tooltipHoveredIndex = -1;
     dockActor._tooltipBridgeActive = false;
     

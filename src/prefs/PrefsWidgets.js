@@ -237,8 +237,8 @@ export function addSliderRow(parent, settings, key, title, subtitle, range, form
     try {
         const styleMgr = Adw.StyleManager.get_default();
         if (styleMgr && styleMgr.get_accent_color_rgba) {
-            const sigId = styleMgr.connect('notify::accent-color-rgba', () => area.queue_draw());
-            area.connect('destroy', () => styleMgr.disconnect(sigId));
+            styleMgr.connectObject('notify::accent-color-rgba', () => area.queue_draw(), area);
+            area.connectObject('destroy', () => styleMgr.disconnectObject(area), area);
         }
     } catch (_e) {}
 
@@ -255,27 +255,27 @@ export function addSliderRow(parent, settings, key, title, subtitle, range, form
 
     const drag = new Gtk.GestureDrag();
     let dragStartX = 0;
-    drag.connect('drag-begin', (_g, startX) => {
+    drag.connectObject('drag-begin', (_g, startX) => {
         dragStartX = startX;
         area.grab_focus();
         updateFromX(startX);
-    });
-    drag.connect('drag-update', (_g, offsetX) => {
+    }, area);
+    drag.connectObject('drag-update', (_g, offsetX) => {
         updateFromX(dragStartX + offsetX);
-    });
+    }, area);
     area.add_controller(drag);
 
     const scroll = new Gtk.EventControllerScroll({ flags: Gtk.EventControllerScrollFlags.VERTICAL });
-    scroll.connect('scroll', (_c, _dx, dy) => {
+    scroll.connectObject('scroll', (_c, _dx, dy) => {
         const dir = dy < 0 ? 1 : -1;
         const next = snapToStep(adjustment.get_value() + dir * range.step);
         adjustment.set_value(next);
         return Gdk.EVENT_STOP;
-    });
+    }, area);
     area.add_controller(scroll);
 
     const keyCtrl = new Gtk.EventControllerKey();
-    keyCtrl.connect('key-pressed', (_c, keyval) => {
+    keyCtrl.connectObject('key-pressed', (_c, keyval) => {
         if (keyval === Gdk.KEY_Left || keyval === Gdk.KEY_Down) {
             adjustment.set_value(snapToStep(adjustment.get_value() - range.step));
             return Gdk.EVENT_STOP;
@@ -285,13 +285,13 @@ export function addSliderRow(parent, settings, key, title, subtitle, range, form
             return Gdk.EVENT_STOP;
         }
         return Gdk.EVENT_PROPAGATE;
-    });
+    }, area);
     area.add_controller(keyCtrl);
 
-    adjustment.connect('value-changed', () => {
+    adjustment.connectObject('value-changed', () => {
         valueLabel.set_label(format(adjustment.get_value()));
         area.queue_draw();
-    });
+    }, row);
 
     box.append(valueLabel);
     box.append(area);
@@ -310,10 +310,10 @@ export function addComboRow(parent, settings, key, title, subtitle, options) {
         const index = options.findIndex(option => option.value === settings.get_string(key));
         if (index >= 0 && row.get_selected() !== index) row.set_selected(index);
     };
-    row.connect('notify::selected', () => {
+    row.connectObject('notify::selected', () => {
         const option = options[row.get_selected()];
         if (option && option.value !== settings.get_string(key)) settings.set_string(key, option.value);
-    });
+    }, row);
     onSettingChanged(settings, key, sync);
     sync();
 
@@ -372,10 +372,10 @@ export function addColorRow(parent, settings, key, title, subtitle = '') {
         valign: Gtk.Align.CENTER,
     });
 
-    button.connect('notify::rgba', () => {
+    button.connectObject('notify::rgba', () => {
         const hex = toHex(button.get_rgba());
         if (hex !== settings.get_string(key)) settings.set_string(key, hex);
-    });
+    }, row);
     onSettingChanged(settings, key, () => {
         const rgba = parseColor(settings.get_string(key));
         if (!rgba.equal(button.get_rgba())) button.set_rgba(rgba);

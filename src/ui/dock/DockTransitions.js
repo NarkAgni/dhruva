@@ -39,8 +39,8 @@ const EXIT_END_SCALE = 0.35;
 const EDGE_DRIFT_PX = 14;
 const MIN_MOVE_PX = 1;
 
-const GHOST_TYPES = new Set(['app', 'folder', 'module']);
-const ENTER_TYPES = new Set(['app', 'folder', 'module', 'overflow', 'separator', 'music-pill']);
+const GHOST_TYPES = ['app', 'folder', 'module'];
+const ENTER_TYPES = ['app', 'folder', 'module', 'overflow', 'separator', 'music-pill'];
 
 
 function towardDockEdge(dockPos) {
@@ -96,7 +96,7 @@ export function releaseRemovedItems(dockUI, transition, keptKeys) {
     const draggedOutKey = dockUI._draggedOutKey;
 
     for (const [key, { actor, type }] of transition.actors) {
-        if (keptKeys.has(key) || key === draggedOutKey || !GHOST_TYPES.has(type)) continue;
+        if (keptKeys.has(key) || key === draggedOutKey || !GHOST_TYPES.includes(type)) continue;
         if (actor === dockUI._musicPill || actor._isOverflowBtn) continue;
         spawnExitGhost(dockUI, actor, transition.rects.get(key));
     }
@@ -155,7 +155,7 @@ export function playDockTransition(dockUI, transition) {
     for (const [key, entry] of dockUI._actorRegistry) {
         const oldRect = transition.rects.get(key);
         if (!oldRect) {
-            if (ENTER_TYPES.has(entry.type)) {
+            if (ENTER_TYPES.includes(entry.type)) {
                 playEnter(entry.actor, dockUI.dockPosition);
                 isAnimating = true;
             }
@@ -319,5 +319,13 @@ function holdMagnifier(dockUI, isAnimating) {
 }
 
 export function cancelDockTransitions(dockUI) {
-    for (const ghost of [...ghostSet(dockUI)]) ghost.remove_all_transitions();
+    if (dockUI._transitionHoldId && dockUI.registry) {
+        dockUI.registry.remove(dockUI._transitionHoldId);
+        dockUI._transitionHoldId = null;
+    }
+    for (const ghost of [...ghostSet(dockUI)]) {
+        ghost.remove_all_transitions();
+        ghost.destroy();
+    }
+    if (dockUI._exitGhosts) dockUI._exitGhosts.clear();
 }

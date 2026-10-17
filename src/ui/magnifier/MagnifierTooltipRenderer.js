@@ -91,7 +91,12 @@ export function createTooltipActor(dockActor, settings) {
     if (dockActor) {
         tooltip.connectObject('leave-event', () => {
             if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
-            dockActor._magTimers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (dockActor._tooltipLeaveIdleId) {
+                dockActor._magTimers.remove(dockActor._tooltipLeaveIdleId);
+                dockActor._tooltipLeaveIdleId = 0;
+            }
+            dockActor._tooltipLeaveIdleId = dockActor._magTimers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                dockActor._tooltipLeaveIdleId = 0;
                 if (!isActorAlive(dockActor) || !dockActor._magTooltip || !dockActor._magTooltip.visible) {
                     return GLib.SOURCE_REMOVE;
                 }
@@ -428,18 +433,22 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         dockActor._tooltipPosTrackerId = null;
     }
 
-    if (!dockActor._tooltipDestroyHooked) {
+    if (!dockActor._tooltipDestroyHooked && dockActor._magTooltip) {
         dockActor._tooltipDestroyHooked = true;
         dockActor.connectObject('destroy', () => {
+            if (dockActor._tooltipLeaveIdleId && dockActor._magTimers) {
+                dockActor._magTimers.remove(dockActor._tooltipLeaveIdleId);
+                dockActor._tooltipLeaveIdleId = 0;
+            }
             if (dockActor._tooltipPosTrackerId && dockActor._magTimers) {
                 dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
-                dockActor._tooltipPosTrackerId = null;
+                dockActor._tooltipPosTrackerId = 0;
             }
             if (dockActor._magTooltipBlur) {
                 dockActor._magTooltipBlur.destroy();
                 dockActor._magTooltipBlur = null;
             }
-        }, dockActor);
+        }, dockActor._magTooltip);
     }
     
     const trackPos = () => {

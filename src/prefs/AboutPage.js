@@ -92,9 +92,9 @@ export function buildAboutLinks(page, window) {
             css_classes: ['dim-label']
         }));
 
-        row.connect('activated', () => {
+        row.connectObject('activated', () => {
             Gio.AppInfo.launch_default_for_uri(url, window.get_display().get_app_launch_context());
-        });
+        }, page);
         group.add(row);
     };
 
@@ -143,9 +143,9 @@ export function buildAboutDonations(page, window) {
         valign: Gtk.Align.CENTER,
         css_classes: ['dim-label']
     }));
-    coffeeRow.connect('activated', () => {
+    coffeeRow.connectObject('activated', () => {
         Gio.AppInfo.launch_default_for_uri('https://buymeacoffee.com/narkagni', window.get_display().get_app_launch_context());
-    });
+    }, page);
     group.add(coffeeRow);
 
     const addCrypto = (coin, icon, address) => {
@@ -166,13 +166,13 @@ export function buildAboutDonations(page, window) {
             tooltip_text: `${_('Copy')} ${coin} ${_('address')}`
         });
 
-        copyBtn.connect('clicked', () => {
+        copyBtn.connectObject('clicked', () => {
             window.get_display().get_clipboard().set_content(Gdk.ContentProvider.new_for_value(address));
             window.add_toast(new Adw.Toast({
                 title: `${coin} ${_('address copied!')}`,
                 timeout: 2
             }));
-        });
+        }, page);
 
         row.add_suffix(copyBtn);
         group.add(row);

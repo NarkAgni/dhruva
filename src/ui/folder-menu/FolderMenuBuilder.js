@@ -127,6 +127,9 @@ export class FolderMenuBuilder {
         this.folderData = folderMenu.folderData;
         this.panel = folderMenu.panel;
         this.timers = folderMenu.timers;
+        this._saveSoonId = 0;
+        this._refreshIdleId = 0;
+        this._cancellable = new Gio.Cancellable();
     }
 
     buildMenu() {
@@ -435,15 +438,20 @@ export class FolderMenuBuilder {
     }
 
     _saveStyle(fullRender = false) {
-        this.timers.remove(this._saveSoonId);
-        this._saveSoonId = 0;
+        if (this._saveSoonId) {
+            this.timers.remove(this._saveSoonId);
+            this._saveSoonId = 0;
+        }
         this.folderMenu._saveFolderState();
         if (fullRender) this.dockUI.queueRender('full', true);
         if (this.folderMenu.actor) this._updateHeaderState();
     }
 
     _saveStyleSoon() {
-        if (this._saveSoonId) return;
+        if (this._saveSoonId) {
+            this.timers.remove(this._saveSoonId);
+            this._saveSoonId = 0;
+        }
         this._saveSoonId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, SLIDER_SAVE_DELAY_MS, () => {
             this._saveSoonId = 0;
             this._saveStyle();
@@ -484,10 +492,11 @@ export class FolderMenuBuilder {
         }
 
         pickIconImage(_('Select Custom Folder Icon'), pickedPath => {
+            if (!this._cancellable) return;
             const ext = pickedPath.split('.').pop().toLowerCase();
             const destPath = GLib.build_filenamev([iconConfigDir(this.dockUI), `folder_icon_${this.folderData.id}_${Date.now()}.${ext}`]);
 
-            Gio.File.new_for_path(pickedPath).copy_async(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, GLib.PRIORITY_DEFAULT, null, null, (f, copyRes) => {
+            Gio.File.new_for_path(pickedPath).copy_async(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, GLib.PRIORITY_DEFAULT, this._cancellable, null, (f, copyRes) => {
                 try {
                     f.copy_finish(copyRes);
                 } catch (err) {
@@ -495,7 +504,7 @@ export class FolderMenuBuilder {
                     return;
                 }
                 if (!this.dockUI.folderManager) {
-                    Gio.File.new_for_path(destPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+                    Gio.File.new_for_path(destPath).delete_async(GLib.PRIORITY_DEFAULT, this._cancellable, () => {});
                     return;
                 }
                 this._setFolderIcon(destPath);
@@ -913,7 +922,12 @@ export class FolderMenuBuilder {
 
         this.folderMenu.gridMasterBox.queue_relayout();
 
-        this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        if (this._refreshIdleId) {
+            this.timers.remove(this._refreshIdleId);
+            this._refreshIdleId = 0;
+        }
+        this._refreshIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._refreshIdleId = 0;
             if (!this.folderMenu.gridMasterBox || !isActorAlive(this.folderMenu.gridMasterBox)) return GLib.SOURCE_REMOVE;
 
             allFolderBtns.forEach(btn => {
@@ -959,5 +973,24 @@ export class FolderMenuBuilder {
 
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    destroy() {
+        this._stopFolderDragMonitor();
+
+        if (this._cancellable) {
+            this._cancellable.cancel();
+            this._cancellable = null;
+        }
+
+        if (this._saveSoonId && this.timers) {
+            this.timers.remove(this._saveSoonId);
+            this._saveSoonId = 0;
+        }
+
+        if (this._refreshIdleId && this.timers) {
+            this.timers.remove(this._refreshIdleId);
+            this._refreshIdleId = 0;
+        }
     }
 }

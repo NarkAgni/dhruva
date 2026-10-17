@@ -61,10 +61,15 @@ const CATEGORIES = [
     { id: 'Flags', icon: 'emoji-flags-symbolic', title: () => _('Flags') },
 ];
 
-const ALL_EMOJIS = emojisData.emojis.filter(entry => CATEGORIES.some(cat => cat.id === entry.category));
-const EMOJIS_BY_CATEGORY = new Map(CATEGORIES.map(cat => [cat.id, ALL_EMOJIS.filter(entry => entry.category === cat.id)]));
-
 const recentEmojis = [];
+
+function getAllEmojis() {
+    return emojisData.emojis.filter(entry => CATEGORIES.some(cat => cat.id === entry.category));
+}
+
+function getEmojisByCategory(categoryId) {
+    return emojisData.emojis.filter(entry => entry.category === categoryId);
+}
 
 const CELL_STYLE = `width: ${CELL_SIZE}px; height: ${CELL_SIZE}px; border-radius: 14px; font-size: ${EMOJI_FONT_PX}px; ` +
     'text-align: center; transition-duration: 90ms;';
@@ -90,7 +95,7 @@ function capitalize(text) {
 
 function searchEmojis(query) {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return ALL_EMOJIS
+    return getAllEmojis()
         .filter(entry => entry.emoji === query || words.every(word => entry.name.toLowerCase().includes(word)))
         .slice(0, MAX_SEARCH_RESULTS);
 }
@@ -343,17 +348,22 @@ export class EmojiPicker {
         this._categoryId = categoryId;
         this._lastCategoryId = categoryId;
         this._searchEntry.set_text('');
-        this.timers.remove(this._searchTimerId);
-        this._searchTimerId = 0;
+        if (this._searchTimerId) {
+            this.timers.remove(this._searchTimerId);
+            this._searchTimerId = 0;
+        }
 
         this._tabs.forEach((_tab, id) => this._styleTab(id));
         const category = CATEGORIES.find(cat => cat.id === categoryId);
-        const entries = categoryId === RECENT_ID ? recentEmojis : EMOJIS_BY_CATEGORY.get(categoryId);
+        const entries = categoryId === RECENT_ID ? recentEmojis : getEmojisByCategory(categoryId);
         this._populate(entries, category.title(), _('Pick an emoji to use it often'));
     }
 
     _queueSearch() {
-        this.timers.remove(this._searchTimerId);
+        if (this._searchTimerId) {
+            this.timers.remove(this._searchTimerId);
+            this._searchTimerId = 0;
+        }
         this._searchTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, SEARCH_DEBOUNCE_MS, () => {
             this._searchTimerId = 0;
             this._runSearch();
@@ -508,11 +518,27 @@ export class EmojiPicker {
     }
 
     _onDestroyed() {
-        this.timers.remove(this._searchTimerId);
-        this._searchTimerId = 0;
+        if (this._searchTimerId) {
+            this.timers.remove(this._searchTimerId);
+            this._searchTimerId = 0;
+        }
         if (this._blur) {
             this._blur.destroy();
             this._blur = null;
+        }
+        if (this._searchEntry && this._searchEntry.clutter_text) {
+            this._searchEntry.clutter_text.disconnectObject(this);
+        }
+        this._tabs.forEach(tab => tab.disconnectObject(this));
+        this._tabs.clear();
+        this._cells.forEach(cell => cell.disconnectObject(this));
+        this._cells = [];
+        if (this._card) {
+            this._card.disconnectObject(this);
+            this._card = null;
+        }
+        if (this.overlay) {
+            this.overlay.disconnectObject(this);
         }
         if (this.folderMenu._emojiOverlay === this.overlay) this.folderMenu._emojiOverlay = null;
         if (isActorAlive(this.folderMenu.menuContainer)) this.folderMenu.menuContainer.show();

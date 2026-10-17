@@ -43,11 +43,12 @@ let _pendingDockPos = null;
 let _pendingLaunchActor = null;
 let _settings = null;
 let _dockUI = null;
-const _docks = new Set();
+const _docks = [];
 const WM_SIGNAL_OWNER = {};
 
-const _animatingActors = new Set();
+const _animatingActors = [];
 let _effectTimers = null;
+let _effectIdleId = 0;
 
 let _origShouldAnimate = null;
 let _origCompletedMinimize = null;
@@ -59,9 +60,25 @@ function _getEffectDuration() {
     return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_EFFECT_DURATION_MS;
 }
 
+function _addAnimatingActor(actor) {
+    if (!_animatingActors.includes(actor)) {
+        _animatingActors.push(actor);
+    }
+}
+
+function _removeAnimatingActor(actor) {
+    const idx = _animatingActors.indexOf(actor);
+    if (idx !== -1) _animatingActors.splice(idx, 1);
+}
+
 function _addEffectIdle(cb) {
     if (_effectTimers) {
-        _effectTimers.addIdle(GLib.PRIORITY_DEFAULT, () => {
+        if (_effectIdleId) {
+            _effectTimers.remove(_effectIdleId);
+            _effectIdleId = 0;
+        }
+        _effectIdleId = _effectTimers.addIdle(GLib.PRIORITY_DEFAULT, () => {
+            _effectIdleId = 0;
             cb();
             return GLib.SOURCE_REMOVE;
         });
@@ -69,6 +86,10 @@ function _addEffectIdle(cb) {
 }
 
 function _clearEffectIdles() {
+    if (_effectIdleId && _effectTimers) {
+        _effectTimers.remove(_effectIdleId);
+        _effectIdleId = 0;
+    }
     if (_effectTimers) {
         _effectTimers.destroy();
         _effectTimers = null;
@@ -119,7 +140,7 @@ function _patchWm() {
 
     _origShouldAnimate = Main.wm._shouldAnimateActor;
     Main.wm._shouldAnimateActor = function (actor, types) {
-        if (actor === _pendingActor || actor === _pendingLaunchActor || _animatingActors.has(actor)) return false;
+        if (actor === _pendingActor || actor === _pendingLaunchActor || _animatingActors.includes(actor)) return false;
 
         if (actor.meta_window && _dockUI && _dockUI._pendingLaunches && _dockUI._pendingLaunches.length > 0) {
             const tracker = Shell.WindowTracker.get_default();
@@ -147,19 +168,19 @@ function _patchWm() {
 
     _origCompletedMinimize = shellwm.completed_minimize;
     shellwm.completed_minimize = function (actor) {
-        if (actor === _pendingActor || _animatingActors.has(actor)) return;
+        if (actor === _pendingActor || _animatingActors.includes(actor)) return;
         _origCompletedMinimize.call(this, actor);
     };
 
     _origCompletedUnminimize = shellwm.completed_unminimize;
     shellwm.completed_unminimize = function (actor) {
-        if (actor === _pendingActor || _animatingActors.has(actor)) return;
+        if (actor === _pendingActor || _animatingActors.includes(actor)) return;
         _origCompletedUnminimize.call(this, actor);
     };
 
     _origCompletedMap = shellwm.completed_map;
     shellwm.completed_map = function (actor) {
-        if (_animatingActors.has(actor)) return;
+        if (_animatingActors.includes(actor)) return;
         _origCompletedMap.call(this, actor);
     };
 }
@@ -181,7 +202,7 @@ function _unpatchWm() {
 }
 
 export function finishMinimizeEffect(actor) {
-    _animatingActors.delete(actor);
+    _removeAnimatingActor(actor);
     if (!isActorAlive(actor)) return;
     if (_origCompletedMinimize && Main.wm && Main.wm._shellwm) {
         _origCompletedMinimize.call(Main.wm._shellwm, actor);
@@ -189,7 +210,7 @@ export function finishMinimizeEffect(actor) {
 }
 
 export function finishRestoreEffect(actor) {
-    _animatingActors.delete(actor);
+    _removeAnimatingActor(actor);
     if (!isActorAlive(actor)) return;
 
     if (actor._isDhruvaLaunching) {
@@ -203,8 +224,10 @@ export function finishRestoreEffect(actor) {
 }
 
 export function setupWindowEffects(settings, dockUI) {
-    _docks.add(dockUI);
-    if (_docks.size > 1) return;
+    if (!_docks.includes(dockUI)) {
+        _docks.push(dockUI);
+    }
+    if (_docks.length > 1) return;
 
     _settings = settings;
     _dockUI = dockUI;
@@ -227,7 +250,7 @@ export function setupWindowEffects(settings, dockUI) {
                     if (_pendingActor === capturedActor) _pendingActor = null;
                 });
 
-                _animatingActors.add(actor);
+                _addAnimatingActor(actor);
                 if (actor.remove_all_transitions) actor.remove_all_transitions();
 
                 const fadeDuration = Math.max(120, Math.round(_getEffectDuration() * 0.5));
@@ -239,7 +262,7 @@ export function setupWindowEffects(settings, dockUI) {
                     duration: fadeDuration,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
-                        _animatingActors.delete(actor);
+                        _removeAnimatingActor(actor);
                         if (isActorAlive(actor)) {
                             actor.set_pivot_point(0, 0);
                             actor.set_scale(1.0, 1.0);
@@ -305,7 +328,7 @@ export function setupWindowEffects(settings, dockUI) {
                 return;
             }
 
-            _animatingActors.add(actor);
+            _addAnimatingActor(actor);
             if (actor.remove_all_transitions) actor.remove_all_transitions();
 
             const old = actor.get_effect(MIN_EFFECT_NAME);
@@ -324,7 +347,7 @@ export function setupWindowEffects(settings, dockUI) {
                     if (_pendingActor === capturedActor) _pendingActor = null;
                 });
 
-                _animatingActors.add(actor);
+                _addAnimatingActor(actor);
                 if (actor.remove_all_transitions) actor.remove_all_transitions();
 
                 const fadeDuration = Math.max(120, Math.round(_getEffectDuration() * 0.5));
@@ -340,7 +363,7 @@ export function setupWindowEffects(settings, dockUI) {
                     duration: fadeDuration,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
-                        _animatingActors.delete(actor);
+                        _removeAnimatingActor(actor);
                         if (isActorAlive(actor)) {
                             actor.set_pivot_point(0, 0);
                             actor.set_scale(1.0, 1.0);
@@ -405,7 +428,7 @@ export function setupWindowEffects(settings, dockUI) {
                 return;
             }
 
-            _animatingActors.add(actor);
+            _addAnimatingActor(actor);
             if (actor.remove_all_transitions) actor.remove_all_transitions();
 
             const old = actor.get_effect(UNMIN_EFFECT_NAME);
@@ -420,16 +443,17 @@ export function setupWindowEffects(settings, dockUI) {
 }
 
 export function teardownWindowEffects(dockUI) {
-    _docks.delete(dockUI);
-    if (_docks.size > 0) {
-        if (_dockUI === dockUI) _dockUI = _docks.values().next().value;
+    const idx = _docks.indexOf(dockUI);
+    if (idx !== -1) _docks.splice(idx, 1);
+    if (_docks.length > 0) {
+        if (_dockUI === dockUI) _dockUI = _docks[0];
         return;
     }
 
     global.window_manager.disconnectObject(WM_SIGNAL_OWNER);
     _clearEffectIdles();
 
-    _animatingActors.clear();
+    _animatingActors.length = 0;
     _pendingActor = null;
     _pendingIcon = null;
     _pendingDockPos = null;
@@ -478,7 +502,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
         return;
     }
 
-    _animatingActors.add(actor);
+    _addAnimatingActor(actor);
     actor._isDhruvaLaunching = true;
     if (actor.remove_all_transitions) actor.remove_all_transitions();
 

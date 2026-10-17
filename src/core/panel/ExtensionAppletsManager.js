@@ -266,7 +266,10 @@ export default class ExtensionAppletsManager {
 
     _onExtensionsChanged() {
         this._closeTray();
-        this.timers.remove(this._extensionTimerId);
+        if (this._extensionTimerId) {
+            this.timers.remove(this._extensionTimerId);
+            this._extensionTimerId = 0;
+        }
         this._extensionTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, EXTENSION_SETTLE_MS, () => {
             this._extensionTimerId = 0;
             this.panelIntegrator.refreshApplets();
@@ -275,13 +278,23 @@ export default class ExtensionAppletsManager {
     }
 
     restore() {
+        if (this._extensionTimerId) {
+            this.timers.remove(this._extensionTimerId);
+            this._extensionTimerId = 0;
+        }
         this._closeTray();
         this._reorder.release();
         this._releaseApplets();
 
-        if (isActorAlive(this.box)) this.box.destroy();
+        if (isActorAlive(this.box)) {
+            this.box.disconnectObject(this);
+            this.box.destroy();
+        }
         if (isActorAlive(this.leftBox)) this.leftBox.destroy();
-        if (isActorAlive(this._arrowButton)) this._arrowButton.destroy();
+        if (isActorAlive(this._arrowButton)) {
+            this._arrowButton.disconnectObject(this);
+            this._arrowButton.destroy();
+        }
         this.box = null;
         this.leftBox = null;
         this._arrowButton = null;

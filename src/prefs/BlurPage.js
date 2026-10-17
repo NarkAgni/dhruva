@@ -36,8 +36,6 @@ import {
 } from './PrefsWidgets.js';
 
 
-const EXTENSION_DIR = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
-
 const PREVIEW_HEIGHT = 180;
 const PREVIEW_RADIUS = 14;
 const SOURCE_MAX_WIDTH = 1200;
@@ -61,7 +59,8 @@ const MATERIAL_KEYS = ['blur-tint-color', 'blur-intensity', 'blur-vibrancy', 'bl
 const LIGHT_KEYS = ['blur-border-glow', 'blur-highlight-angle'];
 
 function presetPath(key) {
-    return EXTENSION_DIR.get_child('icons').get_child(`glass-preset-${key}.svg`).get_path();
+    const extDir = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
+    return extDir.get_child('icons').get_child(`glass-preset-${key}.svg`).get_path();
 }
 
 function coverPixbuf(source, w, h) {
@@ -271,6 +270,14 @@ export function buildBlurPage(window, settings) {
         icon_name: 'view-paged-symbolic',
     });
 
+    let cancellable = new Gio.Cancellable();
+    page.connectObject('destroy', () => {
+        if (cancellable) {
+            cancellable.cancel();
+            cancellable = null;
+        }
+    }, page);
+
     const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
     const ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
     const preview = new BlurPreview(settings, bgSettings, ifaceSettings);
@@ -349,11 +356,11 @@ export function buildBlurPage(window, settings) {
         presetFlow.select_child(child);
         isSyncingPreset = false;
     };
-    presetFlow.connect('selected-children-changed', () => {
+    presetFlow.connectObject('selected-children-changed', () => {
         if (isSyncingPreset) return;
         const [selected] = presetFlow.get_selected_children();
         if (selected) settings.set_string('blur-static-preset', selected._presetKey);
-    });
+    }, page);
     onSettingChanged(settings, 'blur-static-preset', syncPresetSelection);
     syncPresetSelection();
     sourceGroup.add(presetFlow);
@@ -392,8 +399,8 @@ export function buildBlurPage(window, settings) {
     onSettingChanged(settings, 'blur-custom-photo', syncPhoto);
     syncPhoto();
 
-    browseBtn.connect('clicked', () => pickCustomPhoto(window, settings));
-    clearBtn.connect('clicked', () => replaceCustomPhoto(settings, ''));
+    browseBtn.connectObject('clicked', () => pickCustomPhoto(window, settings, cancellable), page);
+    clearBtn.connectObject('clicked', () => replaceCustomPhoto(settings, '', cancellable), page);
 
     const isCustomSource = () => settings.get_string('blur-static-source') === 'custom';
     showWhen(presetFlow, settings, ['blur-static-source'], () => !isCustomSource());
@@ -414,9 +421,9 @@ export function buildBlurPage(window, settings) {
     });
     for (const { name, values } of LOOKS()) {
         const button = new Gtk.Button({ label: name, css_classes: ['pill'] });
-        button.connect('clicked', () => {
+        button.connectObject('clicked', () => {
             for (const [key, value] of Object.entries(values)) settings.set_double(key, value);
-        });
+        }, page);
         looksBox.append(button);
     }
     materialGroup.add(new Adw.PreferencesRow({ child: looksBox, activatable: false }));
@@ -452,17 +459,18 @@ export function buildBlurPage(window, settings) {
     window.add(page);
 }
 
-function replaceCustomPhoto(settings, newPath) {
+function replaceCustomPhoto(settings, newPath, cancellable = null) {
     const oldPath = settings.get_string('blur-custom-photo');
     settings.set_string('blur-custom-photo', newPath);
 
     const ownDir = userDataDir('blur_bg');
     if (oldPath && oldPath !== newPath && oldPath.startsWith(`${ownDir}/`)) {
-        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
     }
 }
 
-function pickCustomPhoto(window, settings) {
+function pickCustomPhoto(window, settings, cancellable = null) {
+    if (cancellable && cancellable.is_cancelled()) return;
     const filter = new Gtk.FileFilter();
     filter.set_name(_('Images'));
     for (const mime of ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']) filter.add_mime_type(mime);
@@ -470,22 +478,24 @@ function pickCustomPhoto(window, settings) {
     filters.append(filter);
 
     const dialog = new Gtk.FileDialog({ title: _('Choose a Background Photo'), filters });
-    dialog.open(window, null, (dlg, res) => {
+    dialog.open(window, cancellable, (dlg, res) => {
         let file;
         try {
             file = dlg.open_finish(res);
         } catch (_e) {
             return;
         }
+        if (cancellable && cancellable.is_cancelled()) return;
         const path = file.get_path();
         if (!path) return;
 
         showCropDialog(window, settings, path, cropped => {
+            if (cancellable && cancellable.is_cancelled()) return;
             const dir = userDataDir('blur_bg');
             GLib.mkdir_with_parents(dir, 0o755);
             const destPath = GLib.build_filenamev([dir, `custom_blur_${Date.now()}.png`]);
             cropped.savev(destPath, 'png', [], []);
-            replaceCustomPhoto(settings, destPath);
+            replaceCustomPhoto(settings, destPath, cancellable);
         });
     });
 }
@@ -558,20 +568,20 @@ function showCropDialog(window, settings, sourcePath, onCropped) {
     slider.set_draw_value(false);
     slider.set_value(cropY);
     slider.set_sensitive(maxCropY > 0);
-    slider.connect('value-changed', () => {
+    slider.connectObject('value-changed', () => {
         cropY = Math.round(slider.get_value());
         area.queue_draw();
-    });
+    }, dialog);
 
     const content = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
     content.append(area);
     content.append(slider);
     dialog.set_extra_child(content);
 
-    dialog.connect('response', (dlg, response) => {
+    dialog.connectObject('response', (dlg, response) => {
         if (response === 'apply') onCropped(pixbuf.new_subpixbuf(cropX, cropY, cropW, cropH));
         if (isGnome45) dlg.close();
-    });
+    }, dialog);
 
     if (isGnome45) dialog.present();
     else dialog.present(window);

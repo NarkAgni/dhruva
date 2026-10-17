@@ -26,10 +26,13 @@ import { Settings } from '../../core/SettingsManager.js';
 
 
 export function scheduleOverviewMarginRetry(dockUI) {
-    if (dockUI._overviewMarginRetryId) return;
+    if (dockUI._overviewMarginRetryId) {
+        dockUI.registry.remove(dockUI._overviewMarginRetryId);
+        dockUI._overviewMarginRetryId = 0;
+    }
 
     dockUI._overviewMarginRetryId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 20, () => {
-        dockUI._overviewMarginRetryId = null;
+        dockUI._overviewMarginRetryId = 0;
         if (!Main.overview.visible && !Main.overview.visibleTarget) return GLib.SOURCE_REMOVE;
 
         updateLayout(dockUI);
@@ -71,7 +74,7 @@ export function applyOverviewDockMargin(dockUI) {
 export function clearOverviewDockMargin(dockUI) {
     if (dockUI._overviewMarginRetryId) {
         dockUI.registry.remove(dockUI._overviewMarginRetryId);
-        dockUI._overviewMarginRetryId = null;
+        dockUI._overviewMarginRetryId = 0;
     }
 
     if (Main.overview.dash && isActorAlive(Main.overview.dash)) {

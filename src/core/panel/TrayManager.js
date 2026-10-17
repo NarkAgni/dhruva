@@ -22,7 +22,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { isActorAlive } from '../Utils.js';
 
 
-const SYSTEM_INDICATORS = new Set([
+const SYSTEM_INDICATORS = [
     'activities', 'aggregateMenu', 'quickSettings', 'dateMenu', 'appMenu',
     'keyboard', 'a11y', 'screenShield', 'dwellClick', 'screenRecording',
     'screenSharing', 'system', 'power', 'volume', 'network', 'bluetooth',
@@ -30,7 +30,7 @@ const SYSTEM_INDICATORS = new Set([
     'tiling-assistant@leleat-on-github',
     'tiling-assistant@ubuntu.com',
     'tiling-assistant',
-]);
+];
 
 const BLACKLISTED_KEYWORDS = [
     'tiling-assistant',
@@ -43,7 +43,7 @@ const ORDER_KEY = 'tray-order';
 
 
 function isBlacklisted(name, indicator) {
-    if (SYSTEM_INDICATORS.has(name)) return true;
+    if (SYSTEM_INDICATORS.includes(name)) return true;
 
     const lowerName = name.toLowerCase();
     const ctor = indicator.constructor;

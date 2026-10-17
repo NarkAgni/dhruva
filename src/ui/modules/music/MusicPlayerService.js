@@ -54,7 +54,6 @@ class MusicPlayerService extends GObject.Object {
         super._init();
         this._tracker = new TimeoutTracker();
         this._cancellable = new Gio.Cancellable();
-        this._destroyed = false;
         this._propSubId = null;
         this._activePlayerBus = null;
         this._playerProxy = null;
@@ -77,7 +76,7 @@ class MusicPlayerService extends GObject.Object {
             'org.freedesktop.DBus',
             '/org/freedesktop/DBus',
             'org.freedesktop.DBus',
-            null
+            this._cancellable
         );
 
         this._ownerSignalId = this._dbusProxy.connectSignal('NameOwnerChanged', (_proxy, _sender, args) => {
@@ -98,7 +97,7 @@ class MusicPlayerService extends GObject.Object {
     }
 
     _handlePlayerClosed() {
-        if (this._destroyed || (!this._activePlayerBus && !this._hasPlayer)) return;
+        if (!this._cancellable || (!this._activePlayerBus && !this._hasPlayer)) return;
 
         this._disconnectProperties();
         this._activePlayerBus = null;
@@ -132,25 +131,27 @@ class MusicPlayerService extends GObject.Object {
     }
 
     _verifyPlayerAlive() {
-        if (!this._dbusProxy || !this._activePlayerBus) return;
+        if (!this._dbusProxy || !this._activePlayerBus || !this._cancellable) return;
         this._dbusProxy.call(
             'GetNameOwner',
             new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
             Gio.DBusCallFlags.NONE,
             1000,
-            null,
+            this._cancellable,
             (proxy, res) => {
-                if (this._destroyed) return;
                 try {
                     const reply = proxy.call_finish(res);
+                    if (!this._cancellable) return;
                     const unpacked = reply ? reply.recursiveUnpack() : null;
                     if (!unpacked || !unpacked[0]) {
                         this._handlePlayerClosed();
                     } else {
                         this._syncState();
                     }
-                } catch (_e) {
-                    this._handlePlayerClosed();
+                } catch (e) {
+                    if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                        this._handlePlayerClosed();
+                    }
                 }
             }
         );
@@ -158,17 +159,17 @@ class MusicPlayerService extends GObject.Object {
 
     _startPositionTracker() {
         this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 250, () => {
-            if (this._hasPlayer && this._propProxy && this._isPlaying && this._activePlayerBus) {
+            if (this._hasPlayer && this._propProxy && this._isPlaying && this._activePlayerBus && this._cancellable) {
                 this._propProxy.call(
                     'Get',
                     new GLib.Variant('(ss)', [MPRIS_INTERFACE, 'Position']),
                     Gio.DBusCallFlags.NONE,
                     -1,
-                    null,
+                    this._cancellable,
                     (proxy, res) => {
-                        if (this._destroyed) return;
                         try {
                             const reply = proxy.call_finish(res);
+                            if (!this._cancellable) return;
                             if (reply) {
                                 const unpacked = reply.recursiveUnpack();
                                 const val = unpacked[0];
@@ -176,8 +177,10 @@ class MusicPlayerService extends GObject.Object {
                                 const monoMs = GLib.get_monotonic_time() / 1000;
                                 this.emit('position-changed', posMs, monoMs);
                             }
-                        } catch (_e) {
-                            this._handlePlayerClosed();
+                        } catch (e) {
+                            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                                this._handlePlayerClosed();
+                            }
                         }
                     }
                 );
@@ -187,17 +190,17 @@ class MusicPlayerService extends GObject.Object {
     }
 
     _findActivePlayer() {
-        if (!this._dbusProxy) return;
+        if (!this._dbusProxy || !this._cancellable) return;
         this._dbusProxy.call(
             'GetNameOwner',
             new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
             Gio.DBusCallFlags.NONE,
             1000,
-            null,
+            this._cancellable,
             (proxy, res) => {
-                if (this._destroyed) return;
                 try {
                     const reply = proxy.call_finish(res);
+                    if (!this._cancellable) return;
                     const unpacked = reply ? reply.recursiveUnpack() : null;
                     if (unpacked && unpacked[0]) {
                         if (this._activePlayerBus !== SPOTIFY_BUS_NAME) {
@@ -206,15 +209,17 @@ class MusicPlayerService extends GObject.Object {
                     } else {
                         this._handlePlayerClosed();
                     }
-                } catch (_e) {
-                    this._handlePlayerClosed();
+                } catch (e) {
+                    if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                        this._handlePlayerClosed();
+                    }
                 }
             }
         );
     }
 
     _isStale(busName) {
-        return this._destroyed || this._activePlayerBus !== busName;
+        return !this._cancellable || this._activePlayerBus !== busName;
     }
 
     _bindPlayer(busName) {
@@ -233,8 +238,10 @@ class MusicPlayerService extends GObject.Object {
                 let proxy;
                 try {
                     proxy = Gio.DBusProxy.new_for_bus_finish(res);
-                } catch (_e) {
-                    if (!this._isStale(busName)) this._handlePlayerClosed();
+                } catch (e) {
+                    if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) && !this._isStale(busName)) {
+                        this._handlePlayerClosed();
+                    }
                     return;
                 }
                 if (this._isStale(busName)) return;
@@ -281,8 +288,10 @@ class MusicPlayerService extends GObject.Object {
                 let proxy;
                 try {
                     proxy = Gio.DBusProxy.new_for_bus_finish(res);
-                } catch (_e) {
-                    if (!this._isStale(busName)) this._handlePlayerClosed();
+                } catch (e) {
+                    if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) && !this._isStale(busName)) {
+                        this._handlePlayerClosed();
+                    }
                     return;
                 }
                 if (this._isStale(busName)) return;
@@ -309,7 +318,7 @@ class MusicPlayerService extends GObject.Object {
     }
 
     _syncState() {
-        if (!this._playerProxy) return;
+        if (!this._playerProxy || !this._cancellable) return;
         try {
             const statusV = this._playerProxy.get_cached_property('PlaybackStatus');
             const status = statusV ? statusV.unpack() : 'Stopped';
@@ -395,7 +404,7 @@ class MusicPlayerService extends GObject.Object {
     }
 
     seekPosition(positionMs) {
-        if (!this._playerProxy) return;
+        if (!this._playerProxy || !this._cancellable) return;
         const trackId = this._currentMeta.trackId || '/org/mpris/MediaPlayer2/CurrentTrack';
         const positionMicro = Math.round(positionMs * 1000);
 
@@ -404,17 +413,25 @@ class MusicPlayerService extends GObject.Object {
             new GLib.Variant('(ox)', [trackId, positionMicro]),
             Gio.DBusCallFlags.NONE,
             -1,
-            null,
-            () => {
-                if (!this._destroyed) this._syncState();
+            this._cancellable,
+            (proxy, res) => {
+                try {
+                    proxy.call_finish(res);
+                    if (this._cancellable) this._syncState();
+                } catch (_e) {}
             }
         );
     }
 
     sendControl(method) {
-        if (!this._playerProxy) return;
-        this._playerProxy.call(method, null, Gio.DBusCallFlags.NONE, -1, null, () => {
-            if (this._destroyed) return;
+        if (!this._playerProxy || !this._cancellable) return;
+        this._playerProxy.call(method, null, Gio.DBusCallFlags.NONE, -1, this._cancellable, (proxy, res) => {
+            try {
+                proxy.call_finish(res);
+            } catch (_e) {
+                return;
+            }
+            if (!this._tracker) return;
             this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
                 this._syncState();
                 return GLib.SOURCE_REMOVE;
@@ -423,7 +440,7 @@ class MusicPlayerService extends GObject.Object {
     }
 
     changeVolume(step) {
-        if (!this._playerProxy || !this._propProxy) return;
+        if (!this._playerProxy || !this._propProxy || !this._cancellable) return;
         const currentVariant = this._playerProxy.get_cached_property('Volume');
         const currentVol = currentVariant ? currentVariant.unpack() : 0.5;
         const targetVol = Math.max(0.0, Math.min(1.0, currentVol + step));
@@ -433,7 +450,7 @@ class MusicPlayerService extends GObject.Object {
             new GLib.Variant('(ssv)', [MPRIS_INTERFACE, 'Volume', new GLib.Variant('d', targetVol)]),
             Gio.DBusCallFlags.NONE,
             -1,
-            null,
+            this._cancellable,
             () => {}
         );
     }
@@ -489,8 +506,8 @@ class MusicPlayerService extends GObject.Object {
             return;
         }
 
-        if (this._rootProxy) {
-            this._rootProxy.call('Raise', null, Gio.DBusCallFlags.NONE, -1, null, () => {});
+        if (this._rootProxy && this._cancellable) {
+            this._rootProxy.call('Raise', null, Gio.DBusCallFlags.NONE, -1, this._cancellable, () => {});
             return;
         }
 
@@ -499,8 +516,10 @@ class MusicPlayerService extends GObject.Object {
     }
 
     destroy() {
-        this._destroyed = true;
-        this._cancellable.cancel();
+        if (this._cancellable) {
+            this._cancellable.cancel();
+            this._cancellable = null;
+        }
         if (this._tracker) {
             this._tracker.destroy();
             this._tracker = null;
@@ -510,6 +529,7 @@ class MusicPlayerService extends GObject.Object {
             this._ownerSignalId = null;
         }
         this._disconnectProperties();
+        this._dbusProxy = null;
         this._playerProxy = null;
         this._propProxy = null;
         this._rootProxy = null;

@@ -30,19 +30,22 @@ const PUFF_RISE = 0.35;
 const ICON_POP_MS = 200;
 const ICON_POP_SCALE = 1.25;
 
-const _activeActors = new Set();
+const _activeActors = [];
 
 
 function track(actor) {
     Main.uiGroup.add_child(actor);
-    _activeActors.add(actor);
+    if (!_activeActors.includes(actor)) {
+        _activeActors.push(actor);
+    }
 }
 
 function easeAndDispose(actor, params) {
     actor.ease({
         ...params,
         onStopped: () => {
-            _activeActors.delete(actor);
+            const idx = _activeActors.indexOf(actor);
+            if (idx !== -1) _activeActors.splice(idx, 1);
             actor.destroy();
         },
     });
@@ -98,5 +101,5 @@ export function playTrashEffect(app, x, y, iconSize) {
 
 export function cleanupTrashEffects() {
     for (const actor of [..._activeActors]) actor.remove_all_transitions();
-    _activeActors.clear();
+    _activeActors.length = 0;
 }
