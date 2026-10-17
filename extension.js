@@ -48,7 +48,10 @@ export default class DhruvaExtension extends Extension {
         this._monitorController = new MultiMonitorController(this._settings, () => this.openPreferences(), this.uuid);
 
         Main.layoutManager.connectObject('monitors-changed', () => {
-            this._timers.remove(this._monitorsChangedId);
+            if (this._monitorsChangedId) {
+                this._timers.remove(this._monitorsChangedId);
+                this._monitorsChangedId = 0;
+            }
             this._monitorsChangedId = this._timers.addTimeout(GLib.PRIORITY_DEFAULT, MONITORS_SETTLE_MS, () => {
                 this._monitorsChangedId = 0;
                 this._monitorController.handleMonitorsChanged();

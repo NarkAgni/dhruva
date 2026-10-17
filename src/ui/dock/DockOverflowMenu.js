@@ -67,8 +67,8 @@ export class DockOverflowMenu {
         this._dockUI = dockUI;
         this._items = [];
         this._isOpen = false;
-        this._isDestroyed = false;
         this._blur = null;
+        this._raiseLaterId = 0;
         this._arrowCenter = 0;
         this._layoutKey = this._currentLayoutKey();
 
@@ -167,11 +167,18 @@ export class DockOverflowMenu {
     }
 
     destroy() {
-        if (!this._isDestroyed) this.button.destroy();
+        if (this.button) this.button.destroy();
     }
 
     _teardown() {
-        this._isDestroyed = true;
+        if (!this.button) return;
+        this.button = null;
+
+        if (this._raiseLaterId) {
+            global.compositor.get_laters().remove(this._raiseLaterId);
+            this._raiseLaterId = 0;
+        }
+
         if (this._isOpen) {
             this._isOpen = false;
             this._unwatchAnchor();
@@ -182,7 +189,12 @@ export class DockOverflowMenu {
         }
         this._container.remove_all_transitions();
         this._detachPopup();
-        this._overlay.destroy();
+        if (this._bubble) this._bubble.disconnectObject(this);
+        if (this._container) this._container.disconnectObject(this);
+        if (this._overlay) {
+            this._overlay.disconnectObject(this);
+            this._overlay.destroy();
+        }
         if (this._dockUI._overflowMenu === this) this._dockUI._overflowMenu = null;
     }
 
@@ -219,8 +231,11 @@ export class DockOverflowMenu {
         button._isStatic = true;
         button._entityId = OVERFLOW_BUTTON_KEY;
 
-        button.connect('clicked', () => this.toggle());
-        button.connect('destroy', () => this._teardown());
+        button.connectObject(
+            'clicked', () => this.toggle(),
+            'destroy', () => this._teardown(),
+            this
+        );
 
         return button;
     }
@@ -232,32 +247,35 @@ export class DockOverflowMenu {
             can_focus: true,
             visible: false,
         });
-        this._overlay.connect('button-release-event', (_actor, event) => {
-            if (event.get_button() === Clutter.BUTTON_PRIMARY) this.close();
-            return Clutter.EVENT_STOP;
-        });
-        this._overlay.connect('key-press-event', (_actor, event) => {
-            if (event.get_key_symbol() !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
-            this.close();
-            return Clutter.EVENT_STOP;
-        });
+        this._overlay.connectObject(
+            'button-release-event', (_actor, event) => {
+                if (event.get_button() === Clutter.BUTTON_PRIMARY) this.close();
+                return Clutter.EVENT_STOP;
+            },
+            'key-press-event', (_actor, event) => {
+                if (event.get_key_symbol() !== Clutter.KEY_Escape) return Clutter.EVENT_PROPAGATE;
+                this.close();
+                return Clutter.EVENT_STOP;
+            },
+            this
+        );
 
         this._container = new St.Widget({
             name: 'DhruvaOverflowContainer',
             layout_manager: new Clutter.BinLayout(),
             reactive: true,
         });
-        this._container.connect('button-release-event', () => Clutter.EVENT_STOP);
+        this._container.connectObject('button-release-event', () => Clutter.EVENT_STOP, this);
 
         this._bubble = new St.DrawingArea({ x_expand: true, y_expand: true });
-        this._bubble.connect('repaint', area => {
+        this._bubble.connectObject('repaint', area => {
             paintMenuBubble(area, cairo, this._dockUI.dockPosition, this._colors, {
                 radius: CFG.OVERFLOW_CORNER_RADIUS,
                 arrowHeight: CFG.OVERFLOW_ARROW_HEIGHT,
                 arrowWidth: CFG.OVERFLOW_ARROW_WIDTH,
                 arrowCenter: this._arrowCenter,
             });
-        });
+        }, this);
 
         this._grid = new St.BoxLayout({ style: `spacing: ${ITEM_SPACING}px;` });
         setBoxVertical(this._grid, true);
@@ -365,15 +383,18 @@ export class DockOverflowMenu {
             track_hover: true,
         });
         itemBtn._inPopup = true;
-        itemBtn.connect('clicked', () => {
-            app.activate();
-            this.close();
-        });
-        itemBtn.connect('button-press-event', (_actor, event) => {
-            if (event.get_button() !== Clutter.BUTTON_SECONDARY) return Clutter.EVENT_PROPAGATE;
-            this._openContextMenu(app, itemBtn);
-            return Clutter.EVENT_STOP;
-        });
+        itemBtn.connectObject(
+            'clicked', () => {
+                app.activate();
+                this.close();
+            },
+            'button-press-event', (_actor, event) => {
+                if (event.get_button() !== Clutter.BUTTON_SECONDARY) return Clutter.EVENT_PROPAGATE;
+                this._openContextMenu(app, itemBtn);
+                return Clutter.EVENT_STOP;
+            },
+            this
+        );
 
         return itemBtn;
     }
@@ -396,9 +417,14 @@ export class DockOverflowMenu {
 
     _raiseAfterSetup(actor) {
         const laters = global.compositor.get_laters();
-        laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
+        if (this._raiseLaterId) {
+            laters.remove(this._raiseLaterId);
+            this._raiseLaterId = 0;
+        }
+        this._raiseLaterId = laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._raiseLaterId = 0;
             const parent = actor.get_parent();
-            if (!parent) return GLib.SOURCE_REMOVE;
+            if (!parent || !this._overlay) return GLib.SOURCE_REMOVE;
 
             if (this._overlay.get_parent() === parent) parent.set_child_above_sibling(actor, this._overlay);
             else parent.set_child_above_sibling(actor, null);

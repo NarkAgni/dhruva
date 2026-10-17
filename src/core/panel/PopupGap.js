@@ -81,7 +81,10 @@ function visibleGap(dockPos, dock, box) {
 }
 
 function scheduleLock(state, menu) {
-    state.timers.remove(state.measureId);
+    if (state.measureId) {
+        state.timers.remove(state.measureId);
+        state.measureId = 0;
+    }
     state.measureId = state.timers.addTimeout(GLib.PRIORITY_DEFAULT, MEASURE_DELAY_MS, () => {
         state.measureId = 0;
         lockPosition(state, menu);
@@ -166,8 +169,10 @@ export function hookPopupGap(dockUI, menu) {
     boxPointer.close = function (_animate, onComplete) {
         menu.box.disconnectObject(state);
         this.disconnectObject(state);
-        state.timers.remove(state.measureId);
-        state.measureId = 0;
+        if (state.measureId) {
+            state.timers.remove(state.measureId);
+            state.measureId = 0;
+        }
         if (dockUI && dockUI.autoHideManager) {
             dockUI.autoHideManager.scheduleCheck(100);
         }
@@ -179,6 +184,10 @@ export function unhookPopupGap(menu) {
     const state = menu._dhruvaGapState;
     if (!state) return;
 
+    if (state.measureId && state.timers) {
+        state.timers.remove(state.measureId);
+        state.measureId = 0;
+    }
     state.timers.destroy();
     menu.disconnectObject(state);
     menu.box.disconnectObject(state);

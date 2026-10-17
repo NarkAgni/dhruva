@@ -48,20 +48,19 @@ export class LyricsClient {
     }
 
     async _loadDiskCache() {
-        try {
-            const file = Gio.File.new_for_path(this._cacheFilePath);
-            if (file.query_exists(null)) {
-                const [bytes] = await file.load_bytes_async(null);
-                if (bytes) {
-                    const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
-                    if (data && !Array.isArray(data)) {
-                        for (const [k, v] of Object.entries(data)) {
-                            this._cache.set(k, v);
-                        }
+        const file = Gio.File.new_for_path(this._cacheFilePath);
+        if (file.query_exists(null)) {
+            const loadResult = await file.load_bytes_async(null);
+            const bytes = loadResult ? loadResult[0] : null;
+            if (bytes) {
+                const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
+                if (data && !Array.isArray(data)) {
+                    for (const [k, v] of Object.entries(data)) {
+                        this._cache.set(k, v);
                     }
                 }
             }
-        } catch (_e) { }
+        }
     }
 
     _remember(key, lyrics) {

@@ -45,6 +45,7 @@ export default class AppManager {
         this.nonIndependentFolders = [];
         this._unpinnedOrder = [];
         this._isLoaded = false;
+        this._cancellable = new Gio.Cancellable();
         this._docks = new Set();
         this._stateListeners = new Set();
 
@@ -187,6 +188,7 @@ export default class AppManager {
     }
 
     _writeJson(path, data) {
+        if (!this._cancellable) return;
         GLib.mkdir_with_parents(this.extConfigDir, 0o755);
 
         const bytes = new GLib.Bytes(new TextEncoder().encode(JSON.stringify(data, null, 2)));
@@ -195,7 +197,7 @@ export default class AppManager {
             null,
             false,
             Gio.FileCreateFlags.REPLACE_DESTINATION,
-            null,
+            this._cancellable,
             (obj, res) => {
                 try {
                     obj.replace_contents_finish(res);
@@ -453,6 +455,10 @@ export default class AppManager {
     }
 
     destroy() {
+        if (this._cancellable) {
+            this._cancellable.cancel();
+            this._cancellable = null;
+        }
         this.settings.disconnectObject(this);
         this._docks.clear();
         this._stateListeners.clear();

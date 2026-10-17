@@ -37,18 +37,14 @@ ${BLUR_CODE}
 }
 `;
 
-let _staticSnippet = null;
-
 function getStaticBlurSnippet() {
-    if (!_staticSnippet) {
-        _staticSnippet = Cogl.Snippet.new(
-            Cogl.SnippetHook.FRAGMENT,
-            BLUR_DECLARATIONS,
-            null
-        );
-        _staticSnippet.set_replace(BLUR_CODE);
-    }
-    return _staticSnippet;
+    const snippet = Cogl.Snippet.new(
+        Cogl.SnippetHook.FRAGMENT,
+        BLUR_DECLARATIONS,
+        null
+    );
+    snippet.set_replace(BLUR_CODE);
+    return snippet;
 }
 
 const BlurShaderBase = USE_STATIC_SNIPPET

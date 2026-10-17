@@ -197,9 +197,29 @@ export function teardownMagnification(dockActor) {
     resetMagnification(dockActor, 0, false);
 
     if (dockActor._magTimers) {
+        if (dockActor._leaveCheckId) dockActor._magTimers.remove(dockActor._leaveCheckId);
+        if (dockActor._postClickTimerId) dockActor._magTimers.remove(dockActor._postClickTimerId);
+        if (dockActor._suppressTimerId) dockActor._magTimers.remove(dockActor._suppressTimerId);
+        if (dockActor._settleTickId) dockActor._magTimers.remove(dockActor._settleTickId);
+        if (dockActor._tooltipWatchId) dockActor._magTimers.remove(dockActor._tooltipWatchId);
+        if (dockActor._tooltipDelayId) dockActor._magTimers.remove(dockActor._tooltipDelayId);
+        if (dockActor._tooltipPosTrackerId) dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
+        if (dockActor._tooltipLeaveIdleId) dockActor._magTimers.remove(dockActor._tooltipLeaveIdleId);
+        if (dockActor._dragLoopId) dockActor._magTimers.remove(dockActor._dragLoopId);
+
         dockActor._magTimers.destroy();
         dockActor._magTimers = null;
     }
+
+    dockActor._leaveCheckId = 0;
+    dockActor._postClickTimerId = 0;
+    dockActor._suppressTimerId = 0;
+    dockActor._settleTickId = 0;
+    dockActor._tooltipWatchId = 0;
+    dockActor._tooltipDelayId = 0;
+    dockActor._tooltipPosTrackerId = 0;
+    dockActor._tooltipLeaveIdleId = 0;
+    dockActor._dragLoopId = 0;
 
     global.stage.disconnectObject(dockActor);
 

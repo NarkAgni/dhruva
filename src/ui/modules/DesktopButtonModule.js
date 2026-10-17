@@ -32,6 +32,7 @@ const CLICK_FEEDBACK_MS = 150;
 class DesktopToggle {
     constructor() {
         this._timers = new TimeoutTracker();
+        this._timeoutIds = [];
         this._hiddenWindows = [];
     }
 
@@ -47,13 +48,18 @@ class DesktopToggle {
     }
 
     destroy() {
+        this._cancelPending();
         this._timers.destroy();
         this._hiddenWindows = [];
     }
 
     _cancelPending() {
-        this._timers.destroy();
-        this._timers = new TimeoutTracker();
+        for (let i = 0; i < this._timeoutIds.length; i++) {
+            if (this._timeoutIds[i]) {
+                this._timers.remove(this._timeoutIds[i]);
+            }
+        }
+        this._timeoutIds = [];
     }
 
     _workspaceWindows() {
@@ -69,20 +75,26 @@ class DesktopToggle {
     _showDesktop(visible) {
         this._hiddenWindows = visible;
         [...visible].reverse().forEach((win, index) => {
-            this._timers.addTimeout(GLib.PRIORITY_DEFAULT, index * STAGGER_MS, () => {
+            const id = this._timers.addTimeout(GLib.PRIORITY_DEFAULT, index * STAGGER_MS, () => {
+                const idx = this._timeoutIds.indexOf(id);
+                if (idx !== -1) this._timeoutIds.splice(idx, 1);
                 if (!win.minimized) fadeMinimize(win);
                 return GLib.SOURCE_REMOVE;
             });
+            this._timeoutIds.push(id);
         });
     }
 
     _restore(windows) {
         this._hiddenWindows = [];
         windows.forEach((win, index) => {
-            this._timers.addTimeout(GLib.PRIORITY_DEFAULT, index * STAGGER_MS, () => {
+            const id = this._timers.addTimeout(GLib.PRIORITY_DEFAULT, index * STAGGER_MS, () => {
+                const idx = this._timeoutIds.indexOf(id);
+                if (idx !== -1) this._timeoutIds.splice(idx, 1);
                 if (win.minimized) fadeRestore(win);
                 return GLib.SOURCE_REMOVE;
             });
+            this._timeoutIds.push(id);
         });
     }
 }
@@ -132,7 +144,10 @@ export function buildDesktopButtonModule(dockUI) {
     btn.connectObject('clicked', () => {
         btn.set_style(activeStyle);
 
-        feedbackTimers.remove(feedbackId);
+        if (feedbackId) {
+            feedbackTimers.remove(feedbackId);
+            feedbackId = 0;
+        }
         feedbackId = feedbackTimers.addTimeout(GLib.PRIORITY_DEFAULT, CLICK_FEEDBACK_MS, () => {
             feedbackId = 0;
             btn.set_style(btn.hover ? hoverStyle : defaultStyle);
@@ -142,7 +157,13 @@ export function buildDesktopButtonModule(dockUI) {
         toggleDesktop(dockUI);
     }, btn);
 
-    btn.connectObject('destroy', () => feedbackTimers.destroy(), btn);
+    btn.connectObject('destroy', () => {
+        if (feedbackId) {
+            feedbackTimers.remove(feedbackId);
+            feedbackId = 0;
+        }
+        feedbackTimers.destroy();
+    }, btn);
 
     return btn;
 }

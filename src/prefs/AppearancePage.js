@@ -48,7 +48,7 @@ const BACKGROUND_KEYS = ['background-color', 'use-gradient', 'background-gradien
 const SHAPE_KEYS = ['border-radius', 'stroke-width', 'stroke-color', 'stroke-opacity'];
 const INDICATOR_KEYS = ['indicator-style', 'indicator-color-mode', 'indicator-color', 'indicator-size', 'indicator-glow'];
 
-const RUNNING_ICONS = new Set([0, 2, 3]);
+const RUNNING_ICONS = [0, 2, 3];
 const BADGE_ICON = 2;
 const APP_SEPARATOR_AFTER = 4;
 const MODULE_SEPARATOR_AFTER = 5;
@@ -139,7 +139,7 @@ class DockPreview {
             cr.setSourceRGB(r, g, b);
             cr.fill();
 
-            if (RUNNING_ICONS.has(index) && s.get_boolean('show-running-indicators'))
+            if (RUNNING_ICONS.includes(index) && s.get_boolean('show-running-indicators'))
                 this._paintIndicator(cr, x + size / 2, y + size, [r, g, b], index === 0);
             if (index === BADGE_ICON && s.get_boolean('show-notification-badges'))
                 this._paintBadge(cr, x + size - 4, y + 4);

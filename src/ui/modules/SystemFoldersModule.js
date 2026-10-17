@@ -73,7 +73,7 @@ export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
     customFolders.forEach((f, idx) => {
         const fPath = f.path || '/';
         let fName = f.name || _('Custom Folder');
-        if (fName === 'New Folder' || fName === 'Новая папка') {
+        if (fName === 'New Folder') {
             fName = _('New Folder');
         }
         const fIcon = f.icon || 'folder';

@@ -45,21 +45,22 @@ function presentDialog(window, dialog, isGnome45) {
     else dialog.present(window);
 }
 
-function replaceGridIcon(settings, sourceFile, iconDir) {
+function replaceGridIcon(settings, sourceFile, iconDir, cancellable = null) {
+    if (cancellable && cancellable.is_cancelled()) return;
     const ext = sourceFile.get_basename().split('.').pop().toLowerCase();
     if (!['png', 'svg', 'ico'].includes(ext)) return;
 
     GLib.mkdir_with_parents(iconDir, 0o755);
     const destPath = GLib.build_filenamev([iconDir, `custom_grid_icon_${Date.now()}.${ext}`]);
-    sourceFile.copy(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, null, null);
+    sourceFile.copy(Gio.File.new_for_path(destPath), Gio.FileCopyFlags.OVERWRITE, cancellable, null);
 
     const oldPath = settings.get_string('custom-grid-icon');
     settings.set_string('custom-grid-icon', destPath);
     if (oldPath && oldPath.startsWith(`${iconDir}/`))
-        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
 }
 
-function addGridIconRow(group, window, settings, iconDir) {
+function addGridIconRow(group, window, settings, iconDir, cancellable = null) {
     const row = new Adw.ActionRow({
         title: _('Your Own Icon'),
         subtitle: _('Square image, 256 or 512 px (.png, .svg, .ico)'),
@@ -78,20 +79,21 @@ function addGridIconRow(group, window, settings, iconDir) {
     row.add_suffix(clearBtn);
 
     chooseBtn.connect('clicked', () => {
+        if (cancellable && cancellable.is_cancelled()) return;
         const filter = new Gtk.FileFilter();
         filter.set_name(_('Images'));
         for (const mime of ['image/png', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']) filter.add_mime_type(mime);
         const filters = Gio.ListStore.new(Gtk.FileFilter);
         filters.append(filter);
 
-        new Gtk.FileDialog({ title: _('Choose a Launcher Icon'), filters }).open(window, null, (dlg, res) => {
+        new Gtk.FileDialog({ title: _('Choose a Launcher Icon'), filters }).open(window, cancellable, (dlg, res) => {
             let file;
             try {
                 file = dlg.open_finish(res);
             } catch (_e) {
                 return;
             }
-            replaceGridIcon(settings, file, iconDir);
+            replaceGridIcon(settings, file, iconDir, cancellable);
         });
     });
 
@@ -99,7 +101,7 @@ function addGridIconRow(group, window, settings, iconDir) {
         const oldPath = settings.get_string('custom-grid-icon');
         settings.set_string('custom-grid-icon', '');
         if (oldPath.startsWith(`${iconDir}/`))
-            Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+            Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
     });
 
     const sync = () => {
@@ -123,6 +125,15 @@ export function buildModulesPage(prefs, window, settings) {
         icon_name: 'application-x-addon-symbolic',
     });
 
+    let cancellable = new Gio.Cancellable();
+    window.connect('close-request', () => {
+        if (cancellable) {
+            cancellable.cancel();
+            cancellable = null;
+        }
+        return false;
+    });
+
     const uuid = prefs.metadata.uuid;
     const iconDir = userDataDir('icon');
     const isFullBar = () => settings.get_boolean('full-width') || settings.get_boolean('hybrid-panel-mode');
@@ -139,7 +150,7 @@ export function buildModulesPage(prefs, window, settings) {
             { name: _('Start'), value: 'START' },
             { name: _('End'), value: 'END' },
         ]),
-        addGridIconRow(gridGroup, window, settings, iconDir),
+        addGridIconRow(gridGroup, window, settings, iconDir, cancellable),
     ];
     for (const row of gridRows) showWhen(row, settings, ['show-grid-button'], () => settings.get_boolean('show-grid-button'));
 
@@ -190,9 +201,7 @@ export function buildModulesPage(prefs, window, settings) {
     customFoldersGroup.add(folderListBox);
 
     let customFolders = [];
-    try {
-        customFolders = JSON.parse(settings.get_string('custom-folders') || '[]');
-    } catch (e) { }
+    customFolders = JSON.parse(settings.get_string('custom-folders') || '[]');
 
     const iconOptions = [
         { name: _('System Folder (Default)'), value: 'folder' },
@@ -263,10 +272,11 @@ export function buildModulesPage(prefs, window, settings) {
         });
 
         browseFolderBtn.connect('clicked', () => {
+            if (!cancellable || cancellable.is_cancelled()) return;
             const fileDialog = new Gtk.FileDialog({
                 title: _('Select Folder')
             });
-            fileDialog.select_folder(window, null, (dlg, res) => {
+            fileDialog.select_folder(window, cancellable, (dlg, res) => {
                 let folder;
                 try {
                     folder = dlg.select_folder_finish(res);
@@ -329,6 +339,7 @@ export function buildModulesPage(prefs, window, settings) {
         });
 
         browseImgBtn.connect('clicked', () => {
+            if (!cancellable || cancellable.is_cancelled()) return;
             const imgDialog = new Gtk.FileDialog({
                 title: _('Select Custom Folder Icon Image')
             });
@@ -343,13 +354,14 @@ export function buildModulesPage(prefs, window, settings) {
             filterList.append(filter);
             imgDialog.set_filters(filterList);
 
-            imgDialog.open(window, null, (dlg, res) => {
+            imgDialog.open(window, cancellable, (dlg, res) => {
                 let file;
                 try {
                     file = dlg.open_finish(res);
                 } catch (e) {
                     return;
                 }
+                if (!cancellable || cancellable.is_cancelled()) return;
                 if (file) {
                     const ext = file.get_basename().split('.').pop().toLowerCase();
                     if (!['png', 'svg', 'ico'].includes(ext)) {
@@ -364,7 +376,7 @@ export function buildModulesPage(prefs, window, settings) {
                     const destFile = Gio.File.new_for_path(destPath);
 
                     try {
-                        file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, null, null);
+                        file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, cancellable, null);
                         customPickedImagePath = destPath;
                         customImgLabel.set_text(file.get_basename());
                     } catch (err) { }
@@ -534,7 +546,7 @@ export function buildModulesPage(prefs, window, settings) {
             } else if (iconVal.startsWith('/')) {
                 try {
                     const gfile = Gio.File.new_for_path(iconVal);
-                    if (gfile.query_exists(null)) {
+                    if (gfile.query_exists(cancellable)) {
                         const fileIcon = Gio.FileIcon.new(gfile);
                         const img = Gtk.Image.new_from_gicon(fileIcon);
                         img.set_pixel_size(24);
@@ -640,13 +652,13 @@ export function buildModulesPage(prefs, window, settings) {
     const exportRow = new Adw.ActionRow({ title: _('Export'), subtitle: _('Save everything to a file') });
     const exportBtn = new Gtk.Button({ label: _('Export…'), valign: Gtk.Align.CENTER });
     exportRow.add_suffix(exportBtn);
-    exportBtn.connect('clicked', () => exportConfig(window, settings, uuid));
+    exportBtn.connect('clicked', () => exportConfig(window, settings, uuid, cancellable));
     backupGroup.add(exportRow);
 
     const importRow = new Adw.ActionRow({ title: _('Import'), subtitle: _('Load a file you exported before') });
     const importBtn = new Gtk.Button({ label: _('Import…'), valign: Gtk.Align.CENTER });
     importRow.add_suffix(importBtn);
-    importBtn.connect('clicked', () => importConfig(window, settings, uuid));
+    importBtn.connect('clicked', () => importConfig(window, settings, uuid, cancellable));
     backupGroup.add(importRow);
 
     const resetGroup = addGroup(page, null);
@@ -663,15 +675,17 @@ export function buildModulesPage(prefs, window, settings) {
 }
 
 
-function exportConfig(window, settings, uuid) {
+function exportConfig(window, settings, uuid, cancellable = null) {
+    if (cancellable && cancellable.is_cancelled()) return;
     const dialog = new Gtk.FileDialog({ title: _('Export Dhruva Settings'), initial_name: 'dhruva_config.json' });
-    dialog.save(window, null, (dlg, res) => {
+    dialog.save(window, cancellable, (dlg, res) => {
         let file;
         try {
             file = dlg.save_finish(res);
         } catch (_e) {
             return;
         }
+        if (cancellable && cancellable.is_cancelled()) return;
 
         const isIndependent = settings.get_boolean('independent-dock');
         const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), uuid]);
@@ -703,22 +717,24 @@ function exportConfig(window, settings, uuid) {
     });
 }
 
-function importConfig(window, settings, uuid) {
+function importConfig(window, settings, uuid, cancellable = null) {
+    if (cancellable && cancellable.is_cancelled()) return;
     const filter = new Gtk.FileFilter();
     filter.set_name(_('Dhruva settings (JSON)'));
     filter.add_mime_type('application/json');
     const filters = Gio.ListStore.new(Gtk.FileFilter);
     filters.append(filter);
 
-    new Gtk.FileDialog({ title: _('Import Dhruva Settings'), filters }).open(window, null, (dlg, res) => {
+    new Gtk.FileDialog({ title: _('Import Dhruva Settings'), filters }).open(window, cancellable, (dlg, res) => {
         let file;
         try {
             file = dlg.open_finish(res);
         } catch (_e) {
             return;
         }
+        if (cancellable && cancellable.is_cancelled()) return;
 
-        file.load_contents_async(null, (f, r) => {
+        file.load_contents_async(cancellable, (f, r) => {
             let config;
             try {
                 const [, contents] = f.load_contents_finish(r);

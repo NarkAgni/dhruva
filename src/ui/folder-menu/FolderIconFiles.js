@@ -31,10 +31,10 @@ export function iconConfigDir(_dockUI) {
     return dir;
 }
 
-export function deleteCustomFolderIcon(dockUI, icon) {
+export function deleteCustomFolderIcon(dockUI, icon, cancellable = null) {
     if (!icon || !icon.startsWith(`${iconConfigDir(dockUI)}/`)) return;
 
-    Gio.File.new_for_path(icon).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+    Gio.File.new_for_path(icon).delete_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
 }
 
 export function pickIconImage(title, onPicked) {

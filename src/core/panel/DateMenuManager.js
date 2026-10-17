@@ -123,7 +123,10 @@ export default class DateMenuManager {
     }
 
     _queueRelayout() {
-        if (this._relayoutId) return;
+        if (this._relayoutId) {
+            this._timeouts.remove(this._relayoutId);
+            this._relayoutId = 0;
+        }
         this._relayoutId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, RELAYOUT_DELAY_MS, () => {
             this._relayoutId = 0;
             if (isActorAlive(this.actor)) {

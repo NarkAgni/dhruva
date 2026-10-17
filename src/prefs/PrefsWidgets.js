@@ -99,12 +99,10 @@ const GNOME_ACCENT_HEX = {
 };
 
 function getSystemAccentRGBA() {
-    try {
-        const styleMgr = Adw.StyleManager.get_default();
-        if (styleMgr && styleMgr.get_accent_color_rgba) {
-            return styleMgr.get_accent_color_rgba();
-        }
-    } catch (_e) {}
+    const styleMgr = Adw.StyleManager.get_default();
+    if (styleMgr && styleMgr.get_accent_color_rgba) {
+        return styleMgr.get_accent_color_rgba();
+    }
 
     try {
         const iface = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
@@ -234,13 +232,11 @@ export function addSliderRow(parent, settings, key, title, subtitle, range, form
         cr.fill();
     });
 
-    try {
-        const styleMgr = Adw.StyleManager.get_default();
-        if (styleMgr && styleMgr.get_accent_color_rgba) {
-            const sigId = styleMgr.connect('notify::accent-color-rgba', () => area.queue_draw());
-            area.connect('destroy', () => styleMgr.disconnect(sigId));
-        }
-    } catch (_e) {}
+    const styleMgr = Adw.StyleManager.get_default();
+    if (styleMgr && styleMgr.get_accent_color_rgba) {
+        const sigId = styleMgr.connect('notify::accent-color-rgba', () => area.queue_draw());
+        area.connect('destroy', () => styleMgr.disconnect(sigId));
+    }
 
     const updateFromX = x => {
         const w = area.get_width() || SLIDER_W;

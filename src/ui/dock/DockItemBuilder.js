@@ -43,17 +43,12 @@ import {
 const DRAG_CANCEL_DELTA_PX = 15;
 const LAUNCH_PAUSE_TIMEOUT_MS = 150;
 
-let _extRootDir = null;
-
 function _getExtensionDir() {
-    if (!_extRootDir) {
-        _extRootDir = Gio.File.new_for_uri(import.meta.url)
-            .get_parent()
-            .get_parent()
-            .get_parent()
-            .get_parent();
-    }
-    return _extRootDir;
+    return Gio.File.new_for_uri(import.meta.url)
+        .get_parent()
+        .get_parent()
+        .get_parent()
+        .get_parent();
 }
 
 function _getBundledIcon(fileName) {
@@ -255,11 +250,11 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
 
             if (dockUI.actor._launchTimeoutId) {
                 dockUI.registry.remove(dockUI.actor._launchTimeoutId);
-                dockUI.actor._launchTimeoutId = null;
+                dockUI.actor._launchTimeoutId = 0;
             }
 
             dockUI.actor._launchTimeoutId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, LAUNCH_PAUSE_TIMEOUT_MS, () => {
-                dockUI.actor._launchTimeoutId = null;
+                dockUI.actor._launchTimeoutId = 0;
                 if (!isActorAlive(dockUI.actor)) return GLib.SOURCE_REMOVE;
 
                 const owner = dockUI._launchUnpause;
@@ -377,9 +372,7 @@ export function buildFolderButton(dockUI, folder) {
         let fileIconActor = null;
         if (iconFile.query_exists(null)) {
             const gicon = new Gio.FileIcon({ file: iconFile });
-            try {
-                fileIconActor = textureCache.load_gicon(null, gicon, crispImgSize, scaleFactor, 1.0);
-            } catch (_e) {}
+            fileIconActor = textureCache.load_gicon(null, gicon, crispImgSize, scaleFactor, 1.0);
 
             if (!fileIconActor) {
                 fileIconActor = new St.Icon({
@@ -486,7 +479,7 @@ export function buildFolderButton(dockUI, folder) {
 
         const folderDisplayName = folder.name || 'Folder';
         const firstLetter = folderDisplayName.trim().charAt(0).toUpperCase() || 'F';
-        
+
         const rawScale = folder.letterScale !== undefined ? folder.letterScale : 0.44;
         const activeLetterScale = Math.max(0.28, Math.min(0.54, rawScale));
         const activeLetterColor = folder.letterColor || '#ffffff';
@@ -575,9 +568,7 @@ export function buildFolderButton(dockUI, folder) {
             const crispTextureSize = Math.max(48, Math.round(size * scaleFactor * 2.0));
 
             let tex = null;
-            try {
-                tex = textureCache.load_gicon(null, app.get_icon(), crispTextureSize, scaleFactor, 1.0);
-            } catch (_e) {}
+            tex = textureCache.load_gicon(null, app.get_icon(), crispTextureSize, scaleFactor, 1.0);
 
             if (!tex) {
                 tex = app.create_icon_texture(crispTextureSize);

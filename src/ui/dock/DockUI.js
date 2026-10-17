@@ -45,7 +45,7 @@ import { teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { requestAttention, cancelDockTransitions } from './DockTransitions.js';
 import { applyOverviewDockMargin, clearOverviewDockMargin } from './OverviewMargin.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
-import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates } from './DockRenderer.js';
+import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer } from './DockRenderer.js';
 import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
 
 
@@ -95,7 +95,7 @@ const STYLE_SETTINGS = [
 ];
 
 export default class DockUI {
-    static _instances = new Set();
+    static _instances = null;
 
     constructor(settings, openPrefsCallback, appManager, folderManager, monitorIndex = null) {
         this.settings = settings;
@@ -142,6 +142,7 @@ export default class DockUI {
         this._bindMethods();
         this._connectSignals();
 
+        if (!DockUI._instances) DockUI._instances = new Set();
         DockUI._instances.add(this);
     }
 
@@ -319,7 +320,12 @@ export default class DockUI {
         global.window_manager.connectObject('destroy', () => {
             if (this.actor) this.actor._lastIconClickTime = 0;
             this.queueRender('incremental', true);
-            this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+            if (this._wmDestroyRenderId) {
+                this.registry.remove(this._wmDestroyRenderId);
+                this._wmDestroyRenderId = 0;
+            }
+            this._wmDestroyRenderId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+                this._wmDestroyRenderId = 0;
                 this.queueRender('incremental', true);
                 return GLib.SOURCE_REMOVE;
             });
@@ -366,7 +372,12 @@ export default class DockUI {
                 this.actor._magTooltipAppId = null;
             }
             this.queueRender('incremental', true);
-            this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+            if (this._wmMapRenderId) {
+                this.registry.remove(this._wmMapRenderId);
+                this._wmMapRenderId = 0;
+            }
+            this._wmMapRenderId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
+                this._wmMapRenderId = 0;
                 this.queueRender('incremental', true);
                 return GLib.SOURCE_REMOVE;
             });
@@ -501,7 +512,12 @@ export default class DockUI {
                 }
 
                 this.queueRender('full', true);
-                this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                if (this._musicPillIdleId) {
+                    this.registry.remove(this._musicPillIdleId);
+                    this._musicPillIdleId = 0;
+                }
+                this._musicPillIdleId = this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    this._musicPillIdleId = 0;
                     this._updateLayout();
                     if (this.dockManager) this.dockManager.updatePosition();
                     return GLib.SOURCE_REMOVE;
@@ -545,7 +561,12 @@ export default class DockUI {
             this.queueRender('full', true);
         }, this);
 
-        this.registry.addTimeout(GLib.PRIORITY_LOW, 2500, () => {
+        if (this._preloadAppsTimeoutId) {
+            this.registry.remove(this._preloadAppsTimeoutId);
+            this._preloadAppsTimeoutId = 0;
+        }
+        this._preloadAppsTimeoutId = this.registry.addTimeout(GLib.PRIORITY_LOW, 2500, () => {
+            this._preloadAppsTimeoutId = 0;
             const controls = Main.overview._overview && Main.overview._overview._controls;
             if (controls && controls._appDisplay && controls._appDisplay._ensureIcon) {
                 controls._appDisplay.create_all_apps();
@@ -1007,7 +1028,12 @@ export default class DockUI {
         }
         this._updateLayout();
 
-        this.registry.addIdle(GLib.PRIORITY_LOW, () => {
+        if (this._showInitIdleId) {
+            this.registry.remove(this._showInitIdleId);
+            this._showInitIdleId = 0;
+        }
+        this._showInitIdleId = this.registry.addIdle(GLib.PRIORITY_LOW, () => {
+            this._showInitIdleId = 0;
             if (isActorAlive(this.actor)) {
                 if (this.dockManager) this.dockManager.updatePosition();
                 this._updateLayout();
@@ -1028,7 +1054,12 @@ export default class DockUI {
             if (this.dockManager) this.dockManager.updatePosition();
             this._updateLayout();
 
-            this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 60, () => {
+            if (this._mappedRenderTimeoutId) {
+                this.registry.remove(this._mappedRenderTimeoutId);
+                this._mappedRenderTimeoutId = 0;
+            }
+            this._mappedRenderTimeoutId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 60, () => {
+                this._mappedRenderTimeoutId = 0;
                 if (isActorAlive(this.actor) && this.actor.is_mapped()) {
                     this._updateLayout();
                     this.queueRender('incremental', true);
@@ -1176,7 +1207,12 @@ export default class DockUI {
         }, this);
 
         if (Main.overview.visible) {
-            this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            if (this._overviewVisibleIdleId) {
+                this.registry.remove(this._overviewVisibleIdleId);
+                this._overviewVisibleIdleId = 0;
+            }
+            this._overviewVisibleIdleId = this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                this._overviewVisibleIdleId = 0;
                 this._updateLayout();
                 if (this._hidesGnomeDash() && !Main.overview.animationInProgress) {
                     applyOverviewDockMargin(this);
@@ -1251,8 +1287,17 @@ export default class DockUI {
 
         if (this.boxActor) this.boxActor.disconnectObject(this);
         if (this.bgActor) this.bgActor.disconnectObject(this);
-        if (this.actor) this.actor.disconnectObject(this);
-        DockUI._instances.delete(this);
+        if (this.actor) {
+            if (this.actor._launchTimeoutId) {
+                this.registry.remove(this.actor._launchTimeoutId);
+                this.actor._launchTimeoutId = null;
+            }
+            this.actor.disconnectObject(this);
+        }
+        if (DockUI._instances) {
+            DockUI._instances.delete(this);
+            if (DockUI._instances.size === 0) DockUI._instances = null;
+        }
 
         this._executeScheduledRender.cancel();
         this.checkPanelOverflow.cancel();
@@ -1263,9 +1308,36 @@ export default class DockUI {
 
         if (this._cursorResetTimeouts) {
             this._cursorResetTimeouts.forEach(id => this.registry.remove(id));
+            this._cursorResetTimeouts = [];
         }
 
-        if (this.registry) this.registry.destroy();
+        const timeoutProps = [
+            '_allocIdleId',
+            '_wmDestroyRenderId',
+            '_wmMapRenderId',
+            '_isolateMonitorRenderDelayId',
+            '_musicPillIdleId',
+            '_preloadAppsTimeoutId',
+            '_strutRestoreId',
+            '_grabWatchTimerId',
+            '_showInitIdleId',
+            '_mappedRenderTimeoutId',
+            '_geomResizeTimeoutId',
+            '_overviewVisibleIdleId',
+            '_postDragSettleId',
+        ];
+        for (const prop of timeoutProps) {
+            if (this[prop]) {
+                this.registry.remove(this[prop]);
+                this[prop] = 0;
+            }
+        }
+
+        cleanupDockRenderer(this);
+        if (this.registry) {
+            this.registry.destroy();
+            this.registry = null;
+        }
         if (this.autoHideManager) {
             this.autoHideManager.destroy();
             this.autoHideManager = null;

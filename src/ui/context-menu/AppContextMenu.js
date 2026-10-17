@@ -49,7 +49,7 @@ const FOLDER_ICON_GAP = -8;
 const POPUP_ICON_GAP = 6;
 
 function folderDisplayName(name) {
-    if (name === 'New Folder' || name === 'Новая папка') return _('New Folder');
+    if (name === 'New Folder') return _('New Folder');
     if (name === 'Stack') return _('Stack');
     return name;
 }
@@ -140,6 +140,18 @@ export default class AppContextMenu {
 
     _cleanup() {
         Main.sessionMode.disconnectObject(this);
+        if (this._showDelayId) {
+            this.timers.remove(this._showDelayId);
+            this._showDelayId = null;
+        }
+        if (this._posTrackerId) {
+            this.timers.remove(this._posTrackerId);
+            this._posTrackerId = null;
+        }
+        if (this._ignoreExpiryId) {
+            this.timers.remove(this._ignoreExpiryId);
+            this._ignoreExpiryId = null;
+        }
         this.timers.destroy();
 
         if (this._blurPanel) {
@@ -148,19 +160,9 @@ export default class AppContextMenu {
         }
 
         if (this.dockUI && isActorAlive(this.dockUI.actor)) {
-            setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
-        }
-        if (this.dockUI && this.dockUI._activeContextMenu === this) {
-            this.dockUI._activeContextMenu = null;
-        }
-        if (this.peekManager) {
-            this.peekManager.destroy();
-            this.peekManager = null;
-        }
-
-        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.disconnectObject(this);
         }
+        if (this.bgDrawingArea) this.bgDrawingArea.disconnectObject(this);
         if (this.actor) this.actor.disconnectObject(this);
         if (this.panel) this.panel.disconnectObject(this);
         if (this.buttonActor) this.buttonActor.disconnectObject(this);
@@ -426,7 +428,12 @@ export default class AppContextMenu {
         if (!this.dockUI._ignoringApps) this.dockUI._ignoringApps = new Set();
         this.dockUI._ignoringApps.add(appId);
 
-        this.timers.addTimeout(GLib.PRIORITY_DEFAULT, IGNORE_EXPIRY_MS, () => {
+        if (this._ignoreExpiryId) {
+            this.timers.remove(this._ignoreExpiryId);
+            this._ignoreExpiryId = null;
+        }
+        this._ignoreExpiryId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, IGNORE_EXPIRY_MS, () => {
+            this._ignoreExpiryId = null;
             if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
             return GLib.SOURCE_REMOVE;
         });
@@ -562,7 +569,10 @@ export default class AppContextMenu {
             setMagnifierPauseState(this.dockUI.actor, 'context-menu', true);
         }
 
-        this.timers.remove(this._showDelayId);
+        if (this._showDelayId) {
+            this.timers.remove(this._showDelayId);
+            this._showDelayId = 0;
+        }
 
         const setupUI = () => {
             this._showDelayId = null;
@@ -617,7 +627,10 @@ export default class AppContextMenu {
 
             this.menuContainer.ease({ opacity: 255, duration: 180, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
 
-            this.timers.remove(this._posTrackerId);
+            if (this._posTrackerId) {
+                this.timers.remove(this._posTrackerId);
+                this._posTrackerId = 0;
+            }
             this._posTrackerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, POS_TRACKER_INTERVAL_MS, () => {
                 if (this._isHiding || !this.actor || !isActorAlive(this.actor)) {
                     this._posTrackerId = null;
@@ -637,11 +650,15 @@ export default class AppContextMenu {
         if (this._isHiding) return;
         this._isHiding = true;
 
-        this.timers.remove(this._showDelayId);
-        this._showDelayId = null;
+        if (this._showDelayId) {
+            this.timers.remove(this._showDelayId);
+            this._showDelayId = 0;
+        }
 
-        this.timers.remove(this._posTrackerId);
-        this._posTrackerId = null;
+        if (this._posTrackerId) {
+            this.timers.remove(this._posTrackerId);
+            this._posTrackerId = 0;
+        }
 
         if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.disconnectObject(this);

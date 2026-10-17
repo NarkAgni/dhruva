@@ -69,12 +69,12 @@ export class BlurPanel {
         this.customInsets = customInsets;
         this.isPopup = isPopup;
 
-        this._destroyed = false;
         this._hasContent = false;
         this._lastKey = '';
         this._pad = PAD_SLACK;
         this._arrow = null;
         this._targetRect = null;
+        this._initialSyncId = 0;
         this._unlockDelayId = 0;
         this._showLaterId = 0;
         this._timeouts = new TimeoutTracker();
@@ -93,13 +93,19 @@ export class BlurPanel {
         this._setupListeners();
         this.syncSettings();
 
-        this._timeouts.addTimeout(GLib.PRIORITY_LOW, INITIAL_SYNC_DELAY_MS, () => {
+        if (this._initialSyncId) {
+            this._timeouts.remove(this._initialSyncId);
+            this._initialSyncId = 0;
+        }
+        this._initialSyncId = this._timeouts.addTimeout(GLib.PRIORITY_LOW, INITIAL_SYNC_DELAY_MS, () => {
+            this._initialSyncId = 0;
             this.syncGeometry();
             return GLib.SOURCE_REMOVE;
         });
     }
 
     _syncCloneSources() {
+        if (!this.blurActor) return;
         const isLive = this.blurActor.visible && !this._isStaticMode();
         this._bgClone.source = isLive ? Main.layoutManager._backgroundGroup : null;
         this._winClone.source = isLive ? global.window_group : null;
@@ -116,7 +122,7 @@ export class BlurPanel {
     }
 
     _isShowable() {
-        if (this._destroyed || !Settings.blurEnabled || this._isLocked()) return false;
+        if (!this.blurActor || !Settings.blurEnabled || this._isLocked()) return false;
         if (!isActorAlive(this.targetActor) || !isActorAlive(this.rootContainer)) return false;
         if (!this.targetActor.get_stage() || !this.targetActor.mapped || !this.targetActor.visible) return false;
         if (!this.rootContainer.get_stage() || !this.rootContainer.visible || this.rootContainer.opacity < 10) return false;
@@ -128,7 +134,7 @@ export class BlurPanel {
     }
 
     _ensureHierarchy() {
-        if (this._destroyed) return false;
+        if (!this.blurActor || !this.rootContainer) return false;
         const parent = this.rootContainer.get_parent();
         if (!parent) return false;
 
@@ -177,8 +183,10 @@ export class BlurPanel {
         }
 
         const onLockChanged = () => {
-            this._timeouts.remove(this._unlockDelayId);
-            this._unlockDelayId = 0;
+            if (this._unlockDelayId) {
+                this._timeouts.remove(this._unlockDelayId);
+                this._unlockDelayId = 0;
+            }
 
             if (this._isLocked()) {
                 this._hideBlur();
@@ -196,6 +204,7 @@ export class BlurPanel {
     }
 
     _onRootParentChanged() {
+        if (!this.blurActor || !this.rootContainer) return;
         if (this.rootContainer.get_parent()) {
             if (this._ensureHierarchy()) this.syncGeometry();
             return;
@@ -207,7 +216,7 @@ export class BlurPanel {
     }
 
     _hideBlur() {
-        if (this._destroyed) return;
+        if (!this.blurActor) return;
         this.blurActor.hide();
         this._lastKey = '';
         if (this._isStaticMode()) {
@@ -241,6 +250,7 @@ export class BlurPanel {
     }
 
     _pushArrow() {
+        if (!this._effect) return;
         const arrow = this._arrow;
         if (!arrow) {
             this._effect.setArrow(0, 0, 0, 0);
@@ -261,7 +271,7 @@ export class BlurPanel {
     }
 
     syncSettings() {
-        if (this._destroyed) return;
+        if (!this.blurActor) return;
 
         if (!Settings.blurEnabled) {
             this._hideBlur();
@@ -357,7 +367,7 @@ export class BlurPanel {
     }
 
     _queueShow() {
-        if (this.blurActor.visible || this._showLaterId) return;
+        if (!this.blurActor || this.blurActor.visible || this._showLaterId) return;
         this._showLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
             this._showLaterId = 0;
             if (this._lastKey && this._isShowable()) this.blurActor.show();
@@ -375,6 +385,7 @@ export class BlurPanel {
     endDragTracking() {}
 
     _loadStaticPreset(w, h) {
+        if (!this.settings) return;
         const sourceMode = this.settings.get_string('blur-static-source') || 'preset';
         let file = null;
 
@@ -421,17 +432,24 @@ export class BlurPanel {
 
         const applyContent = () => {
             const content = loaderActor.get_content();
-            if (content && !this._destroyed) {
+            if (content && this.blurActor) {
                 this.blurActor.set_content(content);
                 this._hasContent = true;
                 this._queueShow();
             }
         };
 
+        if (this._loaderActor) {
+            this._loaderActor.disconnectObject(this);
+            this._loaderActor = null;
+        }
+
         if (loaderActor.get_content()) {
             applyContent();
         } else {
+            this._loaderActor = loaderActor;
             loaderActor.connectObject('notify::content', () => {
+                this._loaderActor = null;
                 applyContent();
                 loaderActor.disconnectObject(this);
             }, this);
@@ -439,11 +457,22 @@ export class BlurPanel {
     }
 
     destroy() {
-        if (this._destroyed) return;
-        this._destroyed = true;
+        if (!this.blurActor) return;
 
         Main.sessionMode.disconnectObject(this);
         if (Main.screenShield) Main.screenShield.disconnectObject(this);
+        if (this._loaderActor) {
+            this._loaderActor.disconnectObject(this);
+            this._loaderActor = null;
+        }
+        if (this._initialSyncId) {
+            this._timeouts.remove(this._initialSyncId);
+            this._initialSyncId = 0;
+        }
+        if (this._unlockDelayId) {
+            this._timeouts.remove(this._unlockDelayId);
+            this._unlockDelayId = 0;
+        }
         this._timeouts.destroy();
         if (this._showLaterId) {
             global.compositor.get_laters().remove(this._showLaterId);
@@ -452,8 +481,11 @@ export class BlurPanel {
 
         if (isActorAlive(this.targetActor)) this.targetActor.disconnectObject(this);
         if (isActorAlive(this.rootContainer)) this.rootContainer.disconnectObject(this);
+        if (isActorAlive(this.blurActor)) this.blurActor.disconnectObject(this);
 
         const blur = this.blurActor;
+        this.blurActor = null;
+
         if (isActorAlive(blur)) {
             blur.remove_effect(this._effect);
             blur.destroy();

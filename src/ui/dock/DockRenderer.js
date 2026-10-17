@@ -40,7 +40,7 @@ import { captureDockTransition, releaseRemovedItems, playDockTransition } from '
 
 const POST_CLICK_DELAY_MS = 860;
 
-const OVERFLOW_KEEP_TYPES = new Set(['folder', 'module', 'music-pill', 'grid', 'clock', 'desktop']);
+const OVERFLOW_KEEP_TYPES = ['folder', 'module', 'music-pill', 'grid', 'clock', 'desktop'];
 const DOCK_BOX_EDGE_PADDING = 8;
 const SEPARATOR_MARGIN = 8;
 const CLOCK_FALLBACK_SPAN = 90;
@@ -495,7 +495,7 @@ function _partitionForOverflow(dockUI, desiredState) {
 
     let reservedSpan = appSlot + spacing;
     for (const item of desiredState) {
-        if (item.type === 'separator' || OVERFLOW_KEEP_TYPES.has(item.type)) reservedSpan += spanOf(item);
+        if (item.type === 'separator' || OVERFLOW_KEEP_TYPES.includes(item.type)) reservedSpan += spanOf(item);
     }
 
     let appBudget = capacity - reservedSpan;
@@ -503,7 +503,7 @@ function _partitionForOverflow(dockUI, desiredState) {
     const overflowItems = [];
 
     for (const item of desiredState) {
-        if (item.type === 'separator' || OVERFLOW_KEEP_TYPES.has(item.type)) {
+        if (item.type === 'separator' || OVERFLOW_KEEP_TYPES.includes(item.type)) {
             normalItems.push(item);
             continue;
         }
@@ -857,6 +857,11 @@ function _syncMagnifierAndPivots(dockUI) {
     const showTooltips = Settings.showAppsPreview;
     const isVerticalDock = _isVerticalDock(dockUI);
 
+    if (dockUI._magnifierSetupIdleId) {
+        dockUI.registry.remove(dockUI._magnifierSetupIdleId);
+        dockUI._magnifierSetupIdleId = 0;
+    }
+
     if (!hoverZoom && !showTooltips) {
         teardownMagnification(dockUI.actor);
         dockUI.actor._isMagSetup = false;
@@ -874,13 +879,8 @@ function _syncMagnifierAndPivots(dockUI) {
     if (dockUI.gridBtn) dockUI.gridBtn.set_pivot_point(px, py);
 
     if (!dockUI.actor._isMagSetup) {
-        if (dockUI._magnifierSetupIdleId) {
-            dockUI.registry.remove(dockUI._magnifierSetupIdleId);
-            dockUI._magnifierSetupIdleId = null;
-        }
-
         dockUI._magnifierSetupIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-            dockUI._magnifierSetupIdleId = null;
+            dockUI._magnifierSetupIdleId = 0;
             if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) {
                 return GLib.SOURCE_REMOVE;
             }
@@ -919,10 +919,10 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
 
             if (dockUI._delayedRenderId) {
                 dockUI.registry.remove(dockUI._delayedRenderId);
-                dockUI._delayedRenderId = null;
+                dockUI._delayedRenderId = 0;
             }
             dockUI._delayedRenderId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, POST_CLICK_DELAY_MS - elapsed, () => {
-                dockUI._delayedRenderId = null;
+                dockUI._delayedRenderId = 0;
                 if (dockUI.queueRender) dockUI.queueRender(mode, true);
                 return GLib.SOURCE_REMOVE;
             });
@@ -940,7 +940,7 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
 
     if (dockUI._delayedRenderId) {
         dockUI.registry.remove(dockUI._delayedRenderId);
-        dockUI._delayedRenderId = null;
+        dockUI._delayedRenderId = 0;
     }
 
     const transition = mode === 'full' ? null : captureDockTransition(dockUI);
@@ -962,9 +962,35 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
 
     if (dockUI._pendingRender) {
         dockUI._pendingRender = false;
-        dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+        if (dockUI._pendingRenderIdleId) {
+            dockUI.registry.remove(dockUI._pendingRenderIdleId);
+            dockUI._pendingRenderIdleId = 0;
+        }
+        dockUI._pendingRenderIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            dockUI._pendingRenderIdleId = 0;
             renderDock(dockUI, dockUI._pendingRenderState ? dockUI._pendingRenderState.mode : 'incremental', false);
             return GLib.SOURCE_REMOVE;
         });
+    }
+}
+
+export function cleanupDockRenderer(dockUI) {
+    if (!dockUI || !dockUI.registry) return;
+
+    if (dockUI.actor && dockUI.actor._launchTimeoutId) {
+        dockUI.registry.remove(dockUI.actor._launchTimeoutId);
+        dockUI.actor._launchTimeoutId = 0;
+    }
+    if (dockUI._magnifierSetupIdleId) {
+        dockUI.registry.remove(dockUI._magnifierSetupIdleId);
+        dockUI._magnifierSetupIdleId = 0;
+    }
+    if (dockUI._delayedRenderId) {
+        dockUI.registry.remove(dockUI._delayedRenderId);
+        dockUI._delayedRenderId = 0;
+    }
+    if (dockUI._pendingRenderIdleId) {
+        dockUI.registry.remove(dockUI._pendingRenderIdleId);
+        dockUI._pendingRenderIdleId = 0;
     }
 }

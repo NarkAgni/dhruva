@@ -67,11 +67,11 @@ export const MusicPill = GObject.registerClass(
             this._dockUI = dockUI;
             this._settings = settings;
             this._tracker = new TimeoutTracker();
+            this._cancellable = new Gio.Cancellable();
             this._isModule = true;
             this._isStatic = true;
             this._isMusicPill = true;
             this._isHovered = false;
-            this._isDestroyed = false;
             this._lastArtUrl = null;
             this._lastExtractedColors = null;
             this._hasValidTrack = false;
@@ -88,7 +88,8 @@ export const MusicPill = GObject.registerClass(
             this._interpolatedTickId = 0;
 
             this._lastClickTime = 0;
-            this._modeTransitionTimeoutId = null;
+            this._modeTransitionTimeoutId = 0;
+            this._lyricsApplyIdleId = 0;
             this._lyricsReadyForTrack = false;
 
             this._cacheDir = userCacheDir('music-art');
@@ -101,7 +102,7 @@ export const MusicPill = GObject.registerClass(
 
             this._service = new MusicPlayerService();
             this._lyricsClient = new LyricsClient();
-            this.connect('destroy', () => this._onDestroy());
+            this.connectObject('destroy', () => this._onDestroy(), this);
 
             this._buildUI();
 
@@ -119,7 +120,7 @@ export const MusicPill = GObject.registerClass(
                 }, this);
 
             this.connectObject('notify::hover', () => {
-                if (this._isDestroyed) return;
+                if (!this._cancellable) return;
                 this._isHovered = this.hover;
                 this._setSideButtonsVisible(this._isHovered);
 
@@ -346,7 +347,7 @@ export const MusicPill = GObject.registerClass(
             this._prevBtn.set_scale(0.3, 0.3);
             this._prevBtn.set_pivot_point(0.5, 0.5);
             this._prevBtn.connectObject('clicked', () => {
-                if (!this._isDestroyed && this._service) this._service.sendControl('Previous');
+                if (this._cancellable && this._service) this._service.sendControl('Previous');
             }, this);
 
             this._playIcon = new St.Icon({ icon_name: 'media-playback-start-symbolic', icon_size: 14 });
@@ -356,7 +357,7 @@ export const MusicPill = GObject.registerClass(
                 reactive: true,
             });
             this._playBtn.connectObject('clicked', () => {
-                if (!this._isDestroyed && this._service) this._service.sendControl('PlayPause');
+                if (this._cancellable && this._service) this._service.sendControl('PlayPause');
             }, this);
 
             this._nextBtn = new St.Button({
@@ -371,7 +372,7 @@ export const MusicPill = GObject.registerClass(
             this._nextBtn.set_scale(0.3, 0.3);
             this._nextBtn.set_pivot_point(0.5, 0.5);
             this._nextBtn.connectObject('clicked', () => {
-                if (!this._isDestroyed && this._service) this._service.sendControl('Next');
+                if (this._cancellable && this._service) this._service.sendControl('Next');
             }, this);
 
             this._controlsBox.add_child(this._prevBtn);
@@ -387,7 +388,7 @@ export const MusicPill = GObject.registerClass(
             }
 
             this._interpolatedTickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 50, () => {
-                if (this._isDestroyed || !isActorAlive(this)) {
+                if (!this._cancellable || !isActorAlive(this)) {
                     this._interpolatedTickId = 0;
                     return GLib.SOURCE_REMOVE;
                 }
@@ -460,17 +461,17 @@ export const MusicPill = GObject.registerClass(
         }
 
         _scheduleMarquee(scrollBin, viewport, label) {
-            if (this._isDestroyed) return;
+            if (!this._cancellable) return;
             if (!isActorAlive(scrollBin) || !isActorAlive(viewport) || !isActorAlive(label)) return;
 
             this._cancelMarquee(scrollBin);
 
-            const idleId = this._tracker.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                if (this._isDestroyed) return GLib.SOURCE_REMOVE;
+            scrollBin._marqueeIdleId = this._tracker.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                scrollBin._marqueeIdleId = 0;
+                if (!this._cancellable) return GLib.SOURCE_REMOVE;
                 if (!isActorAlive(scrollBin) || !isActorAlive(viewport) || !isActorAlive(label)) {
                     return GLib.SOURCE_REMOVE;
                 }
-                scrollBin._marqueeIdleId = null;
 
                 const [, textWidth] = label.get_preferred_width(-1);
                 const containerWidth = viewport.get_width()
@@ -490,17 +491,17 @@ export const MusicPill = GObject.registerClass(
                     phase: 'pause-start',
                     phaseStart: GLib.get_monotonic_time() / 1000,
                     offset: 0,
-                    tickId: null,
+                    tickId: 0,
                 };
                 scrollBin._marqueeState = state;
 
                 const step = () => {
-                    if (this._isDestroyed) {
-                        state.tickId = null;
+                    if (!this._cancellable) {
+                        state.tickId = 0;
                         return GLib.SOURCE_REMOVE;
                     }
                     if (!isActorAlive(scrollBin) || scrollBin._marqueeState !== state || !state.active) {
-                        state.tickId = null;
+                        state.tickId = 0;
                         return GLib.SOURCE_REMOVE;
                     }
 
@@ -545,7 +546,6 @@ export const MusicPill = GObject.registerClass(
                 state.tickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 16, step);
                 return GLib.SOURCE_REMOVE;
             });
-            scrollBin._marqueeIdleId = idleId;
         }
 
         _cancelMarquee(scrollBin) {
@@ -553,14 +553,14 @@ export const MusicPill = GObject.registerClass(
 
             if (scrollBin._marqueeIdleId) {
                 this._tracker.remove(scrollBin._marqueeIdleId);
-                scrollBin._marqueeIdleId = null;
+                scrollBin._marqueeIdleId = 0;
             }
 
             const state = scrollBin._marqueeState;
             if (state) {
                 if (state.tickId) {
                     this._tracker.remove(state.tickId);
-                    state.tickId = null;
+                    state.tickId = 0;
                 }
                 state.active = false;
             }
@@ -573,7 +573,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _restartAllMarquees() {
-            if (this._isDestroyed) return;
+            if (!this._cancellable) return;
 
             if (!this._isLyricsVisible) {
                 this._scheduleMarquee(this._titleScroll, this._titleViewport, this._titleLabel);
@@ -591,7 +591,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _forceResync() {
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
 
             const isAllowed = Settings.showMusicPill;
 
@@ -631,7 +631,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _handlePlaybackEvent(isPlaying, title, artist, artUrl, duration, hasPlayer) {
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
 
             const isAllowed = Settings.showMusicPill;
 
@@ -724,16 +724,16 @@ export const MusicPill = GObject.registerClass(
         }
 
         _scheduleLyricsReveal() {
-            if (this._isDestroyed) return;
+            if (!this._cancellable) return;
             this._cancelModeTransition();
 
             this._modeTransitionTimeoutId = this._tracker.addTimeout(
                 GLib.PRIORITY_DEFAULT,
                 LYRICS_REVEAL_DELAY_MS,
                 () => {
-                    this._modeTransitionTimeoutId = null;
+                    this._modeTransitionTimeoutId = 0;
 
-                    if (this._isDestroyed) return GLib.SOURCE_REMOVE;
+                    if (!this._cancellable) return GLib.SOURCE_REMOVE;
                     if (!isActorAlive(this)) return GLib.SOURCE_REMOVE;
                     if (!this._isPlaying) return GLib.SOURCE_REMOVE;
                     if (!this._lyricsReadyForTrack) return GLib.SOURCE_REMOVE;
@@ -748,22 +748,28 @@ export const MusicPill = GObject.registerClass(
         _cancelModeTransition() {
             if (this._modeTransitionTimeoutId) {
                 this._tracker.remove(this._modeTransitionTimeoutId);
-                this._modeTransitionTimeoutId = null;
+                this._modeTransitionTimeoutId = 0;
             }
         }
 
         async _fetchLyrics(title, artist, duration) {
-            if (this._isDestroyed || !this._lyricsClient) return;
+            if (!this._cancellable || !this._lyricsClient) return;
 
             const requestedTrackId = title + '::' + artist;
 
             try {
                 const lyrics = await this._lyricsClient.getLyrics(title, artist, duration);
 
-                if (this._isDestroyed || !isActorAlive(this)) return;
+                if (!this._cancellable || !isActorAlive(this)) return;
 
-                this._tracker.addIdle(GLib.PRIORITY_DEFAULT, () => {
-                    if (this._isDestroyed || !isActorAlive(this)) return GLib.SOURCE_REMOVE;
+                if (this._lyricsApplyIdleId) {
+                    this._tracker.remove(this._lyricsApplyIdleId);
+                    this._lyricsApplyIdleId = 0;
+                }
+
+                this._lyricsApplyIdleId = this._tracker.addIdle(GLib.PRIORITY_DEFAULT, () => {
+                    this._lyricsApplyIdleId = 0;
+                    if (!this._cancellable || !isActorAlive(this)) return GLib.SOURCE_REMOVE;
                     if (this._activeTrackId !== requestedTrackId) return GLib.SOURCE_REMOVE;
 
                     if (lyrics && lyrics.length > 0) {
@@ -790,7 +796,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _switchMode(showLyrics, durationOverride = null) {
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
 
             const outActor = showLyrics ? this._infoBox : this._lyricsBox;
             const inActor = showLyrics ? this._lyricsBox : this._infoBox;
@@ -809,7 +815,7 @@ export const MusicPill = GObject.registerClass(
                 outActor.opacity = 0;
                 outActor.hide();
                 inActor.opacity = 255;
-                if (!this._isDestroyed) this._restartAllMarquees();
+                if (this._cancellable) this._restartAllMarquees();
             } else {
                 outActor.ease({
                     opacity: 0,
@@ -818,7 +824,7 @@ export const MusicPill = GObject.registerClass(
                     onComplete: () => {
                         if (!isActorAlive(outActor)) return;
                         outActor.hide();
-                        if (isActorAlive(this) && !this._isDestroyed) this._restartAllMarquees();
+                        if (isActorAlive(this) && this._cancellable) this._restartAllMarquees();
                     },
                 });
 
@@ -835,7 +841,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _setSideButtonsVisible(visible) {
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
 
             const targetOpacity = visible ? 255 : 0;
             const targetWidth = visible ? 24 : 0;
@@ -861,7 +867,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         async _loadArtwork(artUrl) {
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
 
             try {
                 if (!artUrl) {
@@ -881,7 +887,7 @@ export const MusicPill = GObject.registerClass(
                     localPath = artUrl;
                 }
 
-                if (this._isDestroyed || !isActorAlive(this)) return;
+                if (!this._cancellable || !isActorAlive(this)) return;
 
                 if (localPath && GLib.file_test(localPath, GLib.FileTest.EXISTS)) {
                     this._lastArtUrl = localPath;
@@ -896,6 +902,8 @@ export const MusicPill = GObject.registerClass(
 
         async _downloadImage(url) {
             try {
+                if (!this._cancellable) return null;
+
                 const urlParts = url.split('/');
                 let uniqueID = urlParts[urlParts.length - 1].split('?')[0].replace(/[^a-z0-9]/gi, '_');
                 if (!uniqueID || uniqueID.length < 2) uniqueID = 'img_' + Math.floor(Math.random() * 10000);
@@ -908,10 +916,10 @@ export const MusicPill = GObject.registerClass(
                 const msg = Soup.Message.new('GET', url);
                 msg.request_headers.append('User-Agent', 'Mozilla/5.0');
                 
-                const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
+                const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
 
                 if (msg.status_code === 200 && bytes) {
-                    const [success] = file.replace_contents(bytes.get_data(), null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+                    const [success] = file.replace_contents(bytes.get_data(), null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, this._cancellable);
                     if (success) return filePath;
                 }
             } catch (e) {
@@ -921,7 +929,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _updatePillBgAppearance() {
-            if (this._isDestroyed || !isActorAlive(this._pillBg)) return;
+            if (!this._cancellable || !isActorAlive(this._pillBg)) return;
 
             const isBlurEnabled = Boolean(Settings.blurEnabled);
             const colors = this._lastExtractedColors;
@@ -948,7 +956,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _applyArtStyle(filePath) {
-            if (this._isDestroyed || !isActorAlive(this) || !isActorAlive(this._artBin)) return;
+            if (!this._cancellable || !isActorAlive(this) || !isActorAlive(this._artBin)) return;
 
             const fileUri = Gio.File.new_for_path(filePath).get_uri();
             this._artBin.style = 'background-image: url("' + fileUri + '"); background-size: cover; background-position: center; border-radius: 999px;';
@@ -996,7 +1004,7 @@ export const MusicPill = GObject.registerClass(
         }
 
         _resetArt() {
-            if (this._isDestroyed || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
             this._lastExtractedColors = null;
             if (isActorAlive(this._artBin)) this._artBin.style = '';
             if (isActorAlive(this._artFallbackIcon)) this._artFallbackIcon.visible = true;
@@ -1016,7 +1024,7 @@ export const MusicPill = GObject.registerClass(
 
         _pruneArtCache() {
             const dir = Gio.File.new_for_path(this._cacheDir);
-            dir.enumerate_children_async('standard::name,time::modified', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, null, (d, res) => {
+            dir.enumerate_children_async('standard::name,time::modified', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, this._cancellable, (d, res) => {
                 let enumerator;
                 try {
                     enumerator = d.enumerate_children_finish(res);
@@ -1026,7 +1034,8 @@ export const MusicPill = GObject.registerClass(
 
                 const files = [];
                 const readMore = () => {
-                    enumerator.next_files_async(64, GLib.PRIORITY_LOW, null, (e, filesRes) => {
+                    if (!this._cancellable) return;
+                    enumerator.next_files_async(64, GLib.PRIORITY_LOW, this._cancellable, (e, filesRes) => {
                         let infos = [];
                         try {
                             infos = e.next_files_finish(filesRes);
@@ -1055,7 +1064,10 @@ export const MusicPill = GObject.registerClass(
         }
 
         _onDestroy() {
-            this._isDestroyed = true;
+            if (this._cancellable) {
+                this._cancellable.cancel();
+                this._cancellable = null;
+            }
 
             if (this._settings) {
                 this._settings.disconnectObject(this);
@@ -1073,6 +1085,11 @@ export const MusicPill = GObject.registerClass(
             }
 
             this._cancelModeTransition();
+
+            if (this._lyricsApplyIdleId && this._tracker) {
+                this._tracker.remove(this._lyricsApplyIdleId);
+                this._lyricsApplyIdleId = 0;
+            }
 
             if (this._titleScroll) this._cancelMarquee(this._titleScroll);
             if (this._artistScroll) this._cancelMarquee(this._artistScroll);

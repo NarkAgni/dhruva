@@ -1,3 +1,11 @@
+## [4.3] - 17-10-2026
+
+### Improved
+* **Startup & Memory Cleanup:** Objects, caches and file references are now created only after the extension or preferences are opened, instead of as soon as the files are loaded.
+* **Cleaner Signal & Timer Handling:** Signal connections across the extension and preferences now use `connectObject` and `disconnectObject`, and single, staggered and async timers are tracked and cleared reliably on destroy.
+* **Safer Background Operations:** Asynchronous file, network and dialog operations now use `Gio.Cancellable` so pending work stops cleanly as soon as the dock or preferences window closes.
+* **GJS Compatibility:** Removed restricted operators and manual destruction flags for stricter GNOME Shell extension review compliance.
+
 ## [4.2] - 16-10-2026
 
 ### New

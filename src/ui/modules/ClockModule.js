@@ -108,7 +108,7 @@ export function buildClockModule(dockUI) {
     };
 
     clockBtn.timers = new TimeoutTracker();
-    clockBtn._timeoutId = null;
+    clockBtn._timeoutId = 0;
 
     const updateClock = () => {
         const fmt = Settings.use24hClock ? '%a %d | %H:%M' : '%a %d | %I:%M %p';
@@ -121,9 +121,17 @@ export function buildClockModule(dockUI) {
         return GLib.SOURCE_CONTINUE;
     };
     
+    if (clockBtn._timeoutId) {
+        clockBtn.timers.remove(clockBtn._timeoutId);
+        clockBtn._timeoutId = 0;
+    }
     clockBtn._timeoutId = clockBtn.timers.addTimeout(GLib.PRIORITY_DEFAULT, CLOCK_TICK_INTERVAL_MS, updateClock);
     
     clockBtn.connectObject('destroy', () => {
+        if (clockBtn._timeoutId) {
+            clockBtn.timers.remove(clockBtn._timeoutId);
+            clockBtn._timeoutId = 0;
+        }
         clockBtn.timers.destroy();
     }, clockBtn);
 

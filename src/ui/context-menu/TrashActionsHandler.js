@@ -30,26 +30,26 @@ import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 
 const TRASH_BATCH_SIZE = 10;
 
-function emptyTrashAsync() {
+function emptyTrashAsync(cancellable = null) {
     const trashRoot = Gio.File.new_for_uri('trash:///');
-    trashRoot.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, null, (file, res) => {
+    trashRoot.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_DEFAULT, cancellable, (file, res) => {
         try {
             const enumerator = file.enumerate_children_finish(res);
             const deleteNext = () => {
-                enumerator.next_files_async(TRASH_BATCH_SIZE, GLib.PRIORITY_DEFAULT, null, (e, filesRes) => {
+                enumerator.next_files_async(TRASH_BATCH_SIZE, GLib.PRIORITY_DEFAULT, cancellable, (e, filesRes) => {
                     try {
                         const files = e.next_files_finish(filesRes);
                         if (!files || files.length === 0) {
-                            enumerator.close(null);
+                            enumerator.close_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
                             return;
                         }
                         files.forEach(info => {
                             const child = trashRoot.get_child(info.get_name());
-                            child.delete_async(GLib.PRIORITY_DEFAULT, null, () => { });
+                            child.delete_async(GLib.PRIORITY_DEFAULT, cancellable, () => { });
                         });
                         deleteNext();
                     } catch (_err) {
-                        enumerator.close(null);
+                        enumerator.close_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
                     }
                 });
             };
@@ -145,7 +145,7 @@ export function attachTrashActions(contextMenu) {
                 } catch (_err) {
                     hasItems = false;
                 }
-                enumerator.close_async(GLib.PRIORITY_DEFAULT, null, () => {});
+                enumerator.close_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
                 showState(hasItems);
             });
         });

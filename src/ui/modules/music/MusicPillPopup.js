@@ -486,12 +486,10 @@ export class MusicPillPopup {
         let colors = this._pill ? this._pill._lastExtractedColors : null;
 
         if (!colors && artPath && GLib.file_test(artPath, GLib.FileTest.EXISTS)) {
-            try {
-                const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(artPath, 64, 64, true);
-                if (pixbuf) {
-                    colors = extractColorsFromPixbuf(pixbuf);
-                }
-            } catch (_e) { }
+            const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(artPath, 64, 64, true);
+            if (pixbuf) {
+                colors = extractColorsFromPixbuf(pixbuf);
+            }
         }
 
         if (colors) {
@@ -534,7 +532,7 @@ export class MusicPillPopup {
         this._bgGradientEnd = bg;
 
         this._box.style = 'width: 300px; height: 395px; border-radius: 28px; background-color: #121214;';
-        
+
         if (isActorAlive(this._borderStroke)) {
             this._borderStroke.style = 'border-radius: 28px; border: 2px solid ' + this._accentRgba60 + ' !important; background-color: transparent;';
         }
@@ -702,6 +700,10 @@ export class MusicPillPopup {
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
         });
 
+        if (this._loopId) {
+            this._tracker.remove(this._loopId);
+            this._loopId = 0;
+        }
         this._loopId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 33, () => {
             if (!this._isOpen) return GLib.SOURCE_REMOVE;
             this._updateState();
@@ -737,18 +739,22 @@ export class MusicPillPopup {
         }, this);
     }
 
-    hide() {
-        if (!this._isOpen) return;
-        this._isOpen = false;
+    _disconnectOpenState() {
         this._endSliderDrag();
 
-        if (this._loopId) {
+        if (this._loopId && this._tracker) {
             this._tracker.remove(this._loopId);
             this._loopId = 0;
         }
 
         global.stage.disconnectObject(this);
         global.display.disconnectObject(this);
+    }
+
+    hide() {
+        this._disconnectOpenState();
+        if (!this._isOpen) return;
+        this._isOpen = false;
 
         this._box.ease({
             opacity: 0,
@@ -772,14 +778,26 @@ export class MusicPillPopup {
     }
 
     destroy() {
-        this.hide();
+        this._isOpen = false;
+        this._disconnectOpenState();
+
         if (this._tracker) {
             this._tracker.destroy();
             this._tracker = null;
         }
+
+        if (isActorAlive(this._box)) {
+            this._box.remove_all_transitions();
+        }
+
         this._artBlurEffect = null;
         if (isActorAlive(this._overlay)) {
+            if (this._overlay.get_parent()) {
+                Main.layoutManager.uiGroup.remove_child(this._overlay);
+            }
             this._overlay.destroy();
         }
+        this._overlay = null;
+        this._box = null;
     }
 }

@@ -36,8 +36,6 @@ import {
 } from './PrefsWidgets.js';
 
 
-const EXTENSION_DIR = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
-
 const PREVIEW_HEIGHT = 180;
 const PREVIEW_RADIUS = 14;
 const SOURCE_MAX_WIDTH = 1200;
@@ -61,7 +59,8 @@ const MATERIAL_KEYS = ['blur-tint-color', 'blur-intensity', 'blur-vibrancy', 'bl
 const LIGHT_KEYS = ['blur-border-glow', 'blur-highlight-angle'];
 
 function presetPath(key) {
-    return EXTENSION_DIR.get_child('icons').get_child(`glass-preset-${key}.svg`).get_path();
+    const extDir = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_parent();
+    return extDir.get_child('icons').get_child(`glass-preset-${key}.svg`).get_path();
 }
 
 function coverPixbuf(source, w, h) {
@@ -271,6 +270,15 @@ export function buildBlurPage(window, settings) {
         icon_name: 'view-paged-symbolic',
     });
 
+    let cancellable = new Gio.Cancellable();
+    window.connect('close-request', () => {
+        if (cancellable) {
+            cancellable.cancel();
+            cancellable = null;
+        }
+        return false;
+    });
+
     const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
     const ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
     const preview = new BlurPreview(settings, bgSettings, ifaceSettings);
@@ -392,8 +400,8 @@ export function buildBlurPage(window, settings) {
     onSettingChanged(settings, 'blur-custom-photo', syncPhoto);
     syncPhoto();
 
-    browseBtn.connect('clicked', () => pickCustomPhoto(window, settings));
-    clearBtn.connect('clicked', () => replaceCustomPhoto(settings, ''));
+    browseBtn.connect('clicked', () => pickCustomPhoto(window, settings, cancellable));
+    clearBtn.connect('clicked', () => replaceCustomPhoto(settings, '', cancellable));
 
     const isCustomSource = () => settings.get_string('blur-static-source') === 'custom';
     showWhen(presetFlow, settings, ['blur-static-source'], () => !isCustomSource());
@@ -452,17 +460,18 @@ export function buildBlurPage(window, settings) {
     window.add(page);
 }
 
-function replaceCustomPhoto(settings, newPath) {
+function replaceCustomPhoto(settings, newPath, cancellable = null) {
     const oldPath = settings.get_string('blur-custom-photo');
     settings.set_string('blur-custom-photo', newPath);
 
     const ownDir = userDataDir('blur_bg');
     if (oldPath && oldPath !== newPath && oldPath.startsWith(`${ownDir}/`)) {
-        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, null, () => {});
+        Gio.File.new_for_path(oldPath).delete_async(GLib.PRIORITY_DEFAULT, cancellable, () => {});
     }
 }
 
-function pickCustomPhoto(window, settings) {
+function pickCustomPhoto(window, settings, cancellable = null) {
+    if (cancellable && cancellable.is_cancelled()) return;
     const filter = new Gtk.FileFilter();
     filter.set_name(_('Images'));
     for (const mime of ['image/png', 'image/jpeg', 'image/svg+xml', 'image/webp']) filter.add_mime_type(mime);
@@ -470,22 +479,24 @@ function pickCustomPhoto(window, settings) {
     filters.append(filter);
 
     const dialog = new Gtk.FileDialog({ title: _('Choose a Background Photo'), filters });
-    dialog.open(window, null, (dlg, res) => {
+    dialog.open(window, cancellable, (dlg, res) => {
         let file;
         try {
             file = dlg.open_finish(res);
         } catch (_e) {
             return;
         }
+        if (cancellable && cancellable.is_cancelled()) return;
         const path = file.get_path();
         if (!path) return;
 
         showCropDialog(window, settings, path, cropped => {
+            if (cancellable && cancellable.is_cancelled()) return;
             const dir = userDataDir('blur_bg');
             GLib.mkdir_with_parents(dir, 0o755);
             const destPath = GLib.build_filenamev([dir, `custom_blur_${Date.now()}.png`]);
             cropped.savev(destPath, 'png', [], []);
-            replaceCustomPhoto(settings, destPath);
+            replaceCustomPhoto(settings, destPath, cancellable);
         });
     });
 }
