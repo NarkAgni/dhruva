@@ -24,7 +24,9 @@ import GLib from 'gi://GLib';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import { onSettingChanged } from './SettingsSignals.js';
-import { addGroup, showWhen, roundedRect, paintBackdrop, MOCK_ICON_COLORS } from './PrefsWidgets.js';
+import {
+    fmt, addGroup, showWhen, addSliderRow, addSegmentedRow, roundedRect, paintBackdrop, MOCK_ICON_COLORS,
+} from './PrefsWidgets.js';
 
 
 const PREVIEW_HEIGHT = 130;
@@ -60,6 +62,33 @@ class PanelPreview {
             cr.setSourceRGBA(0.1, 0.1, 0.13, 0.85);
             cr.fill();
             this._paintApps(cr, w / 2, h - 30, 26, 8);
+            return;
+        }
+
+        const isDynamic = this._settings.get_boolean('dynamic-panel');
+        const dynLen = this._settings.get_int('dynamic-panel-length');
+
+        if (isDynamic) {
+            const minBarW = Math.min(w - 16, 360);
+            const targetW = dynLen > 0 ? Math.max(minBarW, Math.round(w * (dynLen / 100.0))) : minBarW;
+            const barW = Math.min(w - 12, targetW);
+            const dynPos = this._settings.get_string('dynamic-panel-position') || 'CENTER';
+            let barX = (w - barW) / 2;
+            if (dynPos === 'START') barX = 6;
+            else if (dynPos === 'END') barX = w - barW - 6;
+
+            const dynY = h - BAR_HEIGHT - 4;
+            const radius = Math.min(this._settings.get_int('border-radius'), BAR_HEIGHT / 2);
+
+            roundedRect(cr, barX, dynY, barW, BAR_HEIGHT, radius);
+            if (this._settings.get_boolean('blur-enabled')) cr.setSourceRGBA(1, 1, 1, 0.16);
+            else cr.setSourceRGBA(0.08, 0.08, 0.1, 0.9);
+            cr.fill();
+
+            const centerY = dynY + BAR_HEIGHT / 2;
+            this._paintWorkspaces(cr, barX + 12, centerY);
+            this._paintApps(cr, barX + barW / 2 - 14, centerY, 20, 6);
+            this._paintStatus(cr, barX + barW - 12, centerY);
             return;
         }
 
@@ -193,6 +222,57 @@ export function buildPanelPage(window, settings) {
     heroGroup.set_header_suffix(enableSwitch);
     heroGroup.add(preview.widget);
 
+    const dynamicGroup = addGroup(page, _('Dynamic Panel (Dock + Panel)'),
+        _('Shrink the panel to fit its contents like a floating dock while keeping all panel applets and controls'));
+
+    const dynamicRow = new Adw.SwitchRow({
+        title: _('Dynamic Panel'),
+        subtitle: _('Use dock-style compact background, rounded corners, and borders for the panel'),
+    });
+    settings.bind('dynamic-panel', dynamicRow, 'active', Gio.SettingsBindFlags.DEFAULT);
+    dynamicGroup.add(dynamicRow);
+
+    const lengthRow = new Adw.ActionRow({
+        title: _('Panel Length'),
+        subtitle: _('0% automatically hugs contents; higher values set a custom minimum length'),
+    });
+    const lengthAdj = new Gtk.Adjustment({
+        lower: 0,
+        upper: 100,
+        step_increment: 5,
+        page_increment: 10,
+        value: settings.get_int('dynamic-panel-length'),
+    });
+    const lengthScale = new Gtk.Scale({
+        orientation: Gtk.Orientation.HORIZONTAL,
+        adjustment: lengthAdj,
+        draw_value: true,
+        value_pos: Gtk.PositionType.LEFT,
+         digits: 0,
+        width_request: 180,
+        valign: Gtk.Align.CENTER,
+    });
+    lengthScale.set_format_value_func((_scale, val) => (val <= 0 ? _('Auto') : `${Math.round(val)}%`));
+    settings.bind('dynamic-panel-length', lengthAdj, 'value', Gio.SettingsBindFlags.DEFAULT);
+    lengthRow.add_suffix(lengthScale);
+    dynamicGroup.add(lengthRow);
+
+    const positionRow = addSegmentedRow(dynamicGroup, settings, 'dynamic-panel-position', _('Position'),
+        _('Placement of the dynamic panel along the screen edge'), [
+            { name: _('Left'), value: 'START' },
+            { name: _('Center'), value: 'CENTER' },
+            { name: _('Right'), value: 'END' },
+        ]);
+
+    const radiusRow = addSliderRow(dynamicGroup, settings, 'border-radius', _('Corner Radius'),
+        null, { lower: 0, upper: 50, step: 1 }, fmt.px);
+
+    const isDynamicActive = () => settings.get_boolean('hybrid-panel-mode') && settings.get_boolean('dynamic-panel');
+    showWhen(lengthRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
+    showWhen(positionRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
+    showWhen(radiusRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
+    showWhen(dynamicGroup, settings, ['hybrid-panel-mode'], isPanel);
+
     const clockGroup = addGroup(page, _('Clock'), _('These are GNOME’s own clock settings, so the lock screen follows too'));
     addClockSwitch(clockGroup, clockSettings, 'clock-show-date', _('Date'), _('Second line under the time'));
     addClockSwitch(clockGroup, clockSettings, 'clock-show-seconds', _('Seconds'));
@@ -226,7 +306,7 @@ export function buildPanelPage(window, settings) {
     }));
     showWhen(trayGroup, settings, ['hybrid-panel-mode'], isPanel);
 
-    for (const key of ['hybrid-panel-mode', 'blur-enabled'])
+    for (const key of ['hybrid-panel-mode', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'border-radius', 'blur-enabled'])
         onSettingChanged(settings, key, () => preview.redraw());
     for (const key of ['clock-show-date', 'clock-show-seconds', 'clock-format'])
         onSettingChanged(clockSettings, key, () => preview.redraw());

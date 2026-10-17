@@ -465,7 +465,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         let origMax = -Infinity;
 
         for (let i = 0; i < n; i++) {
-            if (btns[i].style_class && (btns[i].style_class.includes('clock-module') || btns[i].style_class.includes('dock-drag-handle') || btns[i].style_class.includes('dhruva-music-pill'))) continue;
+            const btnStyleClass = btns[i].get_style_class_name ? btns[i].get_style_class_name() : (btns[i].style_class || '');
+            if (btns[i]._isMusicPill || btnStyleClass.includes('clock-module') || btnStyleClass.includes('dock-drag-handle') || btnStyleClass.includes('dhruva-music-pill')) continue;
             const c = scaledCenters[i] + zoomOffset;
             const half = (isVertical ? btns[i].height : btns[i].width) * scales[i] / 2;
             if (c - half < minVis) minVis = c - half;
@@ -695,7 +696,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
-    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+    const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
+    const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
 
     if (dockActor.bgActor && dockActor.boxActor && !isFullBar) {
         const baseW = dockActor.bgActor._baseW || dockActor.boxActor.width;

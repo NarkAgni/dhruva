@@ -135,7 +135,8 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
         }
     }
 
-    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+    const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
+    const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
 
     if (isActorAlive(dockActor.bgActor) && !isFullBar) {
         dockActor.bgActor.remove_all_transitions();

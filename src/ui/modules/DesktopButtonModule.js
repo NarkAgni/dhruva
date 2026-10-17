@@ -104,45 +104,68 @@ export function toggleDesktop(dockUI) {
     dockUI._desktopToggle.toggle();
 }
 
-export function buildDesktopButtonModule(dockUI) {
-    const btn = new St.Button({
-        reactive: true,
-        can_focus: false,
-        track_hover: true
-    });
-
+function _computeDesktopButtonStyle(dockUI, stateMode = 'default') {
     const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
     const colorHex = dockUI.settings.get_string('desktop-btn-color') || '#ffffff';
     const opacity = dockUI.settings.get_int('desktop-btn-opacity');
+
+    const isHybrid = dockUI.settings.get_boolean('hybrid-panel-mode');
+    const isDynamic = isHybrid && dockUI.settings.get_boolean('dynamic-panel');
+    const isFullWidth = dockUI.settings.get_boolean('full-width') || (isHybrid && !isDynamic);
+
+    const rawRadius = isFullWidth ? 0 : dockUI.settings.get_int('border-radius');
+    const sWidth = (!isFullWidth && !dockUI.settings.get_boolean('blur-enabled'))
+        ? Math.max(0, dockUI.settings.get_int('stroke-width'))
+        : 0;
+    const r = Math.max(0, rawRadius - sWidth);
+
+    const radiusCss = isVertical
+        ? `0px 0px ${r}px ${r}px`
+        : `0px ${r}px ${r}px 0px`;
 
     const baseRgba = hexToRgba(colorHex, opacity / 100.0);
     const hoverRgba = hexToRgba(colorHex, Math.min(1.0, (opacity + 15) / 100.0));
     const borderRgba = hexToRgba(colorHex, Math.min(1.0, (opacity + 20) / 100.0));
     const activeRgba = hexToRgba(colorHex, Math.min(1.0, (opacity + 40) / 100.0));
 
-    const defaultStyle = isVertical 
-        ? `background-color: ${baseRgba}; border-top: 1px solid ${borderRgba}; border-radius: 0px; transition-duration: 200ms;`
-        : `background-color: ${baseRgba}; border-left: 1px solid ${borderRgba}; border-radius: 0px; transition-duration: 200ms;`;
-        
-    const hoverStyle = isVertical
-        ? `background-color: ${hoverRgba}; border-top: 1px solid ${borderRgba}; border-radius: 0px; transition-duration: 150ms;`
-        : `background-color: ${hoverRgba}; border-left: 1px solid ${borderRgba}; border-radius: 0px; transition-duration: 150ms;`;
+    let bg = baseRgba;
+    let duration = 200;
+    if (stateMode === 'hover') {
+        bg = hoverRgba;
+        duration = 150;
+    } else if (stateMode === 'active') {
+        bg = activeRgba;
+        duration = 50;
+    }
 
-    const activeStyle = isVertical
-        ? `background-color: ${activeRgba}; border-top: 1px solid ${borderRgba}; border-radius: 0px; transition-duration: 50ms;`
-        : `background-color: ${activeRgba}; border-left: 1px solid ${borderRgba}; border-radius: 0px; transition-duration: 50ms;`;
+    const borderSide = isVertical ? 'border-top' : 'border-left';
+    return `background-color: ${bg}; ${borderSide}: 1px solid ${borderRgba}; border-radius: ${radiusCss}; transition-duration: ${duration}ms;`;
+}
 
-    btn.set_style(defaultStyle);
+export function buildDesktopButtonModule(dockUI) {
+    const btn = new St.Button({
+        reactive: true,
+        can_focus: false,
+        track_hover: true,
+        clip_to_allocation: true,
+    });
+
+    btn._refreshDesktopBtnStyle = (mode = null) => {
+        const targetMode = mode || (btn.hover ? 'hover' : 'default');
+        btn.set_style(_computeDesktopButtonStyle(dockUI, targetMode));
+    };
+
+    btn._refreshDesktopBtnStyle('default');
 
     btn.connectObject('notify::hover', () => {
-        btn.set_style(btn.hover ? hoverStyle : defaultStyle);
+        btn._refreshDesktopBtnStyle(btn.hover ? 'hover' : 'default');
     }, btn);
 
     const feedbackTimers = new TimeoutTracker();
     let feedbackId = 0;
 
     btn.connectObject('clicked', () => {
-        btn.set_style(activeStyle);
+        btn._refreshDesktopBtnStyle('active');
 
         if (feedbackId) {
             feedbackTimers.remove(feedbackId);
@@ -150,7 +173,7 @@ export function buildDesktopButtonModule(dockUI) {
         }
         feedbackId = feedbackTimers.addTimeout(GLib.PRIORITY_DEFAULT, CLICK_FEEDBACK_MS, () => {
             feedbackId = 0;
-            btn.set_style(btn.hover ? hoverStyle : defaultStyle);
+            btn._refreshDesktopBtnStyle(btn.hover ? 'hover' : 'default');
             return GLib.SOURCE_REMOVE;
         });
 

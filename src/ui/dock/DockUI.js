@@ -91,7 +91,7 @@ const WATCHED_SETTINGS = [
 const STYLE_SETTINGS = [
     'background-color', 'background-opacity', 'border-radius', 'stroke-color', 'stroke-opacity',
     'icon-spacing', 'dock-theme', 'use-gradient', 'background-gradient-color',
-    'gradient-direction'
+    'gradient-direction', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position'
 ];
 
 export default class DockUI {
@@ -230,13 +230,15 @@ export default class DockUI {
             }
         }
 
-        const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+        const isDynamicPanel = Settings.hybridPanelMode && Boolean(this.settings && this.settings.get_boolean('dynamic-panel'));
+        const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
         const dockRadius = isFullBar ? 0 : Settings.borderRadius;
         this._dockBlur = new BlurPanel(this.bgActor, this.settings, dockRadius, this.actor);
 
         this._syncBlurGeometry = () => {
             if (this._dockBlur) {
-                const fullBarNow = Settings.fullWidth || Settings.hybridPanelMode;
+                const dynNow = Settings.hybridPanelMode && Boolean(this.settings && this.settings.get_boolean('dynamic-panel'));
+                const fullBarNow = Settings.fullWidth || (Settings.hybridPanelMode && !dynNow);
                 this._dockBlur.setCornerRadius(fullBarNow ? 0 : Settings.borderRadius);
                 this._dockBlur.syncGeometry();
             }
@@ -447,8 +449,9 @@ export default class DockUI {
             if (this._isWindowGrabbed) return;
             this._updateRunningStatesFast();
 
-            if (Settings.hybridPanelMode && this._overflowKeys) {
-                this.queueRender('incremental', true);
+            if (Settings.hybridPanelMode && this._overflowKeys && (!this._overflowMenu || !this._overflowMenu._isOpen)) {
+                const focusWin = global.display.get_focus_window();
+                if (focusWin) this.queueRender('incremental', true);
             }
         }, this);
 
@@ -480,6 +483,8 @@ export default class DockUI {
             this.settings.connectObject(`changed::${key}`, () => {
                 this._applyDynamicStyles();
                 this._updateLayout();
+                if (this.dockManager) this.dockManager.updatePosition();
+                this.checkPanelOverflow();
             }, this);
         });
 

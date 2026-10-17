@@ -46,6 +46,7 @@ export function getDockButtons(dockActor) {
             sClass.includes('trash-module') ||
             sClass.includes('clock-module') ||
             sClass.includes('dock-separator') ||
+            sClass.includes('dhruva-music-pill') ||
             c._isFolder || c._isGridBtn || c._isMusicPill || c._delegate
         ) {
             buttons.push(c);

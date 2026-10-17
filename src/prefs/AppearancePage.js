@@ -77,7 +77,8 @@ class DockPreview {
         cr.clip();
         paintBackdrop(cr, w, h);
 
-        const isBar = s.get_boolean('full-width') || s.get_boolean('hybrid-panel-mode');
+        const isDynamicPanel = s.get_boolean('hybrid-panel-mode') && s.get_boolean('dynamic-panel');
+        const isBar = s.get_boolean('full-width') || (s.get_boolean('hybrid-panel-mode') && !isDynamicPanel);
         const iconSize = 32;
         const gap = 10;
         const count = MOCK_ICON_COLORS.length;
@@ -220,7 +221,8 @@ export function buildAppearancePage(window, settings) {
 
     const preview = new DockPreview(settings);
     const isBlur = () => settings.get_boolean('blur-enabled');
-    const isFullBar = () => settings.get_boolean('full-width') || settings.get_boolean('hybrid-panel-mode');
+    const isFullBar = () => settings.get_boolean('full-width') ||
+        (settings.get_boolean('hybrid-panel-mode') && !settings.get_boolean('dynamic-panel'));
 
     const heroGroup = addGroup(page, _('Your Dock'), _('Changes show up here as you make them'));
     heroGroup.add(preview.widget);
@@ -273,7 +275,7 @@ export function buildAppearancePage(window, settings) {
     const hasStroke = () => preview._num('stroke-width') > 0;
     showWhen(strokeColorRow, settings, ['stroke-width'], hasStroke);
     showWhen(strokeOpacityRow, settings, ['stroke-width'], hasStroke);
-    showWhen(shapeGroup, settings, ['full-width', 'hybrid-panel-mode'], () => !isFullBar());
+    showWhen(shapeGroup, settings, ['full-width', 'hybrid-panel-mode', 'dynamic-panel'], () => !isFullBar());
 
     const indicatorGroup = addGroup(page, _('Running Apps'));
     addGroupReset(indicatorGroup, settings, INDICATOR_KEYS);
@@ -320,7 +322,7 @@ export function buildAppearancePage(window, settings) {
         _('Before Modules'), _('Divides apps from clock, launcher and folders')), 'separator');
 
     const previewKeys = [
-        'blur-enabled', 'full-width', 'hybrid-panel-mode', 'dock-theme', ...BACKGROUND_KEYS, ...SHAPE_KEYS,
+        'blur-enabled', 'full-width', 'hybrid-panel-mode', 'dynamic-panel', 'dock-theme', ...BACKGROUND_KEYS, ...SHAPE_KEYS,
         ...INDICATOR_KEYS, 'show-running-indicators', 'show-notification-badges',
         'show-app-separator', 'running-separator-width', 'running-separator-height', 'running-separator-color',
         'running-separator-opacity', 'show-module-separator', 'separator-width', 'separator-height',

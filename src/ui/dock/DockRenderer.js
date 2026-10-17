@@ -391,11 +391,8 @@ function _cacheItemSpans(dockUI) {
     dockUI._itemSpans = spans;
 }
 
-function _measureAppSlot(dockUI) {
-    for (const cached of dockUI._itemSpans.values()) {
-        if (cached.type === 'app' && cached.span > 0) return cached.span;
-    }
-    return Settings.iconSize + Math.max(Settings.dockHeight, 4) * 2;
+function _measureAppSlot(_dockUI) {
+    return (Settings.iconSize || 48) + 4;
 }
 
 function _itemSpan(dockUI, item, appSlot) {
@@ -403,9 +400,12 @@ function _itemSpan(dockUI, item, appSlot) {
         const pill = dockUI._musicPill;
         return pill && pill.visible ? _naturalSpan(pill, _isVerticalDock(dockUI)) : 0;
     }
+    if (item.type === 'app' || item.type === 'folder' || item.type === 'grid' || item.type === 'module') {
+        return appSlot;
+    }
 
     const cached = dockUI._itemSpans.get(item.key);
-    if (cached) return cached.span;
+    if (cached && cached.span > 0) return cached.span;
 
     switch (item.type) {
         case 'separator':
@@ -420,8 +420,49 @@ function _measureFreeCorridor(dockUI, isVertical) {
     const cfg = HYBRID_PANEL_CONFIG;
     const leftBox = dockUI.panelIntegrator.leftContainer;
     const rightBox = dockUI.panelIntegrator.container;
-    const gapStart = isVertical ? cfg.DOCK_GAP_AFTER_LEFT_VERTICAL : cfg.DOCK_GAP_AFTER_LEFT;
-    const gapEnd = isVertical ? cfg.DOCK_GAP_BEFORE_RIGHT_VERTICAL : cfg.DOCK_GAP_BEFORE_RIGHT;
+    const isDynamicPanel = Boolean(dockUI.settings && dockUI.settings.get_boolean('dynamic-panel'));
+
+    const gapStart = isDynamicPanel ? 16 : (isVertical ? cfg.DOCK_GAP_AFTER_LEFT_VERTICAL : cfg.DOCK_GAP_AFTER_LEFT);
+    const gapEnd = isDynamicPanel ? 16 : (isVertical ? cfg.DOCK_GAP_BEFORE_RIGHT_VERTICAL : cfg.DOCK_GAP_BEFORE_RIGHT);
+
+    const monitor = dockUI.monitorManager.getCurrentMonitor().monitor;
+    if (isDynamicPanel) {
+        if (!monitor) return Infinity;
+        const availableMonitorSpan = (isVertical ? monitor.height : monitor.width) - 24;
+        const rawPct = Settings.dynamicPanelLength;
+        const maxAllowedSpan = rawPct > 0
+            ? Math.round(availableMonitorSpan * (Math.max(20, Math.min(100, rawPct)) / 100.0))
+            : availableMonitorSpan;
+
+        let deskSpan = 0;
+        if (Settings.showDesktopButton) {
+            const minCornerWidth = Math.max(12, Math.ceil((Settings.borderRadius || 18) * 0.55));
+            const rawWidth = Settings.desktopBtnWidth;
+            deskSpan = Math.max(minCornerWidth, (rawWidth !== undefined && rawWidth !== null && rawWidth > 0) ? rawWidth : 12) + 8;
+        }
+
+        let leftSpan = Math.max(isVertical ? 20 : 30, Math.round(_naturalSpan(leftBox, isVertical) || 0));
+        let rightSpan = 30;
+        if (isActorAlive(rightBox)) {
+            const visibleChildren = rightBox.get_children().filter(c => {
+                if (!isActorAlive(c) || !c.visible || c.opacity === 0) return false;
+                if (c.name === 'DhruvaStolenExtensionsBox') {
+                    const subChildren = (c.get_children && c.get_children()) ? c.get_children().filter(sc => isActorAlive(sc) && sc.visible && sc.opacity > 0) : [];
+                    return subChildren.length > 0;
+                }
+                return true;
+            });
+            let itemsSpan = 0;
+            for (let i = 0; i < visibleChildren.length; i++) {
+                itemsSpan += Math.round(_naturalSpan(visibleChildren[i], isVertical) || 0);
+            }
+            const spacingSum = Math.max(0, (visibleChildren.length - 1) * 8);
+            rightSpan = Math.max(itemsSpan + spacingSum, 30);
+        }
+
+        const outerPad = 20;
+        return Math.max(0, maxAllowedSpan - leftSpan - gapStart - rightSpan - gapEnd - deskSpan - outerPad);
+    }
 
     const leftStart = isVertical ? leftBox.y : leftBox.x;
     const leftSize = isVertical ? leftBox.height : leftBox.width;
@@ -431,7 +472,6 @@ function _measureFreeCorridor(dockUI, isVertical) {
         return rightStart - gapEnd - (leftStart + leftSize + gapStart);
     }
 
-    const monitor = dockUI.monitorManager.getCurrentMonitor().monitor;
     if (!monitor) return Infinity;
 
     const screenSpan = isVertical ? monitor.height : monitor.width;
@@ -529,14 +569,18 @@ function _syncOverflowMenu(dockUI, overflowItems) {
     let menu = dockUI._overflowMenu;
 
     if (overflowItems.length === 0) {
-        if (menu) menu.destroy();
+        if (menu) {
+            menu.destroy();
+            dockUI._overflowMenu = null;
+        }
         dockUI._overflowKeys = '';
         return;
     }
 
-    if (menu && menu.isStale()) {
+    if (menu && (menu.isStale() || !menu.button || !isActorAlive(menu.button))) {
         menu.destroy();
         menu = null;
+        dockUI._overflowMenu = null;
     }
     if (!menu) {
         menu = new DockOverflowMenu(dockUI);

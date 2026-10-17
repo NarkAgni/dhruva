@@ -1,3 +1,14 @@
+## [4.4] - 17-10-2026
+
+### New
+* **Dynamic Panel:** Added dynamic panel support to seamlessly adapt and handle panel layouts with flexible sizing and automated spacing.
+dynamic_panel.png
+dynamic_panel_overflow.png
+dynamic_panel_setting.png
+
+### Fixed
+* **Music Pill:** Fixed interaction and click propagation issues on the music pill inside dock mode.
+
 ## [4.3] - 17-10-2026
 
 ### Improved

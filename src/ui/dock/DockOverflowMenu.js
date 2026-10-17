@@ -70,6 +70,7 @@ export class DockOverflowMenu {
         this._blur = null;
         this._raiseLaterId = 0;
         this._arrowCenter = 0;
+        this._anchorWatchTracker = {};
         this._layoutKey = this._currentLayoutKey();
 
         this.button = this._buildButton();
@@ -162,7 +163,9 @@ export class DockOverflowMenu {
             translation_y: -ay * CFG.OVERFLOW_SLIDE_PX * 0.6,
             duration: CFG.OVERFLOW_CLOSE_MS,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onComplete: () => this._detachPopup(),
+            onComplete: () => {
+                if (!this._isOpen) this._detachPopup();
+            },
         });
     }
 
@@ -230,9 +233,14 @@ export class DockOverflowMenu {
         button._isOverflowBtn = true;
         button._isStatic = true;
         button._entityId = OVERFLOW_BUTTON_KEY;
+        button._activateCallback = (buttonNum) => {
+            if (buttonNum === 1) this.toggle();
+        };
 
         button.connectObject(
-            'clicked', () => this.toggle(),
+            'clicked', () => {
+                if (!Settings.hoverZoom) this.toggle();
+            },
             'destroy', () => this._teardown(),
             this
         );
@@ -434,18 +442,26 @@ export class DockOverflowMenu {
 
     _watchAnchor() {
         const reposition = () => this._reposition();
-        this.button.connectObject('notify::allocation', reposition, this);
-        this._dockUI.actor.connectObject(
-            'notify::translation-x', reposition,
-            'notify::translation-y', reposition,
-            'notify::allocation', reposition,
-            this
-        );
+        if (this.button && isActorAlive(this.button)) {
+            this.button.connectObject('notify::allocation', reposition, this._anchorWatchTracker);
+        }
+        if (isActorAlive(this._dockUI.actor)) {
+            this._dockUI.actor.connectObject(
+                'notify::translation-x', reposition,
+                'notify::translation-y', reposition,
+                'notify::allocation', reposition,
+                this._anchorWatchTracker
+            );
+        }
     }
 
     _unwatchAnchor() {
-        this.button.disconnectObject(this);
-        if (isActorAlive(this._dockUI.actor)) this._dockUI.actor.disconnectObject(this);
+        if (this.button && isActorAlive(this.button)) {
+            this.button.disconnectObject(this._anchorWatchTracker);
+        }
+        if (isActorAlive(this._dockUI.actor)) {
+            this._dockUI.actor.disconnectObject(this._anchorWatchTracker);
+        }
     }
 
     _reposition() {

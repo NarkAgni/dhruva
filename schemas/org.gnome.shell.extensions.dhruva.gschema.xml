@@ -676,6 +676,29 @@
       <description>Integrate GNOME top bar panel into Dhruva dock.</description>
     </key>
 
+    <key name="dynamic-panel" type="b">
+      <default>false</default>
+      <summary>Dynamic Panel Mode</summary>
+      <description>Make the hybrid panel shrink and expand like a dock while keeping all panel features.</description>
+    </key>
+
+    <key name="dynamic-panel-length" type="i">
+      <default>0</default>
+      <summary>Dynamic Panel Length Percentage</summary>
+      <description>Minimum length percentage of the screen for the dynamic dock-panel (0 for automatic compact fit).</description>
+    </key>
+
+    <key name="dynamic-panel-position" type="s">
+      <choices>
+        <choice value='START'/>
+        <choice value='CENTER'/>
+        <choice value='END'/>
+      </choices>
+      <default>'CENTER'</default>
+      <summary>Dynamic Panel Screen Position</summary>
+      <description>Position of the dynamic dock-panel along the screen edge (START, CENTER, or END).</description>
+    </key>
+
     <key name="tray-panel-indicators" type="as">
       <default>[]</default>
       <summary>Tray icons shown on the panel</summary>

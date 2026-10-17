@@ -110,7 +110,8 @@ export class EdgeDetection {
 
         const monitor = monitorResult.monitor;
         const pos = this.dockUI.dockPosition;
-        const isFullWidth = Settings.fullWidth || Settings.hybridPanelMode;
+        const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
+        const isFullWidth = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
 
         let x = 0;
         let y = 0;
@@ -211,7 +212,8 @@ export class EdgeDetection {
             return;
         }
 
-        const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+        const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
+        const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
 
         const dockScaleX = this.dockUI.actor.scale_x || 1.0;
         const dockScaleY = this.dockUI.actor.scale_y || 1.0;

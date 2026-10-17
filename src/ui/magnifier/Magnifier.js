@@ -282,6 +282,20 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             return Clutter.EVENT_PROPAGATE;
         }
 
+        const pill = (dockActor._dockUI && dockActor._dockUI._musicPill) ? dockActor._dockUI._musicPill : null;
+        if (pill && isActorAlive(pill) && pill.visible) {
+            const targetActor = global.stage.get_event_actor(event);
+            if (targetActor && (targetActor === pill || (pill.contains && pill.contains(targetActor)))) {
+                return Clutter.EVENT_PROPAGATE;
+            }
+            const pillPos = pill.get_transformed_position();
+            const pillSize = pill.get_transformed_size();
+            if (ex >= pillPos[0] && ex <= pillPos[0] + pillSize[0] &&
+                ey >= pillPos[1] && ey <= pillPos[1] + pillSize[1]) {
+                return Clutter.EVENT_PROPAGATE;
+            }
+        }
+
         const invokeButton = (targetBtn) => {
             if (!targetBtn || !targetBtn._activateCallback) return false;
 

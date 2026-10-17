@@ -64,42 +64,59 @@ export default class DockManager {
 
         const rawMargin = Math.max(0, Settings.dockMargin || 0);
         const pos = Settings.dockPosition;
-        const isFullWidth = Settings.fullWidth || isHybrid;
+        const isDynamicPanel = isHybrid && Settings.dynamicPanel;
+        const isFullWidth = Settings.fullWidth || (isHybrid && !isDynamicPanel);
         const isNeverHide = Settings.hideMode === 'none';
+        const dynAlign = isDynamicPanel ? (Settings.dynamicPanelPosition || 'CENTER') : 'CENTER';
+        const edgeGap = Math.max(8, rawMargin);
 
         const aw = this.dockUI.actor.width;
         const ah = this.dockUI.actor.height;
+
+        const resolveAxisX = () => {
+            if (isFullWidth) return workArea.x;
+            if (isDynamicPanel && dynAlign === 'START') return workArea.x + edgeGap;
+            if (isDynamicPanel && dynAlign === 'END') return workArea.x + workArea.width - aw - edgeGap;
+            return workArea.x + (workArea.width - aw) / 2;
+        };
+
+        const resolveAxisY = () => {
+            if (isFullWidth) return workArea.y;
+            if (isDynamicPanel && dynAlign === 'START') return workArea.y + edgeGap;
+            if (isDynamicPanel && dynAlign === 'END') return workArea.y + workArea.height - ah - edgeGap;
+            return workArea.y + (workArea.height - ah) / 2;
+        };
 
         let xPos = 0;
         let yPos = 0;
 
         if (isNeverHide) {
             if (pos === 'TOP') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                xPos = resolveAxisX();
                 yPos = workArea.y;
             } else if (pos === 'BOTTOM') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                xPos = resolveAxisX();
                 yPos = actualMonitor.y + actualMonitor.height - ah;
             } else if (pos === 'LEFT') {
                 xPos = workArea.x;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+                yPos = resolveAxisY();
             } else if (pos === 'RIGHT') {
                 xPos = actualMonitor.x + actualMonitor.width - aw;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+                yPos = resolveAxisY();
             }
         } else {
             if (pos === 'TOP') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                xPos = resolveAxisX();
                 yPos = workArea.y + rawMargin;
             } else if (pos === 'BOTTOM') {
-                xPos = isFullWidth ? workArea.x : workArea.x + (workArea.width - aw) / 2;
+                xPos = resolveAxisX();
                 yPos = workArea.y + workArea.height - ah - rawMargin;
             } else if (pos === 'LEFT') {
                 xPos = workArea.x + rawMargin;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+                yPos = resolveAxisY();
             } else if (pos === 'RIGHT') {
                 xPos = workArea.x + workArea.width - aw - rawMargin;
-                yPos = isFullWidth ? workArea.y : workArea.y + (workArea.height - ah) / 2;
+                yPos = resolveAxisY();
             }
         }
 

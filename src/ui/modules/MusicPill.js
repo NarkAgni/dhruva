@@ -103,6 +103,11 @@ export const MusicPill = GObject.registerClass(
             this._service = new MusicPlayerService();
             this._lyricsClient = new LyricsClient();
             this.connectObject('destroy', () => this._onDestroy(), this);
+            this.connectObject('notify::allocation', () => {
+                if (this._cancellable && this._dockUI && this._dockUI.syncPanelSpace) {
+                    this._dockUI.syncPanelSpace();
+                }
+            }, this);
 
             this._buildUI();
 
@@ -641,9 +646,13 @@ export const MusicPill = GObject.registerClass(
                 this._stopLyricsSyncLoop();
                 if (this.visible) {
                     this.hide();
-                    if (this._dockUI && this._dockUI.queueRender) this._dockUI.queueRender('full', true);
-                } else if (hadTrack && this._dockUI && this._dockUI.queueRender) {
-                    this._dockUI.queueRender('full', true);
+                    if (this._dockUI) {
+                        if (this._dockUI.queueRender) this._dockUI.queueRender('full', true);
+                        if (this._dockUI.syncPanelSpace) this._dockUI.syncPanelSpace();
+                    }
+                } else if (hadTrack && this._dockUI) {
+                    if (this._dockUI.queueRender) this._dockUI.queueRender('full', true);
+                    if (this._dockUI.syncPanelSpace) this._dockUI.syncPanelSpace();
                 }
                 return;
             }
@@ -704,7 +713,10 @@ export const MusicPill = GObject.registerClass(
 
             if (!this.visible || wasNotValid) {
                 this.show();
-                if (this._dockUI && this._dockUI.queueRender) this._dockUI.queueRender('full', true);
+                if (this._dockUI) {
+                    if (this._dockUI.queueRender) this._dockUI.queueRender('full', true);
+                    if (this._dockUI.syncPanelSpace) this._dockUI.syncPanelSpace();
+                }
             }
 
             this._setSideButtonsVisible(this._isHovered);

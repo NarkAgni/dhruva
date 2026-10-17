@@ -80,7 +80,8 @@ export function applyDynamicStyles(dockUI) {
     if (!isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
 
     const isHybrid = Settings.hybridPanelMode;
-    const isFullWidth = (dockUI.settings ? dockUI.settings.get_boolean('full-width') : false) || isHybrid;
+    const isDynamicPanel = isHybrid && Boolean(dockUI.settings && dockUI.settings.get_boolean('dynamic-panel'));
+    const isFullWidth = (dockUI.settings ? dockUI.settings.get_boolean('full-width') : false) || (isHybrid && !isDynamicPanel);
     const radius = isFullWidth ? 0 : (dockUI.settings ? dockUI.settings.get_int('border-radius') : 20);
     const isBlurEnabled = dockUI.settings ? dockUI.settings.get_boolean('blur-enabled') : false;
 
