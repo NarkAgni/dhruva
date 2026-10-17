@@ -1,3 +1,10 @@
+<blockquote>
+  <h1 align="center">Note to Contributors</h1>
+  <h2 align="center">If you want to contribute by improving this README to make it look better and more readable, you are most welcome to submit a PR!</h2>
+  <p align="center"><i>(Honestly, I don't feel like updating it myself right now, so it would be awesome if someone from the community could help out!)</i></p>
+</blockquote>
+<br>
+<br>
 <div align="center">
   <img src="icons/logo.svg" alt="Dhruva Logo" width="112" height="112">
   <br>
@@ -93,6 +100,16 @@
   <li><b>Display Adaptability:</b> Omni-directional placement across all 4 screen edges, multi-monitor configuration, and edge-to-edge panel modes.</li>
   <li><b>Window Management:</b> Live Aero Peek previews, workspace isolation, and intelligent window dodge / auto-hide.</li>
   <li><b>Productivity Modules:</b> Integrated digital clock, shredding trash can, Quick Launch (<code>Super + 1-9</code>), and JSON profile import/export.</li>
+</ul>
+
+<hr>
+
+<h2>Changelog &amp; Updated Features</h2>
+
+<ul>
+  <li><b>vX.X.X (Latest):</b> <i>[Add your latest features or updates here, e.g., Added new window minimize shaders]</i></li>
+  <li><b>vX.X.X:</b> <i>[Add previous updates here, e.g., Improved aero peek previews and physics engine]</i></li>
+  <li>For a full list of changes and release notes, please check out the <a href="https://github.com/narkagni/dhruva/releases"><b>Releases Page</b></a>.</li>
 </ul>
 
 <hr>
