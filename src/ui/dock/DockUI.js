@@ -89,7 +89,7 @@ const WATCHED_SETTINGS = [
 ];
 
 const STYLE_SETTINGS = [
-    'background-color', 'background-opacity', 'border-radius', 'stroke-color', 'stroke-opacity',
+    'background-color', 'background-opacity', 'context-menu-opacity', 'border-radius', 'stroke-color', 'stroke-opacity',
     'icon-spacing', 'dock-theme', 'use-gradient', 'background-gradient-color',
     'gradient-direction', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position'
 ];
@@ -485,6 +485,19 @@ export default class DockUI {
                 this._updateLayout();
                 if (this.dockManager) this.dockManager.updatePosition();
                 this.checkPanelOverflow();
+
+                if (this._activeContextMenu && this._activeContextMenu.bgDrawingArea) {
+                    this._activeContextMenu.bgDrawingArea.queue_repaint();
+                }
+                if (this._activeFolderMenu && this._activeFolderMenu.bgDrawingArea) {
+                    this._activeFolderMenu.bgDrawingArea.queue_repaint();
+                }
+                if (this._activeTrayMenu && this._activeTrayMenu.bgDrawingArea) {
+                    this._activeTrayMenu.bgDrawingArea.queue_repaint();
+                }
+                if (this._overflowMenu && this._overflowMenu._bubble) {
+                    this._overflowMenu._bubble.queue_repaint();
+                }
             }, this);
         });
 

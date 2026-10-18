@@ -157,8 +157,8 @@ export default class TrayMenu {
             this._trayBlur.contentActor = this.panel;
         }
 
-        const colors = resolvePopupBubbleColors(this.dockUI);
         this.bgDrawingArea.connectObject('repaint', area => {
+            const colors = resolvePopupBubbleColors(this.dockUI);
             const [fullW, fullH] = area.get_surface_size();
             const isVertical = this._dockPos === 'LEFT' || this._dockPos === 'RIGHT';
             const fallbackCenter = isVertical ? fullH / 2 : fullW / 2;

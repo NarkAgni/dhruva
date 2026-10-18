@@ -177,6 +177,8 @@ export function buildBehaviorPage(window, settings) {
         { name: _('Middle Click'), value: 'middle-click' },
         { name: _('Both'), value: 'both' },
     ]);
+    addSwitchRow(utilGroup, settings, 'enable-context-menu', _('Right-Click Context Menu'),
+        _('Show the context menu when right-clicking dock icons'));
     addSwitchRow(utilGroup, settings, 'scroll-action-dock', _('Scroll on Dock'), _('Switch workspaces'));
     addSwitchRow(utilGroup, settings, 'scroll-action-app', _('Scroll on Icon'), _('Cycle through that app’s windows'));
     utilGroup.add(new Adw.ActionRow({

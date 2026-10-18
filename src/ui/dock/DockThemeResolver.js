@@ -25,8 +25,9 @@ import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleon
 const DEFAULT_CHAMELEON_BG = { r: 30, g: 30, b: 45 };
 const DEFAULT_CHAMELEON_RAW = { r: 80, g: 90, b: 120 };
 
-export function resolveTooltipColors(dockUI, themeId) {
-    const opacity = Math.min(1.0, (Settings.backgroundOpacity / 100.0) + 0.05);
+export function resolveTooltipColors(dockUI, themeId, customOpacityPct = null) {
+    const rawPct = customOpacityPct !== null ? customOpacityPct : Settings.contextMenuOpacity;
+    const opacity = Math.min(1.0, Math.max(0.0, rawPct / 100.0));
     const sColor = Settings.strokeColor || '#ffffff';
 
     if (themeId === 'chameleon') {
@@ -65,14 +66,18 @@ function _firstThemeColor(css) {
 
 export function resolvePopupBubbleColors(dockUI) {
     const settings = dockUI.settings;
-    const fill = settings.get_boolean('blur-enabled')
+    const popupOpacityPct = Settings.contextMenuOpacity;
+    const fallbackAlpha = Math.min(1.0, Math.max(0.0, popupOpacityPct / 100.0));
+
+    const fill = Settings.blurEnabled
         ? TRANSPARENT_FILL
-        : (_firstThemeColor(resolveTooltipColors(dockUI, settings.get_string('dock-theme')).css) || POPUP_FALLBACK_FILL);
+        : (_firstThemeColor(resolveTooltipColors(dockUI, Settings.dockTheme, popupOpacityPct).css) ||
+           `rgba(24, 24, 31, ${fallbackAlpha})`);
 
     return {
         fill,
-        stroke: hexToRgba(settings.get_string('stroke-color'), settings.get_int('stroke-opacity') / 100.0),
-        strokeWidth: Math.max(1, settings.get_int('stroke-width')),
+        stroke: hexToRgba(Settings.strokeColor, Settings.strokeOpacity / 100.0),
+        strokeWidth: Math.max(1, Settings.strokeWidth),
     };
 }
 

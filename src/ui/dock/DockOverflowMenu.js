@@ -277,6 +277,7 @@ export class DockOverflowMenu {
 
         this._bubble = new St.DrawingArea({ x_expand: true, y_expand: true });
         this._bubble.connectObject('repaint', area => {
+            this._colors = resolvePopupBubbleColors(this._dockUI);
             paintMenuBubble(area, cairo, this._dockUI.dockPosition, this._colors, {
                 radius: CFG.OVERFLOW_CORNER_RADIUS,
                 arrowHeight: CFG.OVERFLOW_ARROW_HEIGHT,

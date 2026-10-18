@@ -420,13 +420,54 @@ export function buildBlurPage(window, settings) {
         margin_start: 10,
         margin_end: 10,
     });
-    for (const { name, values } of LOOKS()) {
+
+    const looks = LOOKS();
+    const lookButtons = [];
+
+    for (const { name, values } of looks) {
         const button = new Gtk.Button({ label: name, css_classes: ['pill'] });
         button.connect('clicked', () => {
-            for (const [key, value] of Object.entries(values)) settings.set_double(key, value);
+            for (const [key, value] of Object.entries(values)) {
+                settings.set_double(key, value);
+            }
         });
         looksBox.append(button);
+        lookButtons.push({ button, values });
     }
+
+    const customLookBtn = new Gtk.Button({
+        label: _('Custom'),
+        css_classes: ['pill'],
+    });
+    looksBox.append(customLookBtn);
+
+    const setLookActive = (btn, active) => {
+        if (active) btn.add_css_class('suggested-action');
+        else btn.remove_css_class('suggested-action');
+    };
+
+    const syncLookHighlight = () => {
+        let matched = false;
+        for (const { button, values } of lookButtons) {
+            const isMatch = Object.entries(values).every(
+                ([key, val]) => Math.abs(settings.get_double(key) - val) < 0.005
+            );
+            setLookActive(button, isMatch && !matched);
+            if (isMatch) matched = true;
+        }
+        setLookActive(customLookBtn, !matched);
+    };
+
+    customLookBtn.connect('clicked', () => {
+        for (const { button } of lookButtons) setLookActive(button, false);
+        setLookActive(customLookBtn, true);
+    });
+
+    for (const key of ['blur-intensity', 'blur-vibrancy', 'blur-brightness', 'blur-tint-opacity']) {
+        onSettingChanged(settings, key, syncLookHighlight);
+    }
+    syncLookHighlight();
+
     materialGroup.add(new Adw.PreferencesRow({ child: looksBox, activatable: false }));
 
     addColorRow(materialGroup, settings, 'blur-tint-color', _('Tint'), _('Colour washed over the glass'));

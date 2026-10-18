@@ -716,5 +716,18 @@
       <summary>Order of extension applets on the panel, changed with Ctrl + drag</summary>
     </key>
 
+    <key name="enable-context-menu" type="b">
+        <default>true</default>
+        <summary>Enable Context Menu on Dock Icons</summary>
+        <description>Show the right-click context menu when right-clicking icons on the dock.</description>
+    </key>
+
+    <key name="context-menu-opacity" type="i">
+        <default>92</default>
+        <range min="0" max="100"/>
+        <summary>Context Menu and Popup Opacity</summary>
+        <description>Background opacity of right-click context menus, folder popups, tray menu, and overflow menu when blur is off.</description>
+    </key>
+
   </schema>
 </schemalist>

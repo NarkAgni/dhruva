@@ -469,7 +469,13 @@ export default class AppGridUI {
     _applyChameleonStyle() {
         const settings = this.dockUI.settings;
         const themeId = Settings.dockTheme || 'default';
-        const opacity = Settings.backgroundOpacity / 100.0;
+        let rawOpacity = Settings.backgroundOpacity;
+        try {
+            if (settings) rawOpacity = settings.get_int('context-menu-opacity');
+        } catch (_e) {
+            rawOpacity = Settings.backgroundOpacity;
+        }
+        const opacity = Settings.contextMenuOpacity / 100.0;
         const sWidth = Settings.strokeWidth;
         const sColor = Settings.strokeColor || '#ffffff';
         const sOpacity = Settings.strokeOpacity / 100.0;
@@ -479,7 +485,7 @@ export default class AppGridUI {
 
         if (themeId === 'chameleon') {
             const c = (this.dockUI._chameleonColor && this.dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
-            bgRgba = `rgba(${c.r}, ${c.g}, ${c.b}, 0.88)`;
+            bgRgba = `rgba(${c.r}, ${c.g}, ${c.b}, ${opacity})`;
             strokeRgba = 'rgba(255, 255, 255, 0.2)';
         } else if (this.dockUI.actor._tooltipBg) {
             const css = this.dockUI.actor._tooltipBg;

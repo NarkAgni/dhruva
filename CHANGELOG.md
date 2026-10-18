@@ -1,3 +1,14 @@
+## [4.5] - 18-10-2026
+
+### New
+* **Right Click Context Menu (#88):** Added dynamic panel support to seamlessly adapt and handle panel layouts with flexible sizing and automated spacing.
+* **Background opacity (#88):** Background opacity of right click context menus, folder popups, tray menu, and overflow menu when blur is off.
+* **Search Button on Setting:** Now you can search any setting using search button.
+* **Buy My Coffee Button:** Add Buy Me a Coffee Button next to Search Button.
+
+### Fixed
+* **Blur Page:** Fix Highlight on Predefined options and added custom button.
+
 ## [4.4] - 17-10-2026
 
 ### New

@@ -44,7 +44,7 @@ const THEMES = () => [
     { name: _('Slate Ocean'), value: 'slate-ocean' },
 ];
 
-const BACKGROUND_KEYS = ['background-color', 'use-gradient', 'background-gradient-color', 'gradient-direction', 'background-opacity'];
+const BACKGROUND_KEYS = ['background-color', 'use-gradient', 'background-gradient-color', 'gradient-direction', 'background-opacity', 'context-menu-opacity'];
 const SHAPE_KEYS = ['border-radius', 'stroke-width', 'stroke-color', 'stroke-opacity'];
 const INDICATOR_KEYS = ['indicator-style', 'indicator-color-mode', 'indicator-color', 'indicator-size', 'indicator-glow'];
 
@@ -248,7 +248,9 @@ export function buildAppearancePage(window, settings) {
         { name: _('Vertical'), value: 'vertical' },
         { name: _('Horizontal'), value: 'horizontal' },
     ]);
-    addSliderRow(themeGroup, settings, 'background-opacity', _('Opacity'), null, { lower: 0, upper: 100, step: 5 }, fmt.percent);
+    addSliderRow(themeGroup, settings, 'background-opacity', _('Opacity'), _('Background opacity of dock and panel'), { lower: 0, upper: 100, step: 5 }, fmt.percent);
+    addSliderRow(themeGroup, settings, 'context-menu-opacity', _('Menu &amp; Popup Opacity'),
+        _('Background opacity of context menus, folders, tray and overflow popups'), { lower: 0, upper: 100, step: 5 }, fmt.percent);
 
     showWhen(chameleonRow, settings, ['dock-theme'], () => settings.get_string('dock-theme') === 'chameleon');
     showWhen(colorRow, settings, ['dock-theme'], isCustom);

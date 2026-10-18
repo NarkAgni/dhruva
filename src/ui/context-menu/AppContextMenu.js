@@ -491,8 +491,8 @@ export default class AppContextMenu {
         let [, panelH] = this.menuContainer.get_preferred_height(-1);
 
         const currentMonData = this.dockUI.monitorManager ? this.dockUI.monitorManager.getCurrentMonitor() : null;
-        const monitor = (currentMonData && currentMonData.monitor) 
-            ? currentMonData.monitor 
+        const monitor = (currentMonData && currentMonData.monitor)
+            ? currentMonData.monitor
             : Main.layoutManager.primaryMonitor || { x: 0, y: 0, width: global.stage.width, height: global.stage.height };
 
         if (!monitor) {
@@ -562,6 +562,12 @@ export default class AppContextMenu {
     }
 
     show(dockPosition) {
+        const isDockIcon = this.buttonActor && !this.buttonActor._inFolder && Boolean(this.peekManager);
+        if (isDockIcon && !Settings.enableContextMenu && !this.isCtrlPressed) {
+            this.hide();
+            return;
+        }
+
         this._dockPos = dockPosition;
         this._isFirstPosition = true;
 
