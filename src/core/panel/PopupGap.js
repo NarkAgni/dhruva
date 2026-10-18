@@ -182,24 +182,27 @@ export function hookPopupGap(dockUI, menu) {
 
 export function unhookPopupGap(menu) {
     const state = menu._dhruvaGapState;
-    if (!state) return;
-
-    if (state.measureId && state.timers) {
-        state.timers.remove(state.measureId);
-        state.measureId = 0;
+    if (state) {
+        if (state.measureId && state.timers) {
+            state.timers.remove(state.measureId);
+            state.measureId = 0;
+        }
+        if (state.timers) {
+            state.timers.destroy();
+            state.timers = null;
+        }
+        menu.disconnectObject(state);
+        menu.box.disconnectObject(state);
+        const boxPointer = state.boxPointer;
+        if (isActorAlive(boxPointer)) {
+            delete boxPointer.open;
+            delete boxPointer.close;
+            boxPointer.disconnectObject(state);
+            boxPointer.set_style(state.originalStyle);
+            boxPointer.opacity = state.originalOpacity;
+            boxPointer.translation_x = 0;
+            boxPointer.translation_y = 0;
+        }
+        delete menu._dhruvaGapState;
     }
-    state.timers.destroy();
-    menu.disconnectObject(state);
-    menu.box.disconnectObject(state);
-    const boxPointer = state.boxPointer;
-    if (isActorAlive(boxPointer)) {
-        delete boxPointer.open;
-        delete boxPointer.close;
-        boxPointer.disconnectObject(state);
-        boxPointer.set_style(state.originalStyle);
-        boxPointer.opacity = state.originalOpacity;
-        boxPointer.translation_x = 0;
-        boxPointer.translation_y = 0;
-    }
-    delete menu._dhruvaGapState;
 }

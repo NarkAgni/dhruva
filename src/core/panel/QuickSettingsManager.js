@@ -223,15 +223,17 @@ export default class QuickSettingsManager {
             this._timeouts.remove(this._relayoutId);
             this._relayoutId = 0;
         }
-        if (!this.indicator) return;
+        if (this.indicator) {
+            unhookPopupGap(this.indicator.menu);
+            if (this._state) {
+                this._state.restore();
+                this._state = null;
+            }
+            this._hookedActors = null;
 
-        unhookPopupGap(this.indicator.menu);
-        this._state.restore();
-        this._state = null;
-        this._hookedActors = null;
-
-        this.actor = null;
-        this.indicator = null;
+            this.actor = null;
+            this.indicator = null;
+        }
     }
 
     destroy() {

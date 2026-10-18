@@ -306,25 +306,26 @@ class ExternalDrop {
     }
 
     _end() {
-        if (!this._active) return;
-        this._active = false;
-        this._bgSpread = 0;
+        if (this._active) {
+            this._active = false;
+            this._bgSpread = 0;
 
-        const actor = this._dockUI ? this._dockUI.actor : null;
-        if (!isActorAlive(actor)) return;
+            const actor = this._dockUI ? this._dockUI.actor : null;
+            if (isActorAlive(actor)) {
+                actor._isExternalDragging = false;
+                actor._isDragging = false;
+                actor._gapSpreadTarget = 0;
+                actor._gapSpread = 0;
+                getDockButtons(actor).forEach(btn => {
+                    btn._gapTarget = 0;
+                    btn._gapOffset = 0;
+                    btn._gapSlideTarget = 0;
+                });
 
-        actor._isExternalDragging = false;
-        actor._isDragging = false;
-        actor._gapSpreadTarget = 0;
-        actor._gapSpread = 0;
-        getDockButtons(actor).forEach(btn => {
-            btn._gapTarget = 0;
-            btn._gapOffset = 0;
-            btn._gapSlideTarget = 0;
-        });
-
-        stopDragLoop(actor);
-        resetMagnification(actor, 180, false);
+                stopDragLoop(actor);
+                resetMagnification(actor, 180, false);
+            }
+        }
     }
 
     _drop(source) {
@@ -366,7 +367,8 @@ export function ensureExternalDrop(dockUI) {
 }
 
 export function destroyExternalDrop(dockUI) {
-    if (!dockUI._externalDrop) return;
-    dockUI._externalDrop.destroy();
-    dockUI._externalDrop = null;
+    if (dockUI && dockUI._externalDrop) {
+        dockUI._externalDrop.destroy();
+        dockUI._externalDrop = null;
+    }
 }

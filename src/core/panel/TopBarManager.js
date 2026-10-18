@@ -51,10 +51,11 @@ export default class TopBarManager {
     }
 
     restore() {
-        if (!this._state) return;
-        this._state.restore();
-        this._state = null;
-        Main.layoutManager._queueUpdateRegions();
+        if (this._state) {
+            this._state.restore();
+            this._state = null;
+            Main.layoutManager._queueUpdateRegions();
+        }
     }
 
     destroy() {

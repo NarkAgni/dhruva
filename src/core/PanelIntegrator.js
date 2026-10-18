@@ -146,7 +146,7 @@ export default class PanelIntegrator {
             x_align: Clutter.ActorAlign.CENTER,
         });
 
-        btn.connect('clicked', () => Main.overview.toggle());
+        btn.connectObject('clicked', () => Main.overview.toggle(), this);
 
         this._overviewBtn = btn;
         this._updateWorkspacePills();
@@ -157,8 +157,8 @@ export default class PanelIntegrator {
         const { height, radius } = panelItemMetrics();
         this._secondaryClockSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
         const isVertical = this._isVertical();
-        const clock = new ClockBox(this._secondaryClockSettings, isVertical);
-        const update = () => clock.update();
+        this._secondaryClock = new ClockBox(this._secondaryClockSettings, isVertical);
+        const update = () => this._secondaryClock.update();
 
         const dateMenu = Main.panel.statusArea.dateMenu;
         if (dateMenu) dateMenu._clock.connectObject('notify::clock', update, this);
@@ -171,7 +171,7 @@ export default class PanelIntegrator {
         update();
 
         const btn = new St.Button({
-            child: clock.actor,
+            child: this._secondaryClock.actor,
             style_class: 'panel-button',
             reactive: true,
             can_focus: false,
@@ -182,10 +182,10 @@ export default class PanelIntegrator {
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        btn.connect('clicked', () => {
+        btn.connectObject('clicked', () => {
             const dm = Main.panel.statusArea.dateMenu;
             if (dm) dm.menu.toggle();
-        });
+        }, this);
 
         this._secondaryClockBtn = btn;
         return btn;
@@ -198,7 +198,12 @@ export default class PanelIntegrator {
             this._secondaryClockSettings.disconnectObject(this);
             this._secondaryClockSettings = null;
         }
+        if (this._secondaryClock) {
+            this._secondaryClock.destroy();
+            this._secondaryClock = null;
+        }
         if (isActorAlive(this._secondaryClockBtn)) {
+            this._secondaryClockBtn.disconnectObject(this);
             this._secondaryClockBtn.destroy();
         }
         this._secondaryClockBtn = null;
@@ -345,27 +350,32 @@ export default class PanelIntegrator {
     }
 
     restore() {
-        if (!this._isIntegrated) return;
+        if (this._isIntegrated) {
+            this._disconnectWorkspaceSignals();
+            this.container.disconnectObject(this);
+            this.leftContainer.disconnectObject(this);
+            if (isActorAlive(this._overviewBtn)) {
+                this._overviewBtn.disconnectObject(this);
+            }
 
-        this._disconnectWorkspaceSignals();
-        this.container.disconnectObject(this);
-        this.leftContainer.disconnectObject(this);
+            this._alignState.restore();
+            if (this.isPanelHost) {
+                this.notifications.restore();
+                this.dateMenu.restore();
+                this.quickSettings.restore();
+                this.extensionApplets.restore();
+                this.topBar.restore();
+            } else {
+                this._teardownSecondaryClock();
+            }
 
-        this._alignState.restore();
-        if (this.isPanelHost) {
-            this.notifications.restore();
-            this.dateMenu.restore();
-            this.quickSettings.restore();
-            this.extensionApplets.restore();
-            this.topBar.restore();
-        } else {
-            this._teardownSecondaryClock();
+            this.leftContainer.destroy_all_children();
+            this.container.destroy_all_children();
+            this._overviewBtn = null;
+            this._workspaceIndicator = null;
+
+            this._isIntegrated = false;
         }
-
-        this.leftContainer.destroy_all_children();
-        this.container.destroy_all_children();
-
-        this._isIntegrated = false;
     }
 
     destroy() {

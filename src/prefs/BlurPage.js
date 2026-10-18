@@ -73,11 +73,7 @@ function coverPixbuf(source, w, h) {
 
 function loadPixbuf(path) {
     if (!path || !GLib.file_test(path, GLib.FileTest.EXISTS)) return null;
-    try {
-        return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, SOURCE_MAX_WIDTH, -1, true);
-    } catch (_e) {
-        return null;
-    }
+    return GdkPixbuf.Pixbuf.new_from_file_at_scale(path, SOURCE_MAX_WIDTH, -1, true);
 }
 
 class BlurPreview {
@@ -543,12 +539,9 @@ function pickCustomPhoto(window, settings, cancellable = null) {
 }
 
 function showCropDialog(window, settings, sourcePath, onCropped) {
-    let pixbuf;
-    try {
-        pixbuf = GdkPixbuf.Pixbuf.new_from_file(sourcePath);
-    } catch (_e) {
-        return;
-    }
+    if (!sourcePath || !GLib.file_test(sourcePath, GLib.FileTest.EXISTS)) return;
+    const pixbuf = GdkPixbuf.Pixbuf.new_from_file(sourcePath);
+    if (!pixbuf) return;
 
     const origW = pixbuf.get_width();
     const origH = pixbuf.get_height();

@@ -618,11 +618,12 @@ export default class TrayMenu {
     }
 
     hide() {
-        if (this._isHiding) return;
-        this._isHiding = true;
-        this._shown = false;
-        this._isManaging = false;
-        this._cleanup();
+        if (!this._isHiding) {
+            this._isHiding = true;
+            this._shown = false;
+            this._isManaging = false;
+            this._cleanup();
+        }
     }
 
     _cleanup() {

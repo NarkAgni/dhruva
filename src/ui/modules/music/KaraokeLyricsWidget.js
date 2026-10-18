@@ -18,6 +18,7 @@
 
 
 import St from 'gi://St';
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import GObject from 'gi://GObject';
@@ -59,7 +60,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
         this._measuredCurrentW = 0;
         this._measuredPreviousW = 0;
 
-        this._isDestroyed = false;
+        this._cancellable = new Gio.Cancellable();
         this._tracker = new TimeoutTracker();
         this._fontDesc = Pango.FontDescription.from_string('Sans Bold 11');
 
@@ -78,7 +79,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     }
 
     setLyricLine(text, durationMs = 3500) {
-        if (this._isDestroyed || !isActorAlive(this)) return;
+        if (!this._cancellable || !isActorAlive(this)) return;
 
         const safe = text ? text.trim() : '';
 
@@ -108,7 +109,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     }
 
     _startSlide(lineDurationMs) {
-        if (this._isDestroyed) return;
+        if (!this._cancellable) return;
 
         this._slideProgress = 0.0;
         this._slideStartTime = Date.now();
@@ -116,7 +117,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
 
         this._stopSlide();
         this._slideTickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
-            if (this._isDestroyed || !isActorAlive(this)) {
+            if (!this._cancellable || !isActorAlive(this)) {
                 this._slideTickId = 0;
                 return GLib.SOURCE_REMOVE;
             }
@@ -148,7 +149,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     }
 
     _evaluateMarquee(allocatedTimeMs) {
-        if (this._isDestroyed || !isActorAlive(this) || !this._currentText) return;
+        if (!this._cancellable || !isActorAlive(this) || !this._currentText) return;
 
         const w = this.width || 160;
         if (this._measuredCurrentW <= w) {
@@ -170,7 +171,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     _startMarquee() {
         this._stopMarquee();
         this._marqueeTickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
-            if (this._isDestroyed || !isActorAlive(this) || !this._currentText || this._slideActive) {
+            if (!this._cancellable || !isActorAlive(this) || !this._currentText || this._slideActive) {
                 this._marqueeTickId = 0;
                 return GLib.SOURCE_REMOVE;
             }
@@ -206,7 +207,7 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     }
 
     vfunc_repaint() {
-        if (this._isDestroyed || !isActorAlive(this)) return;
+        if (!this._cancellable || !isActorAlive(this)) return;
         if (!this._currentText && !this._previousText) return;
 
         const cr = this.get_context();
@@ -270,7 +271,16 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     }
 
     _cleanup() {
-        this._isDestroyed = true;
-        this._tracker.destroy();
+        this._stopSlide();
+        this._stopMarquee();
+        if (this._cancellable) {
+            this._cancellable.cancel();
+            this._cancellable = null;
+        }
+        if (this._tracker) {
+            this._tracker.destroy();
+            this._tracker = null;
+        }
+        this.disconnectObject(this);
     }
 });

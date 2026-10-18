@@ -91,29 +91,21 @@ function getCrispEmojiIcon(emojiText, renderSize) {
     const emojiFile = Gio.File.new_for_path(GLib.build_filenamev([emojiDir, `emoji_${hash}.png`]));
 
     if (!emojiFile.query_exists(null)) {
-        try {
-            const surface = new cairo.ImageSurface(cairo.Format.ARGB32, EMOJI_TEXTURE_SIZE, EMOJI_TEXTURE_SIZE);
-            const cr = new cairo.Context(surface);
+        const surface = new cairo.ImageSurface(cairo.Format.ARGB32, EMOJI_TEXTURE_SIZE, EMOJI_TEXTURE_SIZE);
+        const cr = new cairo.Context(surface);
 
-            const layout = PangoCairo.create_layout(cr);
-            layout.set_text(emojiText, -1);
+        const layout = PangoCairo.create_layout(cr);
+        layout.set_text(emojiText, -1);
 
-            const fontDesc = Pango.FontDescription.from_string('Noto Color Emoji 83px');
-            layout.set_font_description(fontDesc);
+        const fontDesc = Pango.FontDescription.from_string('Noto Color Emoji 83px');
+        layout.set_font_description(fontDesc);
 
-            const [tw, th] = layout.get_pixel_size();
-            cr.moveTo((EMOJI_TEXTURE_SIZE - tw) / 2, (EMOJI_TEXTURE_SIZE - th) / 2);
-            PangoCairo.show_layout(cr, layout);
+        const [tw, th] = layout.get_pixel_size();
+        cr.moveTo((EMOJI_TEXTURE_SIZE - tw) / 2, (EMOJI_TEXTURE_SIZE - th) / 2);
+        PangoCairo.show_layout(cr, layout);
 
-            surface.writeToPNG(emojiFile.get_path());
-            cr.$dispose();
-        } catch (_e) {
-            return new St.Icon({
-                icon_name: 'folder',
-                icon_size: renderSize,
-                style_class: 'dock-grid-icon'
-            });
-        }
+        surface.writeToPNG(emojiFile.get_path());
+        cr.$dispose();
     }
 
     return new St.Icon({

@@ -186,40 +186,39 @@ function _patchWm() {
 }
 
 function _unpatchWm() {
-    if (!_origShouldAnimate) return;
+    if (_origShouldAnimate) {
+        if (Main.wm) Main.wm._shouldAnimateActor = _origShouldAnimate;
+        if (Main.wm && Main.wm._shellwm) {
+            Main.wm._shellwm.completed_minimize = _origCompletedMinimize;
+            Main.wm._shellwm.completed_unminimize = _origCompletedUnminimize;
+            if (_origCompletedMap) Main.wm._shellwm.completed_map = _origCompletedMap;
+        }
 
-    if (Main.wm) Main.wm._shouldAnimateActor = _origShouldAnimate;
-    if (Main.wm && Main.wm._shellwm) {
-        Main.wm._shellwm.completed_minimize = _origCompletedMinimize;
-        Main.wm._shellwm.completed_unminimize = _origCompletedUnminimize;
-        if (_origCompletedMap) Main.wm._shellwm.completed_map = _origCompletedMap;
+        _origShouldAnimate = null;
+        _origCompletedMinimize = null;
+        _origCompletedUnminimize = null;
+        _origCompletedMap = null;
     }
-
-    _origShouldAnimate = null;
-    _origCompletedMinimize = null;
-    _origCompletedUnminimize = null;
-    _origCompletedMap = null;
 }
 
 export function finishMinimizeEffect(actor) {
     _removeAnimatingActor(actor);
-    if (!isActorAlive(actor)) return;
-    if (_origCompletedMinimize && Main.wm && Main.wm._shellwm) {
+    if (isActorAlive(actor) && _origCompletedMinimize && Main.wm && Main.wm._shellwm) {
         _origCompletedMinimize.call(Main.wm._shellwm, actor);
     }
 }
 
 export function finishRestoreEffect(actor) {
     _removeAnimatingActor(actor);
-    if (!isActorAlive(actor)) return;
-
-    if (actor._isDhruvaLaunching) {
-        actor._isDhruvaLaunching = false;
-        if (_origCompletedMap && Main.wm && Main.wm._shellwm) {
-            _origCompletedMap.call(Main.wm._shellwm, actor);
+    if (isActorAlive(actor)) {
+        if (actor._isDhruvaLaunching) {
+            actor._isDhruvaLaunching = false;
+            if (_origCompletedMap && Main.wm && Main.wm._shellwm) {
+                _origCompletedMap.call(Main.wm._shellwm, actor);
+            }
+        } else if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm) {
+            _origCompletedUnminimize.call(Main.wm._shellwm, actor);
         }
-    } else if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm) {
-        _origCompletedUnminimize.call(Main.wm._shellwm, actor);
     }
 }
 
@@ -447,21 +446,20 @@ export function teardownWindowEffects(dockUI) {
     if (idx !== -1) _docks.splice(idx, 1);
     if (_docks.length > 0) {
         if (_dockUI === dockUI) _dockUI = _docks[0];
-        return;
+    } else {
+        global.window_manager.disconnectObject(WM_SIGNAL_OWNER);
+        _clearEffectIdles();
+
+        _animatingActors.length = 0;
+        _pendingActor = null;
+        _pendingIcon = null;
+        _pendingDockPos = null;
+        _pendingLaunchActor = null;
+        _settings = null;
+        _dockUI = null;
+
+        _unpatchWm();
     }
-
-    global.window_manager.disconnectObject(WM_SIGNAL_OWNER);
-    _clearEffectIdles();
-
-    _animatingActors.length = 0;
-    _pendingActor = null;
-    _pendingIcon = null;
-    _pendingDockPos = null;
-    _pendingLaunchActor = null;
-    _settings = null;
-    _dockUI = null;
-
-    _unpatchWm();
 }
 
 export function animateMinimize(win, btn, dockPosition) {

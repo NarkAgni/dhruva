@@ -25,22 +25,23 @@ import { isActorAlive } from '../../core/Utils.js';
 
 
 export function refreshTrashState(dockUI) {
+    const cancellable = (dockUI && dockUI._cancellable) ? dockUI._cancellable : null;
     const trash = Gio.File.new_for_uri('trash:///');
-    trash.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, null, (file, res) => {
+    trash.enumerate_children_async('standard::name', Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, cancellable, (file, res) => {
         let enumerator;
         try {
             enumerator = file.enumerate_children_finish(res);
         } catch (_e) {
             return;
         }
-        enumerator.next_files_async(1, GLib.PRIORITY_LOW, null, (e, filesRes) => {
+        enumerator.next_files_async(1, GLib.PRIORITY_LOW, cancellable, (e, filesRes) => {
             let isFull = false;
             try {
                 isFull = e.next_files_finish(filesRes).length > 0;
             } catch (_err) {
                 isFull = false;
             }
-            enumerator.close_async(GLib.PRIORITY_LOW, null, () => {});
+            enumerator.close_async(GLib.PRIORITY_LOW, cancellable, () => {});
 
             if (isFull === dockUI._trashIsFull) return;
             dockUI._trashIsFull = isFull;

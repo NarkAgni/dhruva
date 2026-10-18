@@ -275,28 +275,23 @@ export class EdgeDetection {
         this._teardownBarriers();
         this._lastBarrierKey = barrierKey;
 
-        try {
-            this._barrier = new Meta.Barrier({
-                backend: global.backend,
-                ...props,
-            });
+        this._barrier = new Meta.Barrier({
+            backend: global.backend,
+            ...props,
+        });
 
-            const dwellDelay = Settings.edgeDwellDelay || DEFAULT_BARRIER_DWELL_MS;
+        const dwellDelay = Settings.edgeDwellDelay || DEFAULT_BARRIER_DWELL_MS;
 
-            this._pressure = new Layout.PressureBarrier(
-                dwellDelay,
-                PRESSURE_BARRIER_TIMEOUT_MS,
-                Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW
-            );
+        this._pressure = new Layout.PressureBarrier(
+            dwellDelay,
+            PRESSURE_BARRIER_TIMEOUT_MS,
+            Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW
+        );
 
-            this._pressure.addBarrier(this._barrier);
-            this._pressure.connectObject('trigger', () => {
-                if (this.onEdgeTrigger) this.onEdgeTrigger();
-            }, this);
-        } catch (e) {
-            console.warn('[Dhruva] Could not initialize pressure barrier, using chrome trigger fallback:', e);
-            this._teardownBarriers();
-        }
+        this._pressure.addBarrier(this._barrier);
+        this._pressure.connectObject('trigger', () => {
+            if (this.onEdgeTrigger) this.onEdgeTrigger();
+        }, this);
     }
 
     setPassThrough(passThrough) {

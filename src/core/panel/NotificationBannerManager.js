@@ -93,10 +93,11 @@ export default class NotificationBannerManager {
     }
 
     restore() {
-        if (!this._state) return;
-        this._state.restore();
-        this._state = null;
-        this._anchor = null;
+        if (this._state) {
+            this._state.restore();
+            this._state = null;
+            this._anchor = null;
+        }
     }
 
     destroy() {

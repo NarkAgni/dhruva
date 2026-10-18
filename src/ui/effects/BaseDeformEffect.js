@@ -125,20 +125,21 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
     }
 
     _finish() {
-        if (this._finished) return;
-        this._finished = true;
+        if (!this._finished) {
+            this._finished = true;
 
-        if (this._timeline) {
-            this._timeline.stop();
-            this._timeline.disconnectObject(this);
-            this._timeline = null;
-        }
+            if (this._timeline) {
+                this._timeline.stop();
+                this._timeline.disconnectObject(this);
+                this._timeline = null;
+            }
 
-        const actor = this.get_actor();
-        if (actor) {
-            actor.disconnectObject(this);
-            actor.remove_effect(this);
-            this._onDone(actor);
+            const actor = this.get_actor();
+            if (actor) {
+                actor.disconnectObject(this);
+                actor.remove_effect(this);
+                this._onDone(actor);
+            }
         }
     }
 
@@ -147,15 +148,16 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
     }
 
     _onDone(actor) {
-        if (!actor) return;
-        if (this._isRestore) {
-            actor.show();
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            finishRestoreEffect(actor);
-        } else {
-            actor.hide();
-            if (actor.remove_all_transitions) actor.remove_all_transitions();
-            finishMinimizeEffect(actor);
+        if (actor) {
+            if (this._isRestore) {
+                actor.show();
+                if (actor.remove_all_transitions) actor.remove_all_transitions();
+                finishRestoreEffect(actor);
+            } else {
+                actor.hide();
+                if (actor.remove_all_transitions) actor.remove_all_transitions();
+                finishMinimizeEffect(actor);
+            }
         }
     }
 

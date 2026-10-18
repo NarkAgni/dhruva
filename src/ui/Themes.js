@@ -18,6 +18,7 @@
 
 
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
 
@@ -185,75 +186,71 @@ export function getChameleonAccentColor(rawR, rawG, rawB) {
 }
 
 export function extractWallpaperDominantColor() {
-    try {
-        const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
+    const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
 
-        let wallpaperUri = bgSettings.get_string('picture-uri-dark');
-        if (!wallpaperUri) {
-            wallpaperUri = bgSettings.get_string('picture-uri');
-        }
-
-        if (!wallpaperUri) return null;
-
-        const file = Gio.File.new_for_uri(wallpaperUri);
-        const path = file.get_path();
-        if (!path) return null;
-
-        const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false);
-        if (!pixbuf) return null;
-
-        const w = pixbuf.get_width();
-        const h = pixbuf.get_height();
-        const channels = pixbuf.get_n_channels();
-        const rowstride = pixbuf.get_rowstride();
-        const pixels = pixbuf.get_pixels();
-
-        let totalR = 0;
-        let totalG = 0;
-        let totalB = 0;
-        let count = 0;
-
-        for (let y = 0; y < h; y += WALLPAPER_PIXEL_STEP) {
-            for (let x = 0; x < w; x += WALLPAPER_PIXEL_STEP) {
-                const idx = y * rowstride + x * channels;
-                if (idx + 2 >= pixels.length) continue;
-
-                const r = pixels[idx];
-                const g = pixels[idx + 1];
-                const b = pixels[idx + 2];
-
-                const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-                if (luminance < 15 || luminance > 240) continue;
-
-                totalR += r;
-                totalG += g;
-                totalB += b;
-                count++;
-            }
-        }
-
-        if (count === 0) {
-            return {
-                bg: DEFAULT_THEME_BG,
-                raw: DEFAULT_THEME_RAW
-            };
-        }
-
-        const rawR = Math.floor(totalR / count);
-        const rawG = Math.floor(totalG / count);
-        const rawB = Math.floor(totalB / count);
-
-        const bgR = Math.floor(rawR * 0.55);
-        const bgG = Math.floor(rawG * 0.55);
-        const bgB = Math.floor(rawB * 0.55);
-
-        return {
-            bg: { r: bgR, g: bgG, b: bgB },
-            raw: { r: rawR, g: rawG, b: rawB }
-        };
-    } catch (_e) {
-        return null;
+    let wallpaperUri = bgSettings.get_string('picture-uri-dark');
+    if (!wallpaperUri) {
+        wallpaperUri = bgSettings.get_string('picture-uri');
     }
+
+    if (!wallpaperUri) return null;
+
+    const file = Gio.File.new_for_uri(wallpaperUri);
+    const path = file.get_path();
+    if (!path || !GLib.file_test(path, GLib.FileTest.EXISTS)) return null;
+
+    const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false);
+    if (!pixbuf) return null;
+
+    const w = pixbuf.get_width();
+    const h = pixbuf.get_height();
+    const channels = pixbuf.get_n_channels();
+    const rowstride = pixbuf.get_rowstride();
+    const pixels = pixbuf.get_pixels();
+
+    let totalR = 0;
+    let totalG = 0;
+    let totalB = 0;
+    let count = 0;
+
+    for (let y = 0; y < h; y += WALLPAPER_PIXEL_STEP) {
+        for (let x = 0; x < w; x += WALLPAPER_PIXEL_STEP) {
+            const idx = y * rowstride + x * channels;
+            if (idx + 2 >= pixels.length) continue;
+
+            const r = pixels[idx];
+            const g = pixels[idx + 1];
+            const b = pixels[idx + 2];
+
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            if (luminance < 15 || luminance > 240) continue;
+
+            totalR += r;
+            totalG += g;
+            totalB += b;
+            count++;
+        }
+    }
+
+    if (count === 0) {
+        return {
+            bg: DEFAULT_THEME_BG,
+            raw: DEFAULT_THEME_RAW
+        };
+    }
+
+    const rawR = Math.floor(totalR / count);
+    const rawG = Math.floor(totalG / count);
+    const rawB = Math.floor(totalB / count);
+
+    const bgR = Math.floor(rawR * 0.55);
+    const bgG = Math.floor(rawG * 0.55);
+    const bgB = Math.floor(rawB * 0.55);
+
+    return {
+        bg: { r: bgR, g: bgG, b: bgB },
+        raw: { r: rawR, g: rawG, b: rawB }
+    };
 }
 
 export function applyDockTheme(bgActor, themeId, baseLayoutCss, customConfig) {

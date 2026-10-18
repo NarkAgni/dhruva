@@ -651,13 +651,13 @@ function _captureMagnifierVisuals(dockUI) {
 function _destroyDetachedButton(dockUI, propName) {
     const btn = dockUI[propName];
     dockUI[propName] = null;
-    if (!isActorAlive(btn)) return;
-
-    if (btn.get_parent() === dockUI.actor) {
-         dockUI.actor.remove_child(btn);
+    if (isActorAlive(btn)) {
+        if (btn.get_parent() === dockUI.actor) {
+            dockUI.actor.remove_child(btn);
+        }
+        markActorDisposed(btn);
+        btn.destroy();
     }
-    markActorDisposed(btn);
-    btn.destroy();
 }
 
 function _modButtonName(modBtn) {
@@ -1019,22 +1019,22 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
 }
 
 export function cleanupDockRenderer(dockUI) {
-    if (!dockUI || !dockUI.registry) return;
-
-    if (dockUI.actor && dockUI.actor._launchTimeoutId) {
-        dockUI.registry.remove(dockUI.actor._launchTimeoutId);
-        dockUI.actor._launchTimeoutId = 0;
-    }
-    if (dockUI._magnifierSetupIdleId) {
-        dockUI.registry.remove(dockUI._magnifierSetupIdleId);
-        dockUI._magnifierSetupIdleId = 0;
-    }
-    if (dockUI._delayedRenderId) {
-        dockUI.registry.remove(dockUI._delayedRenderId);
-        dockUI._delayedRenderId = 0;
-    }
-    if (dockUI._pendingRenderIdleId) {
-        dockUI.registry.remove(dockUI._pendingRenderIdleId);
-        dockUI._pendingRenderIdleId = 0;
+    if (dockUI && dockUI.registry) {
+        if (dockUI.actor && dockUI.actor._launchTimeoutId) {
+            dockUI.registry.remove(dockUI.actor._launchTimeoutId);
+            dockUI.actor._launchTimeoutId = 0;
+        }
+        if (dockUI._magnifierSetupIdleId) {
+            dockUI.registry.remove(dockUI._magnifierSetupIdleId);
+            dockUI._magnifierSetupIdleId = 0;
+        }
+        if (dockUI._delayedRenderId) {
+            dockUI.registry.remove(dockUI._delayedRenderId);
+            dockUI._delayedRenderId = 0;
+        }
+        if (dockUI._pendingRenderIdleId) {
+            dockUI.registry.remove(dockUI._pendingRenderIdleId);
+            dockUI._pendingRenderIdleId = 0;
+        }
     }
 }

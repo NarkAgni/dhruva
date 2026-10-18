@@ -66,6 +66,9 @@ export default class FolderMenu {
 
         this.actor.connectObject('destroy', () => {
             Main.sessionMode.disconnectObject(this);
+            if (this.dockUI && this.dockUI.appManager && this.dockUI.appManager.appSystem) {
+                this.dockUI.appManager.appSystem.disconnectObject(this.actor);
+            }
             if (this._internalSaveResetId) {
                 this.timers.remove(this._internalSaveResetId);
                 this._internalSaveResetId = 0;
@@ -391,54 +394,55 @@ export default class FolderMenu {
     }
 
     hide() {
-        if (!this.actor) return;
+        if (this.actor) {
+            if (this._showDelayId) {
+                this.timers.remove(this._showDelayId);
+                this._showDelayId = 0;
+            }
 
-        if (this._showDelayId) {
-            this.timers.remove(this._showDelayId);
-            this._showDelayId = 0;
-        }
+            if (this._posTrackerId) {
+                this.timers.remove(this._posTrackerId);
+                this._posTrackerId = 0;
+            }
+            
+            if (this._emojiOverlay && isActorAlive(this._emojiOverlay)) {
+                this._emojiOverlay.destroy();
+                this._emojiOverlay = null;
+            }
 
-        if (this._posTrackerId) {
-            this.timers.remove(this._posTrackerId);
-            this._posTrackerId = 0;
-        }
-        
-        if (this._emojiOverlay && isActorAlive(this._emojiOverlay)) {
-            this._emojiOverlay.destroy();
-            this._emojiOverlay = null;
-        }
+            if (this.dockUI && isActorAlive(this.dockUI.actor)) {
+                this.dockUI.actor.disconnectObject(this);
+                setMagnifierPauseState(this.dockUI.actor, 'folder-menu', false);
+            }
 
-        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
-            this.dockUI.actor.disconnectObject(this);
-            setMagnifierPauseState(this.dockUI.actor, 'folder-menu', false);
-        }
+            if (this.dockUI && this.dockUI._activeFolderMenu === this) {
+                this.dockUI._activeFolderMenu = null;
+            }
 
-        if (this.dockUI && this.dockUI._activeFolderMenu === this) {
-            this.dockUI._activeFolderMenu = null;
-        }
+            const actor = this.actor;
+            const menuContainer = this.menuContainer;
+            this.actor = null;
+            this.menuContainer = null;
+            actor.reactive = false;
 
-        const actor = this.actor;
-        const menuContainer = this.menuContainer;
-        this.actor = null;
-        this.menuContainer = null;
-        actor.reactive = false;
+            const dispose = () => {
+                if (isActorAlive(actor)) {
+                    if (actor.get_parent()) Main.layoutManager.removeChrome(actor);
+                    actor.destroy();
+                }
+            };
 
-        const dispose = () => {
-            if (!isActorAlive(actor)) return;
-            if (actor.get_parent()) Main.layoutManager.removeChrome(actor);
-            actor.destroy();
-        };
-
-        if (isActorAlive(menuContainer) && actor.get_stage()) {
-            menuContainer.remove_all_transitions();
-            menuContainer.ease({
-                opacity: 0,
-                duration: 120,
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onStopped: dispose
-            });
-        } else {
-            dispose();
+            if (isActorAlive(menuContainer) && actor.get_stage()) {
+                menuContainer.remove_all_transitions();
+                menuContainer.ease({
+                    opacity: 0,
+                    duration: 120,
+                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                    onStopped: dispose
+                });
+            } else {
+                dispose();
+            }
         }
     }
 }

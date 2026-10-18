@@ -457,46 +457,49 @@ export class BlurPanel {
     }
 
     destroy() {
-        if (!this.blurActor) return;
+        if (this.blurActor) {
+            Main.sessionMode.disconnectObject(this);
+            if (Main.screenShield) Main.screenShield.disconnectObject(this);
+            if (this._loaderActor) {
+                this._loaderActor.disconnectObject(this);
+                this._loaderActor = null;
+            }
+            if (this._initialSyncId) {
+                this._timeouts.remove(this._initialSyncId);
+                this._initialSyncId = 0;
+            }
+            if (this._unlockDelayId) {
+                this._timeouts.remove(this._unlockDelayId);
+                this._unlockDelayId = 0;
+            }
+            if (this._timeouts) {
+                this._timeouts.destroy();
+                this._timeouts = null;
+            }
+            if (this._showLaterId) {
+                global.compositor.get_laters().remove(this._showLaterId);
+                this._showLaterId = 0;
+            }
 
-        Main.sessionMode.disconnectObject(this);
-        if (Main.screenShield) Main.screenShield.disconnectObject(this);
-        if (this._loaderActor) {
-            this._loaderActor.disconnectObject(this);
-            this._loaderActor = null;
-        }
-        if (this._initialSyncId) {
-            this._timeouts.remove(this._initialSyncId);
-            this._initialSyncId = 0;
-        }
-        if (this._unlockDelayId) {
-            this._timeouts.remove(this._unlockDelayId);
-            this._unlockDelayId = 0;
-        }
-        this._timeouts.destroy();
-        if (this._showLaterId) {
-            global.compositor.get_laters().remove(this._showLaterId);
-            this._showLaterId = 0;
-        }
+            if (isActorAlive(this.targetActor)) this.targetActor.disconnectObject(this);
+            if (isActorAlive(this.rootContainer)) this.rootContainer.disconnectObject(this);
+            if (isActorAlive(this.blurActor)) this.blurActor.disconnectObject(this);
 
-        if (isActorAlive(this.targetActor)) this.targetActor.disconnectObject(this);
-        if (isActorAlive(this.rootContainer)) this.rootContainer.disconnectObject(this);
-        if (isActorAlive(this.blurActor)) this.blurActor.disconnectObject(this);
+            const blur = this.blurActor;
+            this.blurActor = null;
 
-        const blur = this.blurActor;
-        this.blurActor = null;
+            if (isActorAlive(blur)) {
+                blur.remove_effect(this._effect);
+                blur.destroy();
+                markActorDisposed(blur);
+            }
 
-        if (isActorAlive(blur)) {
-            blur.remove_effect(this._effect);
-            blur.destroy();
-            markActorDisposed(blur);
+            this._effect = null;
+            this._bgClone = null;
+            this._winClone = null;
+            this.targetActor = null;
+            this.rootContainer = null;
+            this.settings = null;
         }
-
-        this._effect = null;
-        this._bgClone = null;
-        this._winClone = null;
-        this.targetActor = null;
-        this.rootContainer = null;
-        this.settings = null;
     }
 }

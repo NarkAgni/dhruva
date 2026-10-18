@@ -707,9 +707,7 @@ export const MusicPill = GObject.registerClass(
                 this._playIcon.icon_name = isPlaying ? 'media-playback-pause-symbolic' : 'media-playback-start-symbolic';
             }
 
-            this._loadArtwork(artUrl).catch(e => {
-                console.warn('[Dhruva] Error loading artwork:', e.message);
-            });
+            this._loadArtwork(artUrl);
 
             if (!this.visible || wasNotValid) {
                 this.show();
@@ -881,60 +879,57 @@ export const MusicPill = GObject.registerClass(
         async _loadArtwork(artUrl) {
             if (!this._cancellable || !isActorAlive(this)) return;
 
-            try {
-                if (!artUrl) {
-                    this._resetArt();
-                    return;
-                }
+            if (!artUrl) {
+                this._resetArt();
+                return;
+            }
 
-                if (artUrl === this._lastArtUrl) return;
+            if (artUrl === this._lastArtUrl) return;
 
-                let localPath = null;
+            let localPath = null;
 
-                if (artUrl.startsWith('file://')) {
-                    localPath = Gio.File.new_for_uri(artUrl).get_path();
-                } else if (artUrl.startsWith('http://') || artUrl.startsWith('https://')) {
-                    localPath = await this._downloadImage(artUrl);
-                } else if (GLib.file_test(artUrl, GLib.FileTest.EXISTS)) {
-                    localPath = artUrl;
-                }
+            if (artUrl.startsWith('file://')) {
+                localPath = Gio.File.new_for_uri(artUrl).get_path();
+            } else if (artUrl.startsWith('http://') || artUrl.startsWith('https://')) {
+                localPath = await this._downloadImage(artUrl);
+            } else if (GLib.file_test(artUrl, GLib.FileTest.EXISTS)) {
+                localPath = artUrl;
+            }
 
-                if (!this._cancellable || !isActorAlive(this)) return;
+            if (!this._cancellable || !isActorAlive(this)) return;
 
-                if (localPath && GLib.file_test(localPath, GLib.FileTest.EXISTS)) {
-                    this._lastArtUrl = localPath;
-                    this._applyArtStyle(localPath);
-                } else {
-                    this._resetArt();
-                }
-            } catch (err) {
+            if (localPath && GLib.file_test(localPath, GLib.FileTest.EXISTS)) {
+                this._lastArtUrl = localPath;
+                this._applyArtStyle(localPath);
+            } else {
                 this._resetArt();
             }
         }
 
         async _downloadImage(url) {
+            if (!this._cancellable) return null;
+
+            const urlParts = url.split('/');
+            let uniqueID = urlParts[urlParts.length - 1].split('?')[0].replace(/[^a-z0-9]/gi, '_');
+            if (!uniqueID || uniqueID.length < 2) uniqueID = 'img_' + Math.floor(Math.random() * 10000);
+
+            const filePath = GLib.build_filenamev([this._cacheDir, uniqueID + '.jpg']);
+            const file = Gio.File.new_for_path(filePath);
+
+            if (file.query_exists(this._cancellable)) return filePath;
+
+            const msg = Soup.Message.new('GET', url);
+            msg.request_headers.append('User-Agent', 'Mozilla/5.0');
+
             try {
-                if (!this._cancellable) return null;
-
-                const urlParts = url.split('/');
-                let uniqueID = urlParts[urlParts.length - 1].split('?')[0].replace(/[^a-z0-9]/gi, '_');
-                if (!uniqueID || uniqueID.length < 2) uniqueID = 'img_' + Math.floor(Math.random() * 10000);
-
-                const filePath = GLib.build_filenamev([this._cacheDir, uniqueID + '.jpg']);
-                const file = Gio.File.new_for_path(filePath);
-
-                if (file.query_exists(null)) return filePath;
-
-                const msg = Soup.Message.new('GET', url);
-                msg.request_headers.append('User-Agent', 'Mozilla/5.0');
-                
                 const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
+                if (!this._cancellable) return null;
 
                 if (msg.status_code === 200 && bytes) {
                     const [success] = file.replace_contents(bytes.get_data(), null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, this._cancellable);
                     if (success) return filePath;
                 }
-            } catch (e) {
+            } catch (_e) {
                 return null;
             }
             return null;
@@ -1065,10 +1060,10 @@ export const MusicPill = GObject.registerClass(
                             return;
                         }
 
-                        enumerator.close_async(GLib.PRIORITY_LOW, null, () => {});
+                        enumerator.close_async(GLib.PRIORITY_LOW, this._cancellable, () => {});
                         files.sort((a, b) => b.time - a.time);
                         for (const { name } of files.slice(MAX_ART_CACHE_FILES))
-                            d.get_child(name).delete_async(GLib.PRIORITY_LOW, null, () => {});
+                            d.get_child(name).delete_async(GLib.PRIORITY_LOW, this._cancellable, () => {});
                     });
                 };
                 readMore();
@@ -1084,6 +1079,11 @@ export const MusicPill = GObject.registerClass(
             if (this._settings) {
                 this._settings.disconnectObject(this);
             }
+
+            [this._prevBtn, this._playBtn, this._nextBtn].forEach(btn => {
+                if (btn) btn.disconnectObject(this);
+            });
+            this.disconnectObject(this);
 
             if (this._popup) {
                 this._popup.destroy();

@@ -147,20 +147,24 @@ export default class DateMenuManager {
             this._timeouts.remove(this._relayoutId);
             this._relayoutId = 0;
         }
-        if (!this.indicator) return;
+        if (this.indicator) {
+            unhookPopupGap(this.indicator.menu);
+            if (this._clock) {
+                this._clock.destroy();
+                this._clock = null;
+            }
 
-        unhookPopupGap(this.indicator.menu);
-        this._clock.destroy();
-        this._clock = null;
+            if (this._state) {
+                this._state.restore();
+                this._state = null;
+            }
 
-        this._state.restore();
-        this._state = null;
+            const dot = this.indicator._indicator;
+            if (dot && dot._sync) dot._sync();
 
-        const dot = this.indicator._indicator;
-        if (dot._sync) dot._sync();
-
-        this.actor = null;
-        this.indicator = null;
+            this.actor = null;
+            this.indicator = null;
+        }
     }
 
     destroy() {

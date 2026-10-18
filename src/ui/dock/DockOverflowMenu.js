@@ -143,30 +143,31 @@ export class DockOverflowMenu {
     }
 
     close() {
-        if (!this._isOpen) return;
-        this._isOpen = false;
+        if (this._isOpen) {
+            this._isOpen = false;
 
-        this._unwatchAnchor();
-        setMagnifierPauseState(this._dockUI.actor, MAGNIFIER_PAUSE_KEY, false);
-        this.button.checked = false;
-        if (global.stage.get_key_focus() === this._overlay) global.stage.set_key_focus(null);
+            this._unwatchAnchor();
+            setMagnifierPauseState(this._dockUI.actor, MAGNIFIER_PAUSE_KEY, false);
+            this.button.checked = false;
+            if (global.stage.get_key_focus() === this._overlay) global.stage.set_key_focus(null);
 
-        if (this._dockUI.autoHideManager) {
-            this._dockUI.autoHideManager.scheduleCheck(100);
+            if (this._dockUI.autoHideManager) {
+                this._dockUI.autoHideManager.scheduleCheck(100);
+            }
+
+            const [ax, ay] = awayFromDock(this._dockUI.dockPosition);
+            this._container.remove_all_transitions();
+            this._container.ease({
+                opacity: 0,
+                translation_x: -ax * CFG.OVERFLOW_SLIDE_PX * 0.6,
+                translation_y: -ay * CFG.OVERFLOW_SLIDE_PX * 0.6,
+                duration: CFG.OVERFLOW_CLOSE_MS,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onComplete: () => {
+                    if (!this._isOpen) this._detachPopup();
+                },
+            });
         }
-
-        const [ax, ay] = awayFromDock(this._dockUI.dockPosition);
-        this._container.remove_all_transitions();
-        this._container.ease({
-            opacity: 0,
-            translation_x: -ax * CFG.OVERFLOW_SLIDE_PX * 0.6,
-            translation_y: -ay * CFG.OVERFLOW_SLIDE_PX * 0.6,
-            duration: CFG.OVERFLOW_CLOSE_MS,
-            mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onComplete: () => {
-                if (!this._isOpen) this._detachPopup();
-            },
-        });
     }
 
     destroy() {
@@ -174,31 +175,32 @@ export class DockOverflowMenu {
     }
 
     _teardown() {
-        if (!this.button) return;
-        this.button = null;
+        if (this.button) {
+            this.button = null;
 
-        if (this._raiseLaterId) {
-            global.compositor.get_laters().remove(this._raiseLaterId);
-            this._raiseLaterId = 0;
-        }
-
-        if (this._isOpen) {
-            this._isOpen = false;
-            this._unwatchAnchor();
-            setMagnifierPauseState(this._dockUI.actor, MAGNIFIER_PAUSE_KEY, false);
-            if (this._dockUI.autoHideManager) {
-                this._dockUI.autoHideManager.scheduleCheck(100);
+            if (this._raiseLaterId) {
+                global.compositor.get_laters().remove(this._raiseLaterId);
+                this._raiseLaterId = 0;
             }
+
+            if (this._isOpen) {
+                this._isOpen = false;
+                this._unwatchAnchor();
+                setMagnifierPauseState(this._dockUI.actor, MAGNIFIER_PAUSE_KEY, false);
+                if (this._dockUI.autoHideManager) {
+                    this._dockUI.autoHideManager.scheduleCheck(100);
+                }
+            }
+            this._container.remove_all_transitions();
+            this._detachPopup();
+            if (this._bubble) this._bubble.disconnectObject(this);
+            if (this._container) this._container.disconnectObject(this);
+            if (this._overlay) {
+                this._overlay.disconnectObject(this);
+                this._overlay.destroy();
+            }
+            if (this._dockUI._overflowMenu === this) this._dockUI._overflowMenu = null;
         }
-        this._container.remove_all_transitions();
-        this._detachPopup();
-        if (this._bubble) this._bubble.disconnectObject(this);
-        if (this._container) this._container.disconnectObject(this);
-        if (this._overlay) {
-            this._overlay.disconnectObject(this);
-            this._overlay.destroy();
-        }
-        if (this._dockUI._overflowMenu === this) this._dockUI._overflowMenu = null;
     }
 
     _buildButton() {

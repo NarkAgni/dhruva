@@ -464,7 +464,7 @@ export class FolderMenuBuilder {
         this.folderData.icon = icon;
         this.dockUI.folderManager.updateFolder(this.folderData.id, this.folderData.name, icon);
         this._saveStyle(true);
-        if (oldIcon !== icon) deleteCustomFolderIcon(this.dockUI, oldIcon);
+        if (oldIcon !== icon) deleteCustomFolderIcon(this.dockUI, oldIcon, this._cancellable);
     }
 
     _openLetterStyle() {
@@ -514,21 +514,16 @@ export class FolderMenuBuilder {
 
     _pickEmojiIcon() {
         this.showEmojiPicker(selectedEmoji => {
-            try {
-                const destPath = GLib.build_filenamev([iconConfigDir(this.dockUI), `emoji_${this.folderData.id}_${Date.now()}.png`]);
-                renderEmojiToPng(selectedEmoji, destPath);
-                this._setFolderIcon(destPath);
-            } catch (e) {
-                console.error('[Dhruva] Emoji error:', e);
-            } finally {
-                this.folderMenu.hide();
-            }
+            const destPath = GLib.build_filenamev([iconConfigDir(this.dockUI), `emoji_${this.folderData.id}_${Date.now()}.png`]);
+            renderEmojiToPng(selectedEmoji, destPath);
+            this._setFolderIcon(destPath);
+            this.folderMenu.hide();
         });
     }
 
     showEmojiPicker(onSelect) {
         const picker = new EmojiPicker(this.folderMenu, onSelect);
-        picker.show().catch(() => { });
+        picker.show();
     }
 
     _isPointerInsideMenu(px, py, margin = 18) {
@@ -625,9 +620,15 @@ export class FolderMenuBuilder {
         this.folderData = this.folderMenu.folderData;
         const oldPositions = new Map();
 
+        if (this._draggables) {
+            this._draggables.forEach(d => d.disconnectObject(this));
+        }
+        this._draggables = [];
+
         if (this.folderMenu.gridMasterBox.get_n_children() > 0) {
             this.folderMenu.gridMasterBox.get_children().forEach(row => {
                 row.get_children().forEach(btn => {
+                    btn.disconnectObject(this);
                     if (btn._appId && isActorAlive(btn)) {
                         const [x, y] = btn.get_transformed_position();
                         oldPositions.set(btn._appId, { x, y });
@@ -805,6 +806,7 @@ export class FolderMenuBuilder {
                     restoreOnSuccess: false,
                     dragActorOpacity: 235
                 });
+                this._draggables.push(draggable);
 
                 draggable.connectObject('drag-begin', () => {
                     this._stopFolderDragMonitor();
@@ -991,6 +993,25 @@ export class FolderMenuBuilder {
         if (this._refreshIdleId && this.timers) {
             this.timers.remove(this._refreshIdleId);
             this._refreshIdleId = 0;
+        }
+
+        if (this._draggables) {
+            this._draggables.forEach(d => d.disconnectObject(this));
+            this._draggables = [];
+        }
+
+        if (this._nameEntry && this._nameEntry.clutter_text) {
+            this._nameEntry.clutter_text.disconnectObject(this);
+        }
+
+        [this._renameBtn, this._plateBtn, this._letterBtn, this._imageBtn, this._emojiBtn, this._resetBtn].forEach(btn => {
+            if (btn) btn.disconnectObject(this);
+        });
+
+        if (this.folderMenu && this.folderMenu.gridMasterBox && isActorAlive(this.folderMenu.gridMasterBox)) {
+            this.folderMenu.gridMasterBox.get_children().forEach(row => {
+                row.get_children().forEach(btn => btn.disconnectObject(this));
+            });
         }
     }
 }

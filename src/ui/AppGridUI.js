@@ -360,6 +360,11 @@ export default class AppGridUI {
     }
 
     _filterApps(searchText) {
+        if (this.appRows && this.appRows.length > 0) {
+            this.appRows.forEach(item => {
+                if (item.widget) item.widget.disconnectObject(this);
+            });
+        }
         if (this.listContainer) {
             this.listContainer.destroy_all_children();
         }
@@ -467,14 +472,7 @@ export default class AppGridUI {
     }
 
     _applyChameleonStyle() {
-        const settings = this.dockUI.settings;
         const themeId = Settings.dockTheme || 'default';
-        let rawOpacity = Settings.backgroundOpacity;
-        try {
-            if (settings) rawOpacity = settings.get_int('context-menu-opacity');
-        } catch (_e) {
-            rawOpacity = Settings.backgroundOpacity;
-        }
         const opacity = Settings.contextMenuOpacity / 100.0;
         const sWidth = Settings.strokeWidth;
         const sColor = Settings.strokeColor || '#ffffff';
@@ -596,6 +594,11 @@ export default class AppGridUI {
         if (this.toggleViewBtn) this.toggleViewBtn.disconnectObject(this);
         if (this.searchEntry && this.searchEntry.clutter_text) {
             this.searchEntry.clutter_text.disconnectObject(this);
+        }
+        if (this.appRows && this.appRows.length > 0) {
+            this.appRows.forEach(item => {
+                if (item.widget) item.widget.disconnectObject(this);
+            });
         }
         this.actor.disconnectObject(this);
         this.panel.disconnectObject(this);

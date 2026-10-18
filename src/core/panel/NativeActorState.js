@@ -98,14 +98,15 @@ export class NativeActorState {
     }
 
     _returnHome({ actor, parent, next, index }) {
-        if (!isActorAlive(actor) || !isActorAlive(parent)) return;
+        if (isActorAlive(actor) && isActorAlive(parent)) {
+            const current = actor.get_parent();
+            if (current !== parent) {
+                if (current) current.remove_child(actor);
 
-        const current = actor.get_parent();
-        if (current === parent) return;
-        if (current) current.remove_child(actor);
-
-        if (next && next.get_parent() === parent) parent.insert_child_below(actor, next);
-        else parent.insert_child_at_index(actor, Math.min(index, parent.get_n_children()));
+                if (next && next.get_parent() === parent) parent.insert_child_below(actor, next);
+                else parent.insert_child_at_index(actor, Math.min(index, parent.get_n_children()));
+            }
+        }
     }
 }
 

@@ -241,7 +241,7 @@ export class MusicPillPopup {
             style: 'margin-bottom: 2px;',
         });
 
-        this._sliderCanvas.connect('repaint', () => this._drawWavySlider());
+        this._sliderCanvas.connectObject('repaint', () => this._drawWavySlider(), this);
 
         this._sliderCanvas.connectObject('button-press-event', (_actor, event) => {
             this._isDragging = true;
@@ -753,20 +753,22 @@ export class MusicPillPopup {
 
     hide() {
         this._disconnectOpenState();
-        if (!this._isOpen) return;
-        this._isOpen = false;
+        if (this._isOpen) {
+            this._isOpen = false;
 
-        this._box.ease({
-            opacity: 0,
-            scale_x: 0.9,
-            scale_y: 0.9,
-            duration: 160,
-            mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onStopped: () => {
-                if (this._isOpen || !isActorAlive(this._overlay)) return;
-                if (this._overlay.get_parent()) Main.layoutManager.uiGroup.remove_child(this._overlay);
-            },
-        });
+            this._box.ease({
+                opacity: 0,
+                scale_x: 0.9,
+                scale_y: 0.9,
+                duration: 160,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onStopped: () => {
+                    if (!this._isOpen && isActorAlive(this._overlay)) {
+                        if (this._overlay.get_parent()) Main.layoutManager.uiGroup.remove_child(this._overlay);
+                    }
+                },
+            });
+        }
     }
 
     toggle() {
@@ -785,6 +787,10 @@ export class MusicPillPopup {
             this._tracker.destroy();
             this._tracker = null;
         }
+
+        [this._overlay, this._artBackground, this._sliderCanvas, this._prevBtn, this._playBtn, this._nextBtn].forEach(actor => {
+            if (actor) actor.disconnectObject(this);
+        });
 
         if (isActorAlive(this._box)) {
             this._box.remove_all_transitions();

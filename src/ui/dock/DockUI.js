@@ -437,11 +437,7 @@ export default class DockUI {
                 }
 
                 const iconRect = pending.iconRect || this._captureActorRect(pending.btn, win);
-                try {
-                    animateLaunch(win, pending.btn, this.dockPosition, iconRect);
-                } catch (_e) {
-                    if (isActorAlive(actor)) actor.opacity = 255;
-                }
+                animateLaunch(win, pending.btn, this.dockPosition, iconRect);
             }
         }, this);
 
@@ -724,10 +720,11 @@ export default class DockUI {
     }
 
     _releaseStrutHolder() {
-        if (!this._strutHolder) return;
-        Main.layoutManager.removeChrome(this._strutHolder);
-        this._strutHolder.destroy();
-        this._strutHolder = null;
+        if (this._strutHolder) {
+            Main.layoutManager.removeChrome(this._strutHolder);
+            this._strutHolder.destroy();
+            this._strutHolder = null;
+        }
     }
 
     _enterOverviewPosition() {
@@ -1241,14 +1238,21 @@ export default class DockUI {
     }
 
     _scheduleCursorResetBurst() {
-        if (this._cursorResetTimeouts) {
-            this._cursorResetTimeouts.forEach(id => this.registry.remove(id));
+        if (!this._cursorResetTimeouts) {
+            this._cursorResetTimeouts = [];
+        } else {
+            for (let i = 0; i < this._cursorResetTimeouts.length; i++) {
+                if (this._cursorResetTimeouts[i]) {
+                    this.registry.remove(this._cursorResetTimeouts[i]);
+                }
+            }
+            this._cursorResetTimeouts = [];
         }
-        this._cursorResetTimeouts = [];
 
         CURSOR_BURST_DELAYS.forEach(delayMs => {
             const timeoutId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, delayMs, () => {
-                this._cursorResetTimeouts = this._cursorResetTimeouts.filter(id => id !== timeoutId);
+                const idx = this._cursorResetTimeouts.indexOf(timeoutId);
+                if (idx !== -1) this._cursorResetTimeouts.splice(idx, 1);
                 const tracker = Shell.WindowTracker.get_default();
 
                 if (tracker.get_startup_sequences) {

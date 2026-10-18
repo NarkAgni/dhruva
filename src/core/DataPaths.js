@@ -43,12 +43,7 @@ function move(from, to) {
     if (!GLib.file_test(from, GLib.FileTest.EXISTS) || GLib.file_test(to, GLib.FileTest.EXISTS)) return false;
 
     GLib.mkdir_with_parents(GLib.path_get_dirname(to), 0o755);
-    try {
-        return Gio.File.new_for_path(from).move(Gio.File.new_for_path(to), Gio.FileCopyFlags.NONE, null, null);
-    } catch (e) {
-        console.warn(`[Dhruva] Could not move ${from}:`, e);
-        return false;
-    }
+    return GLib.rename(from, to) === 0;
 }
 
 function rewrite(text, replacements) {
@@ -95,9 +90,5 @@ export function migrateLegacyPaths(settings) {
         if (updated !== value) settings.set_string(key, updated);
     }
 
-    try {
-        rewriteConfigFiles(configDir, replacements);
-    } catch (e) {
-        console.warn('[Dhruva] Could not update saved icon paths:', e);
-    }
+    rewriteConfigFiles(configDir, replacements);
 }

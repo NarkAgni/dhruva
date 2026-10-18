@@ -154,6 +154,11 @@ export default class AppContextMenu {
         }
         this.timers.destroy();
 
+        if (this.peekManager) {
+            this.peekManager.destroy();
+            this.peekManager = null;
+        }
+
         if (this._blurPanel) {
             this._blurPanel.destroy();
             this._blurPanel = null;
@@ -653,64 +658,66 @@ export default class AppContextMenu {
     }
 
     hide() {
-        if (this._isHiding) return;
-        this._isHiding = true;
+        if (!this._isHiding) {
+            this._isHiding = true;
 
-        if (this._showDelayId) {
-            this.timers.remove(this._showDelayId);
-            this._showDelayId = 0;
-        }
-
-        if (this._posTrackerId) {
-            this.timers.remove(this._posTrackerId);
-            this._posTrackerId = 0;
-        }
-
-        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
-            this.dockUI.actor.disconnectObject(this);
-            setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
-        }
-        if (this.dockUI && this.dockUI._activeContextMenu === this) {
-            this.dockUI._activeContextMenu = null;
-        }
-        if (this.peekManager) this.peekManager.stopPeek();
-
-        if (this.dockUI && isActorAlive(this.dockUI.actor)) {
-            const [px, py] = global.get_pointer();
-            const [dx, dy] = this.dockUI.actor.get_transformed_position();
-            const [dw, dh] = this.dockUI.actor.get_transformed_size();
-            const pad = 15;
-            const isInside = px >= dx - pad && px <= dx + dw + pad && py >= dy - pad && py <= dy + dh + pad;
-
-            if (!isInside) {
-                resetMagnification(this.dockUI.actor, 180, false);
+            if (this._showDelayId) {
+                this.timers.remove(this._showDelayId);
+                this._showDelayId = 0;
             }
-        }
 
-        const actor = this.actor;
-        actor.reactive = false;
-
-        const dispose = () => {
-            if (!isActorAlive(actor)) return;
-            if (global.stage.get_key_focus() === actor) {
-                global.stage.set_key_focus(isActorAlive(this._previousFocus) ? this._previousFocus : null);
+            if (this._posTrackerId) {
+                this.timers.remove(this._posTrackerId);
+                this._posTrackerId = 0;
             }
-            if (actor.get_parent()) Main.layoutManager.removeChrome(actor);
-            actor.destroy();
-        };
 
-        if (isActorAlive(this.menuContainer) && actor.get_stage()) {
-            this.menuContainer.remove_all_transitions();
-            this.menuContainer.ease({
-                opacity: 0,
-                scale_x: 0.95,
-                scale_y: 0.95,
-                duration: 120,
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                onStopped: dispose
-            });
-        } else {
-            dispose();
+            if (this.dockUI && isActorAlive(this.dockUI.actor)) {
+                this.dockUI.actor.disconnectObject(this);
+                setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
+            }
+            if (this.dockUI && this.dockUI._activeContextMenu === this) {
+                this.dockUI._activeContextMenu = null;
+            }
+            if (this.peekManager) this.peekManager.stopPeek();
+
+            if (this.dockUI && isActorAlive(this.dockUI.actor)) {
+                const [px, py] = global.get_pointer();
+                const [dx, dy] = this.dockUI.actor.get_transformed_position();
+                const [dw, dh] = this.dockUI.actor.get_transformed_size();
+                const pad = 15;
+                const isInside = px >= dx - pad && px <= dx + dw + pad && py >= dy - pad && py <= dy + dh + pad;
+
+                if (!isInside) {
+                    resetMagnification(this.dockUI.actor, 180, false);
+                }
+            }
+
+            const actor = this.actor;
+            actor.reactive = false;
+
+            const dispose = () => {
+                if (isActorAlive(actor)) {
+                    if (global.stage.get_key_focus() === actor) {
+                        global.stage.set_key_focus(isActorAlive(this._previousFocus) ? this._previousFocus : null);
+                    }
+                    if (actor.get_parent()) Main.layoutManager.removeChrome(actor);
+                    actor.destroy();
+                }
+            };
+
+            if (isActorAlive(this.menuContainer) && actor.get_stage()) {
+                this.menuContainer.remove_all_transitions();
+                this.menuContainer.ease({
+                    opacity: 0,
+                    scale_x: 0.95,
+                    scale_y: 0.95,
+                    duration: 120,
+                    mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                    onStopped: dispose
+                });
+            } else {
+                dispose();
+            }
         }
     }
 }

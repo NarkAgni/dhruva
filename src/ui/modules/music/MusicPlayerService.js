@@ -55,6 +55,9 @@ export const MusicPlayerService = GObject.registerClass({
             this._tracker = new TimeoutTracker();
             this._cancellable = new Gio.Cancellable();
             this._propSubId = null;
+            this._heartbeatId = 0;
+            this._posTrackerId = 0;
+            this._controlSyncId = 0;
             this._activePlayerBus = null;
             this._playerProxy = null;
             this._propProxy = null;
@@ -111,7 +114,11 @@ export const MusicPlayerService = GObject.registerClass({
         }
 
         _startHeartbeat() {
-            this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 1500, () => {
+            if (this._heartbeatId) {
+                this._tracker.remove(this._heartbeatId);
+                this._heartbeatId = 0;
+            }
+            this._heartbeatId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 1500, () => {
                 if (!this._activePlayerBus) {
                     this._findActivePlayer();
                 } else {
@@ -158,7 +165,11 @@ export const MusicPlayerService = GObject.registerClass({
         }
 
         _startPositionTracker() {
-            this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 250, () => {
+            if (this._posTrackerId) {
+                this._tracker.remove(this._posTrackerId);
+                this._posTrackerId = 0;
+            }
+            this._posTrackerId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 250, () => {
                 if (this._hasPlayer && this._propProxy && this._isPlaying && this._activePlayerBus && this._cancellable) {
                     this._propProxy.call(
                         'Get',
@@ -319,21 +330,17 @@ export const MusicPlayerService = GObject.registerClass({
 
         _syncState() {
             if (!this._playerProxy || !this._cancellable) return;
-            try {
-                const statusV = this._playerProxy.get_cached_property('PlaybackStatus');
-                const status = statusV ? statusV.unpack() : 'Stopped';
-                const wasPlaying = this._isPlaying;
-                this._isPlaying = (status === 'Playing');
+            const statusV = this._playerProxy.get_cached_property('PlaybackStatus');
+            const status = statusV ? statusV.unpack() : 'Stopped';
+            const wasPlaying = this._isPlaying;
+            this._isPlaying = (status === 'Playing');
 
-                const metaV = this._playerProxy.get_cached_property('Metadata');
-                if (metaV) this._parseMetadata(metaV.deepUnpack());
+            const metaV = this._playerProxy.get_cached_property('Metadata');
+            if (metaV) this._parseMetadata(metaV.deepUnpack());
 
-                if (wasPlaying !== this._isPlaying || this._currentMeta.changed) {
-                    this._currentMeta.changed = false;
-                    this._emitChange();
-                }
-            } catch (_e) {
-                this._handlePlayerClosed();
+            if (wasPlaying !== this._isPlaying || this._currentMeta.changed) {
+                this._currentMeta.changed = false;
+                this._emitChange();
             }
         }
 
@@ -430,7 +437,12 @@ export const MusicPlayerService = GObject.registerClass({
                     return;
                 }
                 if (!this._tracker) return;
-                this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
+                if (this._controlSyncId) {
+                    this._tracker.remove(this._controlSyncId);
+                    this._controlSyncId = 0;
+                }
+                this._controlSyncId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
+                    this._controlSyncId = 0;
                     this._syncState();
                     return GLib.SOURCE_REMOVE;
                 });
@@ -519,6 +531,18 @@ export const MusicPlayerService = GObject.registerClass({
                 this._cancellable = null;
             }
             if (this._tracker) {
+                if (this._heartbeatId) {
+                    this._tracker.remove(this._heartbeatId);
+                    this._heartbeatId = 0;
+                }
+                if (this._posTrackerId) {
+                    this._tracker.remove(this._posTrackerId);
+                    this._posTrackerId = 0;
+                }
+                if (this._controlSyncId) {
+                    this._tracker.remove(this._controlSyncId);
+                    this._controlSyncId = 0;
+                }
                 this._tracker.destroy();
                 this._tracker = null;
             }

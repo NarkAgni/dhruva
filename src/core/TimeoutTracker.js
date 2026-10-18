@@ -66,13 +66,14 @@ export class TimeoutTracker {
     }
 
     destroy() {
-        if (!this._sources) return;
-        this._sources.forEach(id => {
-            if (id) {
-                GLib.source_remove(id);
-            }
-        });
-        this._sources.clear();
-        this._sources = null;
+        if (this._sources) {
+            this._sources.forEach(id => {
+                if (id) {
+                    GLib.source_remove(id);
+                }
+            });
+            this._sources.clear();
+            this._sources = null;
+        }
     }
 }

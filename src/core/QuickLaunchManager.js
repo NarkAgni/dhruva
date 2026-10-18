@@ -32,11 +32,11 @@ const QUICK_LAUNCH_KEY_NAMES = [
     'quick-launch-accel-7', 'quick-launch-accel-8', 'quick-launch-accel-9',
 ];
 
-const DIGIT_SYMBOLS = new Map([
-    [Clutter.KEY_1, 1], [Clutter.KEY_2, 2], [Clutter.KEY_3, 3],
-    [Clutter.KEY_4, 4], [Clutter.KEY_5, 5], [Clutter.KEY_6, 6],
-    [Clutter.KEY_7, 7], [Clutter.KEY_8, 8], [Clutter.KEY_9, 9],
-]);
+const DIGIT_KEYS = [
+    Clutter.KEY_1, Clutter.KEY_2, Clutter.KEY_3,
+    Clutter.KEY_4, Clutter.KEY_5, Clutter.KEY_6,
+    Clutter.KEY_7, Clutter.KEY_8, Clutter.KEY_9,
+];
 
 export default class QuickLaunchManager {
     constructor(settings, getTargetDock) {
@@ -75,6 +75,7 @@ export default class QuickLaunchManager {
 
         if (this._dispatchIdleId) {
             this.timers.remove(this._dispatchIdleId);
+            this._dispatchIdleId = 0;
         }
 
         this._dispatchIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT, () => {
@@ -96,8 +97,10 @@ export default class QuickLaunchManager {
         const state = event.get_state ? event.get_state() : 0;
         if (!this._isSuperDigitModifier(state)) return Clutter.EVENT_PROPAGATE;
 
-        const digit = DIGIT_SYMBOLS.get(event.get_key_symbol ? event.get_key_symbol() : 0);
-        if (!digit) return Clutter.EVENT_PROPAGATE;
+        const keySym = event.get_key_symbol ? event.get_key_symbol() : 0;
+        const digitIdx = DIGIT_KEYS.indexOf(keySym);
+        if (digitIdx === -1) return Clutter.EVENT_PROPAGATE;
+        const digit = digitIdx + 1;
 
         this._dispatchDigit(digit);
         return Clutter.EVENT_STOP;
@@ -179,7 +182,10 @@ export default class QuickLaunchManager {
         if (dock.autoHideManager && dock.autoHideManager.isHidden) {
             dock.autoHideManager.show();
 
-            if (this._activateTimeoutId) this.timers.remove(this._activateTimeoutId);
+            if (this._activateTimeoutId) {
+                this.timers.remove(this._activateTimeoutId);
+                this._activateTimeoutId = 0;
+            }
 
             this._activateTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 50, () => {
                 this._activateTimeoutId = 0;

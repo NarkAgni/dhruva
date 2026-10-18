@@ -120,23 +120,18 @@ export function isActorAlive(actor) {
     const disposed = _getDisposedActors();
     if (!actor || disposed.has(actor)) return false;
 
-    try {
-        const str = GObject.Object.prototype.toString.call(actor);
-        if (!str || str.includes('DISPOSED') || str.includes('finalized') || str.includes('disposed')) {
-            disposed.add(actor);
-            return false;
-        }
-
-        if (!actor.get_stage) {
-            disposed.add(actor);
-            return false;
-        }
-
-        return true;
-    } catch (_e) {
-        try { disposed.add(actor); } catch (_err) {}
+    const str = GObject.Object.prototype.toString.call(actor);
+    if (!str || str.includes('DISPOSED') || str.includes('finalized') || str.includes('disposed')) {
+        disposed.add(actor);
         return false;
     }
+
+    if (!actor.get_stage) {
+        disposed.add(actor);
+        return false;
+    }
+
+    return true;
 }
 
 export function captureActorRect(actor, fallbackWin = null) {

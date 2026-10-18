@@ -20,6 +20,7 @@
 import { buildBlurPage } from './src/prefs/BlurPage.js';
 import { buildPanelPage } from './src/prefs/PanelPage.js';
 import { buildAboutPage } from './src/prefs/AboutPage.js';
+import { setupHeaderBar } from './src/prefs/HeaderBar.js';
 import { buildLayoutPage } from './src/prefs/LayoutPage.js';
 import { buildModulesPage } from './src/prefs/ModulesPage.js';
 import { buildBehaviorPage } from './src/prefs/BehaviorPage.js';
@@ -41,6 +42,8 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         buildModulesPage(this, window, settings);
         buildMusicPillPage(window, settings);
         buildAboutPage(this, window);
+
+        setupHeaderBar(this, window);
 
         window.connect('close-request', () => {
             disconnectSettingSignals();

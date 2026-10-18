@@ -57,11 +57,7 @@ export function getHoverBgRadius(iconSize) {
 function safeHexToRgba(color, alpha) {
     const safeAlpha = (alpha !== undefined && alpha !== null && !Number.isNaN(alpha)) ? Math.max(0.0, Math.min(1.0, alpha)) : 0.25;
     const safeColor = color || '#ffffff';
-    try {
-        return hexToRgba(safeColor, safeAlpha);
-    } catch (_e) {
-        return 'rgba(255, 255, 255, ' + safeAlpha + ')';
-    }
+    return hexToRgba(safeColor, safeAlpha);
 }
 
 export function stripIndicatorSize(style) {

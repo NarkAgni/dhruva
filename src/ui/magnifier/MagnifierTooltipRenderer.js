@@ -236,11 +236,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
 
     let windows = [];
     if (btn._delegate && btn._delegate.app && btn._delegate.app.get_windows) {
-        try {
-            windows = btn._delegate.app.get_windows() || [];
-        } catch (_) {
-            windows = [];
-        }
+        windows = btn._delegate.app.get_windows() || [];
 
         if (windows.length > 0) {
             if (Settings.isolateMonitors && dockActor._dockUI) {

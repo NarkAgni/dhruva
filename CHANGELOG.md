@@ -1,3 +1,8 @@
+## [4.6] - 18-10-2026
+
+### Fixed
+* **EGO Rules:** Remove return from destroy fucntions and clean try/catch.
+
 ## [4.5] - 18-10-2026
 
 ### New

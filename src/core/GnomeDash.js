@@ -59,8 +59,9 @@ export default class GnomeDash {
     }
 
     release() {
-        if (!this._state) return;
-        this._state.restore();
-        this._state = null;
+        if (this._state) {
+            this._state.restore();
+            this._state = null;
+        }
     }
 }

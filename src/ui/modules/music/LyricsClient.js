@@ -36,6 +36,7 @@ const BRACKETS_RE = /\s*\[.*?\]\s*/g;
 
 export class LyricsClient {
     constructor() {
+        this._cancellable = new Gio.Cancellable();
         this._httpSession = new Soup.Session();
         this._httpSession.timeout = 6;
         this._httpSession.user_agent = 'Mozilla/5.0 (X11; Linux x86_64)';
@@ -48,9 +49,11 @@ export class LyricsClient {
     }
 
     async _loadDiskCache() {
+        if (!this._cancellable) return;
         const file = Gio.File.new_for_path(this._cacheFilePath);
-        if (file.query_exists(null)) {
-            const loadResult = await file.load_bytes_async(null);
+        if (file.query_exists(this._cancellable)) {
+            const loadResult = await file.load_bytes_async(this._cancellable);
+            if (!this._cancellable) return;
             const bytes = loadResult ? loadResult[0] : null;
             if (bytes) {
                 const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
@@ -74,14 +77,15 @@ export class LyricsClient {
     }
 
     _saveDiskCache() {
+        if (!this._cancellable) return;
         const bytes = new GLib.Bytes(new TextEncoder().encode(JSON.stringify(Object.fromEntries(this._cache))));
         Gio.File.new_for_path(this._cacheFilePath)
-            .replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null)
+            .replace_contents_bytes_async(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, this._cancellable)
             .catch(() => { });
     }
 
     async getLyrics(title, artist, durationSec) {
-        if (!title) return null;
+        if (!title || !this._cancellable) return null;
 
         const cleanTitle = title
             .replace(PARENS_RE, ' ')
@@ -108,6 +112,7 @@ export class LyricsClient {
         }
 
         let result = await this._queryUrl(`https://lrclib.net/api/get?${query}`, durationSec);
+        if (!this._cancellable) return null;
         if (result && result.length > 0) {
             this._remember(cacheKey, result);
             return result;
@@ -115,7 +120,8 @@ export class LyricsClient {
 
         const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanArtist + ' ' + cleanTitle)}`;
         const msg = Soup.Message.new('GET', searchUrl);
-        const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
+        const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
+        if (!this._cancellable) return null;
         if (msg.status_code === 200) {
             const list = JSON.parse(new TextDecoder().decode(bytes.get_data()));
             if (Array.isArray(list) && list.length > 0) {
@@ -139,8 +145,10 @@ export class LyricsClient {
     }
 
     async _queryUrl(url, durationSec) {
+        if (!this._cancellable) return null;
         const msg = Soup.Message.new('GET', url);
-        const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, null);
+        const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
+        if (!this._cancellable) return null;
         if (msg.status_code === 200) {
             const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
             if (data) {
@@ -189,6 +197,10 @@ export class LyricsClient {
     }
 
     destroy() {
+        if (this._cancellable) {
+            this._cancellable.cancel();
+            this._cancellable = null;
+        }
         if (this._httpSession) {
             this._httpSession.abort();
             this._httpSession = null;

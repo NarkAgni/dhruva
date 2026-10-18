@@ -205,13 +205,10 @@ export const Settings = {
     get blurTintOpacity() { return this._settings ? this._settings.get_double('blur-tint-opacity') : 0.30; },
     set blurTintOpacity(val) { if (this._settings) this._settings.set_double('blur-tint-opacity', val); },
 
-    connect(key, callback, target = null) {
+    connect(key, callback, target = this) {
         if (!this._settings) return 0;
         const signal = key.startsWith('changed::') ? key : `changed::${key}`;
-        if (target) {
-            return this._settings.connectObject(signal, callback, target);
-        }
-        return this._settings.connect(signal, callback);
+        return this._settings.connectObject(signal, callback, target);
     },
 
     disconnectObject(target) {

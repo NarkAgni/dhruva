@@ -139,18 +139,14 @@ export default class AppManager {
             return;
         }
 
-        try {
-            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-            const currentFavs = shellSettings.get_strv('favorite-apps');
-            const nextFavs = [...currentFavs.filter(id => !folderApps.includes(id)), ...folderApps];
+        const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+        const currentFavs = shellSettings.get_strv('favorite-apps');
+        const nextFavs = [...currentFavs.filter(id => !folderApps.includes(id)), ...folderApps];
 
-            const isSame = currentFavs.length === nextFavs.length &&
-                currentFavs.every((id, index) => id === nextFavs[index]);
+        const isSame = currentFavs.length === nextFavs.length &&
+            currentFavs.every((id, index) => id === nextFavs[index]);
 
-            if (!isSame) shellSettings.set_strv('favorite-apps', nextFavs);
-        } catch (e) {
-            console.error(`[Dhruva] Failed to sync folder apps with GNOME Dash: ${e.message}`);
-        }
+        if (!isSame) shellSettings.set_strv('favorite-apps', nextFavs);
     }
 
     getCurrentPinnedList() {
@@ -339,11 +335,7 @@ export default class AppManager {
         }
 
         this.nonIndependentFolders = foldersList;
-        try {
-            this.settings.set_string('app-folders', JSON.stringify(foldersList));
-        } catch (e) {
-            console.error(`[Dhruva] Failed to save non-independent folders: ${e.message}`);
-        }
+        this.settings.set_string('app-folders', JSON.stringify(foldersList));
         this._syncFolderAppsToPinned();
         this._writeJson(this.orderPath, this.dockOrder);
     }
@@ -395,14 +387,10 @@ export default class AppManager {
 
         if (this.favManager.isFavorite(id)) this.favManager.removeFavorite(id);
 
-        try {
-            const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
-            const currentFavs = shellSettings.get_strv('favorite-apps');
-            if (currentFavs.includes(id)) {
-                shellSettings.set_strv('favorite-apps', currentFavs.filter(favId => favId !== id));
-            }
-        } catch (e) {
-            console.error(`[Dhruva] Failed to sync unpin with GNOME Dash: ${e.message}`);
+        const shellSettings = new Gio.Settings({ schema_id: 'org.gnome.shell' });
+        const currentFavs = shellSettings.get_strv('favorite-apps');
+        if (currentFavs.includes(id)) {
+            shellSettings.set_strv('favorite-apps', currentFavs.filter(favId => favId !== id));
         }
 
         this._writeJson(this.orderPath, this.dockOrder);

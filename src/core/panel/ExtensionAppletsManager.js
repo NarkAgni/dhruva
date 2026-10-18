@@ -304,6 +304,9 @@ export default class ExtensionAppletsManager {
     destroy() {
         this.restore();
         Main.extensionManager.disconnectObject(this);
-        this.timers.destroy();
+        if (this.timers) {
+            this.timers.destroy();
+            this.timers = null;
+        }
     }
 }

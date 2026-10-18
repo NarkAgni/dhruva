@@ -175,7 +175,7 @@ export default class NotificationManager {
 
         badgeArea.set_size(drawWidth, drawHeight);
 
-        badgeArea.connect('repaint', (area) => {
+        badgeArea.connectObject('repaint', (area) => {
             const cr = area.get_context();
             const [w, h] = area.get_surface_size();
 
@@ -196,7 +196,7 @@ export default class NotificationManager {
             PangoCairo.show_layout(cr, layout);
 
             cr.$dispose();
-        });
+        }, badgeArea);
 
         badgeArea.queue_repaint();
 
