@@ -50,25 +50,95 @@ function rewrite(text, replacements) {
     return replacements.reduce((result, [from, to]) => result.split(from).join(to), text);
 }
 
-function rewriteConfigFiles(configDir, replacements) {
-    const dir = Gio.File.new_for_path(configDir);
-    if (!dir.query_exists(null)) return;
+function rewriteFileAsync(file, replacements, cancellable) {
+    file.load_contents_async(cancellable, (obj, res) => {
+        try {
+            const [success, contents] = obj.load_contents_finish(res);
+            if (!success || !contents) return;
 
-    const enumerator = dir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-    for (let info = enumerator.next_file(null); info; info = enumerator.next_file(null)) {
-        const name = info.get_name();
-        if (!name.endsWith('.json')) continue;
+            const text = new TextDecoder('utf-8').decode(contents);
+            const updated = rewrite(text, replacements);
+            if (updated === text) return;
 
-        const path = GLib.build_filenamev([configDir, name]);
-        const [, contents] = GLib.file_get_contents(path);
-        const text = new TextDecoder().decode(contents);
-        const updated = rewrite(text, replacements);
-        if (updated !== text) GLib.file_set_contents(path, updated);
-    }
-    enumerator.close(null);
+            const bytes = new GLib.Bytes(new TextEncoder().encode(updated));
+            obj.replace_contents_bytes_async(
+                bytes,
+                null,
+                false,
+                Gio.FileCreateFlags.REPLACE_DESTINATION,
+                cancellable,
+                (writeObj, writeRes) => {
+                    try {
+                        writeObj.replace_contents_finish(writeRes);
+                    } catch (e) {
+                        if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                            console.error(`[Dhruva] Failed to write migrated config: ${e.message}`);
+                        }
+                    }
+                }
+            );
+        } catch (e) {
+            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND) &&
+                !e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                console.error(`[Dhruva] Failed to read config for migration: ${e.message}`);
+            }
+        }
+    });
 }
 
-export function migrateLegacyPaths(settings) {
+function rewriteConfigFiles(configDir, replacements, cancellable = null) {
+    const dir = Gio.File.new_for_path(configDir);
+
+    dir.enumerate_children_async(
+        'standard::name',
+        Gio.FileQueryInfoFlags.NONE,
+        GLib.PRIORITY_DEFAULT,
+        cancellable,
+        (dirObj, res) => {
+            let enumerator;
+            try {
+                enumerator = dirObj.enumerate_children_finish(res);
+            } catch (e) {
+                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND) &&
+                    !e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                    console.error(`[Dhruva] Failed to enumerate config dir: ${e.message}`);
+                }
+                return;
+            }
+
+            const processNextBatch = () => {
+                enumerator.next_files_async(20, GLib.PRIORITY_DEFAULT, cancellable, (enumObj, nextRes) => {
+                    let infos;
+                    try {
+                        infos = enumObj.next_files_finish(nextRes);
+                    } catch (e) {
+                        enumObj.close_async(GLib.PRIORITY_DEFAULT, null, null);
+                        return;
+                    }
+
+                    if (!infos || infos.length === 0) {
+                        enumObj.close_async(GLib.PRIORITY_DEFAULT, null, null);
+                        return;
+                    }
+
+                    for (const info of infos) {
+                        const name = info.get_name();
+                        if (!name.endsWith('.json')) continue;
+
+                        const path = GLib.build_filenamev([configDir, name]);
+                        rewriteFileAsync(Gio.File.new_for_path(path), replacements, cancellable);
+                    }
+
+                    processNextBatch();
+                });
+            };
+
+            processNextBatch();
+        }
+    );
+}
+
+export function migrateLegacyPaths(settings, cancellable = null) {
     const configDir = GLib.build_filenamev([GLib.get_user_config_dir(), UUID]);
     const replacements = [];
 
@@ -90,5 +160,5 @@ export function migrateLegacyPaths(settings) {
         if (updated !== value) settings.set_string(key, updated);
     }
 
-    rewriteConfigFiles(configDir, replacements);
+    rewriteConfigFiles(configDir, replacements, cancellable);
 }

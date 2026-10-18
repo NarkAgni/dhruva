@@ -61,8 +61,6 @@ const CATEGORIES = [
     { id: 'Flags', icon: 'emoji-flags-symbolic', title: () => _('Flags') },
 ];
 
-const recentEmojis = [];
-
 function getAllEmojis() {
     return emojisData.emojis.filter(entry => CATEGORIES.some(cat => cat.id === entry.category));
 }
@@ -100,14 +98,6 @@ function searchEmojis(query) {
         .slice(0, MAX_SEARCH_RESULTS);
 }
 
-function rememberRecent(entry) {
-    const index = recentEmojis.findIndex(recent => recent.emoji === entry.emoji);
-    if (index >= 0) recentEmojis.splice(index, 1);
-    recentEmojis.unshift(entry);
-    recentEmojis.length = Math.min(recentEmojis.length, MAX_RECENTS);
-}
-
-
 export class EmojiPicker {
     constructor(folderMenu, onSelect) {
         this.folderMenu = folderMenu;
@@ -115,10 +105,15 @@ export class EmojiPicker {
         this.onSelect = onSelect;
         this.timers = folderMenu.timers;
 
+        if (!this.dockUI._recentEmojis) {
+            this.dockUI._recentEmojis = [];
+        }
+        this._recentEmojis = this.dockUI._recentEmojis;
+
         this._entries = [];
         this._cells = [];
         this._highlight = -1;
-        this._categoryId = recentEmojis.length > 0 ? RECENT_ID : CATEGORIES[1].id;
+        this._categoryId = this._recentEmojis.length > 0 ? RECENT_ID : CATEGORIES[1].id;
         this._lastCategoryId = this._categoryId;
         this._tabs = new Map();
         this._searchTimerId = 0;
@@ -140,10 +135,9 @@ export class EmojiPicker {
                 if (event.get_button() === Clutter.BUTTON_PRIMARY) this.close();
                 return Clutter.EVENT_STOP;
             },
-            'destroy', () => this._onDestroyed(),
             this
         );
-        this.folderMenu._emojiOverlay = this.overlay;
+        this.folderMenu._emojiPicker = this;
 
         this._card = this._buildCard();
         this.overlay.add_child(this._card);
@@ -180,17 +174,18 @@ export class EmojiPicker {
             this._blur = null;
         }
 
-        const overlay = this.overlay;
-        this._card.ease({
-            opacity: 0,
-            scale_x: 0.97,
-            scale_y: 0.97,
-            duration: CLOSE_MS,
-            mode: Clutter.AnimationMode.EASE_IN_QUAD,
-            onStopped: () => {
-                if (isActorAlive(overlay)) overlay.destroy();
-            }
-        });
+        if (isActorAlive(this._card)) {
+            this._card.ease({
+                opacity: 0,
+                scale_x: 0.97,
+                scale_y: 0.97,
+                duration: CLOSE_MS,
+                mode: Clutter.AnimationMode.EASE_IN_QUAD,
+                onStopped: () => this.destroy()
+            });
+        } else {
+            this.destroy();
+        }
     }
 
     _buildCard() {
@@ -355,7 +350,7 @@ export class EmojiPicker {
 
         this._tabs.forEach((_tab, id) => this._styleTab(id));
         const category = CATEGORIES.find(cat => cat.id === categoryId);
-        const entries = categoryId === RECENT_ID ? recentEmojis : getEmojisByCategory(categoryId);
+        const entries = categoryId === RECENT_ID ? this._recentEmojis : getEmojisByCategory(categoryId);
         this._populate(entries, category.title(), _('Pick an emoji to use it often'));
     }
 
@@ -450,9 +445,16 @@ export class EmojiPicker {
         else if (rowBottom > viewBottom) adjustment.set_value(rowBottom - adjustment.page_size);
     }
 
+    _rememberRecent(entry) {
+        const index = this._recentEmojis.findIndex(recent => recent.emoji === entry.emoji);
+        if (index >= 0) this._recentEmojis.splice(index, 1);
+        this._recentEmojis.unshift(entry);
+        this._recentEmojis.length = Math.min(this._recentEmojis.length, MAX_RECENTS);
+    }
+
     _choose(index) {
         const entry = this._entries[index];
-        rememberRecent(entry);
+        this._rememberRecent(entry);
         this.onSelect(entry.emoji);
         this.close();
     }
@@ -517,8 +519,8 @@ export class EmojiPicker {
         }
     }
 
-    _onDestroyed() {
-        if (this._searchTimerId) {
+    destroy() {
+        if (this._searchTimerId && this.timers) {
             this.timers.remove(this._searchTimerId);
             this._searchTimerId = 0;
         }
@@ -534,14 +536,25 @@ export class EmojiPicker {
         this._cells.forEach(cell => cell.disconnectObject(this));
         this._cells = [];
         if (this._card) {
+            this._card.remove_all_transitions();
             this._card.disconnectObject(this);
             this._card = null;
         }
         if (this.overlay) {
-            this.overlay.disconnectObject(this);
+            const overlay = this.overlay;
+            this.overlay = null;
+            overlay.disconnectObject(this);
+            if (isActorAlive(overlay)) {
+                overlay.destroy();
+            }
+            if (this.folderMenu) {
+                if (this.folderMenu._emojiPicker === this) {
+                    this.folderMenu._emojiPicker = null;
+                }
+                if (isActorAlive(this.folderMenu.menuContainer)) {
+                    this.folderMenu.menuContainer.show();
+                }
+            }
         }
-        if (this.folderMenu._emojiOverlay === this.overlay) this.folderMenu._emojiOverlay = null;
-        if (isActorAlive(this.folderMenu.menuContainer)) this.folderMenu.menuContainer.show();
-        this.overlay = null;
     }
 }

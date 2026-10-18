@@ -41,7 +41,7 @@ export default class FolderMenu {
         this.dockUI = dockUI;
         this.folderData = folderData;
         this.buttonActor = buttonActor;
-        this._emojiOverlay = null;
+        this._emojiPicker = null;
         this.timers = new TimeoutTracker();
 
         if (this.buttonActor && isActorAlive(this.buttonActor)) {
@@ -66,6 +66,10 @@ export default class FolderMenu {
 
         this.actor.connectObject('destroy', () => {
             Main.sessionMode.disconnectObject(this);
+            if (this._emojiPicker) {
+                this._emojiPicker.destroy();
+                this._emojiPicker = null;
+            }
             if (this.dockUI && this.dockUI.appManager && this.dockUI.appManager.appSystem) {
                 this.dockUI.appManager.appSystem.disconnectObject(this.actor);
             }
@@ -405,9 +409,9 @@ export default class FolderMenu {
                 this._posTrackerId = 0;
             }
             
-            if (this._emojiOverlay && isActorAlive(this._emojiOverlay)) {
-                this._emojiOverlay.destroy();
-                this._emojiOverlay = null;
+            if (this._emojiPicker) {
+                this._emojiPicker.destroy();
+                this._emojiPicker = null;
             }
 
             if (this.dockUI && isActorAlive(this.dockUI.actor)) {

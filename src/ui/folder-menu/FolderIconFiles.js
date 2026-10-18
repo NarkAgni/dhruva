@@ -64,8 +64,9 @@ export function pickIconImage(title, onPicked) {
 }
 
 export function cancelIconPicker() {
-    if (!activePicker) return;
-    activePicker.cancellable.cancel();
-    activePicker.proc.force_exit();
-    activePicker = null;
+    if (activePicker) {
+        activePicker.cancellable.cancel();
+        activePicker.proc.force_exit();
+        activePicker = null;
+    }
 }

@@ -1,3 +1,8 @@
+## [4.7] - 19-10-2026
+
+### Fixed
+* **EGO Rules:** Fixes some EGO Rules.
+
 ## [4.6] - 18-10-2026
 
 ### Fixed

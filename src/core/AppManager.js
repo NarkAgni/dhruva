@@ -62,18 +62,7 @@ export default class AppManager {
         }, this);
     }
 
-    _loadState() {
-        this.dockOrder = [];
-        this._unpinnedOrder = [];
-
-        if (this.isIndependent()) {
-            this.loadDockState();
-        } else {
-            this.loadNonIndependentFolders();
-            this._loadDockOrderFile();
-            this._syncFolderAppsToPinned();
-        }
-
+    _normalizeFolderIcons() {
         let iconFixed = false;
         this.getFolders().forEach(folder => {
             if (!folder.icon || folder.icon === 'folder-symbolic') {
@@ -82,6 +71,20 @@ export default class AppManager {
             }
         });
         if (iconFixed) this.saveFolders(this.getFolders());
+    }
+
+    _loadState() {
+        this.dockOrder = [];
+        this._unpinnedOrder = [];
+
+        if (this.isIndependent()) {
+            this.loadDockState();
+        } else {
+            this.loadNonIndependentFolders();
+            this._normalizeFolderIcons();
+            this._syncFolderAppsToPinned();
+            this._loadDockOrderFile();
+        }
     }
 
     attachDock(dockUI) {
@@ -171,16 +174,26 @@ export default class AppManager {
     }
 
     _loadDockOrderFile() {
+        if (!this._cancellable) return;
         const file = Gio.File.new_for_path(this.orderPath);
-        if (!file.query_exists(null)) return;
 
-        try {
-            const [, contents] = file.load_contents(null);
-            const parsed = JSON.parse(new TextDecoder('utf-8').decode(contents));
-            if (Array.isArray(parsed)) this.dockOrder = parsed;
-        } catch (e) {
-            console.error(`[Dhruva] Failed to read dock order JSON: ${e.message}`);
-        }
+        file.load_contents_async(this._cancellable, (obj, res) => {
+            try {
+                const [success, contents] = obj.load_contents_finish(res);
+                if (success && contents) {
+                    const parsed = JSON.parse(new TextDecoder('utf-8').decode(contents));
+                    if (Array.isArray(parsed)) {
+                        this.dockOrder = parsed;
+                        this.notifyStateChanged();
+                    }
+                }
+            } catch (e) {
+                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND) &&
+                    !e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                    console.error(`[Dhruva] Failed to read dock order JSON: ${e.message}`);
+                }
+            }
+        });
     }
 
     _writeJson(path, data) {
@@ -198,7 +211,9 @@ export default class AppManager {
                 try {
                     obj.replace_contents_finish(res);
                 } catch (e) {
-                    console.error(`[Dhruva] Failed to write ${path}: ${e.message}`);
+                    if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
+                        console.error(`[Dhruva] Failed to write ${path}: ${e.message}`);
+                    }
                 }
             }
         );
@@ -210,11 +225,13 @@ export default class AppManager {
     }
 
     loadDockState() {
+        if (!this._cancellable) return;
         const file = Gio.File.new_for_path(this.dbPath);
 
-        if (file.query_exists(null)) {
+        file.load_contents_async(this._cancellable, (obj, res) => {
+            let loaded = false;
             try {
-                const [success, contents] = file.load_contents(null);
+                const [success, contents] = obj.load_contents_finish(res);
                 if (success && contents) {
                     const parsed = JSON.parse(new TextDecoder('utf-8').decode(contents));
 
@@ -228,22 +245,28 @@ export default class AppManager {
                         this.independentFolders = Array.isArray(parsed.folders) ? parsed.folders : [];
                     }
 
+                    this._normalizeFolderIcons();
                     this._syncFolderAppsToPinned();
                     this._isLoaded = true;
-                    return;
+                    loaded = true;
                 }
             } catch (e) {
-                console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
+                if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) return;
+                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
+                    console.error(`[Dhruva] Failed to read dock state JSON: ${e.message}`);
+                }
             }
-        }
 
-        if (!this._isLoaded) {
-            this.pinnedApps = [...DEFAULT_PINNED_APPS];
-            this.dockOrder = [...this.pinnedApps];
-            this.independentFolders = [];
-            this.saveDockState();
-            this._isLoaded = true;
-        }
+            if (!loaded && !this._isLoaded) {
+                this.pinnedApps = [...DEFAULT_PINNED_APPS];
+                this.dockOrder = [...this.pinnedApps];
+                this.independentFolders = [];
+                this.saveDockState();
+                this._isLoaded = true;
+            }
+
+            this.notifyStateChanged();
+        });
     }
 
     saveDockState() {

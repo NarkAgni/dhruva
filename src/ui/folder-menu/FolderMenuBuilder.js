@@ -37,7 +37,7 @@ import { CrispLabel } from '../modules/music/CrispLabel.js';
 import { createIndicatorBox } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
-import { iconConfigDir, deleteCustomFolderIcon, pickIconImage } from './FolderIconFiles.js';
+import { iconConfigDir, deleteCustomFolderIcon, pickIconImage, cancelIconPicker } from './FolderIconFiles.js';
 
 
 const APPS_PER_ROW = 5;
@@ -129,6 +129,7 @@ export class FolderMenuBuilder {
         this.timers = folderMenu.timers;
         this._saveSoonId = 0;
         this._refreshIdleId = 0;
+        this._connectedWidgets = [];
         this._cancellable = new Gio.Cancellable();
     }
 
@@ -275,21 +276,22 @@ export class FolderMenuBuilder {
                 'background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); width: 160px;'
         });
 
-        const saveBtn = new St.Button({
+        this._saveBtn = new St.Button({
             child: symbolicIcon('object-select-symbolic'),
             style: 'background-color: rgba(46, 139, 87, 0.9); color: white; border-radius: 8px; padding: 6px;',
             y_align: Clutter.ActorAlign.CENTER,
             accessible_name: _('Save')
         });
-        const cancelBtn = new St.Button({
+        this._cancelBtn = new St.Button({
             child: symbolicIcon('window-close-symbolic'),
             style: headerButtonStyle(false, false),
             y_align: Clutter.ActorAlign.CENTER,
             accessible_name: _('Cancel')
         });
 
-        saveBtn.connectObject('clicked', () => this._commitRename(), this);
-        cancelBtn.connectObject('clicked', () => this._endRename(), this);
+        this._saveBtn.connectObject('clicked', () => this._commitRename(), this);
+        this._cancelBtn.connectObject('clicked', () => this._endRename(), this);
+        this._connectedWidgets.push(this._saveBtn, this._cancelBtn);
         this._nameEntry.clutter_text.connectObject(
             'activate', () => this._commitRename(),
             'key-press-event', (_actor, event) => {
@@ -301,8 +303,8 @@ export class FolderMenuBuilder {
         );
 
         this._renameRow.add_child(this._nameEntry);
-        this._renameRow.add_child(saveBtn);
-        this._renameRow.add_child(cancelBtn);
+        this._renameRow.add_child(this._saveBtn);
+        this._renameRow.add_child(this._cancelBtn);
         return this._renameRow;
     }
 
@@ -371,6 +373,7 @@ export class FolderMenuBuilder {
                 swatches.forEach((other, i) => other.set_style(swatchStyle(colors[i].hex, other === swatch)));
                 onPick(color.hex);
             }, this);
+            this._connectedWidgets.push(swatch);
             row.add_child(swatch);
             return swatch;
         });
@@ -383,6 +386,7 @@ export class FolderMenuBuilder {
         slider.x_align = Clutter.ActorAlign.FILL;
         slider.y_align = Clutter.ActorAlign.CENTER;
         slider.connectObject('notify::value', () => onChange(slider.value), this);
+        this._connectedWidgets.push(slider);
         return slider;
     }
 
@@ -522,6 +526,10 @@ export class FolderMenuBuilder {
     }
 
     showEmojiPicker(onSelect) {
+        if (this.folderMenu._emojiPicker) {
+            this.folderMenu._emojiPicker.destroy();
+            this.folderMenu._emojiPicker = null;
+        }
         const picker = new EmojiPicker(this.folderMenu, onSelect);
         picker.show();
     }
@@ -979,6 +987,7 @@ export class FolderMenuBuilder {
 
     destroy() {
         this._stopFolderDragMonitor();
+        cancelIconPicker();
 
         if (this._cancellable) {
             this._cancellable.cancel();
@@ -998,6 +1007,11 @@ export class FolderMenuBuilder {
         if (this._draggables) {
             this._draggables.forEach(d => d.disconnectObject(this));
             this._draggables = [];
+        }
+
+        if (this._connectedWidgets) {
+            this._connectedWidgets.forEach(w => w.disconnectObject(this));
+            this._connectedWidgets = [];
         }
 
         if (this._nameEntry && this._nameEntry.clutter_text) {

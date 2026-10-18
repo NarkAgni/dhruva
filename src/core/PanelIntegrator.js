@@ -359,15 +359,12 @@ export default class PanelIntegrator {
             }
 
             this._alignState.restore();
-            if (this.isPanelHost) {
-                this.notifications.restore();
-                this.dateMenu.restore();
-                this.quickSettings.restore();
-                this.extensionApplets.restore();
-                this.topBar.restore();
-            } else {
-                this._teardownSecondaryClock();
-            }
+            if (this.notifications) this.notifications.restore();
+            if (this.dateMenu) this.dateMenu.restore();
+            if (this.quickSettings) this.quickSettings.restore();
+            if (this.extensionApplets) this.extensionApplets.restore();
+            if (this.topBar) this.topBar.restore();
+            this._teardownSecondaryClock();
 
             this.leftContainer.destroy_all_children();
             this.container.destroy_all_children();
@@ -380,16 +377,36 @@ export default class PanelIntegrator {
 
     destroy() {
         this.restore();
-        if (this.isPanelHost) {
+
+        if (this.notifications) {
             this.notifications.destroy();
+            this.notifications = null;
+        }
+        if (this.dateMenu) {
             this.dateMenu.destroy();
+            this.dateMenu = null;
+        }
+        if (this.quickSettings) {
             this.quickSettings.destroy();
+            this.quickSettings = null;
+        }
+        if (this.extensionApplets) {
             this.extensionApplets.destroy();
+            this.extensionApplets = null;
+        }
+        if (this.trayManager) {
+            if (this.trayManager.destroy) this.trayManager.destroy();
+            this.trayManager = null;
+        }
+        if (this.topBar) {
             this.topBar.destroy();
+            this.topBar = null;
         }
 
         if (isActorAlive(this.leftContainer)) this.leftContainer.destroy();
         if (isActorAlive(this.container)) this.container.destroy();
+        this.leftContainer = null;
+        this.container = null;
 
         this.dockUI = null;
     }
