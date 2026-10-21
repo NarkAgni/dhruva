@@ -19,8 +19,10 @@
 
 import St from 'gi://St';
 import GLib from 'gi://GLib';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { Settings } from '../SettingsManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 
@@ -28,6 +30,7 @@ import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 const NO_ANIMATION = 0;
 const MEASURE_DELAY_MS = 20;
 const MAX_LOCK_ATTEMPTS = 5;
+const SCREEN_EDGE_MARGIN = 8;
 
 function scaleFactor() {
     return St.ThemeContext.get_for_stage(global.stage).scale_factor;
@@ -69,6 +72,32 @@ function gapFromSource(dockUI, menu) {
 function applyGap(state, menu) {
     const gap = gapFromSource(state.dockUI, menu);
     state.boxPointer.set_style(`-arrow-rise: 0px; -boxpointer-gap: ${gap.toFixed(2)}px;`);
+}
+
+function isVerticalDock(dockUI) {
+    return dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+}
+
+function sourceCenter(actor, isVertical) {
+    const [x, y] = actor.get_transformed_position();
+    const [w, h] = actor.get_transformed_size();
+    return isVertical ? y + h / 2 : x + w / 2;
+}
+
+function centeringShift(dockUI, menu, box) {
+    const isVertical = isVerticalDock(dockUI);
+    const monitor = Main.layoutManager.findMonitorForActor(menu.sourceActor);
+    if (!monitor) return 0;
+
+    const margin = SCREEN_EDGE_MARGIN * scaleFactor();
+    const start = isVertical ? box.y : box.x;
+    const size = isVertical ? box.h : box.w;
+    const monitorStart = isVertical ? monitor.y : monitor.x;
+    const monitorEnd = monitorStart + (isVertical ? monitor.height : monitor.width);
+
+    const centered = sourceCenter(menu.sourceActor, isVertical) - size / 2;
+    const clamped = Math.min(Math.max(centered, monitorStart + margin), monitorEnd - margin - size);
+    return Math.round(clamped - start);
 }
 
 function visibleGap(dockPos, dock, box) {
@@ -114,6 +143,12 @@ function lockPosition(state, menu) {
         default: boxPointer.translation_y += delta; break;
     }
 
+    if (state.isCentered && Settings.dynamicPanel) {
+        const shift = centeringShift(dockUI, menu, box);
+        if (isVerticalDock(dockUI)) boxPointer.translation_y += shift;
+        else boxPointer.translation_x += shift;
+    }
+
     reveal(state);
 }
 
@@ -121,12 +156,12 @@ function reveal(state) {
     state.boxPointer.opacity = 255;
 }
 
-export function hookPopupGap(dockUI, menu) {
+export function hookPopupGap(dockUI, menu, isCentered = false) {
     if (menu._dhruvaGapState) return;
     const boxPointer = menu._boxPointer;
 
     const state = {
-        dockUI, boxPointer,
+        dockUI, boxPointer, isCentered,
         originalStyle: boxPointer.style,
         originalOpacity: boxPointer.opacity,
         measureId: 0,

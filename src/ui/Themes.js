@@ -26,6 +26,8 @@ const WALLPAPER_SAMPLE_SIZE = 80;
 const WALLPAPER_PIXEL_STEP = 4;
 const DEFAULT_THEME_BG = { r: 30, g: 30, b: 40 };
 const DEFAULT_THEME_RAW = { r: 90, g: 100, b: 130 };
+const SLIDESHOW_IMAGE_RE = /<(?:file|from)>([\s\S]*?)<\/(?:file|from)>/;
+const SLIDESHOW_SIZE_RE = /<size[^>]*>([^<]+)<\/size>/;
 
 export const DockThemes = {
     default: {
@@ -185,21 +187,50 @@ export function getChameleonAccentColor(rawR, rawG, rawB) {
     return _rgbToHex(accentRgb.r, accentRgb.g, accentRgb.b);
 }
 
-export function extractWallpaperDominantColor() {
+function _getWallpaperUri() {
     const bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
+    const interfaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
+    const isDark = interfaceSettings.get_string('color-scheme') === 'prefer-dark';
 
-    let wallpaperUri = bgSettings.get_string('picture-uri-dark');
-    if (!wallpaperUri) {
-        wallpaperUri = bgSettings.get_string('picture-uri');
+    const preferred = bgSettings.get_string(isDark ? 'picture-uri-dark' : 'picture-uri');
+    return preferred || bgSettings.get_string(isDark ? 'picture-uri' : 'picture-uri-dark');
+}
+
+function _resolveSlideshowImage(xmlPath) {
+    const [, contents] = GLib.file_get_contents(xmlPath);
+    const match = new TextDecoder().decode(contents).match(SLIDESHOW_IMAGE_RE);
+    if (!match) return null;
+
+    const sizeMatch = match[1].match(SLIDESHOW_SIZE_RE);
+    const imagePath = (sizeMatch ? sizeMatch[1] : match[1]).trim();
+    return imagePath || null;
+}
+
+function _getWallpaperImagePath() {
+    const uri = _getWallpaperUri();
+    if (!uri) return null;
+
+    const path = Gio.File.new_for_uri(uri).get_path();
+    if (!path) return null;
+
+    const imagePath = path.toLowerCase().endsWith('.xml') ? _resolveSlideshowImage(path) : path;
+    if (!imagePath || !GLib.file_test(imagePath, GLib.FileTest.EXISTS)) return null;
+    return imagePath;
+}
+
+function _loadWallpaperSample() {
+    try {
+        const imagePath = _getWallpaperImagePath();
+        if (!imagePath) return null;
+        return GdkPixbuf.Pixbuf.new_from_file_at_scale(imagePath, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false);
+    } catch (e) {
+        console.warn(`[Dhruva] Could not read wallpaper colour: ${e.message}`);
+        return null;
     }
+}
 
-    if (!wallpaperUri) return null;
-
-    const file = Gio.File.new_for_uri(wallpaperUri);
-    const path = file.get_path();
-    if (!path || !GLib.file_test(path, GLib.FileTest.EXISTS)) return null;
-
-    const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false);
+export function extractWallpaperDominantColor() {
+    const pixbuf = _loadWallpaperSample();
     if (!pixbuf) return null;
 
     const w = pixbuf.get_width();

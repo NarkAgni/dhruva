@@ -24,15 +24,14 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { getIndicatorProps } from './DockRenderer.js';
 import FolderMenu from '../folder-menu/FolderMenu.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
-import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
+import { getIndicatorProps, filterActiveWindows } from './DockRenderer.js';
 import { hexToRgba, isActorAlive, setBoxVertical } from '../../core/Utils.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import {
@@ -103,13 +102,22 @@ function setupCommonEvents(btn, dockUI) {
     }, btn);
 }
 
+const SEPARATOR_PREFIXES = {
+    module: 'separator',
+    running: 'running-separator',
+};
+
+export function separatorPrefix(kind) {
+    return SEPARATOR_PREFIXES[kind] || SEPARATOR_PREFIXES.module;
+}
+
 export function createSeparator(dockUI, iconSize, isVerticalDock, type = 'module', sepId = 'dhruva-sep-default') {
     const sep = new St.Widget({ style_class: 'dock-separator' });
     sep._sepId = sepId;
     sep._isStatic = true;
     sep.opacity = 255;
 
-    const prefix = type === 'module' ? 'separator' : 'running-separator';
+    const prefix = separatorPrefix(type);
     const width = dockUI.settings.get_int(`${prefix}-width`);
     const heightPercent = dockUI.settings.get_int(`${prefix}-height`);
     const colorHex = dockUI.settings.get_string(`${prefix}-color`);
@@ -287,13 +295,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
 
         if (buttonNum === 1) {
             Main.overview.hide();
-            let windows = app.get_windows();
-            windows = WorkspaceFilter.filterWindows(windows);
-
-            if (Settings.isolateMonitors) {
-                const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
-                windows = windows.filter(w => w.get_monitor() === currentMonitorIndex);
-            }
+            const windows = filterActiveWindows(dockUI, app.get_windows());
 
             animateIconClick(iconBin, Settings.clickEffect);
 
@@ -738,11 +740,7 @@ export function buildFolderButton(dockUI, folder) {
             const windows = app.get_windows();
 
             if (windows.length > 0) {
-                let filtered = WorkspaceFilter.filterWindows(windows);
-                if (Settings.isolateMonitors) {
-                    const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
-                    filtered = filtered.filter(w => w.get_monitor() === currentMonitorIndex);
-                }
+                const filtered = filterActiveWindows(dockUI, windows);
                 if ((Settings.isolateWorkspaces || Settings.isolateMonitors) && filtered.length === 0) {
                     isValid = false;
                 }
@@ -845,7 +843,7 @@ export function buildFolderButton(dockUI, folder) {
             folder.apps.forEach(appId => {
                 const a = dockUI.appManager.appSystem.lookup_app(appId);
                 if (!a) return;
-                const wins = WorkspaceFilter.filterWindows(a.get_windows());
+                const wins = filterActiveWindows(dockUI, a.get_windows());
                 if (wins.length === 0) return;
                 appsList.push(a);
                 if (!focusedApp && wins.some(w => w === currentFocusWin)) focusedApp = a;

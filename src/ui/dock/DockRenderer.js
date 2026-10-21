@@ -19,6 +19,7 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 
 import { MusicPill } from '../modules/MusicPill.js';
@@ -32,10 +33,10 @@ import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { applyRealtimeFrame } from '../magnifier/MagnifierFrameEngine.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
 import { DockOverflowMenu, OVERFLOW_BUTTON_KEY } from './DockOverflowMenu.js';
-import { createSeparator, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
 import { resetMagnification, teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { isActorAlive, markActorDisposed, extractIconDominantColor } from '../../core/Utils.js';
 import { captureDockTransition, releaseRemovedItems, playDockTransition } from './DockTransitions.js';
+import { createSeparator, separatorPrefix, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
 
 
 const POST_CLICK_DELAY_MS = 860;
@@ -53,6 +54,13 @@ const SYSTEM_MODULES = [
     ['videos', 'folder-videos'],
     ['music', 'folder-music'],
     ['trash', 'user-trash'],
+];
+
+const TASKBAR_WINDOW_TYPES = [
+    Meta.WindowType.NORMAL,
+    Meta.WindowType.DIALOG,
+    Meta.WindowType.MODAL_DIALOG,
+    Meta.WindowType.UTILITY,
 ];
 
 const EDGE_PIVOTS = {
@@ -81,8 +89,9 @@ function _slugify(text) {
     return (text || 'folder').toLowerCase().replace(/[^a-z0-9]/g, '-');
 }
 
-function _filterActiveWindows(dockUI, windows) {
-    let filtered = WorkspaceFilter.filterWindows(windows);
+export function filterActiveWindows(dockUI, windows) {
+    const taskbarWindows = windows.filter(w => TASKBAR_WINDOW_TYPES.includes(w.get_window_type()));
+    let filtered = WorkspaceFilter.filterWindows(taskbarWindows);
     if (Settings.isolateMonitors) {
         const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
         filtered = filtered.filter(w => w.get_monitor() === currentMonitorIndex);
@@ -236,7 +245,7 @@ export function _computeDesiredState(dockUI) {
     for (let i = 0; i < displayApps.length; i++) {
         const app = displayApps[i];
         const appId = app.get_id();
-        const activeWindows = _filterActiveWindows(dockUI, app.get_windows());
+        const activeWindows = filterActiveWindows(dockUI, app.get_windows());
         let isRunning = app.get_state() === Shell.AppState.RUNNING;
 
         if (isIsolated && activeWindows.length === 0) isRunning = false;
@@ -266,7 +275,7 @@ export function _computeDesiredState(dockUI) {
             for (let j = 0; j < folder.apps.length; j++) {
                 const app = dockUI.appManager.appSystem.lookup_app(folder.apps[j]);
                 if (app && (app.get_state() === Shell.AppState.RUNNING || app.get_windows().length > 0)) {
-                    const wins = _filterActiveWindows(dockUI, app.get_windows());
+                    const wins = filterActiveWindows(dockUI, app.get_windows());
                     if (wins.length > 0) {
                         runningApps.push(app);
                         if (wins.some(w => w === focusWin)) {
@@ -409,7 +418,7 @@ function _itemSpan(dockUI, item, appSlot) {
 
     switch (item.type) {
         case 'separator':
-            return (item.sepKind === 'running' ? Settings.runningSeparatorWidth : Settings.separatorWidth) + SEPARATOR_MARGIN;
+            return dockUI.settings.get_int(`${separatorPrefix(item.sepKind)}-width`) + SEPARATOR_MARGIN;
         case 'clock': return CLOCK_FALLBACK_SPAN;
         case 'desktop': return Settings.desktopBtnWidth + SEPARATOR_MARGIN;
         default: return appSlot;

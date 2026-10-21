@@ -17,15 +17,76 @@
 */
 
 
+import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import { isActorAlive } from '../../core/Utils.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isActorAlive, hexToRgba } from '../../core/Utils.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { calculateScale, calculatePivot, calculateBackgroundBounds } from './DockGeometryCalculator.js';
 
 
 const DEFAULT_BOX_SIZE = 10;
+const LEADING_CONTENT_DEPTH = 4;
+
+function _hasVisibleContent(actor) {
+    if (!isActorAlive(actor) || !actor.visible || actor.opacity === 0) return false;
+    const children = actor.get_children();
+    return children.length === 0 || children.some(_hasVisibleContent);
+}
+
+function _leadingContentOffset(container, isVertical) {
+    let offset = 0;
+    let node = container;
+    for (let depth = 0; depth < LEADING_CONTENT_DEPTH; depth++) {
+        const next = node.get_children().find(_hasVisibleContent);
+        if (!next) break;
+        offset += isVertical ? next.y : next.x;
+        node = next;
+    }
+    return offset;
+}
+
+function _syncPanelSeparator(dockUI, isVertical, boxX, boxY, boxW, boxH) {
+    const settings = dockUI.settings;
+    const rightBox = dockUI.panelIntegrator ? dockUI.panelIntegrator.container : null;
+    const thickness = settings.get_int('panel-separator-width');
+    const shouldShow = Settings.hybridPanelMode && Settings.dynamicPanel &&
+        settings.get_boolean('show-panel-separator') && thickness > 0 &&
+        isActorAlive(rightBox) && rightBox.visible && rightBox.get_children().some(_hasVisibleContent);
+
+    let sep = dockUI._panelSeparator;
+    if (!shouldShow) {
+        if (isActorAlive(sep)) sep.hide();
+        return;
+    }
+
+    if (!isActorAlive(sep)) {
+        sep = new St.Widget({ name: 'DhruvaPanelSeparator', reactive: false });
+        dockUI.actor.add_child(sep);
+        dockUI._panelSeparator = sep;
+    }
+
+    const rgba = hexToRgba(settings.get_string('panel-separator-color'), settings.get_int('panel-separator-opacity') / 100.0);
+    sep.set_style(`background-color: ${rgba}; border-radius: ${thickness}px;`);
+
+    const crossSpan = isVertical ? boxW : boxH;
+    const length = Math.max(1, Math.round(crossSpan * settings.get_int('panel-separator-height') / 100.0));
+    const endPadding = dockUI.boxActor.get_theme_node().get_padding(isVertical ? St.Side.BOTTOM : St.Side.RIGHT);
+    const iconsEnd = (isVertical ? boxY + boxH : boxX + boxW) - endPadding;
+    const itemsStart = (isVertical ? rightBox.y : rightBox.x) + _leadingContentOffset(rightBox, isVertical);
+    const center = (iconsEnd + itemsStart) / 2;
+    const crossCenter = isVertical ? boxX + boxW / 2 : boxY + boxH / 2;
+
+    const w = isVertical ? length : thickness;
+    const h = isVertical ? thickness : length;
+    sep.set_size(w, h);
+    sep.set_position(
+        Math.round((isVertical ? crossCenter : center) - w / 2),
+        Math.round((isVertical ? center : crossCenter) - h / 2)
+    );
+    sep.show();
+}
 
 export function updateLayout(dockUI) {
     if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor) || !dockUI.actor.is_mapped()) return;
@@ -485,6 +546,7 @@ export function updateLayout(dockUI) {
     }
 
     dockUI.boxActor.set_position(contentX, contentY);
+    _syncPanelSeparator(dockUI, isVertical, contentX, contentY, boxW, boxH);
     dockUI.actor._isFullWidth = isFullWidth;
     dockUI.bgActor._baseX = bgX;
     dockUI.bgActor._baseY = bgY;

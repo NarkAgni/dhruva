@@ -157,7 +157,7 @@ export default class PanelIntegrator {
         const { height, radius } = panelItemMetrics();
         this._secondaryClockSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
         const isVertical = this._isVertical();
-        this._secondaryClock = new ClockBox(this._secondaryClockSettings, isVertical);
+        this._secondaryClock = new ClockBox(this._secondaryClockSettings, this.dockUI.settings, isVertical);
         const update = () => this._secondaryClock.update();
 
         const dateMenu = Main.panel.statusArea.dateMenu;
@@ -168,6 +168,7 @@ export default class PanelIntegrator {
             'changed::clock-format', update,
             this
         );
+        this.dockUI.settings.connectObject('changed::panel-date-format', update, this);
         update();
 
         const btn = new St.Button({
@@ -197,6 +198,7 @@ export default class PanelIntegrator {
         if (this._secondaryClockSettings) {
             this._secondaryClockSettings.disconnectObject(this);
             this._secondaryClockSettings = null;
+            this.dockUI.settings.disconnectObject(this);
         }
         if (this._secondaryClock) {
             this._secondaryClock.destroy();

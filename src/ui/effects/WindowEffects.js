@@ -96,6 +96,13 @@ function _clearEffectIdles() {
     }
 }
 
+function _syncActorToWindow(actor) {
+    const rect = actor.meta_window.get_buffer_rect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    actor.set_position(rect.x, rect.y);
+    actor.set_size(rect.width, rect.height);
+}
+
 function _applyEffectDuration(effect, duration) {
     if (!effect) return null;
     effect._duration = duration;
@@ -337,6 +344,8 @@ export function setupWindowEffects(settings, dockUI) {
         },
         'unminimize', (_wm, actor) => {
             const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
+
+            if (actor.meta_window) _syncActorToWindow(actor);
 
             if (actor === _pendingActor && global._dhruvaIsFade) {
                 global._dhruvaIsFade = false;

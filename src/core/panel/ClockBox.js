@@ -32,6 +32,8 @@ const CFG = HYBRID_PANEL_CONFIG;
 
 const SIDE_DOCK_CLOCKWISE = true;
 const MEASURE_SLACK = 2;
+const DATE_FORMAT_KEY = 'panel-date-format';
+const DEFAULT_DATE_FORMAT = '%d/%m/%Y';
 
 
 const RotatedClock = GObject.registerClass(
@@ -121,8 +123,9 @@ class DhruvaRotatedClock extends St.DrawingArea {
 
 
 export default class ClockBox {
-    constructor(clockSettings, isVertical = false) {
+    constructor(clockSettings, dhruvaSettings, isVertical = false) {
         this._settings = clockSettings;
+        this._dhruvaSettings = dhruvaSettings;
         this._isVertical = isVertical;
         this._lastShowDate = null;
         this._lastKey = '';
@@ -191,7 +194,7 @@ export default class ClockBox {
             time = now.format(showSeconds ? '%I:%M:%S %p' : '%I:%M %p').replace(/^0/, '');
         else
             time = now.format(showSeconds ? '%H:%M:%S' : '%H:%M');
-        const date = showDate ? now.format('%d/%m/%Y') : '';
+        const date = showDate ? (now.format(this._dhruvaSettings.get_string(DATE_FORMAT_KEY)) || now.format(DEFAULT_DATE_FORMAT)) : '';
 
         this._showLines(time, date, showDate);
 

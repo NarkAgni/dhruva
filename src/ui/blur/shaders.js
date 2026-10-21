@@ -71,8 +71,8 @@ export const BLUR_CODE = `
     vec2 direction = vec2(float(dir), 1.0 - float(dir));
     float pixel_step = (dir == 0) ? (1.0 / h) : (1.0 / w);
 
-    const int MAX_STEPS = 18;
-    float stride = max(1.0, sigma / 6.0);
+    const int MAX_STEPS = 36;
+    float stride = max(1.0, sigma / 12.0);
     float s = sigma / stride;
 
     vec3 gauss_coeff;
@@ -168,6 +168,9 @@ export const BLUR_CODE = `
 
     float edgeDamp = max(smoothstep(0.0, -2.0, sd), arrowZone);
     base *= mix(0.85, 1.0, edgeDamp);
+
+    float dither = fract(sin(dot(px, vec2(12.9898, 78.233))) * 43758.5453);
+    base += vec3((dither - 0.5) / 255.0);
 
     cogl_color_out = vec4(base, 1.0) * mask;
 `;

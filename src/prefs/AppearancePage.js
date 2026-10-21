@@ -91,7 +91,13 @@ class DockPreview {
         const radius = isBar ? 0 : Math.min(this._num('border-radius'), dockH / 2);
 
         this._paintBackground(cr, dockX, dockY, dockW, dockH, radius, isBar);
-        this._paintIcons(cr, (w - contentW) / 2, dockY + (dockH - iconSize) / 2 - 2, iconSize, gap);
+        const iconsX = (w - contentW) / 2;
+        const iconsY = dockY + (dockH - iconSize) / 2 - 2;
+        this._paintIcons(cr, iconsX, iconsY, iconSize, gap);
+
+        if (isDynamicPanel && s.get_boolean('show-panel-separator')) {
+            this._paintSeparator(cr, iconsX + contentW + gap / 2 + 1, iconsY, iconSize, 'panel-separator');
+        }
     }
 
     _paintBackground(cr, x, y, w, h, r, isBar) {
@@ -322,13 +328,19 @@ export function buildAppearancePage(window, settings) {
         _('Between Pinned and Running'), _('Divides your pinned apps from other open apps')), 'running-separator');
     addSeparatorRows(addToggleExpander(separatorGroup, settings, 'show-module-separator',
         _('Before Modules'), _('Divides apps from clock, launcher and folders')), 'separator');
+    const panelSeparatorExpander = addToggleExpander(separatorGroup, settings, 'show-panel-separator',
+        _('Before Top Bar Items'), _('Centred between icons and the top bar status area in dynamic panel mode'));
+    addSeparatorRows(panelSeparatorExpander, 'panel-separator');
+    showWhen(panelSeparatorExpander, settings, ['hybrid-panel-mode', 'dynamic-panel'],
+        () => settings.get_boolean('hybrid-panel-mode') && settings.get_boolean('dynamic-panel'));
 
     const previewKeys = [
         'blur-enabled', 'full-width', 'hybrid-panel-mode', 'dynamic-panel', 'dock-theme', ...BACKGROUND_KEYS, ...SHAPE_KEYS,
         ...INDICATOR_KEYS, 'show-running-indicators', 'show-notification-badges',
         'show-app-separator', 'running-separator-width', 'running-separator-height', 'running-separator-color',
         'running-separator-opacity', 'show-module-separator', 'separator-width', 'separator-height',
-        'separator-color', 'separator-opacity',
+        'separator-color', 'separator-opacity', 'show-panel-separator', 'panel-separator-width',
+        'panel-separator-height', 'panel-separator-color', 'panel-separator-opacity',
     ];
     for (const key of previewKeys) onSettingChanged(settings, key, () => preview.redraw());
 

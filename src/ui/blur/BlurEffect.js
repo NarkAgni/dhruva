@@ -93,6 +93,13 @@ class BlurEffect extends BlurShaderBase {
         this._pushAllUniforms();
     }
 
+    vfunc_paint_target(...args) {
+        const pipeline = this.get_pipeline();
+        if (pipeline)
+            pipeline.set_layer_filters(0, Cogl.PipelineFilter.LINEAR, Cogl.PipelineFilter.LINEAR);
+        super.vfunc_paint_target(...args);
+    }
+
     _setFloatUniform(name, val) {
         const gval = new GObject.Value();
         gval.init(GObject.TYPE_FLOAT);

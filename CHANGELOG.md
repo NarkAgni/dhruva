@@ -1,3 +1,21 @@
+## [4.8] - 21-10-2026
+
+### New
+* **Panel Separator (#90):** In Dynamic Panel mode, a separator now sits between your icons and modules and the top bar items. It stays centred in the gap, measured to the first applet or the tray arrow, and moves with them when they appear or disappear. Turn it on and set its thickness, length, colour and opacity under Appearance → Separators → Before Top Bar Items.
+* **Date Format:** Choose how the date under the panel clock is written, from Panel → Clock → Date Format. Includes your system's own format, DD/MM/YYYY, MM/DD/YYYY, YYYY/MM/DD, YYYY/DD/MM, ISO 8601, dotted and dashed styles, short years, and formats with the month or weekday name. Each option shows today's date as an example.
+
+### Improved
+* **Wallpaper Color Theme (#91):** The theme now follows your light or dark style and takes its colour from the matching wallpaper, and changes as soon as you switch styles. Slideshow wallpapers, like the Fedora defaults, now use the colour of their first image.
+* **Smoother Blur (#88):** The blur takes more samples and adds a very light dither, so large blur values and dark wallpapers look smooth, without steps or banding.
+
+### Fixed
+* **Invisible Dock with Wallpaper Color (#91):** With the Wallpaper Color theme and a wallpaper the image loader can't read (for example a slideshow or a JPEG XL file), the dock became invisible but still clickable, and settings like icon size and hover animation stopped working. Dhruva now falls back to a default colour instead.
+* **Running Indicators Doubling (#88):** Right-click menus, dropdowns and other popups of an app are no longer counted as windows, so the running indicator no longer doubles when you open a menu in a browser or in Dhruva's settings. Clicking an icon also no longer tries to focus these popups.
+* **Restore from Alt+Tab / Super+Tab (#90):** A minimized window restored from the window switcher now animates from its own place, instead of starting in the top left corner and then jumping back.
+* **Quick Settings and Date Menu Popups (#90):** In Dynamic Panel mode, the Quick Settings and Date Menu popups now open centred over their buttons.
+* **Pixelated Blur (#88):** The blur no longer looks blocky or pixelated.
+* **"No signal connection found" Errors (#92):** Every full dock refresh logged thousands of these errors per session, and each removed icon left a small leftover in memory. Drag and drop on dock icons now hooks up its signals the way GNOME Shell expects, so the errors and the leftovers are gone.
+
 ## [4.7] - 19-10-2026
 
 ### Fixed

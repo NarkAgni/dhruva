@@ -511,6 +511,38 @@
       <summary>Pinned/Running Apps Separator Opacity</summary>
     </key>
 
+    <key name="panel-date-format" type="s">
+      <default>'%d/%m/%Y'</default>
+      <summary>Panel Date Format</summary>
+      <description>GLib date format used for the date line under the panel clock.</description>
+    </key>
+
+    <key name="show-panel-separator" type="b">
+      <default>true</default>
+      <summary>Show Panel Separator</summary>
+      <description>In dynamic panel mode, show a divider centred between the dock icons and modules and the top bar status area.</description>
+    </key>
+
+    <key name="panel-separator-width" type="i">
+      <default>1</default>
+      <summary>Panel Separator Width</summary>
+    </key>
+
+    <key name="panel-separator-height" type="i">
+      <default>60</default>
+      <summary>Panel Separator Height Percentage</summary>
+    </key>
+
+    <key name="panel-separator-color" type="s">
+      <default>'#ffffff'</default>
+      <summary>Panel Separator Color</summary>
+    </key>
+
+    <key name="panel-separator-opacity" type="i">
+      <default>20</default>
+      <summary>Panel Separator Opacity</summary>
+    </key>
+
     <key name="use-old-grid-icon" type="b">
       <default>false</default>
       <summary>Use old app grid icon</summary>

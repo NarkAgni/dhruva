@@ -104,7 +104,7 @@ export default class QuickSettingsManager {
         });
 
         this.updateArrowSide(targetSide);
-        hookPopupGap(this.dockUI, this.indicator.menu);
+        hookPopupGap(this.dockUI, this.indicator.menu, true);
 
         this._queueRelayout();
         return target;

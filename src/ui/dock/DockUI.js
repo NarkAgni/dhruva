@@ -45,8 +45,8 @@ import { teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { requestAttention, cancelDockTransitions } from './DockTransitions.js';
 import { applyOverviewDockMargin, clearOverviewDockMargin } from './OverviewMargin.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
-import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer } from './DockRenderer.js';
 import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
+import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer } from './DockRenderer.js';
 
 
 const RENDER_DEBOUNCE_MS = 5;
@@ -82,7 +82,8 @@ const WATCHED_SETTINGS = [
     'isolate-monitors', 'show-notification-badges', 'show-mounts', 'show-app-separator', 'separator-width',
     'show-module-separator', 'separator-height', 'dock-padding', 'dock-height', 'tooltip-opacity',
     'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
-    'running-separator-color', 'running-separator-opacity', 'grid-icon-color', 'custom-grid-icon',
+    'running-separator-color', 'running-separator-opacity', 'show-panel-separator', 'panel-separator-width',
+    'panel-separator-height', 'panel-separator-color', 'panel-separator-opacity', 'grid-icon-color', 'custom-grid-icon',
     'custom-grid-icon-scale', 'use-old-grid-icon', 'app-folders', 'show-unpinned-apps',
     'desktop-btn-width', 'desktop-btn-opacity', 'desktop-btn-color', 'show-independent-in-overview',
     'indicator-color-mode', 'autohide-animation-speed', 'window-effect-speed'
@@ -688,6 +689,9 @@ export default class DockUI {
         };
         this._bgSettings.connectObject('changed::picture-uri', onWallpaperChange, this);
         this._bgSettings.connectObject('changed::picture-uri-dark', onWallpaperChange, this);
+
+        this._interfaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
+        this._interfaceSettings.connectObject('changed::color-scheme', onWallpaperChange, this);
     }
 
     _syncDashVisibility() {
@@ -1304,6 +1308,7 @@ export default class DockUI {
         if (this.settings) this.settings.disconnectObject(this);
         if (this.volumeMonitor) this.volumeMonitor.disconnectObject(this);
         if (this._bgSettings) this._bgSettings.disconnectObject(this);
+        if (this._interfaceSettings) this._interfaceSettings.disconnectObject(this);
         if (this._iconThemeSettings) this._iconThemeSettings.disconnectObject(this);
         this._teardownTrashMonitor();
 

@@ -49,6 +49,7 @@ export default class DateMenuManager {
             'changed::clock-format', () => this._onClockFormatChanged(),
             this
         );
+        this.dockUI.settings.connectObject('changed::panel-date-format', () => this._onClockFormatChanged(), this);
     }
 
     steal(targetSide, isVertical) {
@@ -84,7 +85,7 @@ export default class DateMenuManager {
         });
 
         this.updateArrowSide(targetSide);
-        hookPopupGap(this.dockUI, this.indicator.menu);
+        hookPopupGap(this.dockUI, this.indicator.menu, true);
 
         this.actor = target;
         this._queueRelayout();
@@ -94,7 +95,7 @@ export default class DateMenuManager {
     _installClock() {
         const indicator = this.indicator;
 
-        this._clock = new ClockBox(this._clockSettings, this._isVertical);
+        this._clock = new ClockBox(this._clockSettings, this.dockUI.settings, this._isVertical);
         this._clock.actor.name = 'DhruvaWindowsDateMenuBox';
         this._state.connect(indicator._clock, 'notify::clock', () => this._updateClock());
         this._updateClock();
@@ -175,5 +176,6 @@ export default class DateMenuManager {
         }
         this._clockSettings.disconnectObject(this);
         this._clockSettings = null;
+        this.dockUI.settings.disconnectObject(this);
     }
 }

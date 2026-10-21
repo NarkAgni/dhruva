@@ -35,13 +35,12 @@ import { buildAppGridModule } from './AppGridModule.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { userCacheDir } from '../../core/DataPaths.js';
-import WorkspaceFilter from '../../core/WorkspaceFilter.js';
-import { getIndicatorProps } from '../dock/DockRenderer.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { buildSystemFoldersModule } from './SystemFoldersModule.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
+import { getIndicatorProps, filterActiveWindows } from '../dock/DockRenderer.js';
 import { buildDesktopButtonModule, toggleDesktop } from './DesktopButtonModule.js';
 import { createIndicatorBox, attachHoverBackground } from '../dock/DockButtonBase.js';
 
@@ -243,15 +242,7 @@ export function buildModules(dockUI, iconSize) {
                 wins = wins.concat(global.workspace_manager.get_workspace_by_index(i).list_windows());
             }
 
-            const filteredWins = wins.filter(w => isWindowForFolder(w, folderPath, tooltipName));
-            let finalWins = WorkspaceFilter.filterWindows(filteredWins);
-
-            if (Settings.isolateMonitors && dockUI.monitorManager) {
-                const currentMonitorIndex = dockUI.monitorManager.getCurrentMonitor().index;
-                finalWins = finalWins.filter(w => w.get_monitor() === currentMonitorIndex);
-            }
-
-            return finalWins;
+            return filterActiveWindows(dockUI, wins.filter(w => isWindowForFolder(w, folderPath, tooltipName)));
         };
 
         const dockHeightPad = Settings.dockHeight || 6;
