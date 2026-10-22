@@ -79,6 +79,7 @@ function ghostSet(dockUI) {
 export function captureDockTransition(dockUI) {
     if (!dockUI._initialLayoutDone || !dockUI.actor.is_mapped()) return null;
 
+    const keys = new Set(dockUI._actorRegistry.keys());
     const rects = new Map();
     const actors = new Map();
     for (const [key, entry] of dockUI._actorRegistry) {
@@ -89,7 +90,7 @@ export function captureDockTransition(dockUI) {
         actors.set(key, { actor: entry.actor, type: entry.type, isRunning: entry.isRunning });
     }
 
-    return { rects, actors, bgRect: transformedRect(dockUI.bgActor) };
+    return { keys, rects, actors, bgRect: transformedRect(dockUI.bgActor) };
 }
 
 export function releaseRemovedItems(dockUI, transition, keptKeys) {
@@ -154,14 +155,12 @@ export function playDockTransition(dockUI, transition) {
     let isAnimating = false;
     for (const [key, entry] of dockUI._actorRegistry) {
         const oldRect = transition.rects.get(key);
-        if (!oldRect) {
-            if (ENTER_TYPES.includes(entry.type)) {
-                playEnter(entry.actor, dockUI.dockPosition);
-                isAnimating = true;
-            }
-        } else {
+        if (oldRect) {
             if (canSlide && playSlide(entry.actor, oldRect, dockScale)) isAnimating = true;
             if (entry.isRunning && !transition.actors.get(key).isRunning) playIndicatorPop(entry.actor);
+        } else if (!transition.keys.has(key) && ENTER_TYPES.includes(entry.type)) {
+            playEnter(entry.actor, dockUI.dockPosition);
+            isAnimating = true;
         }
     }
 

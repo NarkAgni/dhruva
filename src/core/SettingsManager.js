@@ -127,6 +127,8 @@ export const Settings = {
     get hideDelay() { return this._settings ? this._settings.get_int('hide-delay') : 250; },
     get unhideDelay() { return this._settings ? this._settings.get_int('unhide-delay') : 100; },
     get edgeDwellDelay() { return this._settings ? this._settings.get_int('edge-dwell-delay') : 150; },
+    get fullscreenMode() { return this._settings ? this._settings.get_string('fullscreen-mode') : 'hidden'; },
+    get fullscreenRevealDelay() { return this._settings ? this._settings.get_int('fullscreen-reveal-delay') : 500; },
     get clickEffect() { return this._settings ? this._settings.get_string('click-effect') : 'bounce'; },
     get minimizeEffect() { return this._settings ? this._settings.get_string('minimize-effect') : 'magic-lamp'; },
     get lockIcons() { return this._settings ? this._settings.get_boolean('lock-icons') : false; },

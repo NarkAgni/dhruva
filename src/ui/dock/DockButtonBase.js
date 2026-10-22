@@ -54,10 +54,17 @@ export function getHoverBgRadius(iconSize) {
     return Math.max(6, Math.min(10, Math.round(iconSize * 0.18)));
 }
 
-function safeHexToRgba(color, alpha) {
-    const safeAlpha = (alpha !== undefined && alpha !== null && !Number.isNaN(alpha)) ? Math.max(0.0, Math.min(1.0, alpha)) : 0.25;
-    const safeColor = color || '#ffffff';
-    return hexToRgba(safeColor, safeAlpha);
+export function getPreviewBoxOpacity() {
+    const rawOp = Settings.tooltipOpacity;
+    return Number.isFinite(rawOp) ? Math.max(0, Math.min(100, rawOp)) / 100.0 : 0.25;
+}
+
+export function previewBoxColor(color, alpha) {
+    return alpha > 0 ? hexToRgba(color || '#ffffff', Math.min(1.0, alpha)) : 'transparent';
+}
+
+function getPreviewBoxBaseAlpha() {
+    return Math.min(0.80, getPreviewBoxOpacity());
 }
 
 export function stripIndicatorSize(style) {
@@ -163,16 +170,12 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
     const compactCollapsed = iconSize;
     const tightCross = iconSize + 4;
 
-    const rawOp = Settings.tooltipOpacity;
-    const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
-    const baseAlpha = Math.max(0.20, Math.min(0.80, boxOp / 100.0));
-    const hoverAlpha = Math.min(1.0, baseAlpha + 0.20);
     const hoverZoom = Boolean(Settings.hoverZoom);
     const radius = getHoverBgRadius(iconSize);
 
     let baseBg = 'transparent';
     if (isIndicatorActive && !hoverZoom) {
-        baseBg = safeHexToRgba(indProps ? indProps.indColor : '#ffffff', baseAlpha);
+        baseBg = previewBoxColor(indProps ? indProps.indColor : '#ffffff', getPreviewBoxBaseAlpha());
     }
 
     const isExpanded = isIndicatorActive && !hoverZoom;
@@ -218,9 +221,10 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
         const curRadius = getHoverBgRadius(iconSize);
 
         if (btn.hover) {
+            const baseAlpha = getPreviewBoxBaseAlpha();
             const activeColor = btn._hasRunningIndicator
-                ? safeHexToRgba(activeIndProps ? activeIndProps.indColor : '#ffffff', hoverAlpha)
-                : 'rgba(255, 255, 255, ' + Math.max(0.18, baseAlpha * 0.70) + ')';
+                ? previewBoxColor(activeIndProps ? activeIndProps.indColor : '#ffffff', baseAlpha * 1.8)
+                : previewBoxColor('#ffffff', baseAlpha * 0.72);
             hoverBg.set_style(hoverBgStyle(activeColor, curRadius));
         } else {
             hoverBg.set_style(hoverBgStyle(btn._baseBg, curRadius));
@@ -276,12 +280,9 @@ attachHoverBackground.updateState = function (btn, isRunning, windows = [], indP
         }
     }
 
-    const rawOp = Settings.tooltipOpacity;
-    const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
-    const baseAlpha = Math.max(0.20, Math.min(0.80, boxOp / 100.0));
     let baseBg = 'transparent';
     if (isIndicatorActive && !hoverZoom) {
-        baseBg = safeHexToRgba(indProps ? indProps.indColor : '#ffffff', baseAlpha);
+        baseBg = previewBoxColor(indProps ? indProps.indColor : '#ffffff', getPreviewBoxBaseAlpha());
     }
     btn._baseBg = baseBg;
 

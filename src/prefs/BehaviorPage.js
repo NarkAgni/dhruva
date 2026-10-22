@@ -41,6 +41,12 @@ const HIDE_MODES = () => [
     { name: _('Never'), value: 'none', hint: _('The dock is always visible') },
 ];
 
+const FULLSCREEN_MODES = () => [
+    { name: _('Show'), value: 'show', hint: _('Reveals at the screen edge like on the desktop') },
+    { name: _('Delayed'), value: 'delayed', hint: _('Needs a longer push at the screen edge') },
+    { name: _('Hidden'), value: 'hidden', hint: _('Stays hidden until the app leaves fullscreen') },
+];
+
 const CLICK_EFFECTS = () => [
     { name: _('None'), value: 'none' },
     { name: _('Bounce'), value: 'bounce' },
@@ -74,14 +80,29 @@ export function buildBehaviorPage(window, settings) {
         icon_name: 'applications-engineering-symbolic',
     });
 
+    const bindModeHint = (row, key, modes) => {
+        const syncHint = () => {
+            const mode = modes().find(m => m.value === settings.get_string(key));
+            row.subtitle = mode ? mode.hint : '';
+        };
+        syncHint();
+        onSettingChanged(settings, key, syncHint);
+    };
+
+    const isSmartHide = () => settings.get_string('hide-mode') === 'intelligent';
+
     const hideGroup = addGroup(page, _('Auto-Hide'), _('When the dock steps out of the way'));
     const hideRow = addComboRow(hideGroup, settings, 'hide-mode', _('Hide'), null, HIDE_MODES());
-    const syncHideHint = () => {
-        const mode = HIDE_MODES().find(m => m.value === settings.get_string('hide-mode'));
-        hideRow.subtitle = mode ? mode.hint : '';
-    };
-    syncHideHint();
-    onSettingChanged(settings, 'hide-mode', syncHideHint);
+    bindModeHint(hideRow, 'hide-mode', HIDE_MODES);
+
+    const fullscreenRow = addComboRow(hideGroup, settings, 'fullscreen-mode', _('In Fullscreen'), null, FULLSCREEN_MODES());
+    bindModeHint(fullscreenRow, 'fullscreen-mode', FULLSCREEN_MODES);
+    showWhen(fullscreenRow, settings, ['hide-mode'], isSmartHide);
+
+    const fullscreenDelayRow = addSliderRow(hideGroup, settings, 'fullscreen-reveal-delay', _('Fullscreen Edge Push'),
+        _('Never shorter than the normal edge push'), { lower: 300, upper: 1500, step: 50 }, fmt.ms);
+    showWhen(fullscreenDelayRow, settings, ['hide-mode', 'fullscreen-mode'],
+        () => isSmartHide() && settings.get_string('fullscreen-mode') === 'delayed');
 
     const timingGroup = addGroup(page, _('Auto-Hide Timing'));
     addGroupReset(timingGroup, settings, HIDE_TIMING_KEYS);

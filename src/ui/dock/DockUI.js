@@ -266,7 +266,7 @@ export default class DockUI {
             }
         }, this);
 
-        const handleEmptySpaceClick = (_actor, event) => {
+        const handleEmptySpaceClick = () => {
             let menuClosed = false;
 
             if (this._activeContextMenu) {
@@ -280,20 +280,7 @@ export default class DockUI {
                 menuClosed = true;
             }
 
-            if (menuClosed) {
-                return Clutter.EVENT_STOP;
-            }
-
-            if (event.get_button() === 3) {
-                if ((event.get_state() & Clutter.ModifierType.CONTROL_MASK) && this.openPrefsCallback) {
-                    const res = this.openPrefsCallback();
-                    if (res && res.catch) {
-                        res.catch(e => console.warn('[Dhruva]', e.message));
-                    }
-                    return Clutter.EVENT_STOP;
-                }
-            }
-            return Clutter.EVENT_PROPAGATE;
+            return menuClosed ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
         };
 
         this.actor.connectObject('button-press-event', handleEmptySpaceClick, this);

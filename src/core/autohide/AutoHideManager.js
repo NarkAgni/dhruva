@@ -62,15 +62,20 @@ export default class AutoHideManager {
             () => {
                 this._isHovered = false;
                 this.scheduleCheck(DEFAULT_CHECK_DEBOUNCE_MS);
-            }
+            },
+            () => this._getEdgeDwellDelay()
         );
 
         this._bindEvents();
         this.updateTriggerGeometry();
 
-        this.settings.connectObject('changed::hide-mode', () => {
-            this.syncMode();
-        }, this);
+        this.settings.connectObject(
+            'changed::hide-mode', () => this.syncMode(),
+            'changed::fullscreen-mode', () => this.scheduleCheck(0),
+            'changed::fullscreen-reveal-delay', () => this.scheduleCheck(0),
+            'changed::edge-dwell-delay', () => this.scheduleCheck(0),
+            this
+        );
 
         if (this._initSyncTimeoutId) {
             this.timers.remove(this._initSyncTimeoutId);
@@ -267,10 +272,20 @@ export default class AutoHideManager {
         });
     }
 
+    _getFullscreenMode() {
+        return Settings.hideMode === 'intelligent' ? Settings.fullscreenMode : 'hidden';
+    }
+
     _canShowInFullscreen() {
-        const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
-        const allowFullscreen = Boolean(Settings.showInFullscreen ?? true);
-        return mode === 'intelligent' && allowFullscreen;
+        return this._getFullscreenMode() !== 'hidden';
+    }
+
+    _getEdgeDwellDelay() {
+        const dwellDelay = Settings.edgeDwellDelay;
+        if (this._wasFullscreen && this._getFullscreenMode() === 'delayed') {
+            return Math.max(dwellDelay, Settings.fullscreenRevealDelay);
+        }
+        return dwellDelay;
     }
 
     _isCurrentMonitorFullscreen() {
@@ -346,12 +361,12 @@ export default class AutoHideManager {
                     return;
                 }
 
-                this.forceHideImmediately();
+                this._scheduleHide();
                 return;
             }
 
             if (this.edgeDetection) this.edgeDetection.hide();
-            this.forceHideImmediately();
+            this._slideOut();
             return;
         }
 
@@ -386,18 +401,42 @@ export default class AutoHideManager {
         const shouldHide = this.overlapDetection.shouldHide(mode);
 
         if (shouldHide) {
-            const userHideDelay = Settings.hideDelay;
-            const finalDelay = Math.max(MIN_HIDE_DELAY_MS, userHideDelay);
-
-            this._hideTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, finalDelay, () => {
-                this._hideTimeoutId = 0;
-                if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return GLib.SOURCE_REMOVE;
-                this.hide();
-                return GLib.SOURCE_REMOVE;
-            });
+            this._scheduleHide();
         } else {
             this.showWithDelay();
         }
+    }
+
+    _scheduleHide() {
+        const finalDelay = Math.max(MIN_HIDE_DELAY_MS, Settings.hideDelay);
+
+        this._hideTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, finalDelay, () => {
+            this._hideTimeoutId = 0;
+            if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return GLib.SOURCE_REMOVE;
+            this.hide();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _slideOut() {
+        if (this._hideTimeoutId) {
+            this.timers.remove(this._hideTimeoutId);
+            this._hideTimeoutId = 0;
+        }
+        if (this._showTimeoutId) {
+            this.timers.remove(this._showTimeoutId);
+            this._showTimeoutId = 0;
+        }
+        this._isHovered = false;
+
+        if (this.isHidden || !this.dockUI || !isActorAlive(this.dockUI.actor)) return;
+
+        this.isHidden = true;
+        this.isAnimating = true;
+
+        animateHide(this.dockUI, () => {
+            this.isAnimating = false;
+        });
     }
 
     forceHideImmediately() {
@@ -501,7 +540,7 @@ export default class AutoHideManager {
         }
 
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
-        if (this.isHidden && !this.isAnimating) return;
+        if (this.isHidden) return;
         if (this._isHovered || this._isPopupOrDragActive()) return;
 
         if (Main.overview && (Main.overview.visible || Main.overview.visibleTarget)) {

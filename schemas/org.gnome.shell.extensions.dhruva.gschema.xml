@@ -2,6 +2,18 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.dhruva" path="/org/gnome/shell/extensions/dhruva/">
 
+    <key name="settings-version" type="s">
+      <default>''</default>
+      <summary>Settings migration version</summary>
+      <description>Internal. Extension version that last checked the settings defaults.</description>
+    </key>
+
+    <key name="settings-defaults" type="s">
+      <default>''</default>
+      <summary>Known settings defaults</summary>
+      <description>Internal. Snapshot of the schema defaults from the last version, used to keep untouched settings stable across updates.</description>
+    </key>
+
     <key name="dock-position" type="s">
       <default>'BOTTOM'</default>
       <summary>Dock Position</summary>
@@ -606,6 +618,23 @@
     <key name="edge-dwell-delay" type="i">
       <default>150</default>
       <summary>Edge Reveal Delay (Pressure) in ms</summary>
+    </key>
+
+    <key name="fullscreen-mode" type="s">
+      <choices>
+        <choice value='show'/>
+        <choice value='delayed'/>
+        <choice value='hidden'/>
+      </choices>
+      <default>'hidden'</default>
+      <summary>Smart auto-hide over fullscreen apps</summary>
+      <description>Whether the dock can be revealed at the screen edge while an app is fullscreen in Smart mode.</description>
+    </key>
+
+    <key name="fullscreen-reveal-delay" type="i">
+      <default>500</default>
+      <summary>Fullscreen edge push</summary>
+      <description>Edge push used over fullscreen apps when the fullscreen mode is Delayed. The normal edge push is used if it is larger.</description>
     </key>
 
     <key name="show-music-pill" type="b">

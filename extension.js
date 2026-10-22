@@ -24,9 +24,10 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { destroyUtils } from './src/core/Utils.js';
-import { migrateLegacyPaths } from './src/core/DataPaths.js';
 import { Settings } from './src/core/SettingsManager.js';
+import { migrateLegacyPaths } from './src/core/DataPaths.js';
 import { TimeoutTracker } from './src/core/TimeoutTracker.js';
+import { migrateSettings } from './src/core/SettingsMigration.js';
 import QuickLaunchManager from './src/core/QuickLaunchManager.js';
 import MultiMonitorController from './src/core/MultiMonitorController.js';
 
@@ -40,6 +41,7 @@ export default class DhruvaExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
         migrateLegacyPaths(this._settings);
+        migrateSettings(this._settings, this.metadata['version-name']);
         Settings.init(this._settings);
         this._timers = new TimeoutTracker();
         this._isShortcutRegistered = false;

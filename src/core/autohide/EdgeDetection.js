@@ -34,15 +34,17 @@ const DEFAULT_BARRIER_DWELL_MS = 150;
 const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
 
 export class EdgeDetection {
-    constructor(dockUI, onEdgeTrigger, onEdgeLeave) {
+    constructor(dockUI, onEdgeTrigger, onEdgeLeave, getDwellDelay) {
         this.dockUI = dockUI;
         this.onEdgeTrigger = onEdgeTrigger;
         this.onEdgeLeave = onEdgeLeave;
+        this.getDwellDelay = getDwellDelay;
         this.timers = new TimeoutTracker();
         this._dwellTimeoutId = 0;
         this.triggerActor = null;
 
         this._isPassThrough = false;
+        this._isActive = true;
         this._lastBarrierKey = '';
 
         this._createTrigger();
@@ -72,8 +74,8 @@ export class EdgeDetection {
 
         this.triggerActor.connectObject(
             'enter-event', () => {
-                const dwellDelay = Settings.edgeDwellDelay;
-                
+                const dwellDelay = this.getDwellDelay();
+
                 if (this._dwellTimeoutId) {
                     this.timers.remove(this._dwellTimeoutId);
                     this._dwellTimeoutId = 0;
@@ -172,9 +174,7 @@ export class EdgeDetection {
         this.triggerActor.set_position(x, y);
         this.triggerActor.set_size(w, h);
 
-        if (!this._isPassThrough) {
-            this._setupBarriers();
-        }
+        this._setupBarriers();
     }
 
     _teardownBarriers() {
@@ -191,7 +191,7 @@ export class EdgeDetection {
     }
 
     _setupBarriers() {
-        if (this._isPassThrough) return;
+        if (this._isPassThrough || !this._isActive) return;
 
         const hasBarrierCapability = Boolean(
             global.backend &&
@@ -267,7 +267,8 @@ export class EdgeDetection {
             };
         }
 
-        const barrierKey = `${pos}:${props.x1},${props.y1}-${props.x2},${props.y2}`;
+        const dwellDelay = this.getDwellDelay() || DEFAULT_BARRIER_DWELL_MS;
+        const barrierKey = `${pos}:${props.x1},${props.y1}-${props.x2},${props.y2}:${dwellDelay}`;
         if (this._barrier && this._lastBarrierKey === barrierKey) {
             return;
         }
@@ -279,8 +280,6 @@ export class EdgeDetection {
             backend: global.backend,
             ...props,
         });
-
-        const dwellDelay = Settings.edgeDwellDelay || DEFAULT_BARRIER_DWELL_MS;
 
         this._pressure = new Layout.PressureBarrier(
             dwellDelay,
@@ -318,7 +317,9 @@ export class EdgeDetection {
     }
 
     show() {
+        this._isActive = true;
         if (this._isPassThrough) return;
+        this._setupBarriers();
         if (isActorAlive(this.triggerActor)) {
             this.triggerActor.reactive = true;
             this.triggerActor.show();
@@ -326,6 +327,12 @@ export class EdgeDetection {
     }
 
     hide() {
+        this._isActive = false;
+        if (this._dwellTimeoutId) {
+            this.timers.remove(this._dwellTimeoutId);
+            this._dwellTimeoutId = 0;
+        }
+        this._teardownBarriers();
         if (isActorAlive(this.triggerActor)) this.triggerActor.hide();
     }
 
@@ -350,5 +357,6 @@ export class EdgeDetection {
         this.dockUI = null;
         this.onEdgeTrigger = null;
         this.onEdgeLeave = null;
+        this.getDwellDelay = null;
     }
 }

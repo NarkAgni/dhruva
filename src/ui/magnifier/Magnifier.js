@@ -255,6 +255,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             dockActor._globalPressX = px;
             dockActor._globalPressY = py;
             dockActor._lastIconClickTime = Date.now();
+            dockActor._pressStartedOnDock = isPointerWithinDockBounds(dockActor, px, py, getBoxVertical(dockActor.boxActor), settings);
 
             if (!isInsideTooltip(dockActor, px, py, 20)) {
                 clearTooltipDelay(dockActor);
@@ -269,6 +270,11 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         }
 
         if (evType !== Clutter.EventType.BUTTON_RELEASE) return Clutter.EVENT_PROPAGATE;
+
+        const pressStartedOnDock = dockActor._pressStartedOnDock;
+        dockActor._pressStartedOnDock = false;
+
+        if (!pressStartedOnDock) return Clutter.EVENT_PROPAGATE;
         if (dockActor._isDragging || isAppGridOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
         if (!Settings.hoverZoom) return Clutter.EVENT_PROPAGATE;
 

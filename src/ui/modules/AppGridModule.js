@@ -26,7 +26,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg } from '../dock/DockButtonBase.js';
+import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg, getPreviewBoxOpacity, previewBoxColor } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 
@@ -169,10 +169,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
         const curRadius = getHoverBgRadius(iconSize);
         if (gridModule.hover) {
-            const rawOp = Settings.tooltipOpacity;
-            const boxOp = (rawOp !== undefined && rawOp !== null && !Number.isNaN(rawOp)) ? rawOp : 25;
-            const alpha = Math.max(0.18, (boxOp / 100.0) * 0.75);
-            hoverBg.set_style(hoverBgStyle('rgba(255, 255, 255, ' + alpha + ')', curRadius));
+            hoverBg.set_style(hoverBgStyle(previewBoxColor('#ffffff', getPreviewBoxOpacity() * 0.75), curRadius));
         } else {
             hoverBg.set_style(hoverBgStyle('transparent', curRadius));
         }

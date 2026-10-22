@@ -24,6 +24,7 @@ import { setupHeaderBar } from './src/prefs/HeaderBar.js';
 import { buildLayoutPage } from './src/prefs/LayoutPage.js';
 import { buildModulesPage } from './src/prefs/ModulesPage.js';
 import { buildBehaviorPage } from './src/prefs/BehaviorPage.js';
+import { migrateSettings } from './src/core/SettingsMigration.js';
 import { buildMusicPillPage } from './src/prefs/MusicPillPage.js';
 import { buildAppearancePage } from './src/prefs/AppearancePage.js';
 import { disconnectSettingSignals } from './src/prefs/SettingsSignals.js';
@@ -33,6 +34,7 @@ import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/
 export default class DhruvaPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
+        migrateSettings(settings, this.metadata['version-name']);
 
         buildLayoutPage(window, settings);
         buildPanelPage(window, settings);
@@ -42,7 +44,6 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         buildModulesPage(this, window, settings);
         buildMusicPillPage(window, settings);
         buildAboutPage(this, window);
-
         setupHeaderBar(this, window);
 
         window.connect('close-request', () => {

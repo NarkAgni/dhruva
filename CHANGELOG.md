@@ -1,3 +1,22 @@
+## [4.9] - 22-10-2026
+
+### New
+* **Fullscreen Option for Smart Auto-Hide (#95):** With Smart auto-hide, you can now choose what the dock does over fullscreen apps and games, under Behavior → Auto-Hide → In Fullscreen. **Hidden** keeps the dock out of the way until the app leaves fullscreen, **Delayed** needs a longer push at the screen edge (set it with Fullscreen Edge Push, never shorter than the normal Edge Push), and **Show** reveals it at the edge like on the desktop. Hidden is the default, so games no longer bring the dock up when the pointer reaches the bottom of the screen.
+
+### Improved
+* **Settings Stay Put After Updates:** Dhruva now remembers its defaults from the version you had before. If a default changes in an update, any setting you never touched keeps working the way it did before, and only new installs get the new default. Settings you changed yourself were never affected and still aren't.
+* **Indicator Background Opacity (#97):** The opacity slider for the coloured box behind running apps now changes smoothly across its whole range. Before, everything from 1% to 20% looked the same.
+
+### Fixed
+* **Indicator Background Can Be Turned Off (#97):** Setting the opacity of the coloured box behind running apps to 0 now hides it completely, on hover too, including the App Grid button. Before, it stayed visible at about 20% no matter what, so there was no way to go back to just the dot under the icon.
+* **Apps Opening on Release (#96):** With Magnify on Hover on, pressing the mouse button outside the dock and releasing it over an icon no longer opens that app. A click now only counts when it starts on the dock.
+* **GNOME Dash in the Overview (#93):** Dragging a window in the overview no longer makes GNOME's own dash fade in behind Dhruva. It stays hidden until you leave the overview.
+* **Icons Popping Up When Closing Apps:** Closing apps, especially two in a row, no longer makes the icons already on the dock shrink and pop up from below as if they were new. They now slide into place, and only icons that are actually new get the pop-in animation.
+* **Fullscreen Edge Barrier (#95):** When the dock is set to stay hidden over a fullscreen app, the screen edge pressure barrier is now removed too, instead of staying active in the background.
+
+### Changed
+* **Ctrl + Right Click on the Dock:** Ctrl + right click on an empty part of the dock no longer opens Dhruva's settings directly. Right click the App Grid icon and choose Dhruva Settings instead.
+
 ## [4.8] - 21-10-2026
 
 ### New

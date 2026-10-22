@@ -28,6 +28,8 @@ const TRACKED_PROPS = [
     'min_width', 'natural_width', 'min_height', 'natural_height',
 ];
 
+const SILENCED_METHODS = ['_onWindowDragBegin', '_onWindowDragEnd'];
+
 export default class GnomeDash {
     constructor() {
         this._state = null;
@@ -54,6 +56,12 @@ export default class GnomeDash {
             originalAdjust.call(this);
         };
 
+        for (const method of SILENCED_METHODS) {
+            this._state.track(dash, method, () => null, () => delete dash[method]);
+            dash[method] = () => {};
+        }
+
+        dash.remove_transition('opacity');
         dash.opacity = 0;
         dash.reactive = false;
     }
