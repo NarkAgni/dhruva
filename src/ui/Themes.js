@@ -196,8 +196,7 @@ function _getWallpaperUri() {
     return preferred || bgSettings.get_string(isDark ? 'picture-uri' : 'picture-uri-dark');
 }
 
-function _resolveSlideshowImage(xmlPath) {
-    const [, contents] = GLib.file_get_contents(xmlPath);
+function _imagePathFromSlideshow(contents) {
     const match = new TextDecoder().decode(contents).match(SLIDESHOW_IMAGE_RE);
     if (!match) return null;
 
@@ -206,33 +205,7 @@ function _resolveSlideshowImage(xmlPath) {
     return imagePath || null;
 }
 
-function _getWallpaperImagePath() {
-    const uri = _getWallpaperUri();
-    if (!uri) return null;
-
-    const path = Gio.File.new_for_uri(uri).get_path();
-    if (!path) return null;
-
-    const imagePath = path.toLowerCase().endsWith('.xml') ? _resolveSlideshowImage(path) : path;
-    if (!imagePath || !GLib.file_test(imagePath, GLib.FileTest.EXISTS)) return null;
-    return imagePath;
-}
-
-function _loadWallpaperSample() {
-    try {
-        const imagePath = _getWallpaperImagePath();
-        if (!imagePath) return null;
-        return GdkPixbuf.Pixbuf.new_from_file_at_scale(imagePath, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false);
-    } catch (e) {
-        console.warn(`[Dhruva] Could not read wallpaper colour: ${e.message}`);
-        return null;
-    }
-}
-
-export function extractWallpaperDominantColor() {
-    const pixbuf = _loadWallpaperSample();
-    if (!pixbuf) return null;
-
+function _dominantColorOf(pixbuf) {
     const w = pixbuf.get_width();
     const h = pixbuf.get_height();
     const channels = pixbuf.get_n_channels();
@@ -274,14 +247,65 @@ export function extractWallpaperDominantColor() {
     const rawG = Math.floor(totalG / count);
     const rawB = Math.floor(totalB / count);
 
-    const bgR = Math.floor(rawR * 0.55);
-    const bgG = Math.floor(rawG * 0.55);
-    const bgB = Math.floor(rawB * 0.55);
-
     return {
-        bg: { r: bgR, g: bgG, b: bgB },
+        bg: { r: Math.floor(rawR * 0.55), g: Math.floor(rawG * 0.55), b: Math.floor(rawB * 0.55) },
         raw: { r: rawR, g: rawG, b: rawB }
     };
+}
+
+function _loadWallpaperSample(imagePath, cancellable, done) {
+    Gio.File.new_for_path(imagePath).read_async(GLib.PRIORITY_LOW, cancellable, (file, readRes) => {
+        let stream;
+        try {
+            stream = file.read_finish(readRes);
+        } catch (e) {
+            done(null, e);
+            return;
+        }
+
+        GdkPixbuf.Pixbuf.new_from_stream_at_scale_async(stream, WALLPAPER_SAMPLE_SIZE, WALLPAPER_SAMPLE_SIZE, false, cancellable, (_source, pixbufRes) => {
+            stream.close_async(GLib.PRIORITY_LOW, null, () => {});
+            try {
+                done(GdkPixbuf.Pixbuf.new_from_stream_finish(pixbufRes), null);
+            } catch (e) {
+                done(null, e);
+            }
+        });
+    });
+}
+
+export function extractWallpaperDominantColor(cancellable, callback) {
+    const finish = (pixbuf, error) => {
+        if (cancellable.is_cancelled()) return;
+        if (error) console.warn(`[Dhruva] Could not read wallpaper colour: ${error.message}`);
+        callback(pixbuf ? _dominantColorOf(pixbuf) : null);
+    };
+
+    const uri = _getWallpaperUri();
+    const path = uri ? Gio.File.new_for_uri(uri).get_path() : null;
+    if (!path) {
+        finish(null, null);
+        return;
+    }
+
+    if (!path.toLowerCase().endsWith('.xml')) {
+        _loadWallpaperSample(path, cancellable, finish);
+        return;
+    }
+
+    Gio.File.new_for_path(path).load_contents_async(cancellable, (file, res) => {
+        let imagePath;
+        try {
+            const [, contents] = file.load_contents_finish(res);
+            imagePath = _imagePathFromSlideshow(contents);
+        } catch (e) {
+            finish(null, e);
+            return;
+        }
+
+        if (imagePath) _loadWallpaperSample(imagePath, cancellable, finish);
+        else finish(null, null);
+    });
 }
 
 export function applyDockTheme(bgActor, themeId, baseLayoutCss, customConfig) {

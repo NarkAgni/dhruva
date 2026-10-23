@@ -31,7 +31,7 @@ function getAnimDuration() {
     return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_ANIM_DURATION_MS;
 }
 
-export function getHideOffsets(dockUI) {
+export function getHideOffsets(dockUI, peek = 0) {
     if (dockUI._isWindowGrabbed || (dockUI._isOnSharedMonitorEdge && dockUI._isOnSharedMonitorEdge())) {
         return { hideX: 0, hideY: 0 };
     }
@@ -41,7 +41,7 @@ export function getHideOffsets(dockUI) {
     let hideY = 0;
 
     const margin = Settings.dockMargin;
-    const totalExtra = margin + HIDE_OFFSET_BUFFER;
+    const totalExtra = peek > 0 ? margin - peek : margin + HIDE_OFFSET_BUFFER;
 
     if (pos === 'BOTTOM') {
         hideY = dockUI.actor.height + totalExtra;
@@ -79,10 +79,11 @@ export function animateShow(dockUI, onComplete) {
     });
 }
 
-export function animateHide(dockUI, onComplete) {
+export function animateHide(dockUI, onComplete, peek = 0) {
     if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
-    const { hideX, hideY } = getHideOffsets(dockUI);
+    const { hideX, hideY } = getHideOffsets(dockUI, peek);
+    const targetOpacity = peek > 0 ? 255 : 0;
 
     dockUI.actor._isAutohiding = true;
     if (dockUI._dockBlur) {
@@ -93,13 +94,18 @@ export function animateHide(dockUI, onComplete) {
     dockUI.actor.ease({
         translation_x: hideX,
         translation_y: hideY,
-        opacity: 0,
+        opacity: targetOpacity,
         duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
         onStopped: (_isFinished) => {
-            dockUI.actor.opacity = 0;
+            dockUI.actor.opacity = targetOpacity;
             if (dockUI._dockBlur) {
-                dockUI._dockBlur._hideBlur();
+                if (peek > 0) {
+                    dockUI._dockBlur.syncGeometry();
+                    dockUI._dockBlur.queueCapture(true);
+                } else {
+                    dockUI._dockBlur._hideBlur();
+                }
             }
             if (onComplete) onComplete();
         },

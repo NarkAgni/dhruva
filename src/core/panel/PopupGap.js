@@ -156,6 +156,20 @@ function reveal(state) {
     state.boxPointer.opacity = 255;
 }
 
+function followBoxPointer(state, overlay) {
+    const { boxPointer, overlayLink } = state;
+    const sync = () => {
+        overlay.translation_x = boxPointer.translation_x;
+        overlay.translation_y = boxPointer.translation_y;
+    };
+    boxPointer.connectObject(
+        'notify::translation-x', sync,
+        'notify::translation-y', sync,
+        overlayLink
+    );
+    sync();
+}
+
 export function hookPopupGap(dockUI, menu, isCentered = false) {
     if (menu._dhruvaGapState) return;
     const boxPointer = menu._boxPointer;
@@ -167,8 +181,12 @@ export function hookPopupGap(dockUI, menu, isCentered = false) {
         measureId: 0,
         lockAttempts: 0,
         timers: new TimeoutTracker(),
+        overlay: menu._overlay,
+        overlayLink: {},
     };
     menu._dhruvaGapState = state;
+
+    if (state.overlay) followBoxPointer(state, state.overlay);
 
     menu.connectObject('open-state-changed', (_menu, isOpen) => {
         if (!dockUI || !dockUI.autoHideManager) return;
@@ -233,10 +251,15 @@ export function unhookPopupGap(menu) {
             delete boxPointer.open;
             delete boxPointer.close;
             boxPointer.disconnectObject(state);
+            boxPointer.disconnectObject(state.overlayLink);
             boxPointer.set_style(state.originalStyle);
             boxPointer.opacity = state.originalOpacity;
             boxPointer.translation_x = 0;
             boxPointer.translation_y = 0;
+        }
+        if (isActorAlive(state.overlay)) {
+            state.overlay.translation_x = 0;
+            state.overlay.translation_y = 0;
         }
         delete menu._dhruvaGapState;
     }

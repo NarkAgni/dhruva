@@ -1,3 +1,15 @@
+## [5.0] - 23-10-2026
+
+### New
+* **Partly Hidden Dock:** Auto-hide can now leave a small part of the dock on screen instead of hiding it completely, under Behavior → Auto-Hide → Stays Visible. Hover that strip to bring the dock back. It is 0 by default, and the dock still hides completely over fullscreen apps.
+
+### Improved
+* **Games and Hidden Pointers:** When an app hides the pointer, like most games and video players, Dhruva now ignores the screen edge and fully hides any visible strip of a hidden dock, so it can't be brought up or clicked by accident. Once the pointer is visible again, auto-hide works as you set it up. Some games, often strategy games and MMOs, show their own pointer instead of hiding it; with Smart auto-hide, set In Fullscreen to Hidden (the default) for those.
+
+### Fixed
+* **Quick Settings Submenus in Dynamic Panel:** Submenus like Wi-Fi and Bluetooth now open inside the Quick Settings menu instead of shifting to the side.
+* **Smooth Hiding Over Fullscreen Apps (#95):** The dock now slides away over fullscreen apps instead of disappearing abruptly.
+
 ## [4.9] - 22-10-2026
 
 ### New

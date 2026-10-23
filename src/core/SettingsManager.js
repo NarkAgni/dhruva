@@ -123,6 +123,7 @@ export const Settings = {
     set autohideAnimationSpeed(val) { if (this._settings) this._settings.set_int('autohide-animation-speed', val); },
     get windowEffectSpeed() { return this._settings ? this._settings.get_int('window-effect-speed') : 350; },
     set windowEffectSpeed(val) { if (this._settings) this._settings.set_int('window-effect-speed', val); },
+    get autohidePeek() { return this._settings ? this._settings.get_int('autohide-peek') : 0; },
     get hideMode() { return this._settings ? this._settings.get_string('hide-mode') : 'none'; },
     get hideDelay() { return this._settings ? this._settings.get_int('hide-delay') : 250; },
     get unhideDelay() { return this._settings ? this._settings.get_int('unhide-delay') : 100; },

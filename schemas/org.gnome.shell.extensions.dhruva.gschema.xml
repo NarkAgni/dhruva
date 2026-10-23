@@ -605,6 +605,12 @@
       <summary>Auto-hide mode</summary>
     </key>
 
+    <key name="autohide-peek" type="i">
+      <default>0</default>
+      <summary>Visible part of the hidden dock</summary>
+      <description>Pixels of the dock that stay on screen when auto-hide hides it. 0 hides it completely.</description>
+    </key>
+
     <key name="hide-delay" type="i">
       <default>100</default>
       <summary>Hide Delay in ms</summary>

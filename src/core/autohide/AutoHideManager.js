@@ -45,6 +45,10 @@ export default class AutoHideManager {
         this._isHovered = false;
         this._wasFullscreen = false;
         this._isGrabPassThrough = false;
+        this._isPointerCaptured = false;
+        this._cursorTracker = global.backend.get_cursor_tracker
+            ? global.backend.get_cursor_tracker()
+            : Meta.CursorTracker.get_for_display(global.display);
 
         this._hideTimeoutId = 0;
         this._showTimeoutId = 0;
@@ -74,8 +78,11 @@ export default class AutoHideManager {
             'changed::fullscreen-mode', () => this.scheduleCheck(0),
             'changed::fullscreen-reveal-delay', () => this.scheduleCheck(0),
             'changed::edge-dwell-delay', () => this.scheduleCheck(0),
+            'changed::autohide-peek', () => this._applyHiddenPosition(),
             this
         );
+
+        this._cursorTracker.connectObject('cursor-changed', () => this._syncPointerCapture(), this);
 
         if (this._initSyncTimeoutId) {
             this.timers.remove(this._initSyncTimeoutId);
@@ -226,6 +233,7 @@ export default class AutoHideManager {
             if (mode === 'none') {
                 this.show();
             } else {
+                this._applyHiddenPosition();
                 this.scheduleCheck(20);
             }
         }
@@ -270,6 +278,34 @@ export default class AutoHideManager {
             this.checkVisibility();
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    _syncPointerCapture() {
+        const isCaptured = !this._cursorTracker.get_sprite();
+        if (isCaptured === this._isPointerCaptured) return;
+
+        this._isPointerCaptured = isCaptured;
+        this._applyHiddenPosition();
+        this.scheduleCheck(0);
+    }
+
+    _syncEdge(isActive) {
+        if (!this.edgeDetection) return;
+        if (isActive && !this._isPointerCaptured) this.edgeDetection.show();
+        else this.edgeDetection.hide();
+    }
+
+    _getHidePeek() {
+        return this._wasFullscreen || this._isPointerCaptured ? 0 : Settings.autohidePeek;
+    }
+
+    _applyHiddenPosition() {
+        if (!this.isHidden || this._isGrabPassThrough || !this.dockUI || !isActorAlive(this.dockUI.actor)) return;
+
+        this.isAnimating = true;
+        animateHide(this.dockUI, () => {
+            this.isAnimating = false;
+        }, this._getHidePeek());
     }
 
     _getFullscreenMode() {
@@ -346,10 +382,11 @@ export default class AutoHideManager {
             if (!this._wasFullscreen) {
                 this._wasFullscreen = true;
                 if (this.dockUI) this.dockUI._updateStruts();
+                this._applyHiddenPosition();
             }
 
             if (this._canShowInFullscreen()) {
-                if (this.edgeDetection) this.edgeDetection.show();
+                this._syncEdge(true);
 
                 if (this._isHovered) {
                     this.showWithDelay();
@@ -365,7 +402,7 @@ export default class AutoHideManager {
                 return;
             }
 
-            if (this.edgeDetection) this.edgeDetection.hide();
+            this._syncEdge(false);
             this._slideOut();
             return;
         }
@@ -376,12 +413,11 @@ export default class AutoHideManager {
                 this.dockUI._updateStruts();
                 this.dockUI.queueRender(true);
             }
+            this._applyHiddenPosition();
         }
 
         const mode = this.settings ? (Settings.hideMode || 'none') : 'none';
-        if (mode !== 'none' && this.edgeDetection) {
-            this.edgeDetection.show();
-        }
+        if (mode !== 'none') this._syncEdge(true);
 
         if (mode === 'none') {
             this.show();
@@ -436,7 +472,7 @@ export default class AutoHideManager {
 
         animateHide(this.dockUI, () => {
             this.isAnimating = false;
-        });
+        }, this._getHidePeek());
     }
 
     forceHideImmediately() {
@@ -553,7 +589,7 @@ export default class AutoHideManager {
 
         animateHide(this.dockUI, () => {
             this.isAnimating = false;
-        });
+        }, this._getHidePeek());
     }
 
     destroy() {
@@ -564,6 +600,7 @@ export default class AutoHideManager {
             this.settings.disconnectObject(this);
         }
 
+        this._cursorTracker.disconnectObject(this);
         global.display.disconnectObject(this);
         Main.layoutManager.disconnectObject(this);
         global.window_manager.disconnectObject(this);

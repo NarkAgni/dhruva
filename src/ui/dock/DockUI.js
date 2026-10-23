@@ -34,7 +34,7 @@ import { Settings } from '../../core/SettingsManager.js';
 import { destroyExternalDrop } from '../ExternalDrop.js';
 import MonitorManager from '../../core/MonitorManager.js';
 import PanelIntegrator from '../../core/PanelIntegrator.js';
-import { applyDynamicStyles } from './DockThemeResolver.js';
+import { applyDynamicStyles, refreshChameleonColor, cancelChameleonColor } from './DockThemeResolver.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { refreshTrashState } from '../modules/TrashModule.js';
 import { cleanupTrashEffects } from '../effects/TrashEffect.js';
@@ -663,12 +663,7 @@ export default class DockUI {
     _setupChameleonWatcher() {
         this._bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
         const onWallpaperChange = () => {
-            this._chameleonColor = null;
-            this._chameleonAccent = null;
-            if (Settings.dockTheme === 'chameleon') {
-                this._applyDynamicStyles();
-                this.queueRender('full', true);
-            }
+            if (Settings.dockTheme === 'chameleon') refreshChameleonColor(this);
             if (this._dockBlur) {
                 this._dockBlur._hasContent = false;
                 this._dockBlur.queueCapture();
@@ -1296,6 +1291,7 @@ export default class DockUI {
         if (this.volumeMonitor) this.volumeMonitor.disconnectObject(this);
         if (this._bgSettings) this._bgSettings.disconnectObject(this);
         if (this._interfaceSettings) this._interfaceSettings.disconnectObject(this);
+        cancelChameleonColor(this);
         if (this._iconThemeSettings) this._iconThemeSettings.disconnectObject(this);
         this._teardownTrashMonitor();
 

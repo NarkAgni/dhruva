@@ -95,6 +95,12 @@ export function buildBehaviorPage(window, settings) {
     const hideRow = addComboRow(hideGroup, settings, 'hide-mode', _('Hide'), null, HIDE_MODES());
     bindModeHint(hideRow, 'hide-mode', HIDE_MODES);
 
+    const isAutoHide = () => settings.get_string('hide-mode') !== 'none';
+
+    const peekRow = addSliderRow(hideGroup, settings, 'autohide-peek', _('Stays Visible'),
+        _('Part of the dock left on screen when it hides'), { lower: 0, upper: 24, step: 1 }, fmt.px);
+    showWhen(peekRow, settings, ['hide-mode'], isAutoHide);
+
     const fullscreenRow = addComboRow(hideGroup, settings, 'fullscreen-mode', _('In Fullscreen'), null, FULLSCREEN_MODES());
     bindModeHint(fullscreenRow, 'fullscreen-mode', FULLSCREEN_MODES);
     showWhen(fullscreenRow, settings, ['hide-mode'], isSmartHide);
@@ -104,6 +110,13 @@ export function buildBehaviorPage(window, settings) {
     showWhen(fullscreenDelayRow, settings, ['hide-mode', 'fullscreen-mode'],
         () => isSmartHide() && settings.get_string('fullscreen-mode') === 'delayed');
 
+    const pointerRow = new Adw.ActionRow({
+        title: _('Games and Hidden Pointers'),
+        subtitle: _('Apps that hide the pointer, like most games and video players, don’t bring up the dock. For games with their own pointer, choose Hidden under In Fullscreen'),
+    });
+    hideGroup.add(pointerRow);
+    showWhen(pointerRow, settings, ['hide-mode'], isAutoHide);
+
     const timingGroup = addGroup(page, _('Auto-Hide Timing'));
     addGroupReset(timingGroup, settings, HIDE_TIMING_KEYS);
     addSliderRow(timingGroup, settings, 'hide-delay', _('Hide After'), null, { lower: 0, upper: 2000, step: 50 }, fmt.ms);
@@ -112,7 +125,7 @@ export function buildBehaviorPage(window, settings) {
         { lower: 0, upper: 1500, step: 50 }, fmt.ms);
     addSliderRow(timingGroup, settings, 'autohide-animation-speed', _('Slide Duration'), null,
         { lower: 50, upper: 1000, step: 25 }, fmt.ms);
-    showWhen(timingGroup, settings, ['hide-mode'], () => settings.get_string('hide-mode') !== 'none');
+    showWhen(timingGroup, settings, ['hide-mode'], isAutoHide);
 
     const animGroup = addGroup(page, _('Animations'));
     addComboRow(animGroup, settings, 'click-effect', _('On Click'), _('How an icon reacts when clicked'), CLICK_EFFECTS());

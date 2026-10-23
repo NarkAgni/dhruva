@@ -17,6 +17,8 @@
 */
 
 
+import Gio from 'gi://Gio';
+
 import { Settings } from '../../core/SettingsManager.js';
 import { hexToRgba, isActorAlive } from '../../core/Utils.js';
 import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from '../Themes.js';
@@ -24,6 +26,29 @@ import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleon
 
 const DEFAULT_CHAMELEON_BG = { r: 30, g: 30, b: 45 };
 const DEFAULT_CHAMELEON_RAW = { r: 80, g: 90, b: 120 };
+const DEFAULT_CHAMELEON_ACCENT = '#a0c8ff';
+
+export function cancelChameleonColor(dockUI) {
+    if (dockUI._chameleonCancellable) {
+        dockUI._chameleonCancellable.cancel();
+        dockUI._chameleonCancellable = null;
+    }
+}
+
+export function refreshChameleonColor(dockUI) {
+    cancelChameleonColor(dockUI);
+    const cancellable = new Gio.Cancellable();
+    dockUI._chameleonCancellable = cancellable;
+
+    extractWallpaperDominantColor(cancellable, extracted => {
+        dockUI._chameleonCancellable = null;
+        if (!extracted || Settings.dockTheme !== 'chameleon' || !isActorAlive(dockUI.actor)) return;
+
+        dockUI._chameleonColor = extracted;
+        dockUI._chameleonAccent = getChameleonAccentColor(extracted.raw.r, extracted.raw.g, extracted.raw.b);
+        dockUI.queueRender('full', true);
+    });
+}
 
 export function resolveTooltipColors(dockUI, themeId, customOpacityPct = null) {
     const rawPct = customOpacityPct !== null ? customOpacityPct : Settings.contextMenuOpacity;
@@ -113,12 +138,11 @@ export function applyDynamicStyles(dockUI) {
     const currentTheme = Settings.dockTheme || 'default';
 
     if (currentTheme === 'chameleon' && !dockUI._chameleonColor) {
-        const extracted = extractWallpaperDominantColor();
-        dockUI._chameleonColor = extracted || { bg: DEFAULT_CHAMELEON_BG, raw: DEFAULT_CHAMELEON_RAW };
-        dockUI._chameleonAccent = extracted 
-            ? getChameleonAccentColor(extracted.raw.r, extracted.raw.g, extracted.raw.b) 
-            : '#a0c8ff';
+        dockUI._chameleonColor = { bg: DEFAULT_CHAMELEON_BG, raw: DEFAULT_CHAMELEON_RAW };
+        dockUI._chameleonAccent = DEFAULT_CHAMELEON_ACCENT;
+        refreshChameleonColor(dockUI);
     } else if (currentTheme !== 'chameleon') {
+        cancelChameleonColor(dockUI);
         dockUI._chameleonColor = null;
         dockUI._chameleonAccent = null;
     }
