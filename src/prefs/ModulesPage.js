@@ -32,12 +32,8 @@ import {
 
 function getGraphemeCount(str) {
     if (!str) return 0;
-    try {
-        const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
-        return Array.from(segmenter.segment(str)).length;
-    } catch (_e) {
-        return Array.from(str).length;
-    }
+    const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+    return Array.from(segmenter.segment(str)).length;
 }
 
 function presentDialog(window, dialog, isGnome45) {
@@ -379,7 +375,9 @@ export function buildModulesPage(prefs, window, settings) {
                         file.copy(destFile, Gio.FileCopyFlags.OVERWRITE, cancellable, null);
                         customPickedImagePath = destPath;
                         customImgLabel.set_text(file.get_basename());
-                    } catch (err) { }
+                    } catch (err) {
+                        console.error(`[Dhruva] Failed to copy folder icon: ${err.message}`);
+                    }
                 }
             });
         });
@@ -544,17 +542,12 @@ export function buildModulesPage(prefs, window, settings) {
                 });
                 row.add_prefix(emojiLabel);
             } else if (iconVal.startsWith('/')) {
-                try {
-                    const gfile = Gio.File.new_for_path(iconVal);
-                    if (gfile.query_exists(cancellable)) {
-                        const fileIcon = Gio.FileIcon.new(gfile);
-                        const img = Gtk.Image.new_from_gicon(fileIcon);
-                        img.set_pixel_size(24);
-                        row.add_prefix(img);
-                    } else {
-                        row.set_icon_name('folder');
-                    }
-                } catch (e) {
+                const gfile = Gio.File.new_for_path(iconVal);
+                if (gfile.query_exists(cancellable)) {
+                    const img = Gtk.Image.new_from_gicon(Gio.FileIcon.new(gfile));
+                    img.set_pixel_size(24);
+                    row.add_prefix(img);
+                } else {
                     row.set_icon_name('folder');
                 }
             } else {

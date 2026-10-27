@@ -17,6 +17,7 @@
 */
 
 
+import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
@@ -27,15 +28,23 @@ import { TimeoutTracker } from './TimeoutTracker.js';
 
 
 const DEFAULT_RGB_CHANNEL = 20;
-const DEFAULT_FALLBACK_COLOR = '#ffffff';
 const SAMPLE_ICON_SIZE = 32;
+const ICON_FILE_EXTENSION_RE = /\.(png|svg|symbolic)$/i;
 
 let _disposedActors = null;
+let _iconTheme = null;
 let _iconColorCache = null;
+let _pendingColors = null;
+let _colorCancellable = null;
 
 function _getDisposedActors() {
     if (!_disposedActors) _disposedActors = new WeakSet();
     return _disposedActors;
+}
+
+function _getIconTheme() {
+    if (!_iconTheme) _iconTheme = new St.IconTheme();
+    return _iconTheme;
 }
 
 function _getIconColorCache() {
@@ -43,37 +52,30 @@ function _getIconColorCache() {
     return _iconColorCache;
 }
 
-let _ifaceSettings = null;
-const _ifaceTracker = {};
+function _getPendingColors() {
+    if (!_pendingColors) _pendingColors = new Map();
+    return _pendingColors;
+}
 
-function _getIfaceSettings() {
-    if (!_ifaceSettings) {
-        _ifaceSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
-        _ifaceSettings.connectObject('changed::icon-theme', () => {
-            if (_iconColorCache) _iconColorCache.clear();
-        }, _ifaceTracker);
+function _getColorCancellable() {
+    if (!_colorCancellable) _colorCancellable = new Gio.Cancellable();
+    return _colorCancellable;
+}
+
+function _cancelColorLoads() {
+    if (_colorCancellable) {
+        _colorCancellable.cancel();
+        _colorCancellable = null;
     }
-    return _ifaceSettings;
+    if (_pendingColors) _pendingColors.clear();
 }
 
 export function destroyUtils() {
-    if (_ifaceSettings) {
-        _ifaceSettings.disconnectObject(_ifaceTracker);
-        _ifaceSettings = null;
-    }
-    if (_iconColorCache) {
-        _iconColorCache.clear();
-        _iconColorCache = null;
-    }
+    _cancelColorLoads();
+    _pendingColors = null;
+    _iconColorCache = null;
+    _iconTheme = null;
     _disposedActors = null;
-}
-
-function _getActiveIconTheme() {
-    return _getIfaceSettings().get_string('icon-theme') || 'hicolor';
-}
-
-function _isFile(path) {
-    return Boolean(path) && GLib.file_test(path, GLib.FileTest.EXISTS);
 }
 
 function _clampByte(v) {
@@ -82,34 +84,6 @@ function _clampByte(v) {
 
 function _toHex(c) {
     return _clampByte(c).toString(16).padStart(2, '0');
-}
-
-function _safeGetGiconFilePath(gicon) {
-    if (!gicon || !gicon.get_file) return null;
-    const file = gicon.get_file();
-    return file ? file.get_path() : null;
-}
-
-function _resolvePathFromGicon(gicon) {
-    if (!gicon) return null;
-
-    const directPath = _safeGetGiconFilePath(gicon);
-    if (_isFile(directPath)) return directPath;
-
-    if (gicon.get_names) {
-        const names = gicon.get_names() || [];
-        for (const name of names) {
-            const p = _findIconFilePath(name);
-            if (p) return p;
-        }
-    }
-
-    if (gicon.to_string) {
-        const p = _findIconFilePath(gicon.to_string());
-        if (p) return p;
-    }
-
-    return null;
 }
 
 export function markActorDisposed(actor) {
@@ -243,221 +217,176 @@ export function getBoxVertical(box) {
 }
 
 export function clearIconColorCache() {
+    _cancelColorLoads();
     if (_iconColorCache) _iconColorCache.clear();
 }
 
-function _findIconFilePath(iconName) {
-    if (!iconName) return null;
-    if (iconName.startsWith('/') && _isFile(iconName)) return iconName;
-
-    const cleanName = iconName.replace(/\.(png|svg|symbolic)$/i, '');
-    const activeTheme = _getActiveIconTheme();
-
-    const roots = [];
-    if (activeTheme && activeTheme !== 'hicolor') {
-        const homeDir = GLib.get_home_dir();
-
-        roots.push(
-            homeDir + '/.local/share/icons/' + activeTheme,
-            homeDir + '/.icons/' + activeTheme,
-            '/usr/share/icons/' + activeTheme
-        );
-
-        const baseTheme = activeTheme.replace(/-(dark|light)$/i, '');
-        if (baseTheme !== activeTheme) {
-            roots.push(
-                homeDir + '/.local/share/icons/' + baseTheme,
-                homeDir + '/.icons/' + baseTheme,
-                '/usr/share/icons/' + baseTheme
-            );
-        }
-    }
-
-    roots.push(
-        GLib.get_home_dir() + '/.local/share/icons/hicolor',
-        '/usr/share/icons/hicolor',
-        '/usr/share/pixmaps'
-    );
-
-    const searchRoots = [...new Set(roots)];
-    const subDirs = [
-        'apps/scalable',
-        'apps/48',
-        'apps/64',
-        'apps/128',
-        'apps/256',
-        'scalable/apps',
-        '256x256/apps',
-        '128x128/apps',
-        '64x64/apps',
-        '48x48/apps',
-        '32x32/apps',
-        'scalable/places',
-        '48x48/places',
-        'apps',
-        '',
-    ];
-
-    const extensions = ['.svg', '.png', ''];
-
-    for (const root of searchRoots) {
-        for (const sub of subDirs) {
-            for (const ext of extensions) {
-                const candidate = sub
-                    ? root + '/' + sub + '/' + cleanName + ext
-                    : root + '/' + cleanName + ext;
-
-                if (_isFile(candidate)) return candidate;
+export function loadPixbufAtScale(path, size, cancellable) {
+    return new Promise((resolve, reject) => {
+        Gio.File.new_for_path(path).read_async(GLib.PRIORITY_LOW, cancellable, (file, readRes) => {
+            let stream;
+            try {
+                stream = file.read_finish(readRes);
+            } catch (e) {
+                reject(e);
+                return;
             }
-        }
-    }
 
-    return null;
+            GdkPixbuf.Pixbuf.new_from_stream_at_scale_async(stream, size, size, true, cancellable, (_source, pixbufRes) => {
+                stream.close_async(GLib.PRIORITY_LOW, null, () => {});
+                try {
+                    resolve(GdkPixbuf.Pixbuf.new_from_stream_finish(pixbufRes));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+    });
 }
 
-export function extractIconDominantColor(iconSource, fallbackColor = DEFAULT_FALLBACK_COLOR) {
+function _lookupIconPath(gicon) {
+    if (!gicon) return null;
+    if (gicon.get_file) {
+        const file = gicon.get_file();
+        return file ? file.get_path() : null;
+    }
+
+    const info = _getIconTheme().lookup_by_gicon(gicon, SAMPLE_ICON_SIZE, 0);
+    return info ? info.get_filename() : null;
+}
+
+function _lookupIconNamePath(iconName) {
+    if (iconName.startsWith('/')) return iconName;
+    return _lookupIconPath(Gio.ThemedIcon.new(iconName.replace(ICON_FILE_EXTENSION_RE, '')));
+}
+
+function _resolveIconSource(iconSource) {
+    if (iconSource.charCodeAt && iconSource.startsWith) {
+        return { cacheKey: iconSource, path: _lookupIconNamePath(iconSource) };
+    }
+
+    if (iconSource.get_app_info) {
+        const appId = iconSource.get_id ? iconSource.get_id() : 'app';
+        const info = iconSource.get_app_info();
+        const path = _lookupIconPath(info ? info.get_icon() : null) ||
+            _lookupIconNamePath(appId.replace(/\.desktop$/i, ''));
+        return { cacheKey: appId, path };
+    }
+
+    if (iconSource.gicon) {
+        const gicon = iconSource.gicon;
+        const path = _lookupIconPath(gicon);
+        return { cacheKey: path || gicon.to_string(), path };
+    }
+
+    if (iconSource.icon_name) {
+        return { cacheKey: iconSource.icon_name, path: _lookupIconNamePath(iconSource.icon_name) };
+    }
+
+    return { cacheKey: null, path: null };
+}
+
+function _dominantColorOf(pixbuf) {
+    const pixels = pixbuf.get_pixels();
+    const channels = pixbuf.get_n_channels();
+    const stride = pixbuf.get_rowstride();
+    const width = pixbuf.get_width();
+    const height = pixbuf.get_height();
+
+    const buckets = new Map();
+    let totalColoredPixels = 0;
+
+    for (let y = 0; y < height; y += 2) {
+        for (let x = 0; x < width; x += 2) {
+            const i = y * stride + x * channels;
+            const r = pixels[i];
+            const g = pixels[i + 1];
+            const b = pixels[i + 2];
+            const a = channels >= 4 ? pixels[i + 3] : 255;
+
+            if (a < 80) continue;
+
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const delta = max - min;
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+            if (lum < 20 || lum > 245) continue;
+
+            const qr = Math.round(r / 16) * 16;
+            const qg = Math.round(g / 16) * 16;
+            const qb = Math.round(b / 16) * 16;
+            const key = `${qr},${qg},${qb}`;
+
+            const saturation = max > 0 ? delta / max : 0;
+            const weight = 1 + saturation * 4;
+
+            if (!buckets.has(key)) {
+                buckets.set(key, { rSum: 0, gSum: 0, bSum: 0, count: 0, weight: 0 });
+            }
+
+            const bucket = buckets.get(key);
+            bucket.rSum += r;
+            bucket.gSum += g;
+            bucket.bSum += b;
+            bucket.count += 1;
+            bucket.weight += weight;
+            totalColoredPixels += 1;
+        }
+    }
+
+    let best = null;
+    let bestWeight = -1;
+    const minCount = Math.max(2, totalColoredPixels * 0.03);
+
+    for (const bucket of buckets.values()) {
+        if (bucket.count >= minCount && bucket.weight > bestWeight) {
+            bestWeight = bucket.weight;
+            best = bucket;
+        }
+    }
+
+    if (!best) return null;
+
+    const r = Math.round(best.rSum / best.count);
+    const g = Math.round(best.gSum / best.count);
+    const b = Math.round(best.bSum / best.count);
+    return `#${_toHex(r)}${_toHex(g)}${_toHex(b)}`;
+}
+
+export function extractIconDominantColor(iconSource, fallbackColor, onReady) {
     if (!iconSource) return fallbackColor;
 
-    const activeTheme = _getActiveIconTheme();
-    let cacheKey = null;
-    let resolvedPath = null;
-    let giconTarget = null;
-
-    const isIconStr = Boolean(iconSource && iconSource.charCodeAt && iconSource.startsWith);
-
-    if (isIconStr) {
-        cacheKey = `${activeTheme}::${iconSource}`;
-        resolvedPath = iconSource.startsWith('/') ? iconSource : _findIconFilePath(iconSource);
-    } else if (iconSource.get_app_info) {
-        const info = iconSource.get_app_info();
-        const gicon = info ? info.get_icon() : null;
-        const appId = iconSource.get_id ? iconSource.get_id() : 'app';
-
-        cacheKey = `${activeTheme}::${appId}`;
-
-        if (gicon) {
-            giconTarget = gicon;
-            resolvedPath = _resolvePathFromGicon(giconTarget);
-        }
-
-        if (!resolvedPath) {
-            resolvedPath = _findIconFilePath(appId.replace(/\.desktop$/i, ''));
-        }
-    } else if (iconSource.gicon) {
-        giconTarget = iconSource.gicon;
-        resolvedPath = _resolvePathFromGicon(giconTarget);
-
-        const giconString = (() => {
-            return (giconTarget && giconTarget.to_string) ? giconTarget.to_string() : 'gicon';
-        })();
-
-        cacheKey = `${activeTheme}::${resolvedPath || giconString}`;
-    } else if (iconSource.icon_name) {
-        cacheKey = `${activeTheme}::${iconSource.icon_name}`;
-        resolvedPath = _findIconFilePath(iconSource.icon_name);
-    }
+    const { cacheKey, path } = _resolveIconSource(iconSource);
+    if (!cacheKey) return fallbackColor;
 
     const cache = _getIconColorCache();
-    if (cacheKey && cache.has(cacheKey)) {
-        return cache.get(cacheKey);
-    }
+    if (cache.has(cacheKey)) return cache.get(cacheKey) || fallbackColor;
 
-    try {
-        let pixbuf = null;
-
-        if (_isFile(resolvedPath)) {
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                resolvedPath,
-                SAMPLE_ICON_SIZE,
-                SAMPLE_ICON_SIZE,
-                true
-            );
-        }
-
-        if (!pixbuf && giconTarget) {
-            const p = _safeGetGiconFilePath(giconTarget);
-            if (_isFile(p)) {
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                    p,
-                    SAMPLE_ICON_SIZE,
-                    SAMPLE_ICON_SIZE,
-                    true
-                );
-            }
-        }
-
-        if (!pixbuf) return fallbackColor;
-
-        const pixels = pixbuf.get_pixels();
-        const channels = pixbuf.get_n_channels();
-        const stride = pixbuf.get_rowstride();
-        const width = pixbuf.get_width();
-        const height = pixbuf.get_height();
-
-        const buckets = new Map();
-        let totalColoredPixels = 0;
-
-        for (let y = 0; y < height; y += 2) {
-            for (let x = 0; x < width; x += 2) {
-                const i = y * stride + x * channels;
-                const r = pixels[i];
-                const g = pixels[i + 1];
-                const b = pixels[i + 2];
-                const a = channels >= 4 ? pixels[i + 3] : 255;
-
-                if (a < 80) continue;
-
-                const max = Math.max(r, g, b);
-                const min = Math.min(r, g, b);
-                const delta = max - min;
-                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-
-                if (lum < 20 || lum > 245) continue;
-
-                const qr = Math.round(r / 16) * 16;
-                const qg = Math.round(g / 16) * 16;
-                const qb = Math.round(b / 16) * 16;
-                const key = `${qr},${qg},${qb}`;
-
-                const saturation = max > 0 ? delta / max : 0;
-                const weight = 1 + saturation * 4;
-
-                if (!buckets.has(key)) {
-                    buckets.set(key, { rSum: 0, gSum: 0, bSum: 0, count: 0, weight: 0 });
-                }
-
-                const bucket = buckets.get(key);
-                bucket.rSum += r;
-                bucket.gSum += g;
-                bucket.bSum += b;
-                bucket.count += 1;
-                bucket.weight += weight;
-                totalColoredPixels += 1;
-            }
-        }
-
-        let best = null;
-        let bestWeight = -1;
-        const minCount = Math.max(2, totalColoredPixels * 0.03);
-
-        for (const bucket of buckets.values()) {
-            if (bucket.count >= minCount && bucket.weight > bestWeight) {
-                bestWeight = bucket.weight;
-                best = bucket;
-            }
-        }
-
-        let hex = fallbackColor;
-        if (best && best.count > 0) {
-            const r = Math.round(best.rSum / best.count);
-            const g = Math.round(best.gSum / best.count);
-            const b = Math.round(best.bSum / best.count);
-            hex = `#${_toHex(r)}${_toHex(g)}${_toHex(b)}`;
-        }
-
-        if (cacheKey) cache.set(cacheKey, hex);
-        return hex;
-    } catch (_e) {
+    if (!path) {
+        cache.set(cacheKey, null);
         return fallbackColor;
     }
+
+    const pending = _getPendingColors();
+    if (pending.has(cacheKey)) {
+        pending.get(cacheKey).push(onReady);
+        return fallbackColor;
+    }
+    pending.set(cacheKey, [onReady]);
+
+    const cancellable = _getColorCancellable();
+    loadPixbufAtScale(path, SAMPLE_ICON_SIZE, cancellable)
+        .then(pixbuf => _dominantColorOf(pixbuf))
+        .catch(() => null)
+        .then(color => {
+            if (cancellable.is_cancelled()) return;
+
+            const callbacks = pending.get(cacheKey);
+            pending.delete(cacheKey);
+            _getIconColorCache().set(cacheKey, color);
+            callbacks.forEach(callback => callback());
+        });
+
+    return fallbackColor;
 }

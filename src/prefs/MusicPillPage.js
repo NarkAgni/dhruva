@@ -22,7 +22,23 @@ import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import { addGroup, addChoiceCards, showWhen } from './PrefsWidgets.js';
+import { addGroup, addGroupReset, addChoiceCards, addComboRow, addSwitchRow, showWhen } from './PrefsWidgets.js';
+
+
+const MOUSE_KEYS = [
+    'music-pill-click-action', 'music-pill-double-click-action', 'music-pill-middle-click-action',
+    'music-pill-right-click-action', 'music-pill-scroll-action',
+];
+
+const CLICK_ACTIONS = () => [
+    { name: _('Nothing'), value: 'none' },
+    { name: _('Play or Pause'), value: 'play-pause' },
+    { name: _('Next Track'), value: 'next' },
+    { name: _('Previous Track'), value: 'previous' },
+    { name: _('Open Big Player'), value: 'player' },
+    { name: _('Show or Hide Spotify'), value: 'window' },
+    { name: _('Copy Song Link'), value: 'copy-link' },
+];
 
 
 export function buildMusicPillPage(window, settings) {
@@ -44,11 +60,31 @@ export function buildMusicPillPage(window, settings) {
     ]);
     showWhen(placeGroup, settings, ['show-music-pill'], () => settings.get_boolean('show-music-pill'));
 
-    const tipsGroup = addGroup(page, _('Using It'));
-    tipsGroup.add(new Adw.ActionRow({ title: _('Right click'), subtitle: _('Opens the big player with the seek bar') }));
-    tipsGroup.add(new Adw.ActionRow({ title: _('Double click'), subtitle: _('Shows or hides the Spotify window') }));
-    tipsGroup.add(new Adw.ActionRow({ title: _('Scroll while hovering'), subtitle: _('Changes the volume') }));
-    showWhen(tipsGroup, settings, ['show-music-pill'], () => settings.get_boolean('show-music-pill'));
+    const lookGroup = addGroup(page, _('Look'));
+    addComboRow(lookGroup, settings, 'music-pill-progress', _('Track Progress'), _('Where the progress line is drawn'), [
+        { name: _('Around the Pill'), value: 'pill' },
+        { name: _('Around the Artwork'), value: 'art' },
+        { name: _('Hidden'), value: 'none' },
+    ]);
+    addSwitchRow(lookGroup, settings, 'music-pill-show-prev', _('Previous Button'), _('Appears when hovering the pill'));
+    addSwitchRow(lookGroup, settings, 'music-pill-show-next', _('Next Button'), _('Appears when hovering the pill'));
+
+    const mouseGroup = addGroup(page, _('Mouse'), _('What the pill does when you click or scroll on it'));
+    addGroupReset(mouseGroup, settings, MOUSE_KEYS);
+    addComboRow(mouseGroup, settings, 'music-pill-click-action', _('Click'),
+        _('Waits a moment to tell it apart from a double click, unless Double Click does nothing'), CLICK_ACTIONS());
+    addComboRow(mouseGroup, settings, 'music-pill-double-click-action', _('Double Click'), null, CLICK_ACTIONS());
+    addComboRow(mouseGroup, settings, 'music-pill-middle-click-action', _('Middle Click'), null, CLICK_ACTIONS());
+    addComboRow(mouseGroup, settings, 'music-pill-right-click-action', _('Right Click'), null, CLICK_ACTIONS());
+    addComboRow(mouseGroup, settings, 'music-pill-scroll-action', _('Scroll'), null, [
+        { name: _('Change Volume'), value: 'volume' },
+        { name: _('Seek 5 Seconds'), value: 'seek' },
+        { name: _('Next or Previous Track'), value: 'track' },
+        { name: _('Nothing'), value: 'none' },
+    ]);
+
+    for (const group of [lookGroup, mouseGroup])
+        showWhen(group, settings, ['show-music-pill'], () => settings.get_boolean('show-music-pill'));
 
     window.add(page);
 }

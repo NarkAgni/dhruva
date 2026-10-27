@@ -51,6 +51,7 @@ import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates
 
 const RENDER_DEBOUNCE_MS = 5;
 const PANEL_OVERFLOW_DEBOUNCE_MS = 40;
+const INDICATOR_REFRESH_DEBOUNCE_MS = 50;
 const LAUNCH_EXPIRY_MS = 8000;
 const CURSOR_BURST_DELAYS = [50, 150, 300, 600, 1000, 1500, 2000];
 const OVERVIEW_FADE_OUT_MS = 120;
@@ -152,6 +153,7 @@ export default class DockUI {
         this._updateLayout = () => updateLayout(this);
 
         this.checkPanelOverflow = debounce(() => syncOverflowWithPanel(this), PANEL_OVERFLOW_DEBOUNCE_MS);
+        this.refreshIndicatorColors = debounce(() => syncRunningStates(this, true), INDICATOR_REFRESH_DEBOUNCE_MS);
         this.syncPanelSpace = () => {
             if (this._panelSyncLaterId) return;
             this._panelSyncLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
@@ -343,11 +345,9 @@ export default class DockUI {
                     if (this._dockBlur) this._dockBlur.queueCapture();
                 },
                 'grab-op-begin', (_display, window, grabOp) => {
-                    if (this._dockBlur) this._dockBlur.beginDragTracking(window);
                     this._onWindowGrabBegin(window, grabOp);
                 },
                 'grab-op-end', () => {
-                    if (this._dockBlur) this._dockBlur.endDragTracking();
                     this._onWindowGrabEnd();
                 },
                 this
@@ -559,7 +559,7 @@ export default class DockUI {
 
         this._iconThemeSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
         this._iconThemeSettings.connectObject('changed::icon-theme', () => {
-            if (clearIconColorCache) clearIconColorCache();
+            clearIconColorCache();
             this.queueRender('full', true);
         }, this);
 
@@ -941,7 +941,7 @@ export default class DockUI {
 
         if (isActorAlive(this.actor)) this.actor.reactive = true;
         if (isActorAlive(this.bgActor)) this.bgActor.reactive = true;
-        if (isActorAlive(this.boxActor)) this.bgActor.reactive = true;
+        if (isActorAlive(this.boxActor)) this.boxActor.reactive = true;
 
         this._updateStruts();
 
@@ -987,25 +987,6 @@ export default class DockUI {
         if (activeWorkspace && activeWorkspace.check_unfocused_window_drag) {
             activeWorkspace.check_unfocused_window_drag();
         }
-    }
-
-    isPreviewTooltipVisible() {
-        const tooltip = this.actor && this.actor._magTooltip;
-        return Boolean(tooltip && tooltip.visible && tooltip.opacity > 0);
-    }
-
-    _applyIndicatorBaselineAlignment() {
-        const isVerticalDock = this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT';
-        const resetOffset = (actor) => {
-            if (!actor || !actor._dhruvaIndicatorOffsetApplied) return;
-            if (isVerticalDock) actor.translation_x = 0;
-            else actor.translation_y = 0;
-            actor._dhruvaIndicatorOffsetApplied = false;
-        };
-
-        const dockChildren = this.boxActor ? this.boxActor.get_children() : [];
-        dockChildren.forEach(resetOffset);
-        if (this.gridBtn) resetOffset(this.gridBtn);
     }
 
     show() {
@@ -1192,7 +1173,7 @@ export default class DockUI {
         }, this);
 
         Main.overview.connectObject('hidden', () => {
-            if (this._hidesGnomeDash()) clearOverviewDockMargin(this);
+            if (this._hidesGnomeDash()) clearOverviewDockMargin();
             this._syncDashVisibility();
 
             if (isActorAlive(this.actor)) {
@@ -1311,6 +1292,7 @@ export default class DockUI {
 
         this._executeScheduledRender.cancel();
         this.checkPanelOverflow.cancel();
+        this.refreshIndicatorColors.cancel();
         if (this._panelSyncLaterId) {
             global.compositor.get_laters().remove(this._panelSyncLaterId);
             this._panelSyncLaterId = 0;
@@ -1407,7 +1389,7 @@ export default class DockUI {
         }
         this._releaseStrutHolder();
 
-        clearOverviewDockMargin(this);
+        clearOverviewDockMargin();
         cancelIconPicker();
     }
 }

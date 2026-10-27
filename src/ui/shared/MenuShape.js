@@ -86,7 +86,7 @@ export function traceMenuPath(ctx, width, height, radius, arrowHeight, arrowWidt
 
 const FALLBACK_RGBA = [24, 24, 31, 0.96];
 
-export function parseCssColor(color) {
+function parseCssColor(color) {
     const value = String(color || '').trim();
 
     if (value.startsWith('#')) {

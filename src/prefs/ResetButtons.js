@@ -23,43 +23,6 @@ import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensio
 import { onSettingChanged } from './SettingsSignals.js';
 
 
-export function makeResetBtn(settings) {
-    return (key) => {
-        const box = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 8,
-            valign: Gtk.Align.CENTER
-        });
-
-        const divider = new Gtk.Separator({
-            orientation: Gtk.Orientation.VERTICAL
-        });
-        divider.set_margin_top(8);
-        divider.set_margin_bottom(8);
-        box.append(divider);
-
-        const btn = new Gtk.Button({
-            icon_name: 'edit-undo-symbolic',
-            valign: Gtk.Align.CENTER,
-            css_classes: ['flat', 'circular'],
-            tooltip_text: _('Reset to default')
-        });
-
-        const update = () => {
-            const isDef = settings.get_value(key).equal(settings.get_default_value(key));
-            btn.set_sensitive(!isDef);
-            btn.set_opacity(isDef ? 0.3 : 1.0);
-        };
-
-        btn.connect('clicked', () => settings.reset(key));
-        onSettingChanged(settings, key, update);
-        update();
-
-        box.append(btn);
-        return box;
-    };
-}
-
 export function makeGroupResetBtn(settings) {
     return (keys) => {
         const box = new Gtk.Box({

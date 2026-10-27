@@ -1,3 +1,17 @@
+## [5.1] - 27-10-2026
+
+### New
+* **Magnify on Hover in Panel Mode:** Hover zoom now works in Panel and Dynamic Panel mode too, with the same settings as the dock. Turn it on under Behavior → Hover Zoom → Magnify on Hover. All the zoom options, like Motion, Zoom, Spread, Lift, Make Room and Motion Details, are now available in panel mode as well. Clicks on Quick Settings, the date, the tray and the Show Desktop button still open those items as usual.
+
+### Improved
+* **Dynamic Panel Grows with the Zoom:** With Make Room on, the dynamic panel now grows as icons zoom and shrinks back when you move away. The workspace indicator, tray, Quick Settings, date and the separator move together with the panel background, so nothing overlaps the zoomed icons. The panel never grows past the edge of the screen.
+* **Zoom Stays Between Panel Items:** In Panel mode, zoomed icons stay in the space between the workspace indicator and the top bar items instead of sliding over them.
+* **Overflow Button:** The overflow button now uses the same background as folders and zooms like the other icons. Its three dots stay sharp at any zoom level.
+* **Overflow Menu Position:** The overflow menu now stays lined up with its button while the icons settle back after a zoom.
+
+### Changed
+* **Copy Link Removed:** The Copy Link click action for the Music Pill and the copy button in the music player popup have been removed, so Dhruva no longer accesses the clipboard at all. If one of your Music Pill clicks was set to Copy Link, it goes back to its default action.
+
 ## [5.0] - 23-10-2026
 
 ### New

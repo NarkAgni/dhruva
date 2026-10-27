@@ -28,7 +28,7 @@ import { Settings } from '../../core/SettingsManager.js';
 import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
-import { getDockButtons, getFixedSlots, easeOutCirc } from './MagnifierMath.js';
+import { getDockButtons, getFixedSlots, easeOutCirc, isStaticItem, axisSpan, getPanelSideActors } from './MagnifierMath.js';
 import { createTooltipActor, populateTooltipContent } from './MagnifierTooltipRenderer.js';
 import { TOOLTIP_GAP, clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
@@ -38,6 +38,9 @@ const GAP_EASE_MS = 70;
 const TOOLTIP_DELAY_MS = 600;
 const MIN_ARROW_PADDING = 18;
 const HOVER_EDGE_PX = 8;
+const STAGE_EDGE_MARGIN = 8;
+const PANEL_CORRIDOR_GAP = 8;
+const DOCK_BG_BUFFER = 16;
 
 function smoothstep(edge0, edge1, x) {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -70,8 +73,76 @@ function calculateScaleCurve(dist, radius, zoomRange, style) {
     return 1.0 + zoomRange * baseBell;
 }
 
+function getLateralLimits(dockActor, isVertical) {
+    let start = STAGE_EDGE_MARGIN;
+    let end = (isVertical ? global.stage.height : global.stage.width) - STAGE_EDGE_MARGIN;
+
+    if (Settings.hybridPanelMode) {
+        const sides = getPanelSideActors(dockActor);
+        sides.start.forEach(actor => {
+            if (actor.visible) start = Math.max(start, axisSpan(actor, isVertical)[1] + PANEL_CORRIDOR_GAP);
+        });
+        sides.end.forEach(actor => {
+            if (actor.visible && actor.reactive) end = Math.min(end, axisSpan(actor, isVertical)[0] - PANEL_CORRIDOR_GAP);
+        });
+        return { start, end };
+    }
+
+    const desktop = dockActor._dockUI ? dockActor._dockUI.extractedDesktop : null;
+    if (!isVertical && isActorAlive(desktop) && desktop.visible) {
+        const deskX = desktop.x;
+        if (deskX > 0 && (deskX - 24) < end) end = deskX - 24;
+    }
+    return { start, end };
+}
+
+function getIconRowShift(dockActor, btns, isVertical, origin, centers, sizeScales) {
+    const { start, end } = getLateralLimits(dockActor, isVertical);
+    const dockScale = (isVertical ? dockActor.scale_y : dockActor.scale_x) || 1.0;
+
+    let minEdge = Infinity;
+    let maxEdge = -Infinity;
+    for (let i = 0; i < btns.length; i++) {
+        const b = btns[i];
+        const size = ((isVertical ? b.height : b.width) || 48) * sizeScales[i] * dockScale;
+        const center = origin + centers[i] * dockScale;
+        minEdge = Math.min(minEdge, center - size / 2);
+        maxEdge = Math.max(maxEdge, center + size / 2);
+    }
+
+    let shift = 0;
+    if (maxEdge > end) shift = (end - maxEdge) / dockScale;
+    else if (minEdge < start) shift = (start - minEdge) / dockScale;
+
+    if (minEdge + shift * dockScale < start) shift = (start - minEdge) / dockScale;
+    return shift;
+}
+
+function getDynamicPanelShift(dockActor, isVertical, origin, startExp, endExp) {
+    const bg = dockActor.bgActor;
+    const dockUI = dockActor._dockUI;
+    if (!isActorAlive(bg) || bg._baseW === undefined || !dockUI) return 0;
+
+    const monitorResult = dockUI.monitorManager.getCurrentMonitor();
+    if (!monitorResult || !monitorResult.monitor) return 0;
+
+    const monitor = monitorResult.monitor;
+    const dockScale = (isVertical ? dockActor.scale_y : dockActor.scale_x) || 1.0;
+    const monStart = isVertical ? monitor.y : monitor.x;
+    const monEnd = monStart + (isVertical ? monitor.height : monitor.width);
+    const base = isVertical ? bg._baseY : bg._baseX;
+    const baseSize = isVertical ? bg._baseH : bg._baseW;
+
+    const roomStart = Math.max(0, (origin + base * dockScale - monStart - STAGE_EDGE_MARGIN) / dockScale);
+    const roomEnd = Math.max(0, (monEnd - STAGE_EDGE_MARGIN - (origin + (base + baseSize) * dockScale)) / dockScale);
+
+    const minShift = startExp - roomStart;
+    const maxShift = roomEnd - endExp;
+    return Math.max(minShift, Math.min(0, maxShift));
+}
+
 export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now = null) {
-    if (!isActorAlive(dockActor) || dockActor._isHidden || !dockActor.visible || dockActor._suppressZoom) {
+    if (!isActorAlive(dockActor) || dockActor._isAutohiding || !dockActor.visible || dockActor._suppressZoom) {
         hideTooltip(dockActor);
         return;
     }
@@ -284,10 +355,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     for (let orderIndex = 0; orderIndex < n; orderIndex++) {
         const btnIndex = orderToBtn[orderIndex];
         const b = btns[btnIndex];
-        const sClass = b.get_style_class_name ? b.get_style_class_name() : (b.style_class || '');
-        const isStaticEdge = b._isStatic || sClass.includes('dock-separator') || sClass.includes('clock-module') || sClass.includes('dock-drag-handle') || sClass.includes('dhruva-music-pill');
 
-        if (!zoomEnabled || isStaticEdge) {
+        if (!zoomEnabled || isStaticItem(b)) {
             orderedScales[orderIndex] = 1.0;
             continue;
         }
@@ -313,11 +382,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         let prevExtra = (prevW * prevScale - prevW) / gapFactor;
         let currExtra = (currW * currScale - currW) / gapFactor;
 
-        const sClassP = prevBtn.get_style_class_name ? prevBtn.get_style_class_name() : (prevBtn.style_class || '');
-        const sClassC = currBtn.get_style_class_name ? currBtn.get_style_class_name() : (currBtn.style_class || '');
-
-        const prevIsStatic = prevBtn._isStatic || sClassP.includes('dock-separator') || sClassP.includes('clock-module');
-        const currIsStatic = currBtn._isStatic || sClassC.includes('dock-separator') || sClassC.includes('clock-module');
+        const prevIsStatic = isStaticItem(prevBtn);
+        const currIsStatic = isStaticItem(currBtn);
 
         if (currIsStatic && prevScale > 1.0) currExtra += (prevW * (prevScale - 1.0)) * 0.25;
         if (prevIsStatic && currScale > 1.0) prevExtra += (currW * (currScale - 1.0)) * 0.25;
@@ -352,10 +418,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         anglesX[i] = 0;
         magOffsets[i] = 0;
 
-        const sClassBtn = btns[i].get_style_class_name ? btns[i].get_style_class_name() : (btns[i].style_class || '');
-        const isStaticBtn = btns[i]._isStatic || sClassBtn.includes('dock-separator') || sClassBtn.includes('clock-module') || sClassBtn.includes('dhruva-music-pill');
-
-        if (zoomEnabled && !isStaticBtn) {
+        if (zoomEnabled && !isStaticItem(btns[i])) {
             const delta = effectiveCursor - orderedSlots[orderIndex];
             const dist = Math.abs(delta);
             const ratio = dist / RADIUS;
@@ -497,72 +560,18 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         rightExp += gapSpread;
     }
 
-    const stageW = global.stage.width;
-    const stageH = global.stage.height;
-    const dockScaleX = dockActor.scale_x || 1.0;
-    const dockScaleY = dockActor.scale_y || 1.0;
+    const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
+    const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
+    const origin = isVertical ? dy : dx;
 
     let clusterBoundaryShift = 0;
     if (zoomEnabled && clusterEnvelope > 0.001) {
-        if (!isVertical) {
-            let rightLimit = stageW - 8;
-            if (dockActor._dockUI && dockActor._dockUI.extractedDesktop && isActorAlive(dockActor._dockUI.extractedDesktop) && dockActor._dockUI.extractedDesktop.visible) {
-                const deskX = dockActor._dockUI.extractedDesktop.x;
-                if (deskX > 0 && (deskX - 24) < rightLimit) rightLimit = deskX - 24;
-            }
-
-            const leftLimit = 8;
-
-            let maxGlobalRight = -Infinity;
-            let minGlobalLeft = Infinity;
-
-            for (let i = 0; i < n; i++) {
-                const b = btns[i];
-                const bW = (b.width || 48) * scales[i] * dockScaleX;
-                const bTargetCenter = dx + ((scaledCenters[i] + zoomOffset) * dockScaleX);
-                const bLeft = bTargetCenter - (bW / 2);
-                const bRight = bTargetCenter + (bW / 2);
-
-                if (bLeft < minGlobalLeft) minGlobalLeft = bLeft;
-                if (bRight > maxGlobalRight) maxGlobalRight = bRight;
-            }
-
-            if (maxGlobalRight > rightLimit) {
-                clusterBoundaryShift = (rightLimit - maxGlobalRight) / dockScaleX;
-            } else if (minGlobalLeft < leftLimit) {
-                clusterBoundaryShift = (leftLimit - minGlobalLeft) / dockScaleX;
-            }
-
-            if (minGlobalLeft + (clusterBoundaryShift * dockScaleX) < leftLimit) {
-                clusterBoundaryShift = (leftLimit - minGlobalLeft) / dockScaleX;
-            }
+        if (isDynamicPanel) {
+            clusterBoundaryShift = getDynamicPanelShift(dockActor, isVertical, origin,
+                isVertical ? topExp : leftExp, isVertical ? botExp : rightExp);
         } else {
-            const bottomLimit = stageH - 8;
-            const topLimit = 8;
-
-            let maxGlobalBottom = -Infinity;
-            let minGlobalTop = Infinity;
-
-            for (let i = 0; i < n; i++) {
-                const b = btns[i];
-                const bH = (b.height || 48) * scalesY[i] * dockScaleY;
-                const bTargetCenter = dy + ((scaledCenters[i] + zoomOffset) * dockScaleY);
-                const bTop = bTargetCenter - (bH / 2);
-                const bBottom = bTargetCenter + (bH / 2);
-
-                if (bTop < minGlobalTop) minGlobalTop = bTop;
-                if (bBottom > maxGlobalBottom) maxGlobalBottom = bBottom;
-            }
-
-            if (maxGlobalBottom > bottomLimit) {
-                clusterBoundaryShift = (bottomLimit - maxGlobalBottom) / dockScaleY;
-            } else if (minGlobalTop < topLimit) {
-                clusterBoundaryShift = (topLimit - minGlobalTop) / dockScaleY;
-            }
-
-            if (minGlobalTop + (clusterBoundaryShift * dockScaleY) < topLimit) {
-                clusterBoundaryShift = (topLimit - minGlobalTop) / dockScaleY;
-            }
+            const targetCenters = scaledCenters.map(center => center + zoomOffset);
+            clusterBoundaryShift = getIconRowShift(dockActor, btns, isVertical, origin, targetCenters, isVertical ? scalesY : scales);
         }
     }
 
@@ -696,9 +705,6 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
-    const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
-    const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
-
     if (dockActor.bgActor && dockActor.boxActor && !isFullBar) {
         const baseW = dockActor.bgActor._baseW || dockActor.boxActor.width;
         const baseH = dockActor.bgActor._baseH || dockActor.boxActor.height;
@@ -710,7 +716,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             : (dockActor.height - baseH) / 2;
 
         if (leftExp > 0 || rightExp > 0 || topExp > 0 || botExp > 0) {
-            const BUFFER = 16;
+            const BUFFER = isDynamicPanel ? 0 : DOCK_BG_BUFFER;
 
             dockActor.bgActor.remove_all_transitions();
             dockActor.bgActor.scale_x = 1.0;
@@ -784,7 +790,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         if (!dockActor._settleTickId) {
             dockActor._settleTickId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
                 dockActor._settleTickId = null;
-                if (!isActorAlive(dockActor) || dockActor._isResetting || dockActor._isHidden) {
+                if (!isActorAlive(dockActor) || dockActor._isResetting || dockActor._isAutohiding) {
                     return GLib.SOURCE_REMOVE;
                 }
                 const [px, py] = global.get_pointer();
@@ -885,22 +891,6 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 dockActor._magTooltipBox = tooltipActors.tooltipBox;
 
                 Main.layoutManager.uiGroup.add_child(dockActor._magTooltip);
-
-                if (!dockActor._magDestroyHandlerId) {
-                    dockActor._magDestroyHandlerId = dockActor.connectObject('destroy', () => {
-                        if (isActorAlive(dockActor._magTooltip)) {
-                            dockActor._magTooltip.destroy();
-                        }
-                        dockActor._magTooltip = null;
-                        dockActor._magTooltipBg = null;
-                        dockActor._magTooltipBox = null;
-                        if (dockActor._magPeekManager) {
-                            dockActor._magPeekManager.destroy();
-                            dockActor._magPeekManager = null;
-                        }
-                        dockActor._magDestroyHandlerId = null;
-                    }, dockActor);
-                }
             }
 
             if (!dockActor._magPeekManager && dockActor._dockUI) {

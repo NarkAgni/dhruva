@@ -24,6 +24,7 @@ import Cairo from 'gi://cairo';
 import Clutter from 'gi://Clutter';
 import GdkPixbuf from 'gi://GdkPixbuf';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { BlurEffect } from '../../blur/BlurEffect.js';
 import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
@@ -37,6 +38,9 @@ const WAVE_AMPLITUDE = 3.5;
 const WAVE_FREQUENCY = 0.08;
 const SLIDER_HEIGHT = 26;
 const POPUP_GAP_PX = 20;
+const COPY_FEEDBACK_MS = 1200;
+const INACTIVE_ICON_OPACITY = 110;
+const TOOL_BUTTON_STYLE = 'padding: 6px; border-radius: 999px; border: none; transition-duration: 150ms;';
 
 function formatTime(seconds) {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -54,6 +58,7 @@ export class MusicPillPopup {
         this._tracker = new TimeoutTracker();
 
         this._isOpen = false;
+        this._copyFeedbackId = 0;
         this._isDragging = false;
         this._sliderGrab = null;
         this._box = null;
@@ -187,6 +192,14 @@ export class MusicPillPopup {
         }
 
         topRow.add_child(this._spotifyIcon);
+        topRow.add_child(new St.Widget({ x_expand: true, reactive: false }));
+
+        this._shuffleBtn = this._makeToolButton('media-playlist-shuffle-symbolic', _('Shuffle'), () => this._service.toggleShuffle());
+        this._repeatBtn = this._makeToolButton('media-playlist-repeat-symbolic', _('Repeat'), () => this._service.cycleLoop());
+        this._copyBtn = this._makeToolButton('edit-copy-symbolic', _('Copy song link'), () => this._copyLink());
+        topRow.add_child(this._shuffleBtn);
+        topRow.add_child(this._repeatBtn);
+        topRow.add_child(this._copyBtn);
         this._contentBox.add_child(topRow);
 
         const spacer = new St.Widget({
@@ -230,8 +243,20 @@ export class MusicPillPopup {
             this._artistLabel.clutter_text.line_wrap = false;
         }
 
+        this._albumLabel = new St.Label({
+            style: `
+                font-weight: 500;
+                font-size: 12px;
+                color: rgba(255, 255, 255, 0.5);
+                text-align: left;
+            `,
+        });
+        this._albumLabel.clutter_text.ellipsize = 3;
+        this._albumLabel.clutter_text.line_wrap = false;
+
         this._metaBox.add_child(this._titleLabel);
         this._metaBox.add_child(this._artistLabel);
+        this._metaBox.add_child(this._albumLabel);
         this._contentBox.add_child(this._metaBox);
 
         this._sliderCanvas = new St.DrawingArea({
@@ -402,6 +427,52 @@ export class MusicPillPopup {
         this._overlay.add_child(this._box);
     }
 
+    _makeToolButton(iconName, label, onClick) {
+        const icon = new St.Icon({ icon_name: iconName, icon_size: 16, style: 'color: #ffffff;' });
+        const button = new St.Button({
+            child: icon,
+            accessible_name: label,
+            style: `${TOOL_BUTTON_STYLE} background-color: transparent;`,
+            y_align: Clutter.ActorAlign.CENTER,
+            visible: false,
+        });
+        button._icon = icon;
+        button.connectObject(
+            'clicked', onClick,
+            'notify::hover', () => {
+                button.style = `${TOOL_BUTTON_STYLE} background-color: ${button.hover ? 'rgba(255, 255, 255, 0.22)' : 'transparent'};`;
+            },
+            this
+        );
+        return button;
+    }
+
+    _copyLink() {
+        if (!this._pill.copyTrackLink()) return;
+
+        this._copyBtn._icon.icon_name = 'object-select-symbolic';
+        if (this._copyFeedbackId) this._tracker.remove(this._copyFeedbackId);
+        this._copyFeedbackId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, COPY_FEEDBACK_MS, () => {
+            this._copyFeedbackId = 0;
+            if (isActorAlive(this._copyBtn)) this._copyBtn._icon.icon_name = 'edit-copy-symbolic';
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _syncToolButtons() {
+        const service = this._service;
+
+        this._shuffleBtn.visible = service.canShuffle;
+        this._shuffleBtn._icon.opacity = service.isShuffle ? 255 : INACTIVE_ICON_OPACITY;
+
+        const loop = service.loopStatus;
+        this._repeatBtn.visible = service.canLoop;
+        this._repeatBtn._icon.icon_name = loop === 'Track' ? 'media-playlist-repeat-song-symbolic' : 'media-playlist-repeat-symbolic';
+        this._repeatBtn._icon.opacity = loop === 'None' ? INACTIVE_ICON_OPACITY : 255;
+
+        this._copyBtn.visible = Boolean(service.trackUrl);
+    }
+
     _endSliderDrag() {
         this._isDragging = false;
         if (this._sliderGrab) {
@@ -563,17 +634,18 @@ export class MusicPillPopup {
     _updateState() {
         if (!this._isOpen || !isActorAlive(this._box)) return;
 
-        const title = this._pill._titleLabel ? this._pill._titleLabel.text : 'Unknown Title';
-        const artist = this._pill._artistLabel ? this._pill._artistLabel.text : 'Unknown Artist';
         const isPlaying = this._pill._isPlaying;
 
-        this._titleLabel.text = title || 'Unknown Title';
-        this._artistLabel.text = artist || 'Unknown Artist';
+        this._titleLabel.text = this._pill._titleLabel.text;
+        this._artistLabel.text = this._pill._artistLabel.text;
+        this._albumLabel.text = this._service.album;
+        this._albumLabel.visible = Boolean(this._service.album);
+        this._syncToolButtons();
         this._playIcon.icon_name = isPlaying ? 'media-playback-pause-symbolic' : 'media-playback-start-symbolic';
 
         this._durationSec = this._pill._durationSec > 0 ? this._pill._durationSec : 1;
 
-        const localArtPath = this._pill._lastArtUrl;
+        const localArtPath = this._pill._artPath;
         if (localArtPath && localArtPath !== this._cachedArtPath) {
             let fileUri = localArtPath;
             let cleanPath = localArtPath;
@@ -682,7 +754,7 @@ export class MusicPillPopup {
         this._positionPopup();
 
         if (this._pill && this._pill._lastExtractedColors) {
-            this._applyColors(this._pill._lastArtUrl);
+            this._applyColors(this._pill._artPath);
         }
 
         this._updateState();
@@ -788,7 +860,8 @@ export class MusicPillPopup {
             this._tracker = null;
         }
 
-        [this._overlay, this._artBackground, this._sliderCanvas, this._prevBtn, this._playBtn, this._nextBtn].forEach(actor => {
+        [this._overlay, this._artBackground, this._sliderCanvas, this._prevBtn, this._playBtn, this._nextBtn,
+            this._shuffleBtn, this._repeatBtn, this._copyBtn].forEach(actor => {
             if (actor) actor.disconnectObject(this);
         });
 

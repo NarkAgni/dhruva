@@ -21,6 +21,10 @@ import { isActorAlive } from '../../core/Utils.js';
 import { Settings } from '../../core/SettingsManager.js';
 
 
+const CORRIDOR_BOX_PAD = 15;
+const CORRIDOR_CLUSTER_PAD = 4;
+const STATIC_STYLE_CLASSES = ['dock-separator', 'clock-module', 'dock-drag-handle', 'dhruva-music-pill'];
+
 export function easeOutCirc(t) {
     return Math.sqrt(1 - Math.pow(t - 1, 2));
 }
@@ -53,6 +57,8 @@ export function getDockButtons(dockActor) {
         }
     });
 
+    if (Settings.hybridPanelMode) return buttons;
+
     if (dockActor.extractedClock && isActorAlive(dockActor.extractedClock) && dockActor.extractedClock.get_parent() === dockActor) {
         buttons.push(dockActor.extractedClock);
     }
@@ -61,6 +67,90 @@ export function getDockButtons(dockActor) {
     }
 
     return buttons;
+}
+
+export function isStaticItem(actor) {
+    if (actor._isOverflowBtn) return false;
+    if (actor._isStatic) return true;
+    const sClass = actor.get_style_class_name ? (actor.get_style_class_name() || '') : (actor.style_class || '');
+    return STATIC_STYLE_CLASSES.some(name => sClass.includes(name));
+}
+
+export function axisSpan(actor, isVertical) {
+    const [x, y] = actor.get_transformed_position();
+    const [w, h] = actor.get_transformed_size();
+    return isVertical ? [y, y + h] : [x, x + w];
+}
+
+function isVerticalDockPosition(dockUI) {
+    return dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+}
+
+export function getPanelSideActors(dockActor) {
+    const dockUI = dockActor._dockUI;
+    if (!Settings.hybridPanelMode || !dockUI || !dockUI.panelIntegrator) return { start: [], end: [] };
+
+    const integrator = dockUI.panelIntegrator;
+    return {
+        start: [integrator.leftContainer].filter(actor => isActorAlive(actor)),
+        end: [integrator.container, dockUI.extractedDesktop, dockUI._panelSeparator].filter(actor => isActorAlive(actor)),
+    };
+}
+
+export function isPointerOnPanelItems(dockActor, px, py) {
+    const { start, end } = getPanelSideActors(dockActor);
+    return [...start, ...end].some(actor => {
+        if (!actor.visible || !actor.reactive) return false;
+        const [x, y] = actor.get_transformed_position();
+        const [w, h] = actor.get_transformed_size();
+        return px >= x && px <= x + w && py >= y && py <= y + h;
+    });
+}
+
+export function isPointerInIconCorridor(dockActor, px, py, isVertical) {
+    if (isPointerOnPanelItems(dockActor, px, py)) return false;
+    if (!(Settings.fullWidth || Settings.hybridPanelMode) || !isActorAlive(dockActor.boxActor)) return true;
+
+    const [boxStart, boxEnd] = axisSpan(dockActor.boxActor, isVertical);
+    let start = boxStart - CORRIDOR_BOX_PAD;
+    let end = boxEnd + CORRIDOR_BOX_PAD;
+
+    for (const child of dockActor.boxActor.get_children()) {
+        if (!isActorAlive(child) || !child.visible) continue;
+        const [childStart, childEnd] = axisSpan(child, isVertical);
+        start = Math.min(start, childStart - CORRIDOR_CLUSTER_PAD);
+        end = Math.max(end, childEnd + CORRIDOR_CLUSTER_PAD);
+    }
+
+    const pointer = isVertical ? py : px;
+    return pointer >= start && pointer <= end;
+}
+
+export function syncPanelSidesToBackground(dockActor) {
+    const { start, end } = getPanelSideActors(dockActor);
+    if (start.length === 0 && end.length === 0) return;
+
+    const bg = dockActor.bgActor;
+    const isVertical = isVerticalDockPosition(dockActor._dockUI);
+    const axis = isVertical ? 'translation_y' : 'translation_x';
+    let startMove = 0;
+    let endMove = 0;
+
+    if (Settings.dynamicPanel && isActorAlive(bg) && bg._baseW !== undefined) {
+        const base = isVertical ? bg._baseY : bg._baseX;
+        const baseSize = isVertical ? bg._baseH : bg._baseW;
+        const pos = isVertical ? bg.y : bg.x;
+        const size = isVertical ? bg.height : bg.width;
+        startMove = base - pos;
+        endMove = (pos + size) - (base + baseSize);
+    }
+
+    start.forEach(actor => {
+        actor[axis] = -startMove;
+    });
+    end.forEach(actor => {
+        actor[axis] = endMove;
+    });
 }
 
 export function getFixedSlots(dockActor, isVertical, btns) {

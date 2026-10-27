@@ -59,7 +59,7 @@ function isBlacklisted(name, indicator) {
     );
 }
 
-export function hasRealVisualContent(actor) {
+function hasRealVisualContent(actor) {
     if (!isActorAlive(actor) || !actor.visible || actor.opacity === 0) return false;
 
     if ('icon_size' in actor) {
@@ -96,7 +96,7 @@ export function isSingleIcon(actor) {
     return counts.icons === 1 && counts.other === 0;
 }
 
-export function indicatorDisplayName(name, indicator) {
+function indicatorDisplayName(name, indicator) {
     if (indicator.accessible_name) return indicator.accessible_name;
     const base = name.split('@')[0].replace(/[-_.]+/g, ' ').trim();
     return base.charAt(0).toUpperCase() + base.slice(1);

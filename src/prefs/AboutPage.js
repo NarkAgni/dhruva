@@ -37,7 +37,7 @@ export function buildAboutPage(prefs, window) {
     buildAboutDonations(page, window);
 }
 
-export function buildAboutHero(prefs, page) {
+function buildAboutHero(prefs, page) {
     const group = new Adw.PreferencesGroup();
     page.add(group);
 
@@ -73,7 +73,7 @@ export function buildAboutHero(prefs, page) {
     group.add(row);
 }
 
-export function buildAboutLinks(page, window) {
+function buildAboutLinks(page, window) {
     const group = new Adw.PreferencesGroup({
         title: _('Links')
     });
@@ -101,7 +101,7 @@ export function buildAboutLinks(page, window) {
     addLink(_('GitHub Repository'), 'github.com/narkagni/dhruva', 'system-software-install-symbolic', 'https://github.com/narkagni/dhruva');
 }
 
-export function buildAboutAuthor(prefs, page) {
+function buildAboutAuthor(prefs, page) {
     const group = new Adw.PreferencesGroup({
         title: _('Credits')
     });
@@ -125,7 +125,7 @@ export function buildAboutAuthor(prefs, page) {
     }));
 }
 
-export function buildAboutDonations(page, window) {
+function buildAboutDonations(page, window) {
     const group = new Adw.PreferencesGroup({
         title: _('Support Development'),
         description: _('If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!')

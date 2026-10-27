@@ -659,6 +659,101 @@
       <description>Placement of the music pill: Start or End.</description>
     </key>
 
+    <key name="music-pill-show-prev" type="b">
+      <default>true</default>
+      <summary>Music Pill previous button</summary>
+      <description>Show the previous track button when hovering the music pill.</description>
+    </key>
+
+    <key name="music-pill-show-next" type="b">
+      <default>true</default>
+      <summary>Music Pill next button</summary>
+      <description>Show the next track button when hovering the music pill.</description>
+    </key>
+
+    <key name="music-pill-progress" type="s">
+      <choices>
+        <choice value='pill'/>
+        <choice value='art'/>
+        <choice value='none'/>
+      </choices>
+      <default>'pill'</default>
+      <summary>Music Pill progress</summary>
+      <description>Where the track progress is drawn: around the pill, around the artwork, or nowhere.</description>
+    </key>
+
+    <key name="music-pill-scroll-action" type="s">
+      <choices>
+        <choice value='volume'/>
+        <choice value='seek'/>
+        <choice value='track'/>
+        <choice value='none'/>
+      </choices>
+      <default>'volume'</default>
+      <summary>Music Pill scroll action</summary>
+      <description>What scrolling over the music pill does: change volume, seek within the track, switch tracks, or nothing.</description>
+    </key>
+
+    <key name="music-pill-click-action" type="s">
+      <choices>
+        <choice value='none'/>
+        <choice value='play-pause'/>
+        <choice value='next'/>
+        <choice value='previous'/>
+        <choice value='player'/>
+        <choice value='window'/>
+        <choice value='copy-link'/>
+      </choices>
+      <default>'none'</default>
+      <summary>Music Pill click action</summary>
+      <description>What a left click on the music pill does.</description>
+    </key>
+
+    <key name="music-pill-middle-click-action" type="s">
+      <choices>
+        <choice value='none'/>
+        <choice value='play-pause'/>
+        <choice value='next'/>
+        <choice value='previous'/>
+        <choice value='player'/>
+        <choice value='window'/>
+        <choice value='copy-link'/>
+      </choices>
+      <default>'none'</default>
+      <summary>Music Pill middle click action</summary>
+      <description>What a middle click on the music pill does.</description>
+    </key>
+
+    <key name="music-pill-right-click-action" type="s">
+      <choices>
+        <choice value='none'/>
+        <choice value='play-pause'/>
+        <choice value='next'/>
+        <choice value='previous'/>
+        <choice value='player'/>
+        <choice value='window'/>
+        <choice value='copy-link'/>
+      </choices>
+      <default>'player'</default>
+      <summary>Music Pill right click action</summary>
+      <description>What a right click on the music pill does.</description>
+    </key>
+
+    <key name="music-pill-double-click-action" type="s">
+      <choices>
+        <choice value='none'/>
+        <choice value='play-pause'/>
+        <choice value='next'/>
+        <choice value='previous'/>
+        <choice value='player'/>
+        <choice value='window'/>
+        <choice value='copy-link'/>
+      </choices>
+      <default>'window'</default>
+      <summary>Music Pill double click action</summary>
+      <description>What a double click on the music pill does.</description>
+    </key>
+
     <key name="blur-enabled" type="b">
       <default>false</default>
       <summary>Enable Blur</summary>

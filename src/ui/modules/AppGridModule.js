@@ -158,6 +158,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     gridModule.set_pivot_point(0.5, 0.5);
     gridModule._hasRunningIndicator = false;
+    gridModule._isGridBtn = true;
     gridModule.set_style('background-color: transparent;');
 
     gridModule.connectObject('notify::hover', () => {

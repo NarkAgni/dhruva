@@ -140,14 +140,14 @@ export function buildBehaviorPage(window, settings) {
     const minimizeSpeedRow = addSliderRow(animGroup, settings, 'window-effect-speed', _('Minimize Duration'), null,
         { lower: 100, upper: 1500, step: 25 }, fmt.ms);
     showWhen(minimizeSpeedRow, settings, ['minimize-effect'], () => settings.get_string('minimize-effect') !== 'none');
+
+    const isZoom = () => settings.get_boolean('hover-zoom');
+    const zoomStyle = () => settings.get_string('hover-zoom-style');
+    const zoomSwitchKeys = ['hover-zoom'];
+
     const highlightRow = addSwitchRow(animGroup, settings, 'hover-animation', _('Hover Animation'),
         _('Animate the icon background under the pointer'));
-    showWhen(highlightRow, settings, ['hover-zoom', 'hybrid-panel-mode'],
-        () => !settings.get_boolean('hover-zoom') || settings.get_boolean('hybrid-panel-mode'));
-
-    const isPanel = () => settings.get_boolean('hybrid-panel-mode');
-    const isZoom = () => settings.get_boolean('hover-zoom') && !isPanel();
-    const zoomStyle = () => settings.get_string('hover-zoom-style');
+    showWhen(highlightRow, settings, zoomSwitchKeys, () => !isZoom());
 
     const zoomGroup = addGroup(page, _('Hover Zoom'), _('Icons grow as the pointer passes over them'));
     addSwitchRow(zoomGroup, settings, 'hover-zoom', _('Magnify on Hover'));
@@ -172,13 +172,12 @@ export function buildBehaviorPage(window, settings) {
             { lower: 0, upper: 45, step: 2 }, fmt.px),
         addSwitchRow(zoomGroup, settings, 'hover-zoom-width', _('Make Room'), _('Neighbours slide apart for the zoomed icon')),
     ];
-    for (const row of zoomRows) showWhen(row, settings, ['hover-zoom', 'hybrid-panel-mode'], isZoom);
+    for (const row of zoomRows) showWhen(row, settings, zoomSwitchKeys, isZoom);
 
     const gapRow = addSliderRow(zoomGroup, settings, 'hover-zoom-gap-factor', _('Push Strength'), null,
         { lower: 1, upper: 3, step: 0.1 }, fmt.times);
-    showWhen(gapRow, settings, ['hover-zoom', 'hybrid-panel-mode', 'hover-zoom-width'],
+    showWhen(gapRow, settings, [...zoomSwitchKeys, 'hover-zoom-width'],
         () => isZoom() && settings.get_boolean('hover-zoom-width'));
-    showWhen(zoomGroup, settings, ['hybrid-panel-mode'], () => !isPanel());
 
     const tweakGroup = addGroup(page, _('Motion Details'));
     addGroupReset(tweakGroup, settings, TWEAK_KEYS);
@@ -191,7 +190,7 @@ export function buildBehaviorPage(window, settings) {
         ['jelly', addSliderRow(tweakGroup, settings, 'hover-zoom-jelly-squish', _('Squash'), null, { lower: 0.1, upper: 0.9, step: 0.05 }, fmt.fraction)],
         ['coverflow', addSliderRow(tweakGroup, settings, 'hover-zoom-coverflow-angle', _('Card Angle'), null, { lower: 15, upper: 65, step: 2 }, fmt.deg)],
     ];
-    const zoomKeys = ['hover-zoom', 'hybrid-panel-mode', 'hover-zoom-style'];
+    const zoomKeys = [...zoomSwitchKeys, 'hover-zoom-style'];
     for (const [style, row] of tweaks) showWhen(row, settings, zoomKeys, () => isZoom() && zoomStyle() === style);
     showWhen(tweakGroup, settings, zoomKeys, () => isZoom() && tweaks.some(([style]) => style === zoomStyle()));
 
@@ -212,7 +211,7 @@ export function buildBehaviorPage(window, settings) {
         { name: _('Both'), value: 'both' },
     ]);
     addSwitchRow(utilGroup, settings, 'enable-context-menu', _('Right-Click Context Menu'),
-        _('Show the context menu when right-clicking dock icons'));
+        _('Show the context menu when right-clicking dock icons. The App Grid button always keeps its menu'));
     addSwitchRow(utilGroup, settings, 'scroll-action-dock', _('Scroll on Dock'), _('Switch workspaces'));
     addSwitchRow(utilGroup, settings, 'scroll-action-app', _('Scroll on Icon'), _('Cycle through that app’s windows'));
     utilGroup.add(new Adw.ActionRow({

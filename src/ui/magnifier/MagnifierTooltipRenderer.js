@@ -30,6 +30,7 @@ import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isPointerWithinDockBounds } from './MagnifierMath.js';
+import { resolveTooltipColors } from '../dock/DockThemeResolver.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { isActorAlive, setBoxVertical, getBoxVertical, hexToRgba } from '../../core/Utils.js';
 import { hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
@@ -118,7 +119,7 @@ export function createTooltipActor(dockActor, settings) {
     return { tooltip, tooltipBg, tooltipBox };
 }
 
-export function applyTooltipCairoDrawing(tooltipBg, settings) {
+function applyTooltipCairoDrawing(tooltipBg, settings) {
     if (tooltipBg._repaintConnected) return;
     tooltipBg._repaintConnected = true;
 

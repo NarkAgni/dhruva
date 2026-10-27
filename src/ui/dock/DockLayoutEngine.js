@@ -553,7 +553,7 @@ export function updateLayout(dockUI) {
     dockUI.bgActor._baseW = bgW;
     dockUI.bgActor._baseH = bgH;
 
-    if (!dockUI.actor._isZoomActive || isFullWidth || isDynamicPanel) {
+    if (!dockUI.actor._isZoomActive || isFullWidth) {
         dockUI.bgActor.remove_all_transitions();
         dockUI.bgActor.set_position(bgX, bgY);
         dockUI.bgActor.set_size(bgW, bgH);

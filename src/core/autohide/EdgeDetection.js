@@ -72,6 +72,10 @@ export class EdgeDetection {
             trackFullscreen: true,
         });
 
+        const dockParent = this.dockUI.actor.get_parent();
+        if (dockParent === this.triggerActor.get_parent())
+            dockParent.set_child_below_sibling(this.triggerActor, this.dockUI.actor);
+
         this.triggerActor.connectObject(
             'enter-event', () => {
                 const dwellDelay = this.getDwellDelay();
