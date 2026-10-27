@@ -104,13 +104,9 @@ function getSystemAccentRGBA() {
         return styleMgr.get_accent_color_rgba();
     }
 
-    try {
-        const iface = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
-        const name = iface.get_string('accent-color');
-        return parseColor(GNOME_ACCENT_HEX[name] || '#3584e4');
-    } catch (_e) {
-        return parseColor('#3584e4');
-    }
+    const iface = new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
+    const name = iface.settings_schema.has_key('accent-color') ? iface.get_string('accent-color') : '';
+    return parseColor(GNOME_ACCENT_HEX[name] || '#3584e4');
 }
 
 export function addSliderRow(parent, settings, key, title, subtitle, range, format) {
@@ -355,7 +351,7 @@ export function parseColor(hex) {
     return rgba;
 }
 
-export function toHex(rgba) {
+function toHex(rgba) {
     const channel = value => Math.round(value * 255).toString(16).padStart(2, '0');
     return `#${channel(rgba.red)}${channel(rgba.green)}${channel(rgba.blue)}`;
 }

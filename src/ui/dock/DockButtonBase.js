@@ -71,7 +71,7 @@ export function stripIndicatorSize(style) {
     return (style || '').replace(INDICATOR_SIZE_RE, '');
 }
 
-export function getDynamicIndicatorLength(isFocused) {
+function getDynamicIndicatorLength(isFocused) {
     const iconSize = Settings.iconSize || 48;
     const activeLen = Math.min(iconSize - 4, Math.max(22, Math.floor(iconSize * 0.52)));
     const inactiveLen = Math.max(12, Math.floor(activeLen * 0.45));

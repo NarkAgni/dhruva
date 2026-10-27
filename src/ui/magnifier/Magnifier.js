@@ -25,7 +25,7 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { applyRealtimeFrame } from './MagnifierFrameEngine.js';
 import { isActorAlive, getBoxVertical } from '../../core/Utils.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
-import { getDockButtons, isPointerWithinDockBounds } from './MagnifierMath.js';
+import { getDockButtons, isPointerWithinDockBounds, isPointerInIconCorridor, isPointerOnPanelItems, syncPanelSidesToBackground } from './MagnifierMath.js';
 import { resetMagnification, teardownMagnification } from './MagnifierReset.js';
 import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
@@ -147,6 +147,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     }
 
     if (isActorAlive(dockActor.bgActor)) {
+        dockActor.bgActor.connectObject('notify::allocation', () => syncPanelSidesToBackground(dockActor), dockActor);
         if (dockPos === 'BOTTOM') dockActor.bgActor.set_pivot_point(0.5, 1.0);
         else if (dockPos === 'TOP') dockActor.bgActor.set_pivot_point(0.5, 0.0);
         else if (dockPos === 'LEFT') dockActor.bgActor.set_pivot_point(0.0, 0.5);
@@ -166,7 +167,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     }
 
     global.stage.connectObject('captured-event', (_stage, event) => {
-        if (!isActorAlive(dockActor) || dockActor._isHidden) return Clutter.EVENT_PROPAGATE;
+        if (!isActorAlive(dockActor) || dockActor._isAutohiding) return Clutter.EVENT_PROPAGATE;
         const evType = event.type();
 
         if (evType === Clutter.EventType.MOTION) {
@@ -192,11 +193,14 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             if (dockActor._magTooltip && dockActor._magTooltip.visible) _watchTooltipPointer(dockActor, settings);
 
             if (!onDock && !insideTooltip && !insideBridge) {
+                if (dockActor._isPointerAway) return Clutter.EVENT_PROPAGATE;
+                dockActor._isPointerAway = true;
                 dockActor._tooltipBridgeActive = false;
                 hideTooltip(dockActor);
                 _checkPointerLeave(dockActor, settings);
                 return Clutter.EVENT_PROPAGATE;
             }
+            dockActor._isPointerAway = false;
 
             if (insideTooltip || insideBridge) {
                 dockActor._tooltipBridgeActive = true;
@@ -219,28 +223,13 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
                 return Clutter.EVENT_PROPAGATE;
             }
 
-            const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
-            if (isFullBar && dockActor.boxActor && isActorAlive(dockActor.boxActor)) {
-                const boxPos = dockActor.boxActor.get_transformed_position();
-                const boxX = boxPos[0];
-                const boxY = boxPos[1];
-                const boxSize = dockActor.boxActor.get_transformed_size();
-                const boxW = boxSize[0];
-                const boxH = boxSize[1];
-                const SMOOTH_PAD = 15;
-
-                const withinBoxCluster = isVertical
-                    ? (ey >= boxY - SMOOTH_PAD && ey <= boxY + boxH + SMOOTH_PAD)
-                    : (ex >= boxX - SMOOTH_PAD && ex <= boxX + boxW + SMOOTH_PAD);
-
-                if (!withinBoxCluster) {
-                    hideTooltip(dockActor);
-                    if (!dockActor._isMagnifierResetDone) {
-                        dockActor._isMagnifierResetDone = true;
-                        resetMagnification(dockActor, 180, false);
-                    }
-                    return Clutter.EVENT_PROPAGATE;
+            if (!isPointerInIconCorridor(dockActor, ex, ey, isVertical)) {
+                hideTooltip(dockActor);
+                if (!dockActor._isMagnifierResetDone) {
+                    dockActor._isMagnifierResetDone = true;
+                    resetMagnification(dockActor, 180, false);
                 }
+                return Clutter.EVENT_PROPAGATE;
             }
 
             dockActor._isMagnifierResetDone = false;
@@ -284,7 +273,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         const buttonNum = event.get_button();
         const isVertical = getBoxVertical(dockActor.boxActor);
 
-        if (!isPointerWithinDockBounds(dockActor, ex, ey, isVertical, settings)) {
+        if (!isPointerWithinDockBounds(dockActor, ex, ey, isVertical, settings) || isPointerOnPanelItems(dockActor, ex, ey)) {
             return Clutter.EVENT_PROPAGATE;
         }
 

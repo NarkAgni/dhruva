@@ -411,7 +411,7 @@ export default class AutoHideManager {
             this._wasFullscreen = false;
             if (this.dockUI) {
                 this.dockUI._updateStruts();
-                this.dockUI.queueRender(true);
+                this.dockUI.queueRender('incremental');
             }
             this._applyHiddenPosition();
         }
@@ -552,10 +552,6 @@ export default class AutoHideManager {
 
         animateShow(this.dockUI, () => {
             this.isAnimating = false;
-            if (this.dockUI && this.dockUI._dockBlur) {
-                this.dockUI._dockBlur.syncGeometry();
-                this.dockUI._dockBlur.queueCapture(true);
-            }
         });
     }
 

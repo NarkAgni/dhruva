@@ -228,5 +228,18 @@ export function teardownMagnification(dockActor) {
         if (isActorAlive(dockActor.boxActor)) {
             dockActor.boxActor.disconnectObject(dockActor);
         }
+        if (isActorAlive(dockActor.bgActor)) {
+            dockActor.bgActor.disconnectObject(dockActor);
+        }
+
+        if (isActorAlive(dockActor._magTooltip)) dockActor._magTooltip.destroy();
+        dockActor._magTooltip = null;
+        dockActor._magTooltipBg = null;
+        dockActor._magTooltipBox = null;
+
+        if (dockActor._magPeekManager) {
+            dockActor._magPeekManager.destroy();
+            dockActor._magPeekManager = null;
+        }
     }
 }

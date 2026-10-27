@@ -567,7 +567,7 @@ export default class AppContextMenu {
     }
 
     show(dockPosition) {
-        const isDockIcon = this.buttonActor && !this.buttonActor._inFolder && Boolean(this.peekManager);
+        const isDockIcon = this.buttonActor && !this.buttonActor._inFolder && !this.buttonActor._isGridBtn && Boolean(this.peekManager);
         if (isDockIcon && !Settings.enableContextMenu && !this.isCtrlPressed) {
             this.hide();
             return;

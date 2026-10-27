@@ -104,7 +104,7 @@ export class LyricsClient {
         }
 
         let query = `track_name=${encodeURIComponent(cleanTitle)}`;
-        if (cleanArtist && cleanArtist !== 'Unknown Artist') {
+        if (cleanArtist) {
             query += `&artist_name=${encodeURIComponent(cleanArtist)}`;
         }
         if (durationSec > 0) {

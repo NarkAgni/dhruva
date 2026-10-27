@@ -17,29 +17,11 @@
 */
 
 
-import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../../core/Utils.js';
-import { updateLayout } from './DockLayoutEngine.js';
 import { Settings } from '../../core/SettingsManager.js';
 
-
-export function scheduleOverviewMarginRetry(dockUI) {
-    if (dockUI._overviewMarginRetryId) {
-        dockUI.registry.remove(dockUI._overviewMarginRetryId);
-        dockUI._overviewMarginRetryId = 0;
-    }
-
-    dockUI._overviewMarginRetryId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, 20, () => {
-        dockUI._overviewMarginRetryId = 0;
-        if (!Main.overview.visible && !Main.overview.visibleTarget) return GLib.SOURCE_REMOVE;
-
-        updateLayout(dockUI);
-        applyOverviewDockMargin(dockUI);
-        return GLib.SOURCE_REMOVE;
-    });
-}
 
 export function applyOverviewDockMargin(dockUI) {
     if (!isActorAlive(dockUI.actor) || !isActorAlive(dockUI.boxActor)) return;
@@ -71,12 +53,7 @@ export function applyOverviewDockMargin(dockUI) {
     }
 }
 
-export function clearOverviewDockMargin(dockUI) {
-    if (dockUI._overviewMarginRetryId) {
-        dockUI.registry.remove(dockUI._overviewMarginRetryId);
-        dockUI._overviewMarginRetryId = 0;
-    }
-
+export function clearOverviewDockMargin() {
     if (Main.overview.dash && isActorAlive(Main.overview.dash)) {
         Main.overview.dash.set_height(-1);
         Main.overview.dash.set_width(-1);

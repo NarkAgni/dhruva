@@ -23,7 +23,7 @@ import GObject from 'gi://GObject';
 
 export const MusicPillSlider = GObject.registerClass(
     class MusicPillSlider extends St.DrawingArea {
-        _init() {
+        _init(isCircle = false) {
             super._init({
                 name: 'DhruvaMusicPillSlider',
                 reactive: false,
@@ -32,6 +32,7 @@ export const MusicPillSlider = GObject.registerClass(
                 y_expand: true,
             });
 
+            this._isCircle = isCircle;
             this._progressRatio = 0.0;
             this._accentColor = { r: 1.0, g: 1.0, b: 1.0 };
             this._strokeWidth = 2.5;
@@ -55,6 +56,22 @@ export const MusicPillSlider = GObject.registerClass(
             this.queue_repaint();
         }
 
+        _paintCircle(cr, w, h) {
+            const radius = Math.min(w, h) / 2.0 - this._strokeWidth / 2.0;
+            const start = -0.5 * Math.PI;
+            const { r, g, b } = this._accentColor;
+
+            cr.setLineWidth(this._strokeWidth);
+            cr.setLineCap(1);
+            cr.setSourceRGBA(r, g, b, 0.22);
+            cr.arc(w / 2.0, h / 2.0, radius, 0, 2 * Math.PI);
+            cr.stroke();
+
+            cr.setSourceRGBA(r, g, b, 0.9);
+            cr.arc(w / 2.0, h / 2.0, radius, start, start + 2 * Math.PI * this._progressRatio);
+            cr.stroke();
+        }
+
         vfunc_repaint() {
             const cr = this.get_context();
             if (!cr) return;
@@ -70,6 +87,12 @@ export const MusicPillSlider = GObject.registerClass(
             cr.setOperator(2);
 
             if (this._progressRatio <= 0.0) {
+                cr.$dispose();
+                return;
+            }
+
+            if (this._isCircle) {
+                this._paintCircle(cr, w, h);
                 cr.$dispose();
                 return;
             }

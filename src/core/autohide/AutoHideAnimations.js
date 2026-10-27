@@ -31,6 +31,11 @@ function getAnimDuration() {
     return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_ANIM_DURATION_MS;
 }
 
+function nextSerial(dockUI) {
+    dockUI._autohideSerial = (dockUI._autohideSerial || 0) + 1;
+    return dockUI._autohideSerial;
+}
+
 export function getHideOffsets(dockUI, peek = 0) {
     if (dockUI._isWindowGrabbed || (dockUI._isOnSharedMonitorEdge && dockUI._isOnSharedMonitorEdge())) {
         return { hideX: 0, hideY: 0 };
@@ -59,6 +64,7 @@ export function getHideOffsets(dockUI, peek = 0) {
 export function animateShow(dockUI, onComplete) {
     if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
+    const serial = nextSerial(dockUI);
     dockUI.actor._isAutohiding = false;
     dockUI.actor.remove_all_transitions();
     dockUI.actor.show();
@@ -68,9 +74,9 @@ export function animateShow(dockUI, onComplete) {
         opacity: 255,
         duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onStopped: (_isFinished) => {
-            dockUI.actor.opacity = 255;
-            if (dockUI._dockBlur) {
+        onStopped: isFinished => {
+            if (dockUI._autohideSerial !== serial) return;
+            if (isFinished && dockUI._dockBlur) {
                 dockUI._dockBlur.syncGeometry();
                 dockUI._dockBlur.queueCapture(true);
             }
@@ -82,6 +88,7 @@ export function animateShow(dockUI, onComplete) {
 export function animateHide(dockUI, onComplete, peek = 0) {
     if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
+    const serial = nextSerial(dockUI);
     const { hideX, hideY } = getHideOffsets(dockUI, peek);
     const targetOpacity = peek > 0 ? 255 : 0;
 
@@ -97,17 +104,8 @@ export function animateHide(dockUI, onComplete, peek = 0) {
         opacity: targetOpacity,
         duration: getAnimDuration(),
         mode: Clutter.AnimationMode.EASE_IN_QUAD,
-        onStopped: (_isFinished) => {
-            dockUI.actor.opacity = targetOpacity;
-            if (dockUI._dockBlur) {
-                if (peek > 0) {
-                    dockUI._dockBlur.syncGeometry();
-                    dockUI._dockBlur.queueCapture(true);
-                } else {
-                    dockUI._dockBlur._hideBlur();
-                }
-            }
-            if (onComplete) onComplete();
+        onStopped: () => {
+            if (dockUI._autohideSerial === serial && onComplete) onComplete();
         },
     });
 }

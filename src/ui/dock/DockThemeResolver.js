@@ -79,7 +79,6 @@ export function resolveTooltipColors(dockUI, themeId, customOpacityPct = null) {
     return { css: tooltipCss, fg: dockUI._chameleonAccent || sColor };
 }
 
-const POPUP_FALLBACK_FILL = 'rgba(24, 24, 31, 0.96)';
 const TRANSPARENT_FILL = 'rgba(0, 0, 0, 0)';
 
 function _firstThemeColor(css) {
@@ -90,7 +89,6 @@ function _firstThemeColor(css) {
 }
 
 export function resolvePopupBubbleColors(dockUI) {
-    const settings = dockUI.settings;
     const popupOpacityPct = Settings.contextMenuOpacity;
     const fallbackAlpha = Math.min(1.0, Math.max(0.0, popupOpacityPct / 100.0));
 

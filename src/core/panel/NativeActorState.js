@@ -119,7 +119,7 @@ export function panelItemMetrics() {
     };
 }
 
-export function findPanelButton(root) {
+function findPanelButton(root) {
     if (root.has_style_class_name('panel-button')) return root;
     for (const child of root.get_children()) {
         if (child.has_style_class_name && child.has_style_class_name('panel-button')) return child;

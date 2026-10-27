@@ -29,6 +29,7 @@ import { getIndicatorProps } from './DockRenderer.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { paintMenuBubble } from '../shared/MenuShape.js';
 import { createIndicatorBox } from './DockButtonBase.js';
+import { createPlateIcon, createCrispBundledIcon, getZoomRenderSize } from './DockItemBuilder.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { resolvePopupBubbleColors } from './DockThemeResolver.js';
@@ -40,8 +41,9 @@ export const OVERFLOW_BUTTON_KEY = 'dhruva-overflow-button';
 
 const CFG = HYBRID_PANEL_CONFIG;
 const BLUR_BASE_PAD = 2;
-const DOT_COUNT = 3;
-const MIN_DOT_SIZE = 6;
+const DOTS_ICON_FILE = 'overflow-dots-symbolic.svg';
+const DOTS_FALLBACK_ICON = 'view-more-horizontal-symbolic';
+const DOTS_COLOR = 'rgba(255, 255, 255, 0.92)';
 const ITEM_SPACING = 6;
 const PANEL_PADDING = 12;
 const SCREEN_EDGE_MARGIN = 10;
@@ -86,7 +88,7 @@ export class DockOverflowMenu {
     }
 
     _currentLayoutKey() {
-        return `${Settings.iconSize}|${this._dockUI.dockPosition}`;
+        return `${Settings.iconSize}|${this._dockUI.dockPosition}|${Settings.hoverZoom}|${Settings.hoverZoomFactor}`;
     }
 
     setItems(items) {
@@ -205,24 +207,36 @@ export class DockOverflowMenu {
 
     _buildButton() {
         const iconSize = Settings.iconSize;
-        const dotSize = Math.max(MIN_DOT_SIZE, Math.round(iconSize * 0.12));
+        const renderSize = getZoomRenderSize(iconSize);
 
-        const dots = new St.BoxLayout({
-            style_class: 'dhruva-overflow-dots',
+        const plate = createPlateIcon(iconSize, renderSize);
+        const dots = createCrispBundledIcon(DOTS_ICON_FILE, DOTS_FALLBACK_ICON, iconSize, renderSize, DOTS_COLOR);
+        if (isVerticalPosition(this._dockUI.dockPosition)) dots.rotation_angle_z = 90;
+
+        const dotsBin = new St.Bin({
+            child: dots,
+            width: iconSize,
+            height: iconSize,
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
         });
-        setBoxVertical(dots, isVerticalPosition(this._dockUI.dockPosition));
-        for (let i = 0; i < DOT_COUNT; i++) {
-            dots.add_child(new St.Widget({
-                style: `width: ${dotSize}px; height: ${dotSize}px; border-radius: ${Math.round(dotSize / 2)}px; background-color: rgba(255, 255, 255, 0.92);`,
-            }));
-        }
+
+        const appBox = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            width: iconSize,
+            height: iconSize,
+            clip_to_allocation: false,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        appBox.add_child(plate);
+        appBox.add_child(dotsBin);
 
         const button = new St.Button({
             name: 'DhruvaOverflowBtn',
             style_class: 'dock-app-button dhruva-overflow-button',
-            child: dots,
+            style: 'background-color: transparent; border: none; box-shadow: none; padding: 0;',
+            child: appBox,
             reactive: true,
             can_focus: false,
             track_hover: true,
@@ -446,7 +460,14 @@ export class DockOverflowMenu {
     _watchAnchor() {
         const reposition = () => this._reposition();
         if (this.button && isActorAlive(this.button)) {
-            this.button.connectObject('notify::allocation', reposition, this._anchorWatchTracker);
+            this.button.connectObject(
+                'notify::allocation', reposition,
+                'notify::translation-x', reposition,
+                'notify::translation-y', reposition,
+                'notify::scale-x', reposition,
+                'notify::scale-y', reposition,
+                this._anchorWatchTracker
+            );
         }
         if (isActorAlive(this._dockUI.actor)) {
             this._dockUI.actor.connectObject(

@@ -42,6 +42,9 @@ import {
 const DRAG_CANCEL_DELTA_PX = 15;
 const LAUNCH_PAUSE_TIMEOUT_MS = 150;
 
+const DEFAULT_PLATE_COLOR = 'rgba(255, 255, 255, 0.65)';
+const DEFAULT_PLATE_OPACITY = 130;
+
 function _getExtensionDir() {
     return Gio.File.new_for_uri(import.meta.url)
         .get_parent()
@@ -53,6 +56,33 @@ function _getExtensionDir() {
 function _getBundledIcon(fileName) {
     const svgFile = _getExtensionDir().get_child('icons').get_child(fileName);
     return svgFile.query_exists(null) ? new Gio.FileIcon({ file: svgFile }) : null;
+}
+
+export function getZoomRenderSize(iconSize) {
+    const maxZoom = Settings.hoverZoom ? 1.0 + (Settings.hoverZoomFactor - 1.0) * 2.0 : 1.0;
+    const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+    return Math.ceil(iconSize * maxZoom * scaleFactor);
+}
+
+export function createCrispBundledIcon(fileName, fallbackName, iconSize, renderSize, color) {
+    const icon = new St.Icon({
+        gicon: _getBundledIcon(fileName) || Gio.ThemedIcon.new_with_default_fallbacks(fallbackName),
+        icon_size: renderSize,
+        style: `color: ${color};`,
+        x_align: Clutter.ActorAlign.CENTER,
+        y_align: Clutter.ActorAlign.CENTER,
+        reactive: false,
+    });
+    icon.set_size(iconSize, iconSize);
+    icon.set_pivot_point(0.5, 0.5);
+    icon.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR, Clutter.ScalingFilter.LINEAR);
+    return icon;
+}
+
+export function createPlateIcon(iconSize, renderSize, color = DEFAULT_PLATE_COLOR, opacity = DEFAULT_PLATE_OPACITY) {
+    const plate = createCrispBundledIcon('folder-plate-symbolic.svg', 'folder-symbolic', iconSize, renderSize, color);
+    plate.opacity = opacity;
+    return plate;
 }
 
 function setupCommonEvents(btn, dockUI) {
@@ -530,37 +560,9 @@ export function buildFolderButton(dockUI, folder) {
             reactive: false
         });
 
-        let gicon = _getBundledIcon('folder-plate-symbolic.svg');
-
-        if (!gicon) {
-            gicon = Gio.ThemedIcon.new_with_default_fallbacks('folder-symbolic');
-        }
-
-        const activePlateColor = folder.plateColor || 'rgba(255, 255, 255, 0.65)';
-
-        const bgPlateIcon = new St.Icon({
-            gicon: gicon,
-            icon_size: renderPlateSize,
-            style: `color: ${activePlateColor};`
-        });
-
-        bgPlateIcon.set_size(iconSize, iconSize);
-        bgPlateIcon.set_pivot_point(0.5, 0.5);
-        bgPlateIcon.x_align = Clutter.ActorAlign.CENTER;
-        bgPlateIcon.y_align = Clutter.ActorAlign.CENTER;
-        bgPlateIcon.reactive = false;
-
-        const activeOpacity = folder.plateOpacity !== undefined ? folder.plateOpacity : 130;
-        bgPlateIcon.opacity = activeOpacity;
-
-        if (bgPlateIcon.set_content_scaling_filters) {
-            bgPlateIcon.set_content_scaling_filters(
-                Clutter.ScalingFilter.TRILINEAR,
-                Clutter.ScalingFilter.LINEAR
-            );
-        }
-
-        folderStack.add_child(bgPlateIcon);
+        const activePlateColor = folder.plateColor || DEFAULT_PLATE_COLOR;
+        const activeOpacity = folder.plateOpacity !== undefined ? folder.plateOpacity : DEFAULT_PLATE_OPACITY;
+        folderStack.add_child(createPlateIcon(iconSize, renderPlateSize, activePlateColor, activeOpacity));
 
         const validApps = (folder.apps || []).filter(appId => Boolean(dockUI.appManager.appSystem.lookup_app(appId)));
         const appCount = validApps.length;

@@ -40,7 +40,16 @@ const TRANSFORM_SIGNALS = [
     'notify::translation-x', 'notify::translation-y',
 ];
 
-export function hexToRgb(str) {
+function getIconsDir() {
+    return Gio.File.new_for_uri(import.meta.url)
+        .get_parent()
+        .get_parent()
+        .get_parent()
+        .get_parent()
+        .get_child('icons');
+}
+
+function hexToRgb(str) {
     if (!str) return [1.0, 1.0, 1.0];
     let clean = str.trim();
     if (clean.startsWith('#')) clean = clean.slice(1);
@@ -380,10 +389,6 @@ export class BlurPanel {
         this.syncGeometry();
     }
 
-    beginDragTracking() {}
-
-    endDragTracking() {}
-
     _loadStaticPreset(w, h) {
         if (!this.settings) return;
         const sourceMode = this.settings.get_string('blur-static-source') || 'preset';
@@ -402,13 +407,7 @@ export class BlurPanel {
         if (!file) {
             const presetName = this.settings.get_string('blur-static-preset') || 'abstract-dark';
 
-            const uuid = 'dhruva@narkagni';
-            const homeDir = GLib.get_home_dir();
-            const extDir = Gio.File.new_for_path(
-                GLib.build_filenamev([homeDir, '.local', 'share', 'gnome-shell', 'extensions', uuid])
-            );
-
-            const iconsDir = extDir.get_child('icons');
+            const iconsDir = getIconsDir();
             const candidate1 = iconsDir.get_child(`blur-preset-${presetName}.svg`);
             const candidate2 = iconsDir.get_child(`glass-preset-${presetName}.svg`);
 

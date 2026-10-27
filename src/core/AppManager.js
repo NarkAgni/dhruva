@@ -164,13 +164,7 @@ export default class AppManager {
     }
 
     loadNonIndependentFolders() {
-        try {
-            const raw = this.settings.get_string('app-folders');
-            const parsed = raw ? JSON.parse(raw) : [];
-            this.nonIndependentFolders = Array.isArray(parsed) ? parsed : [];
-        } catch (_e) {
-            this.nonIndependentFolders = [];
-        }
+        this.nonIndependentFolders = Settings.appFolders;
     }
 
     _loadDockOrderFile() {

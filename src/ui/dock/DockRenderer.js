@@ -116,7 +116,7 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
     if (currentTheme === 'chameleon' && dockUI._chameleonAccent) {
         indColor = dockUI._chameleonAccent;
     } else if (colorMode === 'dominant' && appOrIcon) {
-        indColor = extractIconDominantColor(appOrIcon, fallbackColor);
+        indColor = extractIconDominantColor(appOrIcon, fallbackColor, () => dockUI.refreshIndicatorColors());
     }
 
     let dw = indSize;
@@ -155,7 +155,7 @@ export function getIndicatorProps(dockUI, appOrIcon = null) {
     return { dw, dh, style, tx, ty, iconTx: 0, iconTy: 0, indColor };
 }
 
-export function extractActorId(c) {
+function extractActorId(c) {
     if (!c) return null;
     if (c._entityId) return c._entityId;
     if (c._isOverflowBtn) return OVERFLOW_BUTTON_KEY;
@@ -181,7 +181,7 @@ export function extractActorId(c) {
     return null;
 }
 
-export function _computeDesiredState(dockUI) {
+function _computeDesiredState(dockUI) {
     const isFullWidth = Settings.fullWidth || Settings.hybridPanelMode;
     const isVerticalDock = _isVerticalDock(dockUI);
     const showClock = Settings.showClock && !dockUI._isOverviewActive;
@@ -600,7 +600,7 @@ function _syncOverflowMenu(dockUI, overflowItems) {
     dockUI._overflowKeys = menu.keys;
 }
 
-export function syncRunningStates(dockUI) {
+export function syncRunningStates(dockUI, force = false) {
     if (!isActorAlive(dockUI.boxActor)) return;
 
     const desiredState = _computeDesiredState(dockUI);
@@ -611,7 +611,7 @@ export function syncRunningStates(dockUI) {
         if (!meta || !isActorAlive(meta.actor) || !meta.actor._updateRunningState) continue;
 
         if (item.type === 'app') {
-            if (meta.isRunning === item.isRunning && meta.isFocused === item.isFocused && meta.windowCount === item.windowCount) continue;
+            if (!force && meta.isRunning === item.isRunning && meta.isFocused === item.isFocused && meta.windowCount === item.windowCount) continue;
             meta.isRunning = item.isRunning;
             meta.isFocused = item.isFocused;
             meta.windowCount = item.windowCount;
@@ -754,7 +754,7 @@ function _buildItemActor(dockUI, item, iconSize, isVerticalDock, modsContext) {
     }
 }
 
-export function _renderDockFull(dockUI, transition) {
+function _renderDockFull(dockUI, transition) {
     const { normalItems, overflowItems } = _partitionForOverflow(dockUI, _computeDesiredState(dockUI));
     if (transition) releaseRemovedItems(dockUI, transition, new Set(normalItems.map(item => item.key)));
     dockUI._draggedOutKey = null;
@@ -803,7 +803,6 @@ export function _renderDockFull(dockUI, transition) {
 
     if (gridBtn) {
         gridBtn._entityId = 'dhruva-grid-button';
-        gridBtn._isGridBtn = true;
     }
     if (clockModule) clockModule._entityId = 'dhruva-clock';
     if (desktopModule) {
