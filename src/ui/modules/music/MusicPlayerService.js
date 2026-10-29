@@ -19,6 +19,7 @@
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Shell from 'gi://Shell';
 import GObject from 'gi://GObject';
 
 import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
@@ -26,12 +27,21 @@ import { animateMinimize, animateRestore } from '../../effects/WindowEffects.js'
 
 
 const MPRIS_PATH = '/org/mpris/MediaPlayer2';
-const MPRIS_INTERFACE = 'org.mpris.MediaPlayer2.Player';
-const SPOTIFY_BUS_NAME = 'org.mpris.MediaPlayer2.spotify';
+const MPRIS_NAMESPACE = 'org.mpris.MediaPlayer2';
+const MPRIS_PREFIX = `${MPRIS_NAMESPACE}.`;
+const MPRIS_INTERFACE = `${MPRIS_NAMESPACE}.Player`;
+const IGNORED_PLAYERS = [`${MPRIS_PREFIX}playerctld`];
 const METADATA_RETRY_MS = 250;
 const METADATA_MAX_RETRIES = 8;
-const EMPTY_META = { trackId: '', title: '', artist: '', album: '', url: '', artUrl: '', duration: 0, changed: false };
+const EMPTY_META = { trackId: '', title: '', artist: '', album: '', artUrl: '', duration: 0, changed: false };
 const LOOP_ORDER = ['None', 'Playlist', 'Track'];
+const DEFAULT_TRACK_ID = '/org/mpris/MediaPlayer2/CurrentTrack';
+const SEEK_GUARD_MS = 3000;
+const POSITION_TOLERANCE_MS = 1500;
+
+function monotonicMs() {
+    return GLib.get_monotonic_time() / 1000;
+}
 
 export const MusicPlayerService = GObject.registerClass({
     Signals: {
@@ -51,6 +61,7 @@ export const MusicPlayerService = GObject.registerClass({
                 GObject.TYPE_INT64
             ]
         },
+        'players-changed': {},
     },
 },
     class MusicPlayerService extends GObject.Object {
@@ -62,12 +73,19 @@ export const MusicPlayerService = GObject.registerClass({
             this._controlSyncId = 0;
             this._metaFetchId = 0;
             this._metaRetries = 0;
+            this._players = new Map();
             this._activePlayerBus = null;
+            this._pinnedBus = null;
             this._playerProxy = null;
-            this._rootProxy = null;
             this._isPlaying = false;
             this._hasPlayer = false;
             this._currentMeta = { ...EMPTY_META };
+            this._positionMs = 0;
+            this._positionMono = monotonicMs();
+            this._lastReportedMs = -1;
+            this._seekGuardUntil = 0;
+            this._reportBiasMs = 0;
+            this._hasSeekedSignal = false;
 
             this._initDBus();
             this._startPositionTracker();
@@ -79,45 +97,249 @@ export const MusicPlayerService = GObject.registerClass({
                 'org.freedesktop.DBus',
                 'NameOwnerChanged',
                 '/org/freedesktop/DBus',
-                SPOTIFY_BUS_NAME,
-                Gio.DBusSignalFlags.NONE,
+                MPRIS_NAMESPACE,
+                Gio.DBusSignalFlags.MATCH_ARG0_NAMESPACE,
                 (_connection, _sender, _path, _iface, _signal, params) => {
-                    const [, oldOwner, newOwner] = params.deepUnpack();
-                    if (newOwner && !oldOwner) this._bindPlayer(SPOTIFY_BUS_NAME);
-                    else if (!newOwner) this._handlePlayerClosed();
+                    const [name, oldOwner, newOwner] = params.deepUnpack();
+                    if (oldOwner) this._removePlayer(name);
+                    if (newOwner) this._addPlayer(name);
                 }
             );
 
-            this._findActivePlayer();
+            Gio.DBus.session.call(
+                'org.freedesktop.DBus',
+                '/org/freedesktop/DBus',
+                'org.freedesktop.DBus',
+                'ListNames',
+                null,
+                new GLib.VariantType('(as)'),
+                Gio.DBusCallFlags.NONE,
+                1000,
+                this._cancellable,
+                (connection, res) => {
+                    let names;
+                    try {
+                        [names] = connection.call_finish(res).deepUnpack();
+                    } catch (_e) {
+                        return;
+                    }
+                    names.forEach(name => this._addPlayer(name));
+                }
+            );
         }
 
-        _handlePlayerClosed() {
-            if (!this._cancellable || (!this._activePlayerBus && !this._hasPlayer)) return;
+        _addPlayer(busName) {
+            if (!this._cancellable || !busName.startsWith(MPRIS_PREFIX) || IGNORED_PLAYERS.includes(busName) || this._players.has(busName)) return;
 
-            this._disconnectPlayer();
+            const entry = { busName, proxy: null, root: null, app: null, name: busName.slice(MPRIS_PREFIX.length).split('.')[0] };
+            this._players.set(busName, entry);
+
+            Gio.DBusProxy.new_for_bus(Gio.BusType.SESSION, Gio.DBusProxyFlags.NONE, null, busName, MPRIS_PATH, MPRIS_INTERFACE,
+                this._cancellable, (_source, res) => {
+                    let proxy;
+                    try {
+                        proxy = Gio.DBusProxy.new_for_bus_finish(res);
+                    } catch (_e) {
+                        return;
+                    }
+                    if (this._players.get(busName) !== entry) return;
+
+                    entry.proxy = proxy;
+                    proxy.connectObject(
+                        'g-properties-changed', (_proxy, changed) => this._onPlayerChanged(entry, changed.deepUnpack()),
+                        'g-signal', (_proxy, _sender, signalName, params) => {
+                            if (signalName === 'Seeked' && entry.busName === this._activePlayerBus) {
+                                const [positionMicro] = params.deepUnpack();
+                                this._onSeeked(positionMicro / 1000);
+                            }
+                        },
+                        this
+                    );
+                    this._chooseActive();
+                    this.emit('players-changed');
+                });
+
+            Gio.DBusProxy.new_for_bus(Gio.BusType.SESSION, Gio.DBusProxyFlags.DO_NOT_CONNECT_SIGNALS, null, busName, MPRIS_PATH, MPRIS_NAMESPACE,
+                this._cancellable, (_source, res) => {
+                    let root;
+                    try {
+                        root = Gio.DBusProxy.new_for_bus_finish(res);
+                    } catch (_e) {
+                        return;
+                    }
+                    if (this._players.get(busName) !== entry) return;
+
+                    entry.root = root;
+                    const identity = root.get_cached_property('Identity');
+                    const desktopEntry = root.get_cached_property('DesktopEntry');
+                    if (identity) entry.name = identity.unpack();
+                    if (desktopEntry) entry.app = Shell.AppSystem.get_default().lookup_app(`${desktopEntry.unpack()}.desktop`);
+                    this.emit('players-changed');
+                });
+        }
+
+        _removePlayer(busName) {
+            const entry = this._players.get(busName);
+            if (!entry) return;
+
+            if (entry.proxy) entry.proxy.disconnectObject(this);
+            this._players.delete(busName);
+            if (this._pinnedBus === busName) this._pinnedBus = null;
+            if (this._activePlayerBus === busName) {
+                this._activePlayerBus = null;
+                this._playerProxy = null;
+            }
+
+            this._chooseActive();
+            this.emit('players-changed');
+        }
+
+        _isEntryPlaying(entry) {
+            const status = entry.proxy ? entry.proxy.get_cached_property('PlaybackStatus') : null;
+            return Boolean(status) && status.unpack() === 'Playing';
+        }
+
+        _chooseActive() {
+            const ready = [...this._players.values()].filter(entry => entry.proxy);
+            if (ready.length === 0) {
+                if (this._hasPlayer) this._setActive(null);
+                return;
+            }
+
+            const pinned = this._pinnedBus ? this._players.get(this._pinnedBus) : null;
+            const current = this._players.get(this._activePlayerBus);
+            const hasCurrent = Boolean(current) && Boolean(current.proxy);
+
+            let next;
+            if (pinned && pinned.proxy) next = pinned;
+            else if (hasCurrent && this._isEntryPlaying(current)) next = current;
+            else next = ready.find(entry => this._isEntryPlaying(entry)) || (hasCurrent ? current : ready[0]);
+
+            if (next.busName !== this._activePlayerBus) this._setActive(next.busName);
+        }
+
+        _setActive(busName) {
             this._cancelMetadataFetch();
             this._metaRetries = 0;
-            this._activePlayerBus = null;
-            this._rootProxy = null;
+
+            const entry = busName ? this._players.get(busName) : null;
+            this._activePlayerBus = entry ? busName : null;
+            this._playerProxy = entry ? entry.proxy : null;
+            this._hasPlayer = Boolean(entry);
             this._isPlaying = false;
-            this._hasPlayer = false;
+            this._hasSeekedSignal = false;
             this._currentMeta = { ...EMPTY_META };
-            this.emit('playback-state-changed', false, '', '', '', 0, false);
+            this._resetPosition();
+
+            if (entry) this._syncState(true);
+            else this._emitChange();
+            this.emit('players-changed');
+        }
+
+        _onPlayerChanged(entry, changed) {
+            if (entry.busName === this._activePlayerBus) {
+                if (changed.PlaybackStatus) this._setPlaying(changed.PlaybackStatus.unpack() === 'Playing');
+                if (changed.Metadata) this._parseMetadata(changed.Metadata.deepUnpack());
+                this._emitChange();
+            }
+            if (changed.PlaybackStatus) this._chooseActive();
+        }
+
+        get players() {
+            return [...this._players.values()]
+                .filter(entry => entry.proxy)
+                .map(entry => ({ busName: entry.busName, name: entry.name, gicon: entry.app ? entry.app.get_icon() : null }));
+        }
+
+        get activePlayer() {
+            return this._activePlayerBus;
+        }
+
+        selectPlayer(busName) {
+            if (!this._players.has(busName)) return;
+            this._pinnedBus = busName;
+            this._chooseActive();
         }
 
         _startPositionTracker() {
-            if (this._posTrackerId) {
-                this._tracker.remove(this._posTrackerId);
-                this._posTrackerId = 0;
-            }
             this._posTrackerId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 250, () => {
                 if (this._isPlaying) this._queryPosition();
                 return GLib.SOURCE_CONTINUE;
             });
         }
 
+        _currentPositionMs() {
+            return this._isPlaying ? this._positionMs + (monotonicMs() - this._positionMono) : this._positionMs;
+        }
+
+        _setPosition(positionMs) {
+            this._positionMs = Math.max(0, positionMs);
+            this._positionMono = monotonicMs();
+            this.emit('position-changed', Math.floor(this._positionMs), this._positionMono);
+        }
+
+        _resetPosition() {
+            this._lastReportedMs = -1;
+            this._seekGuardUntil = 0;
+            this._reportBiasMs = 0;
+            this._setPosition(0);
+        }
+
+        _isSeekGuarded() {
+            return monotonicMs() < this._seekGuardUntil;
+        }
+
+        _isNearExpected(positionMs) {
+            return Math.abs(positionMs - this._currentPositionMs()) <= POSITION_TOLERANCE_MS;
+        }
+
+        _acceptPosition(positionMs) {
+            this._seekGuardUntil = 0;
+            this._reportBiasMs = 0;
+            this._setPosition(positionMs);
+        }
+
+        _onReportedPosition(reportedMs) {
+            if (reportedMs === this._lastReportedMs) return;
+            this._lastReportedMs = reportedMs;
+
+            if (this._hasSeekedSignal) {
+                if (this._isNearExpected(reportedMs)) this._setPosition(reportedMs);
+            } else if (!this._isSeekGuarded()) {
+                this._setPosition(reportedMs + this._reportBiasMs);
+            } else if (this._isNearExpected(reportedMs)) {
+                this._acceptPosition(reportedMs);
+            } else {
+                this._reportBiasMs = this._currentPositionMs() - reportedMs;
+            }
+        }
+
+        _onSeeked(positionMs) {
+            this._hasSeekedSignal = true;
+            if (this._isSeekGuarded() && !this._isNearExpected(positionMs)) return;
+            this._acceptPosition(positionMs);
+        }
+
+        _beginSeek(targetMs) {
+            this._seekGuardUntil = monotonicMs() + SEEK_GUARD_MS;
+            this._setPosition(targetMs);
+        }
+
+        _callSeek(offsetMs) {
+            this._playerProxy.call('Seek', new GLib.Variant('(x)', [Math.round(offsetMs * 1000)]),
+                Gio.DBusCallFlags.NONE, -1, this._cancellable, () => { });
+        }
+
+        _setPlaying(isPlaying) {
+            if (isPlaying === this._isPlaying) return;
+            const positionMs = this._currentPositionMs();
+            this._isPlaying = isPlaying;
+            this._setPosition(positionMs);
+        }
+
         _queryPosition() {
-            if (!this._hasPlayer || !this._playerProxy || !this._activePlayerBus || !this._cancellable) return;
+            if (!this._playerProxy || !this._cancellable) return;
+            const busName = this._activePlayerBus;
             this._playerProxy.call(
                 'org.freedesktop.DBus.Properties.Get',
                 new GLib.Variant('(ss)', [MPRIS_INTERFACE, 'Position']),
@@ -125,44 +347,15 @@ export const MusicPlayerService = GObject.registerClass({
                 -1,
                 this._cancellable,
                 (proxy, res) => {
+                    let value;
                     try {
-                        const reply = proxy.call_finish(res);
-                        if (!this._cancellable) return;
-                        if (reply) {
-                            const unpacked = reply.recursiveUnpack();
-                            const val = unpacked[0];
-                            const posMs = Math.floor(val / 1000);
-                            const monoMs = GLib.get_monotonic_time() / 1000;
-                            this.emit('position-changed', posMs, monoMs);
-                        }
-                    } catch (e) {
-                        if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED)) {
-                            this._handlePlayerClosed();
-                        }
-                    }
-                }
-            );
-        }
-
-        _findActivePlayer() {
-            Gio.DBus.session.call(
-                'org.freedesktop.DBus',
-                '/org/freedesktop/DBus',
-                'org.freedesktop.DBus',
-                'NameHasOwner',
-                new GLib.Variant('(s)', [SPOTIFY_BUS_NAME]),
-                new GLib.VariantType('(b)'),
-                Gio.DBusCallFlags.NONE,
-                1000,
-                this._cancellable,
-                (connection, res) => {
-                    let hasOwner;
-                    try {
-                        [hasOwner] = connection.call_finish(res).deepUnpack();
+                        [value] = proxy.call_finish(res).recursiveUnpack();
                     } catch (_e) {
                         return;
                     }
-                    if (hasOwner && this._activePlayerBus !== SPOTIFY_BUS_NAME) this._bindPlayer(SPOTIFY_BUS_NAME);
+                    if (this._isStale(busName)) return;
+
+                    this._onReportedPosition(Math.floor(value / 1000));
                 }
             );
         }
@@ -171,85 +364,17 @@ export const MusicPlayerService = GObject.registerClass({
             return !this._cancellable || this._activePlayerBus !== busName;
         }
 
-        _bindPlayer(busName) {
-            this._activePlayerBus = busName;
-            this._hasPlayer = true;
-
-            Gio.DBusProxy.new_for_bus(
-                Gio.BusType.SESSION,
-                Gio.DBusProxyFlags.NONE,
-                null,
-                busName,
-                MPRIS_PATH,
-                MPRIS_INTERFACE,
-                this._cancellable,
-                (_proxy, res) => {
-                    let proxy;
-                    try {
-                        proxy = Gio.DBusProxy.new_for_bus_finish(res);
-                    } catch (e) {
-                        if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED) && !this._isStale(busName)) {
-                            this._handlePlayerClosed();
-                        }
-                        return;
-                    }
-                    if (this._isStale(busName)) return;
-
-                    this._disconnectPlayer();
-                    this._playerProxy = proxy;
-                    proxy.connectObject('g-properties-changed', (_proxy, changed) => {
-                        const unpacked = changed.deepUnpack();
-                        if (unpacked.PlaybackStatus) {
-                            this._isPlaying = unpacked.PlaybackStatus.unpack() === 'Playing';
-                        }
-                        if (unpacked.Metadata) {
-                            this._parseMetadata(unpacked.Metadata.deepUnpack());
-                        }
-                        this._emitChange();
-                    }, this);
-                    this._bindRoot(busName);
-                    this._syncState();
-                }
-            );
-        }
-
-        _bindRoot(busName) {
-            Gio.DBusProxy.new_for_bus(
-                Gio.BusType.SESSION,
-                Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES | Gio.DBusProxyFlags.DO_NOT_CONNECT_SIGNALS,
-                null,
-                busName,
-                MPRIS_PATH,
-                'org.mpris.MediaPlayer2',
-                this._cancellable,
-                (_proxy, res) => {
-                    let proxy;
-                    try {
-                        proxy = Gio.DBusProxy.new_for_bus_finish(res);
-                    } catch (_e) {
-                        return;
-                    }
-                    if (!this._isStale(busName)) this._rootProxy = proxy;
-                }
-            );
-        }
-
-        _disconnectPlayer() {
-            if (this._playerProxy) this._playerProxy.disconnectObject(this);
-            this._playerProxy = null;
-        }
-
-        _syncState() {
+        _syncState(force = false) {
             if (!this._playerProxy || !this._cancellable) return;
             const statusV = this._playerProxy.get_cached_property('PlaybackStatus');
             const status = statusV ? statusV.unpack() : 'Stopped';
             const wasPlaying = this._isPlaying;
-            this._isPlaying = (status === 'Playing');
+            this._setPlaying(status === 'Playing');
 
             const metaV = this._playerProxy.get_cached_property('Metadata');
             if (metaV) this._parseMetadata(metaV.deepUnpack());
 
-            if (wasPlaying !== this._isPlaying || this._currentMeta.changed) {
+            if (force || wasPlaying !== this._isPlaying || this._currentMeta.changed) {
                 this._currentMeta.changed = false;
                 this._emitChange();
             }
@@ -279,7 +404,6 @@ export const MusicPlayerService = GObject.registerClass({
             const artistV = meta['xesam:artist'] || meta['xesam:albumArtist'];
             const artist = artistV ? this._extractVariantString(artistV) : '';
             const album = meta['xesam:album'] ? this._extractVariantString(meta['xesam:album']) : '';
-            const url = meta['xesam:url'] ? this._extractVariantString(meta['xesam:url']) : '';
             const artUrl = meta['mpris:artUrl'] ? this._extractVariantString(meta['mpris:artUrl']) : '';
             const trackId = meta['mpris:trackid'] ? this._extractVariantString(meta['mpris:trackid']) : '';
 
@@ -291,13 +415,21 @@ export const MusicPlayerService = GObject.registerClass({
                 this._scheduleMetadataFetch();
                 return;
             }
-            this._cancelMetadataFetch();
-            this._metaRetries = 0;
-
             const current = this._currentMeta;
-            if (current.title === title && current.artist === artist && current.artUrl === artUrl && current.trackId === trackId &&
-                current.album === album && current.url === url) return;
-            this._currentMeta = { trackId, title, artist, album, url, artUrl, duration, changed: true };
+            const isSameTrack = current.title === title && current.artist === artist;
+            const knownDuration = duration > 0 ? duration : (isSameTrack ? current.duration : 0);
+
+            if (knownDuration > 0 || this._metaRetries >= METADATA_MAX_RETRIES) {
+                this._cancelMetadataFetch();
+                this._metaRetries = 0;
+            } else {
+                this._scheduleMetadataFetch();
+            }
+
+            if (isSameTrack && current.trackId === trackId && current.album === album && current.artUrl === artUrl &&
+                current.duration === knownDuration) return;
+            this._currentMeta = { trackId, title, artist, album, artUrl, duration: knownDuration, changed: true };
+            if (!isSameTrack) this._resetPosition();
         }
 
         _scheduleMetadataFetch() {
@@ -348,24 +480,29 @@ export const MusicPlayerService = GObject.registerClass({
         }
 
         _emitChange() {
-            const dur = this._currentMeta.duration ? this._currentMeta.duration : 0;
-            this.emit('playback-state-changed', this._isPlaying, this._currentMeta.title, this._currentMeta.artist, this._currentMeta.artUrl, dur, this._hasPlayer);
+            const meta = this._currentMeta;
+            this.emit('playback-state-changed', this._isPlaying, meta.title, meta.artist, meta.artUrl, meta.duration, this._hasPlayer);
         }
 
         seekPosition(positionMs) {
             if (!this._playerProxy || !this._cancellable) return;
-            const trackId = this._currentMeta.trackId || '/org/mpris/MediaPlayer2/CurrentTrack';
-            const positionMicro = Math.round(positionMs * 1000);
+            const busName = this._activePlayerBus;
+            const fromMs = this._currentPositionMs();
+            const targetMs = Math.max(0, positionMs);
+            this._beginSeek(targetMs);
 
             this._playerProxy.call(
                 'SetPosition',
-                new GLib.Variant('(ox)', [trackId, positionMicro]),
+                new GLib.Variant('(ox)', [this._currentMeta.trackId || DEFAULT_TRACK_ID, Math.round(targetMs * 1000)]),
                 Gio.DBusCallFlags.NONE,
                 -1,
                 this._cancellable,
                 (proxy, res) => {
-                    proxy.call_finish(res);
-                    if (this._cancellable) this._syncState();
+                    try {
+                        proxy.call_finish(res);
+                    } catch (_e) {
+                        if (!this._isStale(busName)) this._callSeek(targetMs - fromMs);
+                    }
                 }
             );
         }
@@ -379,10 +516,7 @@ export const MusicPlayerService = GObject.registerClass({
                     return;
                 }
                 if (!this._tracker) return;
-                if (this._controlSyncId) {
-                    this._tracker.remove(this._controlSyncId);
-                    this._controlSyncId = 0;
-                }
+                if (this._controlSyncId) this._tracker.remove(this._controlSyncId);
                 this._controlSyncId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
                     this._controlSyncId = 0;
                     this._syncState();
@@ -393,10 +527,6 @@ export const MusicPlayerService = GObject.registerClass({
 
         get album() {
             return this._currentMeta.album;
-        }
-
-        get trackUrl() {
-            return this._currentMeta.url;
         }
 
         _cachedProperty(name) {
@@ -450,74 +580,43 @@ export const MusicPlayerService = GObject.registerClass({
 
         seekBy(offsetMs) {
             if (!this._playerProxy || !this._cancellable) return;
-            this._playerProxy.call(
-                'Seek',
-                new GLib.Variant('(x)', [Math.round(offsetMs * 1000)]),
-                Gio.DBusCallFlags.NONE,
-                -1,
-                this._cancellable,
-                () => this._queryPosition()
-            );
+            this._beginSeek(this._currentPositionMs() + offsetMs);
+            this._callSeek(offsetMs);
+        }
+
+        _dockButtonFor(app, dockUI) {
+            if (!dockUI || !dockUI.boxActor) return null;
+            const appId = app.get_id();
+            return dockUI.boxActor.get_children().find(child => {
+                const delegateApp = child._delegate ? child._delegate.app : null;
+                return Boolean(delegateApp) && Boolean(delegateApp.get_id) && delegateApp.get_id() === appId;
+            }) || null;
         }
 
         togglePlayerWindow(dockUI = null) {
-            const winList = global.display.get_tab_list(0, null);
-            let spotifyWin = null;
+            const entry = this._players.get(this._activePlayerBus);
+            if (!entry || !this._cancellable) return;
 
-            for (let i = 0; i < winList.length; i++) {
-                const win = winList[i];
-                const wmClass = win.get_wm_class ? win.get_wm_class() : '';
-                const title = win.get_title ? win.get_title() : '';
-
-                if (
-                    (wmClass && wmClass.toLowerCase().indexOf('spotify') !== -1) ||
-                    (title && title.toLowerCase().indexOf('spotify') !== -1)
-                ) {
-                    spotifyWin = win;
-                    break;
-                }
-            }
-
-            if (spotifyWin) {
-                let spotifyBtn = null;
-                if (dockUI && dockUI.boxActor) {
-                    const children = dockUI.boxActor.get_children();
-                    for (let i = 0; i < children.length; i++) {
-                        const child = children[i];
-                        const appId = child._delegate && child._delegate.app && child._delegate.app.get_id ? child._delegate.app.get_id() : '';
-                        if (appId && appId.toLowerCase().indexOf('spotify') !== -1) {
-                            spotifyBtn = child;
-                            break;
-                        }
-                    }
-                }
-
-                const dockPos = dockUI ? dockUI.dockPosition : 'BOTTOM';
-
-                if (spotifyWin.has_focus() && !spotifyWin.minimized) {
-                    if (spotifyBtn) {
-                        animateMinimize(spotifyWin, spotifyBtn, dockPos);
-                    } else {
-                        spotifyWin.minimize();
-                    }
-                } else {
-                    if (spotifyBtn) {
-                        animateRestore(spotifyWin, spotifyBtn, dockPos);
-                    } else {
-                        spotifyWin.unminimize();
-                        spotifyWin.activate(global.get_current_time());
-                    }
-                }
+            const app = entry.app;
+            const win = app ? app.get_windows()[0] : null;
+            if (!win) {
+                if (entry.root) entry.root.call('Raise', null, Gio.DBusCallFlags.NONE, -1, this._cancellable, () => { });
+                else if (app) app.activate();
                 return;
             }
 
-            if (this._rootProxy && this._cancellable) {
-                this._rootProxy.call('Raise', null, Gio.DBusCallFlags.NONE, -1, this._cancellable, () => { });
-                return;
-            }
+            const button = this._dockButtonFor(app, dockUI);
+            const dockPos = dockUI ? dockUI.dockPosition : 'BOTTOM';
 
-            const app = Gio.DesktopAppInfo.new('spotify.desktop') || Gio.DesktopAppInfo.new('com.spotify.Client.desktop');
-            if (app) app.launch([], null);
+            if (win.has_focus() && !win.minimized) {
+                if (button) animateMinimize(win, button, dockPos);
+                else win.minimize();
+            } else if (button) {
+                animateRestore(win, button, dockPos);
+            } else {
+                win.unminimize();
+                win.activate(global.get_current_time());
+            }
         }
 
         destroy() {
@@ -526,15 +625,6 @@ export const MusicPlayerService = GObject.registerClass({
                 this._cancellable = null;
             }
             if (this._tracker) {
-                if (this._posTrackerId) {
-                    this._tracker.remove(this._posTrackerId);
-                    this._posTrackerId = 0;
-                }
-                if (this._controlSyncId) {
-                    this._tracker.remove(this._controlSyncId);
-                    this._controlSyncId = 0;
-                }
-                this._cancelMetadataFetch();
                 this._tracker.destroy();
                 this._tracker = null;
             }
@@ -542,7 +632,10 @@ export const MusicPlayerService = GObject.registerClass({
                 Gio.DBus.session.signal_unsubscribe(this._ownerSignalId);
                 this._ownerSignalId = 0;
             }
-            this._disconnectPlayer();
-            this._rootProxy = null;
+            for (const entry of this._players.values()) {
+                if (entry.proxy) entry.proxy.disconnectObject(this);
+            }
+            this._players.clear();
+            this._playerProxy = null;
         }
     });

@@ -694,6 +694,12 @@
       <description>What scrolling over the music pill does: change volume, seek within the track, switch tracks, or nothing.</description>
     </key>
 
+    <key name="music-pill-lyrics" type="b">
+      <default>true</default>
+      <summary>Music Pill lyrics</summary>
+      <description>Download synced lyrics from lrclib.net and show them in the Music Pill and its popup.</description>
+    </key>
+
     <key name="music-pill-click-action" type="s">
       <choices>
         <choice value='none'/>
@@ -702,7 +708,6 @@
         <choice value='previous'/>
         <choice value='player'/>
         <choice value='window'/>
-        <choice value='copy-link'/>
       </choices>
       <default>'none'</default>
       <summary>Music Pill click action</summary>
@@ -717,7 +722,6 @@
         <choice value='previous'/>
         <choice value='player'/>
         <choice value='window'/>
-        <choice value='copy-link'/>
       </choices>
       <default>'none'</default>
       <summary>Music Pill middle click action</summary>
@@ -732,7 +736,6 @@
         <choice value='previous'/>
         <choice value='player'/>
         <choice value='window'/>
-        <choice value='copy-link'/>
       </choices>
       <default>'player'</default>
       <summary>Music Pill right click action</summary>
@@ -747,7 +750,6 @@
         <choice value='previous'/>
         <choice value='player'/>
         <choice value='window'/>
-        <choice value='copy-link'/>
       </choices>
       <default>'window'</default>
       <summary>Music Pill double click action</summary>

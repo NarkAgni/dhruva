@@ -166,6 +166,7 @@ export const Settings = {
     get musicPillShowNext() { return this._settings ? this._settings.get_boolean('music-pill-show-next') : true; },
     get musicPillProgress() { return this._settings ? this._settings.get_string('music-pill-progress') : 'pill'; },
     get musicPillScrollAction() { return this._settings ? this._settings.get_string('music-pill-scroll-action') : 'volume'; },
+    get musicPillLyrics() { return this._settings ? this._settings.get_boolean('music-pill-lyrics') : true; },
     get musicPillClickAction() { return this._settings ? this._settings.get_string('music-pill-click-action') : 'none'; },
     get musicPillMiddleClickAction() { return this._settings ? this._settings.get_string('music-pill-middle-click-action') : 'none'; },
     get musicPillRightClickAction() { return this._settings ? this._settings.get_string('music-pill-right-click-action') : 'player'; },

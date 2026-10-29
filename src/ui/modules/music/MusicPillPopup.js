@@ -28,6 +28,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { BlurEffect } from '../../blur/BlurEffect.js';
 import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
+import { PopupLyricsWidget } from './PopupLyricsWidget.js';
 import { extractColorsFromPixbuf } from './MusicColorExtractor.js';
 import { isActorAlive, setBoxVertical } from '../../../core/Utils.js';
 
@@ -38,9 +39,22 @@ const WAVE_AMPLITUDE = 3.5;
 const WAVE_FREQUENCY = 0.08;
 const SLIDER_HEIGHT = 26;
 const POPUP_GAP_PX = 20;
-const COPY_FEEDBACK_MS = 1200;
-const INACTIVE_ICON_OPACITY = 110;
+const INACTIVE_ICON_OPACITY = 150;
 const TOOL_BUTTON_STYLE = 'padding: 6px; border-radius: 999px; border: none; transition-duration: 150ms;';
+const PLAYER_BUTTON_STYLE = 'padding: 5px; border-radius: 999px; border: none; transition-duration: 150ms;';
+const PLAYER_ICON_SIZE = 18;
+const CONTROL_BG = 'rgba(255, 255, 255, 0.16)';
+const CONTROL_HOVER_BG = 'rgba(255, 255, 255, 0.26)';
+const CONTROL_ACTIVE_BG = 'rgba(255, 255, 255, 0.32)';
+const PILL_BAR_STYLE = `background-color: ${CONTROL_BG}; border: none; border-radius: 999px; padding: 4px 18px; spacing: 20px;`;
+const SCRIM_TOP = 'rgba(0, 0, 0, 0.5)';
+const LYRICS_OFFSET_STEP_MS = 500;
+const META_FADE_MS = 180;
+
+function formatOffset(ms) {
+    if (ms === 0) return '0.0s';
+    return `${ms > 0 ? '+' : '−'}${(Math.abs(ms) / 1000).toFixed(1)}s`;
+}
 
 function formatTime(seconds) {
     if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -58,7 +72,6 @@ export class MusicPillPopup {
         this._tracker = new TimeoutTracker();
 
         this._isOpen = false;
-        this._copyFeedbackId = 0;
         this._isDragging = false;
         this._sliderGrab = null;
         this._box = null;
@@ -75,7 +88,11 @@ export class MusicPillPopup {
         this._accentColorStr = '#ffffff';
         this._bgGradientEnd = 'rgba(14, 14, 18, 0.95)';
 
+        this._lyricsVersion = -1;
+
         this._buildUI();
+        this._rebuildPlayers();
+        this._service.connectObject('players-changed', () => this._rebuildPlayers(), this);
     }
 
     _buildUI() {
@@ -160,7 +177,7 @@ export class MusicPillPopup {
             reactive: false,
             style: `
                 background-gradient-direction: vertical;
-                background-gradient-start: rgba(0, 0, 0, 0.35);
+                background-gradient-start: ${SCRIM_TOP};
                 background-gradient-end: ${this._bgGradientEnd};
                 border-radius: 26px;
             `,
@@ -180,33 +197,25 @@ export class MusicPillPopup {
         });
         setBoxVertical(topRow, false);
 
-        this._spotifyIcon = new St.Icon({
-            icon_name: 'spotify-indicator-symbolic',
-            icon_size: 24,
-            style: 'color: #ffffff;',
-            x_align: Clutter.ActorAlign.START,
+        this._playersBox = new St.BoxLayout({
+            style: 'spacing: 4px;',
+            y_align: Clutter.ActorAlign.CENTER,
         });
+        setBoxVertical(this._playersBox, false);
 
-        if (!this._spotifyIcon.gicon && !Gio.ThemedIcon.new('spotify-indicator-symbolic')) {
-            this._spotifyIcon.icon_name = 'audio-x-generic-symbolic';
-        }
-
-        topRow.add_child(this._spotifyIcon);
+        topRow.add_child(this._playersBox);
         topRow.add_child(new St.Widget({ x_expand: true, reactive: false }));
+
+        this._lyricsBtn = this._makeToolButton('format-justify-left-symbolic', _('Lyrics'), () => this._toggleLyricsView());
+        topRow.add_child(this._lyricsBtn);
 
         this._shuffleBtn = this._makeToolButton('media-playlist-shuffle-symbolic', _('Shuffle'), () => this._service.toggleShuffle());
         this._repeatBtn = this._makeToolButton('media-playlist-repeat-symbolic', _('Repeat'), () => this._service.cycleLoop());
-        this._copyBtn = this._makeToolButton('edit-copy-symbolic', _('Copy song link'), () => this._copyLink());
         topRow.add_child(this._shuffleBtn);
         topRow.add_child(this._repeatBtn);
-        topRow.add_child(this._copyBtn);
         this._contentBox.add_child(topRow);
 
-        const spacer = new St.Widget({
-            y_expand: true,
-            reactive: false,
-        });
-        this._contentBox.add_child(spacer);
+        this._contentBox.add_child(this._buildLyricsArea());
 
         this._metaBox = new St.BoxLayout({
             style: 'spacing: 4px; margin-bottom: 10px;',
@@ -335,13 +344,7 @@ export class MusicPillPopup {
         this._pillBar = new St.BoxLayout({
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
-            style: `
-                background-color: rgba(255, 255, 255, 0.16);
-                border: none;
-                border-radius: 999px;
-                padding: 4px 18px;
-                spacing: 20px;
-            `,
+            style: PILL_BAR_STYLE,
         });
         setBoxVertical(this._pillBar, false);
 
@@ -427,12 +430,119 @@ export class MusicPillPopup {
         this._overlay.add_child(this._box);
     }
 
+    _buildLyricsArea() {
+        const area = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            x_expand: true,
+            y_expand: true,
+            reactive: false,
+        });
+
+        this._lyricsArea = new St.BoxLayout({
+            x_expand: true,
+            y_expand: true,
+            visible: false,
+            style: 'spacing: 6px; margin: 8px 0 10px 0; padding: 8px 0; border-radius: 16px; background-color: rgba(0, 0, 0, 0.22);',
+        });
+        setBoxVertical(this._lyricsArea, true);
+
+        this._offsetRow = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            style: 'spacing: 8px;',
+        });
+        setBoxVertical(this._offsetRow, false);
+
+        this._offsetEarlierBtn = this._makeToolButton('list-remove-symbolic', _('Show lyrics earlier'),
+            () => this._pill.adjustLyricsOffset(-LYRICS_OFFSET_STEP_MS));
+        this._offsetLaterBtn = this._makeToolButton('list-add-symbolic', _('Show lyrics later'),
+            () => this._pill.adjustLyricsOffset(LYRICS_OFFSET_STEP_MS));
+        this._offsetEarlierBtn.visible = true;
+        this._offsetLaterBtn.visible = true;
+        this._offsetLabel = new St.Label({
+            text: formatOffset(0),
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.75); min-width: 44px; text-align: center;',
+        });
+
+        this._offsetRow.add_child(this._offsetEarlierBtn);
+        this._offsetRow.add_child(this._offsetLabel);
+        this._offsetRow.add_child(this._offsetLaterBtn);
+        this._lyricsArea.add_child(this._offsetRow);
+
+        this._lyricsWidget = new PopupLyricsWidget();
+        this._lyricsWidget.connectObject('line-activated', (_widget, index) => this._pill.seekToLyric(index), this);
+        this._lyricsArea.add_child(this._lyricsWidget);
+
+        area.add_child(this._lyricsArea);
+        return area;
+    }
+
+    _setLyricsViewVisible(isVisible) {
+        if (this._lyricsArea.visible === isVisible) return;
+
+        this._lyricsArea.visible = isVisible;
+
+        this._metaBox.remove_all_transitions();
+        if (isVisible) {
+            this._metaBox.hide();
+            return;
+        }
+        this._metaBox.opacity = 0;
+        this._metaBox.show();
+        this._metaBox.ease({ opacity: 255, duration: META_FADE_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+    }
+
+    _toggleLyricsView() {
+        this._setLyricsViewVisible(!this._lyricsArea.visible);
+        this._syncLyricsView();
+    }
+
+    _syncLyricsView() {
+        const hasLyrics = this._pill.lyricsLines.length > 0;
+        this._lyricsBtn.visible = hasLyrics;
+        if (!hasLyrics) this._setLyricsViewVisible(false);
+        this._lyricsBtn._icon.opacity = this._lyricsArea.visible ? 255 : INACTIVE_ICON_OPACITY;
+        if (!this._lyricsArea.visible) return;
+
+        const isSynced = this._pill.lyricsSynced;
+        if (this._lyricsVersion !== this._pill.lyricsVersion) {
+            this._lyricsVersion = this._pill.lyricsVersion;
+            this._lyricsWidget.setLyrics(this._pill.lyricsLines, isSynced);
+        }
+
+        this._offsetRow.visible = isSynced;
+        this._offsetLabel.text = formatOffset(this._pill.lyricsOffsetMs);
+        this._lyricsWidget.setActiveIndex(this._pill.currentLyricIndex);
+    }
+
+    _rebuildPlayers() {
+        if (!isActorAlive(this._playersBox)) return;
+        this._playersBox.destroy_all_children();
+
+        const active = this._service.activePlayer;
+        for (const player of this._service.players) {
+            const isActive = player.busName === active;
+            const icon = new St.Icon({ icon_size: PLAYER_ICON_SIZE, style: 'color: #ffffff;', opacity: isActive ? 255 : INACTIVE_ICON_OPACITY });
+            if (player.gicon) icon.gicon = player.gicon;
+            else icon.icon_name = 'audio-x-generic-symbolic';
+
+            const button = new St.Button({
+                child: icon,
+                accessible_name: player.name,
+                style: `${PLAYER_BUTTON_STYLE} background-color: ${isActive ? CONTROL_ACTIVE_BG : CONTROL_BG};`,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            button.connectObject('clicked', () => this._service.selectPlayer(player.busName), this);
+            this._playersBox.add_child(button);
+        }
+    }
+
     _makeToolButton(iconName, label, onClick) {
         const icon = new St.Icon({ icon_name: iconName, icon_size: 16, style: 'color: #ffffff;' });
         const button = new St.Button({
             child: icon,
             accessible_name: label,
-            style: `${TOOL_BUTTON_STYLE} background-color: transparent;`,
+            style: `${TOOL_BUTTON_STYLE} background-color: ${CONTROL_BG};`,
             y_align: Clutter.ActorAlign.CENTER,
             visible: false,
         });
@@ -440,23 +550,11 @@ export class MusicPillPopup {
         button.connectObject(
             'clicked', onClick,
             'notify::hover', () => {
-                button.style = `${TOOL_BUTTON_STYLE} background-color: ${button.hover ? 'rgba(255, 255, 255, 0.22)' : 'transparent'};`;
+                button.style = `${TOOL_BUTTON_STYLE} background-color: ${button.hover ? CONTROL_HOVER_BG : CONTROL_BG};`;
             },
             this
         );
         return button;
-    }
-
-    _copyLink() {
-        if (!this._pill.copyTrackLink()) return;
-
-        this._copyBtn._icon.icon_name = 'object-select-symbolic';
-        if (this._copyFeedbackId) this._tracker.remove(this._copyFeedbackId);
-        this._copyFeedbackId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, COPY_FEEDBACK_MS, () => {
-            this._copyFeedbackId = 0;
-            if (isActorAlive(this._copyBtn)) this._copyBtn._icon.icon_name = 'edit-copy-symbolic';
-            return GLib.SOURCE_REMOVE;
-        });
     }
 
     _syncToolButtons() {
@@ -469,8 +567,6 @@ export class MusicPillPopup {
         this._repeatBtn.visible = service.canLoop;
         this._repeatBtn._icon.icon_name = loop === 'Track' ? 'media-playlist-repeat-song-symbolic' : 'media-playlist-repeat-symbolic';
         this._repeatBtn._icon.opacity = loop === 'None' ? INACTIVE_ICON_OPACITY : 255;
-
-        this._copyBtn.visible = Boolean(service.trackUrl);
     }
 
     _endSliderDrag() {
@@ -608,17 +704,7 @@ export class MusicPillPopup {
             this._borderStroke.style = 'border-radius: 28px; border: 2px solid ' + this._accentRgba60 + ' !important; background-color: transparent;';
         }
 
-        this._scrim.style = 'background-gradient-direction: vertical; background-gradient-start: rgba(0, 0, 0, 0.28); background-gradient-end: ' + bg + '; border-radius: 26px;';
-
-        this._spotifyIcon.style = 'color: ' + accent + ';';
-
-        this._pillBar.style = `
-            background-color: rgba(255, 255, 255, 0.16);
-            border: none;
-            border-radius: 999px;
-            padding: 4px 18px;
-            spacing: 20px;
-        `;
+        this._scrim.style = 'background-gradient-direction: vertical; background-gradient-start: ' + SCRIM_TOP + '; background-gradient-end: ' + bg + '; border-radius: 26px;';
 
         this._playBtn.style = 'padding: 8px 24px; border-radius: 999px; background-color: ' + accent + '; border: none; transition-duration: 150ms;';
 
@@ -641,6 +727,7 @@ export class MusicPillPopup {
         this._albumLabel.text = this._service.album;
         this._albumLabel.visible = Boolean(this._service.album);
         this._syncToolButtons();
+        this._syncLyricsView();
         this._playIcon.icon_name = isPlaying ? 'media-playback-pause-symbolic' : 'media-playback-start-symbolic';
 
         this._durationSec = this._pill._durationSec > 0 ? this._pill._durationSec : 1;
@@ -678,7 +765,7 @@ export class MusicPillPopup {
             this._positionSec = (this._pill._lastBasePositionMs + elapsed) / 1000;
 
             this._timeElapsedLabel.text = formatTime(this._positionSec);
-            this._timeTotalLabel.text = formatTime(this._durationSec);
+            this._timeTotalLabel.text = this._pill.hasDuration ? formatTime(this._durationSec) : '--:--';
 
             if (isPlaying) {
                 this._phase += 0.04;
@@ -861,9 +948,10 @@ export class MusicPillPopup {
         }
 
         [this._overlay, this._artBackground, this._sliderCanvas, this._prevBtn, this._playBtn, this._nextBtn,
-            this._shuffleBtn, this._repeatBtn, this._copyBtn].forEach(actor => {
+            this._shuffleBtn, this._repeatBtn, this._lyricsBtn, this._offsetEarlierBtn, this._offsetLaterBtn, this._lyricsWidget].forEach(actor => {
             if (actor) actor.disconnectObject(this);
         });
+        if (this._service) this._service.disconnectObject(this);
 
         if (isActorAlive(this._box)) {
             this._box.remove_all_transitions();

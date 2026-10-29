@@ -20,6 +20,32 @@
 import GdkPixbuf from 'gi://GdkPixbuf';
 
 
+const MIN_ACCENT_CONTRAST = 3.0;
+const LIGHTEN_STEP = 0.08;
+
+function channelLuminance(value) {
+    const c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function luminance([r, g, b]) {
+    return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b);
+}
+
+function contrastRatio(a, b) {
+    const la = luminance(a);
+    const lb = luminance(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+function readableAccent(accent, background) {
+    let color = accent;
+    for (let mix = LIGHTEN_STEP; contrastRatio(color, background) < MIN_ACCENT_CONTRAST && mix <= 1; mix += LIGHTEN_STEP) {
+        color = accent.map(value => Math.round(value + (255 - value) * mix));
+    }
+    return color;
+}
+
 export function extractColorsFromPixbuf(pixbuf) {
     if (!pixbuf) return null;
 
@@ -87,12 +113,11 @@ export function extractColorsFromPixbuf(pixbuf) {
         accentB = Math.round(totalB / Math.max(1, count));
     }
 
-    const bgR = Math.round(accentR * 0.25);
-    const bgG = Math.round(accentG * 0.25);
-    const bgB = Math.round(accentB * 0.25);
+    const background = [accentR, accentG, accentB].map(value => Math.round(value * 0.25));
+    const [r, g, b] = readableAccent([accentR, accentG, accentB], background);
 
     return {
-        accent: `rgb(${accentR}, ${accentG}, ${accentB})`,
-        background: `rgba(${bgR}, ${bgG}, ${bgB}, 0.88)`
+        accent: `rgb(${r}, ${g}, ${b})`,
+        background: `rgba(${background[0]}, ${background[1]}, ${background[2]}, 0.88)`
     };
 }

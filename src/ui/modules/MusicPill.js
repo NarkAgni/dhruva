@@ -23,10 +23,9 @@ import Soup from 'gi://Soup';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
-import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { CrispLabel } from './music/CrispLabel.js';
-import { LyricsClient } from './music/LyricsClient.js';
+import { LyricsClient, USER_AGENT } from './music/LyricsClient.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { userCacheDir } from '../../core/DataPaths.js';
 import { MusicPillPopup } from './music/MusicPillPopup.js';
@@ -55,6 +54,8 @@ const TRACK_SCROLL_COOLDOWN_MS = 400;
 const ART_DOWNLOAD_TIMEOUT_S = 4;
 const COLOR_SAMPLE_PX = 64;
 const MAX_ART_CACHE_FILES = 100;
+const LYRICS_OFFSET_LIMIT_MS = 10000;
+const LYRIC_WHITE_MIX = 0.35;
 
 async function fileExists(file, cancellable) {
     try {
@@ -92,11 +93,18 @@ export const MusicPill = GObject.registerClass(
             this._isPlaying = false;
 
             this._lyrics = [];
+            this._lyricsSynced = false;
+            this._lyricsOffsetMs = 0;
+            this._lyricsVersion = 0;
             this._currentLyricIndex = -1;
             this._activeTrackId = '';
+            this._activeTitle = '';
+            this._activeArtist = '';
+            this._activeDuration = 0;
             this._isLyricsVisible = false;
 
             this._durationSec = 1;
+            this._hasDuration = false;
             this._lastBasePositionMs = 0;
             this._lastPositionTimeMs = GLib.get_monotonic_time() / 1000;
             this._interpolatedTickId = 0;
@@ -113,7 +121,7 @@ export const MusicPill = GObject.registerClass(
 
             this._httpSession = new Soup.Session();
             this._httpSession.timeout = ART_DOWNLOAD_TIMEOUT_S;
-            this._httpSession.user_agent = 'Mozilla/5.0';
+            this._httpSession.user_agent = USER_AGENT;
 
             this._service = new MusicPlayerService();
             this._lyricsClient = new LyricsClient();
@@ -128,7 +136,8 @@ export const MusicPill = GObject.registerClass(
 
             this._service.connectObject('playback-state-changed',
                 (_service, isPlaying, title, artist, artUrl, duration, hasPlayer) => {
-                    this._durationSec = duration > 0 ? duration : 1;
+                    this._hasDuration = duration > 0;
+                    this._durationSec = this._hasDuration ? duration : 1;
                     this._handlePlaybackEvent(isPlaying, title, artist, artUrl, duration, hasPlayer);
                 }, this);
 
@@ -171,6 +180,7 @@ export const MusicPill = GObject.registerClass(
                     'changed::blur-enabled', () => this._updatePillBgAppearance(),
                     'changed::blur-mode', () => this._updatePillBgAppearance(),
                     'changed::music-pill-progress', () => this._applyProgressStyle(),
+                    'changed::music-pill-lyrics', () => this._onLyricsSettingChanged(),
                     this
                 );
             }
@@ -310,7 +320,7 @@ export const MusicPill = GObject.registerClass(
             this._miniScroll = miniRow.scrollBin;
             this._lyricsHeaderTitle = miniRow.label;
 
-            this._karaokeWidget = new KaraokeLyricsWidget(160, 18);
+            this._karaokeWidget = new KaraokeLyricsWidget(160, 24);
 
             this._lyricsBox.add_child(this._miniViewport);
             this._lyricsBox.add_child(this._karaokeWidget);
@@ -388,8 +398,8 @@ export const MusicPill = GObject.registerClass(
 
                     this._updateSliderProgress(accuratePositionMs);
 
-                    if (this._lyrics && this._lyrics.length > 0) {
-                        this._syncLyricsToPosition(accuratePositionMs);
+                    if (this._lyricsSynced) {
+                        this._syncLyricsToPosition(accuratePositionMs - this._lyricsOffsetMs);
                     }
                 }
 
@@ -499,17 +509,7 @@ export const MusicPill = GObject.registerClass(
                 case 'window':
                     this._service.togglePlayerWindow(this._dockUI);
                     break;
-                case 'copy-link':
-                    this.copyTrackLink();
-                    break;
             }
-        }
-
-        copyTrackLink() {
-            const url = this._service ? this._service.trackUrl : '';
-            if (!url) return false;
-            St.Clipboard.get_default().set_text(St.ClipboardType.CLIPBOARD, url);
-            return true;
         }
 
         _syncLyricsToPosition(positionMs) {
@@ -524,6 +524,7 @@ export const MusicPill = GObject.registerClass(
             }
 
             if (activeIdx === -1) {
+                this._currentLyricIndex = -1;
                 if (this._isLyricsVisible && !this._modeTransitionTimeoutId) {
                     this._switchMode(false);
                 }
@@ -720,13 +721,10 @@ export const MusicPill = GObject.registerClass(
 
             if (trackChanged) {
                 this._activeTrackId = trackId;
-                this._lyrics = [];
-                this._currentLyricIndex = -1;
-                this._lyricsReadyForTrack = false;
-
-                if (this._karaokeWidget) {
-                    this._karaokeWidget.resetState();
-                }
+                this._activeTitle = safeTitle;
+                this._activeArtist = safeArtist;
+                this._activeDuration = duration;
+                this._clearLyrics();
 
                 this._slider.reset();
                 this._artRing.reset();
@@ -734,7 +732,7 @@ export const MusicPill = GObject.registerClass(
                 this._cancelModeTransition();
                 this._switchMode(false, 0);
 
-                this._fetchLyrics(safeTitle, safeArtist, duration);
+                if (Settings.musicPillLyrics) this._fetchLyrics(safeTitle, safeArtist, duration);
             }
 
             if (isActorAlive(this._titleLabel) && this._titleLabel.text !== safeTitle) {
@@ -790,7 +788,6 @@ export const MusicPill = GObject.registerClass(
                     if (!isActorAlive(this)) return GLib.SOURCE_REMOVE;
                     if (!this._isPlaying) return GLib.SOURCE_REMOVE;
                     if (!this._lyricsReadyForTrack) return GLib.SOURCE_REMOVE;
-                    if (this._lyrics.length === 0) return GLib.SOURCE_REMOVE;
 
                     this._switchMode(true);
                     return GLib.SOURCE_REMOVE;
@@ -805,47 +802,98 @@ export const MusicPill = GObject.registerClass(
             }
         }
 
+        _clearLyrics() {
+            this._lyrics = [];
+            this._lyricsSynced = false;
+            this._lyricsOffsetMs = 0;
+            this._lyricsReadyForTrack = false;
+            this._currentLyricIndex = -1;
+            this._lyricsVersion++;
+            if (isActorAlive(this._karaokeWidget)) this._karaokeWidget.resetState();
+        }
+
+        _onLyricsSettingChanged() {
+            if (!this._cancellable) return;
+
+            if (Settings.musicPillLyrics) {
+                if (this._hasValidTrack) this._fetchLyrics(this._activeTitle, this._activeArtist, this._activeDuration);
+                return;
+            }
+
+            this._clearLyrics();
+            this._cancelModeTransition();
+            this._switchMode(false, 200);
+        }
+
         async _fetchLyrics(title, artist, duration) {
             if (!this._cancellable || !this._lyricsClient) return;
 
             const requestedTrackId = title + '::' + artist;
-
+            let entry = null;
             try {
-                const lyrics = await this._lyricsClient.getLyrics(title, artist, duration);
-
-                if (!this._cancellable || !isActorAlive(this)) return;
-
-                if (this._lyricsApplyIdleId) {
-                    this._tracker.remove(this._lyricsApplyIdleId);
-                    this._lyricsApplyIdleId = 0;
-                }
-
-                this._lyricsApplyIdleId = this._tracker.addIdle(GLib.PRIORITY_DEFAULT, () => {
-                    this._lyricsApplyIdleId = 0;
-                    if (!this._cancellable || !isActorAlive(this)) return GLib.SOURCE_REMOVE;
-                    if (this._activeTrackId !== requestedTrackId) return GLib.SOURCE_REMOVE;
-
-                    if (lyrics && lyrics.length > 0) {
-                        this._lyrics = lyrics;
-                        this._lyricsReadyForTrack = true;
-                        this._currentLyricIndex = -1;
-                    } else {
-                        this._lyrics = [];
-                        this._lyricsReadyForTrack = false;
-                        this._currentLyricIndex = -1;
-                        if (this._karaokeWidget) {
-                            this._karaokeWidget.resetState();
-                        }
-                        this._cancelModeTransition();
-                        this._switchMode(false, 200);
-                    }
-                    return GLib.SOURCE_REMOVE;
-                });
+                entry = await this._lyricsClient.getLyrics(title, artist, duration, this._service.album);
             } catch (_e) {
-                this._lyrics = [];
-                this._lyricsReadyForTrack = false;
-                this._currentLyricIndex = -1;
+                entry = null;
             }
+            if (!this._cancellable || !isActorAlive(this)) return;
+
+            if (this._lyricsApplyIdleId) this._tracker.remove(this._lyricsApplyIdleId);
+            this._lyricsApplyIdleId = this._tracker.addIdle(GLib.PRIORITY_DEFAULT, () => {
+                this._lyricsApplyIdleId = 0;
+                if (!this._cancellable || !isActorAlive(this)) return GLib.SOURCE_REMOVE;
+                if (this._activeTrackId !== requestedTrackId || !Settings.musicPillLyrics) return GLib.SOURCE_REMOVE;
+
+                this._clearLyrics();
+                if (entry) {
+                    this._lyrics = entry.lines;
+                    this._lyricsSynced = entry.synced;
+                    this._lyricsOffsetMs = entry.offset || 0;
+                    this._lyricsReadyForTrack = entry.synced;
+                    this._lyricsVersion++;
+                    if (entry.synced && this._isPlaying && !this._isLyricsVisible) this._scheduleLyricsReveal();
+                } else {
+                    this._cancelModeTransition();
+                    this._switchMode(false, 200);
+                }
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+
+        get hasDuration() {
+            return this._hasDuration;
+        }
+
+        get lyricsLines() {
+            return this._lyrics;
+        }
+
+        get lyricsSynced() {
+            return this._lyricsSynced;
+        }
+
+        get lyricsVersion() {
+            return this._lyricsVersion;
+        }
+
+        get currentLyricIndex() {
+            return this._currentLyricIndex;
+        }
+
+        get lyricsOffsetMs() {
+            return this._lyricsOffsetMs;
+        }
+
+        seekToLyric(index) {
+            const line = this._lyrics[index];
+            if (!line || !this._lyricsSynced || !this._service) return;
+            this._service.seekPosition(Math.max(0, line.time + this._lyricsOffsetMs));
+        }
+
+        adjustLyricsOffset(deltaMs) {
+            if (!this._lyricsSynced || !this._lyricsClient) return;
+            this._lyricsOffsetMs = Math.max(-LYRICS_OFFSET_LIMIT_MS, Math.min(LYRICS_OFFSET_LIMIT_MS, this._lyricsOffsetMs + deltaMs));
+            this._lyricsClient.setOffset(this._activeTitle, this._activeArtist, this._lyricsOffsetMs);
+            this._currentLyricIndex = -1;
         }
 
         _switchMode(showLyrics, durationOverride = null) {
@@ -960,7 +1008,6 @@ export const MusicPill = GObject.registerClass(
             if (await fileExists(file, this._cancellable)) return filePath;
 
             const msg = Soup.Message.new('GET', url);
-            msg.request_headers.append('User-Agent', 'Mozilla/5.0');
 
             try {
                 const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
@@ -1055,6 +1102,8 @@ export const MusicPill = GObject.registerClass(
                 const [r, g, b] = rgb.slice(0, 3).map(value => parseInt(value, 10) / 255.0);
                 this._slider.setColor(r, g, b);
                 this._artRing.setColor(r, g, b);
+                const [lr, lg, lb] = [r, g, b].map(value => value + (1.0 - value) * LYRIC_WHITE_MIX);
+                this._karaokeWidget.setColor(lr, lg, lb);
             }
         }
 
@@ -1077,6 +1126,7 @@ export const MusicPill = GObject.registerClass(
                 progress.setColor(1.0, 1.0, 1.0);
                 progress.reset();
             }
+            if (isActorAlive(this._karaokeWidget)) this._karaokeWidget.setColor(1.0, 1.0, 1.0);
         }
 
         _pruneArtCache() {

@@ -18,18 +18,18 @@
 
 
 import St from 'gi://St';
-import Gio from 'gi://Gio';
-import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
+import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import PangoCairo from 'gi://PangoCairo';
-
-import { isActorAlive } from '../../../core/Utils.js';
-import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
 
 
 const SLIDE_DURATION_MS = 220;
 const INITIAL_HEAD_PAUSE_MS = 300;
+const MIN_LINE_MS = 800;
+const LYRIC_FONT_PX = 17;
+const CAP_HEIGHT_RATIO = 0.72;
+const FALLBACK_FONT = 'Sans Bold 17px';
 
 export const KaraokeLyricsWidget = GObject.registerClass({
     GTypeName: 'DhruvaKaraokeLyricsWidget',
@@ -43,33 +43,68 @@ export const KaraokeLyricsWidget = GObject.registerClass({
             clip_to_allocation: true,
         });
 
+        this._isAlive = true;
         this._currentText = '';
         this._previousText = '';
+        this._color = { r: 1.0, g: 1.0, b: 1.0 };
+        this._fontDesc = null;
 
         this._slideProgress = 1.0;
-        this._slideStartTime = 0;
         this._slideActive = false;
-        this._slideTickId = 0;
+        this._remainingLineMs = 0;
 
         this._marqueeOffset = 0;
         this._marqueeOverflow = 0;
         this._marqueeDuration = 0;
-        this._marqueeStartTime = 0;
-        this._marqueeTickId = 0;
 
         this._measuredCurrentW = 0;
-        this._measuredPreviousW = 0;
 
-        this._cancellable = new Gio.Cancellable();
-        this._tracker = new TimeoutTracker();
-        this._fontDesc = Pango.FontDescription.from_string('Sans Bold 11');
+        this._slideTimeline = new Clutter.Timeline({ actor: this, duration: SLIDE_DURATION_MS });
+        this._slideTimeline.connectObject(
+            'new-frame', () => this._onSlideFrame(),
+            'completed', () => this._onSlideCompleted(),
+            this
+        );
 
-        this.connectObject('destroy', () => this._cleanup(), this);
+        this._marqueeTimeline = new Clutter.Timeline({ actor: this, duration: 1000 });
+        this._marqueeTimeline.connectObject(
+            'new-frame', () => this._onMarqueeFrame(),
+            'completed', () => {
+                this._marqueeOffset = -this._marqueeOverflow;
+                this.queue_repaint();
+            },
+            this
+        );
+
+        this.connectObject(
+            'style-changed', () => {
+                this._fontDesc = null;
+            },
+            'destroy', () => this._cleanup(),
+            this
+        );
+    }
+
+    _font() {
+        if (this._fontDesc) return this._fontDesc;
+        if (!this.get_stage()) return Pango.FontDescription.from_string(FALLBACK_FONT);
+
+        const font = this.get_theme_node().get_font().copy();
+        font.set_weight(Pango.Weight.BOLD);
+        font.set_absolute_size(LYRIC_FONT_PX * Pango.SCALE);
+        this._fontDesc = font;
+        return font;
+    }
+
+    setColor(r, g, b) {
+        this._color = { r, g, b };
+        this.queue_repaint();
     }
 
     resetState() {
-        this._stopSlide();
-        this._stopMarquee();
+        if (!this._isAlive) return;
+        this._slideTimeline.stop();
+        this._marqueeTimeline.stop();
         this._currentText = '';
         this._previousText = '';
         this._marqueeOffset = 0;
@@ -79,77 +114,46 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     }
 
     setLyricLine(text, durationMs = 3500) {
-        if (!this._cancellable || !isActorAlive(this)) return;
-
-        const safe = text ? text.trim() : '';
+        if (!this._isAlive) return;
 
         this._previousText = this._currentText;
-        this._currentText = safe;
+        this._currentText = text ? text.trim() : '';
 
-        this._stopMarquee();
+        this._marqueeTimeline.stop();
         this._marqueeOffset = 0;
 
         if (this._currentText) {
             const layout = this.create_pango_layout(this._currentText);
-            layout.set_font_description(this._fontDesc);
+            layout.set_font_description(this._font());
             this._measuredCurrentW = layout.get_pixel_size()[0];
         } else {
             this._measuredCurrentW = 0;
         }
 
-        if (this._previousText) {
-            const layout = this.create_pango_layout(this._previousText);
-            layout.set_font_description(this._fontDesc);
-            this._measuredPreviousW = layout.get_pixel_size()[0];
-        } else {
-            this._measuredPreviousW = 0;
-        }
-
-        this._startSlide(durationMs);
-    }
-
-    _startSlide(lineDurationMs) {
-        if (!this._cancellable) return;
-
+        this._remainingLineMs = Math.max(MIN_LINE_MS, durationMs - SLIDE_DURATION_MS);
         this._slideProgress = 0.0;
-        this._slideStartTime = Date.now();
         this._slideActive = true;
-
-        this._stopSlide();
-        this._slideTickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
-            if (!this._cancellable || !isActorAlive(this)) {
-                this._slideTickId = 0;
-                return GLib.SOURCE_REMOVE;
-            }
-
-            const elapsed = Date.now() - this._slideStartTime;
-            const t = Math.min(1.0, elapsed / SLIDE_DURATION_MS);
-            this._slideProgress = 1.0 - Math.pow(1.0 - t, 3);
-
-            this.queue_repaint();
-
-            if (t >= 1.0) {
-                this._slideActive = false;
-                this._previousText = '';
-                this._slideTickId = 0;
-
-                const remainingLineTime = Math.max(800, lineDurationMs - SLIDE_DURATION_MS);
-                this._evaluateMarquee(remainingLineTime);
-                return GLib.SOURCE_REMOVE;
-            }
-            return GLib.SOURCE_CONTINUE;
-        });
+        this._slideTimeline.stop();
+        this._slideTimeline.rewind();
+        this._slideTimeline.start();
     }
 
-    _stopSlide() {
-        if (this._slideTickId) {
-            this._tracker.remove(this._slideTickId);
-            this._slideTickId = 0;
-        }
+    _onSlideFrame() {
+        const t = this._slideTimeline.get_progress();
+        this._slideProgress = 1.0 - Math.pow(1.0 - t, 3);
+        this.queue_repaint();
     }
 
-    _evaluateMarquee(allocatedTimeMs) {
-        if (!this._cancellable || !isActorAlive(this) || !this._currentText) return;
+    _onSlideCompleted() {
+        this._slideActive = false;
+        this._slideProgress = 1.0;
+        this._previousText = '';
+        this.queue_repaint();
+        this._evaluateMarquee();
+    }
+
+    _evaluateMarquee() {
+        if (!this._isAlive || !this._currentText) return;
 
         const w = this.width || 160;
         if (this._measuredCurrentW <= w) {
@@ -160,59 +164,26 @@ export const KaraokeLyricsWidget = GObject.registerClass({
         }
 
         this._marqueeOverflow = this._measuredCurrentW - w + 12;
+        const singingDuration = Math.max(1200, Math.min(this._remainingLineMs, Math.max(2200, this._currentText.length * 110)));
+        this._marqueeDuration = Math.max(600, singingDuration - INITIAL_HEAD_PAUSE_MS);
 
-        const naturalSingingDuration = Math.max(1200, Math.min(allocatedTimeMs, Math.max(2200, this._currentText.length * 110)));
-        this._marqueeDuration = Math.max(600, naturalSingingDuration - INITIAL_HEAD_PAUSE_MS);
-        this._marqueeStartTime = Date.now();
-
-        this._startMarquee();
+        this._marqueeTimeline.stop();
+        this._marqueeTimeline.set_duration(INITIAL_HEAD_PAUSE_MS + this._marqueeDuration);
+        this._marqueeTimeline.rewind();
+        this._marqueeTimeline.start();
     }
 
-    _startMarquee() {
-        this._stopMarquee();
-        this._marqueeTickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
-            if (!this._cancellable || !isActorAlive(this) || !this._currentText || this._slideActive) {
-                this._marqueeTickId = 0;
-                return GLib.SOURCE_REMOVE;
-            }
-
-            const elapsed = Date.now() - this._marqueeStartTime;
-
-            if (elapsed < INITIAL_HEAD_PAUSE_MS) {
-                this._marqueeOffset = 0;
-            } else {
-                const scrollElapsed = elapsed - INITIAL_HEAD_PAUSE_MS;
-                const progress = Math.min(1.0, scrollElapsed / this._marqueeDuration);
-
-                this._marqueeOffset = -Math.round(this._marqueeOverflow * progress);
-
-                if (progress >= 1.0) {
-                    this._marqueeOffset = -this._marqueeOverflow;
-                    this.queue_repaint();
-                    this._marqueeTickId = 0;
-                    return GLib.SOURCE_REMOVE;
-                }
-            }
-
-            this.queue_repaint();
-            return GLib.SOURCE_CONTINUE;
-        });
-    }
-
-    _stopMarquee() {
-        if (this._marqueeTickId) {
-            this._tracker.remove(this._marqueeTickId);
-            this._marqueeTickId = 0;
-        }
+    _onMarqueeFrame() {
+        const elapsed = this._marqueeTimeline.get_elapsed_time();
+        const progress = Math.min(1.0, Math.max(0, elapsed - INITIAL_HEAD_PAUSE_MS) / this._marqueeDuration);
+        this._marqueeOffset = -Math.round(this._marqueeOverflow * progress);
+        this.queue_repaint();
     }
 
     vfunc_repaint() {
-        if (!this._cancellable || !isActorAlive(this)) return;
-        if (!this._currentText && !this._previousText) return;
+        if (!this._isAlive || (!this._currentText && !this._previousText)) return;
 
         const cr = this.get_context();
-        if (!cr) return;
-
         const [w, h] = this.get_surface_size();
         if (w <= 0 || h <= 0) {
             cr.$dispose();
@@ -226,61 +197,42 @@ export const KaraokeLyricsWidget = GObject.registerClass({
         const slideOffset = Math.round(h * this._slideProgress);
 
         if (this._slideActive && this._previousText) {
-            this._drawTextLine(
-                cr,
-                this._previousText,
-                h,
-                0,
-                -slideOffset,
-                1.0 - this._slideProgress
-            );
+            this._drawTextLine(cr, this._previousText, h, 0, -slideOffset, 1.0 - this._slideProgress);
         }
 
         if (this._currentText) {
             const yOffset = this._slideActive ? (h - slideOffset) : 0;
             const xOffset = this._slideActive ? 0 : this._marqueeOffset;
             const opacity = this._slideActive ? this._slideProgress : 1.0;
-
-            this._drawTextLine(
-                cr,
-                this._currentText,
-                h,
-                xOffset,
-                yOffset,
-                opacity
-            );
+            this._drawTextLine(cr, this._currentText, h, xOffset, yOffset, opacity);
         }
 
         cr.$dispose();
     }
 
     _drawTextLine(cr, text, h, xOffset, yOffset, opacity) {
-        if (!text) return;
-
         const layout = PangoCairo.create_layout(cr);
-        layout.set_font_description(this._fontDesc);
+        layout.set_font_description(this._font());
         layout.set_text(text, -1);
         layout.set_alignment(Pango.Alignment.LEFT);
 
-        const logical = layout.get_pixel_extents()[1];
-        const yPos = Math.round((h - logical.height) / 2) - logical.y + yOffset;
+        const baseline = layout.get_baseline() / Pango.SCALE;
+        const yPos = Math.round((h + LYRIC_FONT_PX * CAP_HEIGHT_RATIO) / 2 - baseline) + yOffset;
 
-        cr.setSourceRGBA(1.0, 1.0, 1.0, Math.max(0.0, Math.min(1.0, opacity)));
+        const { r, g, b } = this._color;
+        cr.setSourceRGBA(r, g, b, Math.max(0.0, Math.min(1.0, opacity)));
         cr.moveTo(xOffset, yPos);
         PangoCairo.show_layout(cr, layout);
     }
 
     _cleanup() {
-        this._stopSlide();
-        this._stopMarquee();
-        if (this._cancellable) {
-            this._cancellable.cancel();
-            this._cancellable = null;
-        }
-        if (this._tracker) {
-            this._tracker.destroy();
-            this._tracker = null;
-        }
+        this._isAlive = false;
+        this._slideTimeline.stop();
+        this._marqueeTimeline.stop();
+        this._slideTimeline.disconnectObject(this);
+        this._marqueeTimeline.disconnectObject(this);
+        this._slideTimeline = null;
+        this._marqueeTimeline = null;
         this.disconnectObject(this);
     }
 });

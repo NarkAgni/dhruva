@@ -28,10 +28,60 @@ Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_fin
 Gio._promisify(Gio.File.prototype, 'load_bytes_async', 'load_bytes_finish');
 Gio._promisify(Gio.File.prototype, 'replace_contents_bytes_async', 'replace_contents_finish');
 
+export const USER_AGENT = 'Dhruva (https://github.com/NarkAgni/dhruva)';
+
 const MAX_CACHED_SONGS = 300;
+const DURATION_TOLERANCE_S = 3;
+const API_URL = 'https://lrclib.net/api';
 
 const PARENS_RE = /\s*\(.*?\)\s*/g;
 const BRACKETS_RE = /\s*\[.*?\]\s*/g;
+const TITLE_SUFFIX_RE = /\s+-\s+.*$/;
+const LRC_LINE_RE = /\[(\d{2}):(\d{2})(?:[.:](\d{2,3}))?\](.*)/;
+
+
+function cleanTitle(title) {
+    return title.replace(PARENS_RE, ' ').replace(BRACKETS_RE, ' ').replace(TITLE_SUFFIX_RE, '').trim();
+}
+
+function cleanArtist(artist) {
+    return (artist || '').split(',')[0].replace(PARENS_RE, ' ').trim();
+}
+
+function cacheKey(title, artist) {
+    return `${cleanTitle(title).toLowerCase()}::${cleanArtist(artist).toLowerCase()}`;
+}
+
+function parseSynced(lrcText) {
+    const lines = [];
+    for (const line of lrcText.split('\n')) {
+        const match = line.match(LRC_LINE_RE);
+        if (!match) continue;
+        const text = match[4].trim();
+        if (!text) continue;
+        let ms = 0;
+        if (match[3]) ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3].slice(0, 3), 10);
+        lines.push({ time: (parseInt(match[1], 10) * 60 + parseInt(match[2], 10)) * 1000 + ms, text });
+    }
+    return lines.sort((a, b) => a.time - b.time);
+}
+
+function parsePlain(plainText) {
+    return plainText.split('\n').map(text => text.trim()).filter(text => text.length > 0).map(text => ({ text }));
+}
+
+function entryFrom(data) {
+    if (!data) return null;
+    if (data.syncedLyrics) {
+        const lines = parseSynced(data.syncedLyrics);
+        if (lines.length > 0) return { lines, synced: true, offset: 0 };
+    }
+    if (data.plainLyrics) {
+        const lines = parsePlain(data.plainLyrics);
+        if (lines.length > 0) return { lines, synced: false, offset: 0 };
+    }
+    return null;
+}
 
 
 export class LyricsClient {
@@ -39,7 +89,7 @@ export class LyricsClient {
         this._cancellable = new Gio.Cancellable();
         this._httpSession = new Soup.Session();
         this._httpSession.timeout = 6;
-        this._httpSession.user_agent = 'Mozilla/5.0 (X11; Linux x86_64)';
+        this._httpSession.user_agent = USER_AGENT;
 
         GLib.mkdir_with_parents(userCacheDir(), 0o755);
         this._cacheFilePath = lyricsCachePath();
@@ -49,26 +99,23 @@ export class LyricsClient {
     }
 
     async _loadDiskCache() {
-        if (!this._cancellable) return;
         const file = Gio.File.new_for_path(this._cacheFilePath);
-        if (file.query_exists(this._cancellable)) {
-            const loadResult = await file.load_bytes_async(this._cancellable);
-            if (!this._cancellable) return;
-            const bytes = loadResult ? loadResult[0] : null;
-            if (bytes) {
-                const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
-                if (data && !Array.isArray(data)) {
-                    for (const [k, v] of Object.entries(data)) {
-                        this._cache.set(k, v);
-                    }
-                }
-            }
+        if (!file.query_exists(this._cancellable)) return;
+
+        const [bytes] = await file.load_bytes_async(this._cancellable);
+        if (!this._cancellable) return;
+
+        const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
+        if (!data || Array.isArray(data)) return;
+
+        for (const [key, entry] of Object.entries(data)) {
+            if (entry && Array.isArray(entry.lines)) this._cache.set(key, entry);
         }
     }
 
-    _remember(key, lyrics) {
+    _remember(key, entry) {
         this._cache.delete(key);
-        this._cache.set(key, lyrics);
+        this._cache.set(key, entry);
         for (const oldKey of this._cache.keys()) {
             if (this._cache.size <= MAX_CACHED_SONGS) break;
             this._cache.delete(oldKey);
@@ -84,116 +131,50 @@ export class LyricsClient {
             .catch(() => { });
     }
 
-    async getLyrics(title, artist, durationSec) {
-        if (!title || !this._cancellable) return null;
-
-        const cleanTitle = title
-            .replace(PARENS_RE, ' ')
-            .replace(BRACKETS_RE, ' ')
-            .replace(/-.*/, '')
-            .trim();
-
-        const cleanArtist = (artist || '')
-            .split(',')[0]
-            .replace(PARENS_RE, ' ')
-            .trim();
-
-        const cacheKey = `${cleanTitle.toLowerCase()}::${cleanArtist.toLowerCase()}`;
-        if (this._cache.has(cacheKey)) {
-            return this._cache.get(cacheKey);
-        }
-
-        let query = `track_name=${encodeURIComponent(cleanTitle)}`;
-        if (cleanArtist) {
-            query += `&artist_name=${encodeURIComponent(cleanArtist)}`;
-        }
-        if (durationSec > 0) {
-            query += `&duration=${Math.round(durationSec)}`;
-        }
-
-        let result = await this._queryUrl(`https://lrclib.net/api/get?${query}`, durationSec);
-        if (!this._cancellable) return null;
-        if (result && result.length > 0) {
-            this._remember(cacheKey, result);
-            return result;
-        }
-
-        const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanArtist + ' ' + cleanTitle)}`;
-        const msg = Soup.Message.new('GET', searchUrl);
-        const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
-        if (!this._cancellable) return null;
-        if (msg.status_code === 200) {
-            const list = JSON.parse(new TextDecoder().decode(bytes.get_data()));
-            if (Array.isArray(list) && list.length > 0) {
-                const match = list.find(item => item.syncedLyrics) || list.find(item => item.plainLyrics) || list[0];
-                if (match) {
-                    if (match.syncedLyrics) {
-                        result = this._parseLRC(match.syncedLyrics);
-                    } else if (match.plainLyrics) {
-                        result = this._paginatePlainLyrics(match.plainLyrics, durationSec);
-                    }
-
-                    if (result && result.length > 0) {
-                        this._remember(cacheKey, result);
-                        return result;
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    async _queryUrl(url, durationSec) {
-        if (!this._cancellable) return null;
+    async _fetchJson(url) {
         const msg = Soup.Message.new('GET', url);
         const bytes = await this._httpSession.send_and_read_async(msg, GLib.PRIORITY_DEFAULT, this._cancellable);
-        if (!this._cancellable) return null;
-        if (msg.status_code === 200) {
-            const data = JSON.parse(new TextDecoder().decode(bytes.get_data()));
-            if (data) {
-                if (data.syncedLyrics) return this._parseLRC(data.syncedLyrics);
-                if (data.plainLyrics) return this._paginatePlainLyrics(data.plainLyrics, durationSec);
-            }
-        }
-        return null;
+        if (!this._cancellable || msg.status_code !== 200) return null;
+        return JSON.parse(new TextDecoder().decode(bytes.get_data()));
     }
 
-    _parseLRC(lrcText) {
-        if (!lrcText) return [];
-        const lines = lrcText.split('\n');
-        const parsed = [];
-        const timeRegex = /\[(\d{2}):(\d{2})(?:[.:](\d{2,3}))?\](.*)/;
+    async getLyrics(title, artist, durationSec, album = '') {
+        if (!title || !this._cancellable) return null;
 
-        for (const line of lines) {
-            const match = line.match(timeRegex);
-            if (match) {
-                const min = parseInt(match[1], 10);
-                const sec = parseInt(match[2], 10);
-                let ms = 0;
-                if (match[3]) {
-                    ms = match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3].slice(0, 3), 10);
-                }
-                const timeMs = (min * 60 + sec) * 1000 + ms;
-                const text = match[4].trim();
-                if (text) parsed.push({ time: timeMs, text });
+        const key = cacheKey(title, artist);
+        if (this._cache.has(key)) return this._cache.get(key);
+
+        const trackTitle = cleanTitle(title);
+        const trackArtist = cleanArtist(artist);
+
+        let query = `track_name=${encodeURIComponent(trackTitle)}`;
+        if (trackArtist) query += `&artist_name=${encodeURIComponent(trackArtist)}`;
+        if (album) query += `&album_name=${encodeURIComponent(album)}`;
+        if (durationSec > 0) query += `&duration=${Math.round(durationSec)}`;
+
+        let entry = entryFrom(await this._fetchJson(`${API_URL}/get?${query}`));
+        if (!entry && this._cancellable) {
+            const list = await this._fetchJson(`${API_URL}/search?q=${encodeURIComponent(`${trackArtist} ${trackTitle}`.trim())}`);
+            if (Array.isArray(list)) {
+                const isSameLength = item => durationSec <= 0 || Math.abs(item.duration - durationSec) < DURATION_TOLERANCE_S;
+                const match = list.find(item => item.syncedLyrics && isSameLength(item)) ||
+                    list.find(item => item.syncedLyrics) ||
+                    list.find(item => item.plainLyrics && isSameLength(item)) ||
+                    list.find(item => item.plainLyrics);
+                entry = entryFrom(match);
             }
         }
-        return parsed.sort((a, b) => a.time - b.time);
+
+        if (!this._cancellable || !entry) return null;
+        this._remember(key, entry);
+        return entry;
     }
 
-    _paginatePlainLyrics(plainText, durationSec) {
-        if (!plainText) return [];
-        const rawLines = plainText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        if (rawLines.length === 0) return [];
-
-        const totalMs = Math.max(15000, (durationSec || 180) * 1000);
-        const intervalMs = Math.floor(totalMs / rawLines.length);
-
-        return rawLines.map((text, idx) => ({
-            time: idx * intervalMs,
-            text: text
-        }));
+    setOffset(title, artist, offsetMs) {
+        const entry = this._cache.get(cacheKey(title, artist));
+        if (!entry) return;
+        entry.offset = offsetMs;
+        this._saveDiskCache();
     }
 
     destroy() {

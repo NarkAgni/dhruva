@@ -1,3 +1,20 @@
+## [5.1.1] - 29-10-2026
+
+### New
+* **Music Pill Works with Any Player:** The Music Pill now works with any player that supports media controls, like Spotify, Rhythmbox, VLC or a browser playing YouTube, not just Spotify. When a player starts playing, the pill switches to it on its own. If more than one player is open, their icons appear at the top of the player popup, and clicking one keeps the pill on that player until it closes.
+* **Full Lyrics in the Player Popup:** A new lyrics button in the player popup shows the whole song's lyrics over the album art, with the song info tucked away while it's open. The line being sung stays in the middle, larger and brighter, and the list scrolls smoothly as the song goes on. Click any line to jump to that part of the song.
+* **Lyrics Timing:** If lyrics run ahead of or behind the song, the − and + buttons above the lyrics move them by half a second. Dhruva remembers this for each song.
+
+### Improved
+* **Lyrics in the Pill:** Lyrics in the Music Pill are larger, sit a little higher so they line up with the song title, use your system font and take their colour from the album art. They also scroll more smoothly.
+* **Finding Lyrics:** Lyrics are found for more songs. Titles with a hyphen in the name, like "Anti-Hero", no longer get cut short, and Dhruva now also uses the album and the song's length to pick the right version instead of a remix or live recording.
+* **Unsynced Lyrics:** When only plain lyrics are available, they now show in the player popup to read along, instead of scrolling through the pill at a guessed pace.
+* **Readable Popup Controls:** The lyrics, shuffle and repeat buttons and the player icons in the popup now have the same background as the playback controls, so they stay easy to see on light album art. Player icons are shown in their own colours.
+* **Album Art Colours:** Colours taken from very dark album art are brightened just enough to stay readable on the pill.
+
+### Fixed
+* **Time and Seeking in Browsers:** When music plays in a browser, the time in the player popup now keeps counting, the total length of the song shows correctly instead of 0:01, and moving the slider no longer sends it back to the start.
+
 ## [5.1] - 27-10-2026
 
 ### New
