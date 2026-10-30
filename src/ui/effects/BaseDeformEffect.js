@@ -51,10 +51,6 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
         return [24, 24];
     }
 
-    // Deform meshes are rendered at the actor's resource scale, which can be
-    // larger than its logical size under fractional display scaling. Effects
-    // must convert logical window coordinates with this ratio before writing
-    // vertex positions.
     _meshScale(w, h) {
         return [
             w / Math.max(1, this._win.w),
