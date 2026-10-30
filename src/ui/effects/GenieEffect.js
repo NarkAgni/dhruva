@@ -90,14 +90,19 @@ class MagicLampBase extends BaseDeformEffect {
         const across = isVertical ? v.tx : v.ty;
         const length = isVertical ? h : w;
         const span = isVertical ? w : h;
-        const reach = this._reach;
+        const [meshX, meshY] = this._meshScale(w, h);
+        const alongScale = isVertical ? meshY : meshX;
+        const acrossScale = isVertical ? meshX : meshY;
+        const reach = this._reach * alongScale;
+        const center = this._center * acrossScale;
+        const halfTarget = this._halfTarget * acrossScale;
 
         const fromFarEdge = (towardDock ? alongNorm : 1 - alongNorm) * length;
         const along = Math.min(reach, fromFarEdge + slide * reach);
 
         const pinch = bend * smoothstep(clamp01(along / reach));
-        const low = lerp(0, this._center - this._halfTarget, pinch);
-        const high = lerp(span, this._center + this._halfTarget, pinch);
+        const low = lerp(0, center - halfTarget, pinch);
+        const high = lerp(span, center + halfTarget, pinch);
         const acrossPos = low + across * (high - low);
         const alongPos = towardDock ? along : length - along;
 
