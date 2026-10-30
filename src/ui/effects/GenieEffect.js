@@ -90,8 +90,6 @@ class MagicLampBase extends BaseDeformEffect {
         const across = isVertical ? v.tx : v.ty;
         const length = isVertical ? h : w;
         const span = isVertical ? w : h;
-
-        // Window coordinates are logical; the deform mesh is not.
         const [meshX, meshY] = this._meshScale(w, h);
         const alongScale = isVertical ? meshY : meshX;
         const acrossScale = isVertical ? meshX : meshY;
