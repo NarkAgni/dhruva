@@ -18,6 +18,7 @@
 
 
 import { buildBlurPage } from './src/prefs/BlurPage.js';
+import { buildPresetsPage } from './src/prefs/PresetsPage.js';
 import { buildPanelPage } from './src/prefs/PanelPage.js';
 import { buildAboutPage } from './src/prefs/AboutPage.js';
 import { setupHeaderBar } from './src/prefs/HeaderBar.js';
@@ -36,6 +37,7 @@ export default class DhruvaPreferences extends ExtensionPreferences {
         const settings = this.getSettings();
         migrateSettings(settings, this.metadata['version-name']);
 
+        buildPresetsPage(window, settings);
         buildLayoutPage(window, settings);
         buildPanelPage(window, settings);
         buildAppearancePage(window, settings);

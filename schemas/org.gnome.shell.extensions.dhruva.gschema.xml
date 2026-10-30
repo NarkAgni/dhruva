@@ -694,6 +694,43 @@
       <description>What scrolling over the music pill does: change volume, seek within the track, switch tracks, or nothing.</description>
     </key>
 
+    <key name="active-preset" type="s">
+      <default>'fresh'</default>
+      <summary>Active preset</summary>
+      <description>The style picked on the Presets page, kept across restarts.</description>
+    </key>
+
+    <key name="start-menu" type="b">
+      <default>true</default>
+      <summary>Start menu</summary>
+      <description>In Panel mode, open the Dhruva start menu from the App Grid button instead of GNOME's app grid.</description>
+    </key>
+
+    <key name="start-menu-pinned" type="as">
+      <default>[]</default>
+      <summary>Start menu pinned items</summary>
+      <description>App IDs and folder keys pinned to the start menu. Empty uses the dock order.</description>
+    </key>
+
+    <key name="start-menu-folders" type="s">
+      <default>'[]'</default>
+      <summary>Start menu folders</summary>
+      <description>Folders made in the start menu, as JSON.</description>
+    </key>
+
+    <key name="start-menu-recent-files" type="i">
+      <range min="1" max="50"/>
+      <default>10</default>
+      <summary>Start menu recent files</summary>
+      <description>How many recent files the start menu shows under Continue where you left off.</description>
+    </key>
+
+    <key name="start-menu-all-apps-grid" type="b">
+      <default>false</default>
+      <summary>Start menu all apps as a grid</summary>
+      <description>Show the start menu's All apps page as a grid of icons instead of a list.</description>
+    </key>
+
     <key name="music-pill-lyrics" type="b">
       <default>true</default>
       <summary>Music Pill lyrics</summary>

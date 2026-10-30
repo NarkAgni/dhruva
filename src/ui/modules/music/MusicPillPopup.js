@@ -27,8 +27,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { BlurEffect } from '../../blur/BlurEffect.js';
-import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
 import { PopupLyricsWidget } from './PopupLyricsWidget.js';
+import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
 import { extractColorsFromPixbuf } from './MusicColorExtractor.js';
 import { isActorAlive, setBoxVertical } from '../../../core/Utils.js';
 

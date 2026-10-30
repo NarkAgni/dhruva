@@ -26,9 +26,9 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg, getPreviewBoxOpacity, previewBoxColor } from '../dock/DockButtonBase.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
+import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg, getPreviewBoxOpacity, previewBoxColor } from '../dock/DockButtonBase.js';
 
 
 const OVERVIEW_APPS_EASE_DURATION_MS = 250;
@@ -198,6 +198,12 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
         if (buttonNum === 1) {
             animateIconClick(gridIconBin, Settings.clickEffect);
+
+            if (Settings.hybridPanelMode && Settings.startMenu) {
+                dockUI.toggleStartMenu();
+                if (dockUI.actor) dockUI.actor._suppressZoom = true;
+                return;
+            }
 
             if (Settings.independentDock) {
                 if (dockUI.appGridUI) {

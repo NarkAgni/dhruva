@@ -36,8 +36,7 @@ const CLICK_ACTIONS = () => [
     { name: _('Next Track'), value: 'next' },
     { name: _('Previous Track'), value: 'previous' },
     { name: _('Open Big Player'), value: 'player' },
-    { name: _('Show or Hide Spotify'), value: 'window' },
-    { name: _('Copy Song Link'), value: 'copy-link' },
+    { name: _('Show or Hide Player'), value: 'window' },
 ];
 
 
@@ -48,7 +47,7 @@ export function buildMusicPillPage(window, settings) {
     });
 
     const pillGroup = addGroup(page, _('Music Pill'),
-        _('Now playing on the dock: artwork, controls and live lyrics. Works with Spotify'));
+        _('Now playing on the dock: artwork, controls and live lyrics. Works with Spotify, browsers and other music players'));
     const enableSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
     settings.bind('show-music-pill', enableSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
     pillGroup.set_header_suffix(enableSwitch);
@@ -68,6 +67,7 @@ export function buildMusicPillPage(window, settings) {
     ]);
     addSwitchRow(lookGroup, settings, 'music-pill-show-prev', _('Previous Button'), _('Appears when hovering the pill'));
     addSwitchRow(lookGroup, settings, 'music-pill-show-next', _('Next Button'), _('Appears when hovering the pill'));
+    addSwitchRow(lookGroup, settings, 'music-pill-lyrics', _('Live Lyrics'), _('Show the song’s lyrics on the pill as it plays. Lyrics come from lrclib.net'));
 
     const mouseGroup = addGroup(page, _('Mouse'), _('What the pill does when you click or scroll on it'));
     addGroupReset(mouseGroup, settings, MOUSE_KEYS);

@@ -26,7 +26,7 @@ import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensio
 
 import { onSettingChanged } from './SettingsSignals.js';
 import {
-    fmt, addGroup, showWhen, addSliderRow, addSegmentedRow, roundedRect, paintBackdrop, MOCK_ICON_COLORS,
+    fmt, addGroup, showWhen, addSwitchRow, addSliderRow, addSegmentedRow, roundedRect, paintBackdrop, MOCK_ICON_COLORS,
 } from './PrefsWidgets.js';
 
 
@@ -386,6 +386,14 @@ export function buildPanelPage(window, settings) {
     showWhen(positionRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
     showWhen(radiusRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
     showWhen(dynamicGroup, settings, ['hybrid-panel-mode'], isPanel);
+
+    const startGroup = addGroup(page, _('App Grid Button'), _('What the App Grid button opens in Panel mode'));
+    addSwitchRow(startGroup, settings, 'start-menu', _('Dhruva Start Menu'),
+        _('Pinned apps, recent apps and files, search, Lock and Power. Turn off to open GNOME’s app grid instead'));
+    const recentRow = addSliderRow(startGroup, settings, 'start-menu-recent-files', _('Recent Files'),
+        _('How many files Continue where you left off shows'), { lower: 1, upper: 50, step: 1 }, value => `${Math.round(value)}`);
+    showWhen(recentRow, settings, ['start-menu'], () => settings.get_boolean('start-menu'));
+    showWhen(startGroup, settings, ['hybrid-panel-mode'], isPanel);
 
     const clockGroup = addGroup(page, _('Clock'), _('These are GNOME’s own clock settings, so the lock screen follows too'));
     addClockSwitch(clockGroup, clockSettings, 'clock-show-date', _('Date'), _('Second line under the time'));

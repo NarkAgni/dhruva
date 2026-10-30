@@ -25,18 +25,18 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
 import { CrispLabel } from './music/CrispLabel.js';
-import { LyricsClient, USER_AGENT } from './music/LyricsClient.js';
-import { Settings } from '../../core/SettingsManager.js';
 import { userCacheDir } from '../../core/DataPaths.js';
+import { Settings } from '../../core/SettingsManager.js';
 import { MusicPillPopup } from './music/MusicPillPopup.js';
 import { MusicPillSlider } from './music/MusicPillSlider.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
-import { isActorAlive, setBoxVertical, loadPixbufAtScale } from '../../core/Utils.js';
 import { MusicPlayerService } from './music/MusicPlayerService.js';
+import { LyricsClient, USER_AGENT } from './music/LyricsClient.js';
 import { resetMagnification } from '../magnifier/MagnifierReset.js';
 import { KaraokeLyricsWidget } from './music/KaraokeLyricsWidget.js';
 import { extractColorsFromPixbuf } from './music/MusicColorExtractor.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
+import { isActorAlive, setBoxVertical, loadPixbufAtScale } from '../../core/Utils.js';
 
 
 Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');

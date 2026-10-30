@@ -24,6 +24,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { Settings } from '../SettingsManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
@@ -105,9 +106,24 @@ export default class QuickSettingsManager {
 
         this.updateArrowSide(targetSide);
         hookPopupGap(this.dockUI, this.indicator.menu, true);
+        if (Settings.startMenu) this._hideSessionButtons();
 
         this._queueRelayout();
         return target;
+    }
+
+    _hideSessionButtons() {
+        const system = this.indicator._system;
+        const item = system ? system.quickSettingsItems[0] : null;
+        if (!item) return;
+
+        for (const actor of [item._lockItem, item._shutdownItem]) {
+            if (!actor) continue;
+            this._state.set(actor, { visible: false });
+            this._state.connect(actor, 'notify::visible', () => {
+                if (actor.visible) actor.visible = false;
+            });
+        }
     }
 
     _styleIcon(icon) {

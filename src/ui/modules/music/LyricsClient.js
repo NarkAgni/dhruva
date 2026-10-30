@@ -24,8 +24,8 @@ import GLib from 'gi://GLib';
 import { userCacheDir, lyricsCachePath } from '../../../core/DataPaths.js';
 
 
-Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
 Gio._promisify(Gio.File.prototype, 'load_bytes_async', 'load_bytes_finish');
+Gio._promisify(Soup.Session.prototype, 'send_and_read_async', 'send_and_read_finish');
 Gio._promisify(Gio.File.prototype, 'replace_contents_bytes_async', 'replace_contents_finish');
 
 export const USER_AGENT = 'Dhruva (https://github.com/NarkAgni/dhruva)';

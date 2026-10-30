@@ -1,3 +1,25 @@
+## [5.1.2] - 30-10-2026
+
+### New
+* **Presets:** A new Presets page, the first page in the settings, sets up a whole style in one click. Choose from Fresh Start, GNOME Classic+, macOS Dock, Windows 11 Taskbar, Classic Taskbar, Floating Island, Ubuntu Dock, Minimal and Showcase. A large preview shows the style before you apply it, and Apply sets it up. Presets only change how the dock looks and behaves; your pinned apps, folders and other settings stay as they are. The chosen preset is remembered across restarts, and if you change settings afterwards, the page shows that you have your own changes and offers Reset to Preset.
+presets.png
+* **Start Menu for Panel Mode:** In Panel and Dynamic Panel mode, the App Grid button now opens Dhruva's own start menu instead of GNOME's app grid. It shows your pinned apps, recent apps as cards, and the files you worked on last with real previews of photos and code. Your profile, Settings, Lock and power options sit at the bottom, and Lock and Power leave Quick Settings while the start menu is on. It follows your Dhruva theme and works with Blur my Shell. Turn it off under Panel → App Grid Button to get GNOME's app grid back.
+start_menu.png
+* **Search in the Start Menu:** Start typing to search apps, files and Settings panels. Files are found the same way GNOME Files finds them: through GNOME's file index when it is available and by looking through your Home folder, with closer, newer and better-matching files first. The best match gets a large card with Open, New Window, Pin to Start and Pin to Dock or Panel, and files show a preview of their contents.
+start_menu_search.png
+* **All Apps:** A full A–Z list of your apps with a letter bar on the side. The letter of the apps you are looking at lights up as you scroll, and a button switches between a list and a grid.
+start_menu_all_apps.png
+* **Pinned Apps and Folders:** Drag pinned apps to rearrange them, and the other icons slide out of the way just like on the dock. Hold Ctrl and drop one app on another to make a folder. Folders open in their own popup in the middle of the menu, where you can rename them, rearrange their apps or take apps out.
+* **Right-Click Menus:** Right-click apps and files in the start menu to open them, open a new window, pin or unpin them from the start menu, pin them to the dock or panel, or show a file in Files.
+* **Recent Files Setting:** Choose how many recent files the start menu shows, from 1 to 50. The list scrolls sideways.
+* **Live Lyrics Switch:** The Music Pill page has a new Live Lyrics switch to turn the lyrics on the pill on or off.
+
+### Improved
+* **Music Pill Settings:** The Music Pill page now says that the pill works with browsers and other music players too, and the window click action is called Show or Hide Player.
+
+### Fixed
+* **Leftover Copy Song Link Option:** The Music Pill click actions no longer offer Copy Song Link, which was removed in 5.1 and did nothing when picked.
+
 ## [5.1.1] - 29-10-2026
 
 ### New

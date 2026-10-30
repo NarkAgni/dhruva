@@ -35,7 +35,7 @@ import MultiMonitorController from './src/core/MultiMonitorController.js';
 const SHORTCUT_KEY = 'toggle-independent-dock-shortcut';
 const MONITORS_SETTLE_MS = 500;
 
-const RELOAD_KEYS = ['dock-position', 'independent-dock', 'full-width', 'hybrid-panel-mode'];
+const RELOAD_KEYS = ['dock-position', 'independent-dock', 'full-width', 'hybrid-panel-mode', 'start-menu'];
 
 export default class DhruvaExtension extends Extension {
     enable() {

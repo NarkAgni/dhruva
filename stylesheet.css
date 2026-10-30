@@ -430,3 +430,187 @@
     transition-duration: 120ms;
 }
 .dhruva-overflow-item:hover { background-color: rgba(255, 255, 255, 0.14); }
+/* ==================== Start menu ==================== */
+.dhruva-start-menu-box .dhruva-start-search,
+.dhruva-start-menu-box .dhruva-start-search:hover,
+.dhruva-start-menu-box .dhruva-start-search:focus {
+    min-height: 36px;
+    padding: 0 8px;
+    border: none;
+    border-radius: 12px;
+    background-color: transparent;
+    box-shadow: none;
+    color: #ffffff;
+    font-size: 15px;
+    caret-color: #ffffff;
+    selection-background-color: rgba(255, 255, 255, 0.3);
+    selected-color: #ffffff;
+}
+.dhruva-start-menu-box .dhruva-start-search .hint-text { color: rgba(255, 255, 255, 0.5); }
+.dhruva-start-search-icon { icon-size: 18px; color: rgba(255, 255, 255, 0.75); padding-right: 10px; }
+
+.dhruva-start-section { font-size: 11px; font-weight: bold; color: rgba(255, 255, 255, 0.62); }
+.dhruva-start-title { font-size: 12px; font-weight: bold; color: #ffffff; }
+.dhruva-start-best-title { font-size: 20px; font-weight: bold; color: #ffffff; }
+.dhruva-start-meta { font-size: 11px; color: rgba(255, 255, 255, 0.62); }
+.dhruva-start-cell-label { font-size: 12px; color: #ffffff; }
+.dhruva-start-app-name { font-size: 14px; color: #ffffff; }
+.dhruva-start-user { font-size: 14px; font-weight: bold; color: #ffffff; }
+.dhruva-start-empty { font-size: 13px; color: rgba(255, 255, 255, 0.62); padding: 24px 0; }
+.dhruva-start-letter { font-size: 13px; font-weight: bold; color: #ffffff; padding: 8px 10px 2px; }
+
+.dhruva-start-item {
+    padding: 10px 2px;
+    border-radius: 14px;
+    background-color: transparent;
+    transition-duration: 120ms;
+}
+.dhruva-start-item:hover,
+.dhruva-start-item:focus { background-color: rgba(255, 255, 255, 0.1); }
+
+.dhruva-start-card {
+    padding: 12px 6px 10px;
+    border-radius: 16px;
+    background-color: rgba(255, 255, 255, 0.05);
+    transition-duration: 120ms;
+}
+.dhruva-start-card:hover,
+.dhruva-start-card:focus { background-color: rgba(255, 255, 255, 0.12); }
+
+.dhruva-start-row {
+    padding: 6px 10px;
+    border-radius: 12px;
+    background-color: transparent;
+    transition-duration: 120ms;
+}
+.dhruva-start-row:hover,
+.dhruva-start-row:focus { background-color: rgba(255, 255, 255, 0.09); }
+
+.dhruva-start-pill {
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.09);
+    transition-duration: 120ms;
+}
+.dhruva-start-pill:hover,
+.dhruva-start-pill:focus { background-color: rgba(255, 255, 255, 0.18); }
+.dhruva-start-primary { font-weight: bold; color: #111111; background-color: rgba(255, 255, 255, 0.92); }
+.dhruva-start-primary:hover,
+.dhruva-start-primary:focus { background-color: #ffffff; }
+
+.dhruva-start-round {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.08);
+    transition-duration: 120ms;
+}
+.dhruva-start-round:hover,
+.dhruva-start-round:focus { background-color: rgba(255, 255, 255, 0.18); }
+
+.dhruva-start-best {
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.06);
+}
+.dhruva-start-thumb { background-color: rgba(255, 255, 255, 0.08); }
+.dhruva-start-thumb-code { background-color: #1b1e2b; }
+.dhruva-start-code { font-family: monospace; color: rgba(225, 230, 255, 0.85); }
+.dhruva-start-folder {
+    padding: 5px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.16);
+}
+.dhruva-start-avatar {
+    icon-size: 36px;
+    border-radius: 999px;
+}
+.dhruva-start-dot {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+    background-color: #ffffff;
+}
+.dhruva-start-footer { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.dhruva-start-rail { padding: 0 2px; }
+.dhruva-start-rail-key {
+    width: 22px;
+    font-size: 11px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.45);
+    background-color: transparent;
+    transition-duration: 120ms;
+}
+.dhruva-start-rail-key:hover { color: rgba(255, 255, 255, 0.8); background-color: transparent; }
+.dhruva-start-rail-key:checked { color: #ffffff; background-color: transparent; }
+.dhruva-start-menu-box { padding: 18px 0 18px 18px; }
+.dhruva-start-context {
+    padding: 6px;
+    min-width: 190px;
+    border-radius: 14px;
+    background-color: rgba(28, 28, 34, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.dhruva-start-context-item {
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    color: #ffffff;
+    background-color: transparent;
+}
+.dhruva-start-context-item:hover,
+.dhruva-start-context-item:focus { background-color: rgba(255, 255, 255, 0.1); }
+.dhruva-start-menu-box .dhruva-start-scroll StScrollBar {
+    width: 4px;
+    min-width: 4px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background-color: transparent;
+}
+.dhruva-start-menu-box .dhruva-start-scroll StScrollBar StBin#trough {
+    width: 4px;
+    min-width: 4px;
+    border: none;
+    background-color: transparent;
+}
+.dhruva-start-menu-box .dhruva-start-scroll StScrollBar StButton#vhandle {
+    width: 3px;
+    min-width: 3px;
+    margin: 6px 0;
+    border: none;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.32);
+}
+.dhruva-start-menu-box .dhruva-start-scroll StScrollBar StButton#vhandle:hover,
+.dhruva-start-menu-box .dhruva-start-scroll StScrollBar StButton#vhandle:active { background-color: rgba(255, 255, 255, 0.55); }
+
+.dhruva-start-item:drop { background-color: rgba(255, 255, 255, 0.2); }
+.dhruva-start-folder-layer { border-radius: 24px; background-color: rgba(0, 0, 0, 0.4); }
+.dhruva-start-folder-popup {
+    padding: 22px;
+    border-radius: 24px;
+    background-color: rgba(48, 48, 56, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+.dhruva-start-folder-title { font-size: 18px; font-weight: bold; color: #ffffff; }
+.dhruva-start-rename {
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: none;
+    box-shadow: none;
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.08);
+}

@@ -27,6 +27,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import AppGridUI from '../AppGridUI.js';
 import { BlurPanel } from '../blur/BlurPanel.js';
+import { StartMenu } from '../startmenu/StartMenu.js';
 import DockManager from '../../core/DockManager.js';
 import { updateLayout } from './DockLayoutEngine.js';
 import ScrollManager from '../../core/ScrollManager.js';
@@ -118,6 +119,7 @@ export default class DockUI {
         this._currentOrder = [];
         this._itemSpans = new Map();
         this._overflowMenu = null;
+        this._startMenu = null;
         this._overflowKeys = '';
         this._panelSyncLaterId = 0;
         this._pendingRenderState = {
@@ -143,6 +145,7 @@ export default class DockUI {
         this._initActors();
         this._bindMethods();
         this._connectSignals();
+        this._preloadStartMenu();
 
         if (!DockUI._instances) DockUI._instances = new Set();
         DockUI._instances.add(this);
@@ -1249,6 +1252,19 @@ export default class DockUI {
         });
     }
 
+    _preloadStartMenu() {
+        if (!Settings.hybridPanelMode || !Settings.startMenu) return;
+        this.registry.addIdle(GLib.PRIORITY_LOW, () => {
+            if (!this._startMenu && isActorAlive(this.actor)) this._startMenu = new StartMenu(this);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    toggleStartMenu() {
+        if (!this._startMenu) this._startMenu = new StartMenu(this);
+        this._startMenu.toggle();
+    }
+
     destroy() {
         if (this._grabbedWindow) {
             this._grabbedWindow.disconnectObject(this);
@@ -1358,6 +1374,10 @@ export default class DockUI {
         if (this._overflowMenu) {
             this._overflowMenu.destroy();
             this._overflowMenu = null;
+        }
+        if (this._startMenu) {
+            this._startMenu.destroy();
+            this._startMenu = null;
         }
         if (this._musicPill) {
             this._musicPill.destroy();
