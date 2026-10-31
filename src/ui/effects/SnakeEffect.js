@@ -58,12 +58,11 @@ class SnakeBase extends BaseDeformEffect {
         if (!this._ready || this.progress <= 0) return;
 
         const p = this.progress;
-        const wW = this._win.w;
-        const wH = this._win.h;
-        const curX = v.tx * wW;
-        const curY = v.ty * wH;
-        const tgtX = this._tgt.x - this._win.x;
-        const tgtY = this._tgt.y - this._win.y;
+        const [meshX, meshY] = this._meshScale(w, h);
+        const curX = v.tx * w;
+        const curY = v.ty * h;
+        const tgtX = (this._tgt.x - this._win.x) * meshX;
+        const tgtY = (this._tgt.y - this._win.y) * meshY;
 
         let distFromDock;
         if (this._dockPos === 'BOTTOM') {
@@ -84,8 +83,8 @@ class SnakeBase extends BaseDeformEffect {
         let newY = curY + (tgtY - curY) * eased;
 
         const waveAmp = (this._dockPos === 'BOTTOM' || this._dockPos === 'TOP')
-            ? wW * WAVE_INTENSITY
-            : wH * WAVE_INTENSITY;
+            ? w * WAVE_INTENSITY
+            : h * WAVE_INTENSITY;
 
         if (this._dockPos === 'BOTTOM' || this._dockPos === 'TOP') {
             const axisT = (this._dockPos === 'BOTTOM') ? (1 - v.ty) : v.ty;

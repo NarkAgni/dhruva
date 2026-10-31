@@ -51,6 +51,13 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
         return [24, 24];
     }
 
+    _meshScale(w, h) {
+        return [
+            w / Math.max(1, this._win.w),
+            h / Math.max(1, this._win.h)
+        ];
+    }
+
     vfunc_set_actor(actor) {
         super.vfunc_set_actor(actor);
         if (!actor || this._ready) return;

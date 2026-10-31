@@ -39,8 +39,7 @@ class OrigamiBase extends BaseDeformEffect {
         if (!this._ready || this.progress <= 0) return;
 
         const p = this.progress;
-        const wW = this._win.w;
-        const wH = this._win.h;
+        const [meshX, meshY] = this._meshScale(w, h);
         let tx = v.tx;
         let ty = v.ty;
 
@@ -73,11 +72,11 @@ class OrigamiBase extends BaseDeformEffect {
             }
         }
 
-        const curX = tx * wW;
-        const curY = ty * wH;
+        const curX = tx * w;
+        const curY = ty * h;
 
-        const paperCx = (0.5 - 0.125 * p) * wW;
-        const paperCy = (0.5 - 0.25 * p) * wH;
+        const paperCx = (0.5 - 0.125 * p) * w;
+        const paperCy = (0.5 - 0.25 * p) * h;
 
         const moveP = Math.pow(p, 3);
         const globalScale = 1.0 - moveP;
@@ -85,8 +84,8 @@ class OrigamiBase extends BaseDeformEffect {
         let finalX = paperCx + (curX - paperCx) * globalScale;
         let finalY = paperCy + (curY - paperCy) * globalScale;
 
-        const tgtX = this._tgt.x - this._win.x;
-        const tgtY = this._tgt.y - this._win.y;
+        const tgtX = (this._tgt.x - this._win.x) * meshX;
+        const tgtY = (this._tgt.y - this._win.y) * meshY;
 
         finalX += (tgtX - finalX) * moveP;
         finalY += (tgtY - finalY) * moveP;
