@@ -21,6 +21,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from '../../core/SettingsManager.js';
+import { isDynamicPanelLayout, isFullBarLayout, isPanelOrFullWidth } from '../../core/LayoutMode.js';
 import { isActorAlive, hexToRgba } from '../../core/Utils.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { calculateScale, calculatePivot, calculateBackgroundBounds } from './DockGeometryCalculator.js';
@@ -51,7 +52,7 @@ function _syncPanelSeparator(dockUI, isVertical, boxX, boxY, boxW, boxH) {
     const settings = dockUI.settings;
     const rightBox = dockUI.panelIntegrator ? dockUI.panelIntegrator.container : null;
     const thickness = settings.get_int('panel-separator-width');
-    const shouldShow = Settings.hybridPanelMode && Settings.dynamicPanel &&
+    const shouldShow = isDynamicPanelLayout() &&
         settings.get_boolean('show-panel-separator') && thickness > 0 &&
         isActorAlive(rightBox) && rightBox.visible && rightBox.get_children().some(_hasVisibleContent);
 
@@ -101,8 +102,8 @@ export function updateLayout(dockUI) {
     if (dockUI.actor._isDragging) dockUI._wasDragging = true;
 
     const isHybrid = Settings.hybridPanelMode;
-    const isDynamicPanel = isHybrid && Settings.dynamicPanel;
-    const isFullWidth = Settings.fullWidth || (isHybrid && !isDynamicPanel);
+    const isDynamicPanel = isDynamicPanelLayout();
+    const isFullWidth = isFullBarLayout();
     const pos = dockUI.dockPosition;
     const isVertical = pos === 'LEFT' || pos === 'RIGHT';
     const alignment = isHybrid ? 'CENTER' : (Settings.iconAlignment || 'CENTER');
@@ -286,11 +287,11 @@ export function updateLayout(dockUI) {
     let rightOffset = 0;
     let bottomOffset = 0;
 
-    const isFullBar = isFullWidth || isHybrid;
+    const isPanelOrFull = isPanelOrFullWidth();
     const showDesktopBtn = Settings.showDesktopButton;
     let desktopStartX = -1;
 
-    if (isFullBar && showDesktopBtn && dockUI.extractedDesktop && isActorAlive(dockUI.extractedDesktop)) {
+    if (isPanelOrFull && showDesktopBtn && dockUI.extractedDesktop && isActorAlive(dockUI.extractedDesktop)) {
         dockUI.extractedDesktop.show();
         dockUI.extractedDesktop.opacity = 255;
 

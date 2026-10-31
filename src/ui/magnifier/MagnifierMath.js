@@ -19,6 +19,7 @@
 
 import { isActorAlive } from '../../core/Utils.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isDynamicPanelLayout, isPanelOrFullWidth } from '../../core/LayoutMode.js';
 
 
 const CORRIDOR_BOX_PAD = 15;
@@ -109,7 +110,7 @@ export function isPointerOnPanelItems(dockActor, px, py) {
 
 export function isPointerInIconCorridor(dockActor, px, py, isVertical) {
     if (isPointerOnPanelItems(dockActor, px, py)) return false;
-    if (!(Settings.fullWidth || Settings.hybridPanelMode) || !isActorAlive(dockActor.boxActor)) return true;
+    if (!isPanelOrFullWidth() || !isActorAlive(dockActor.boxActor)) return true;
 
     const [boxStart, boxEnd] = axisSpan(dockActor.boxActor, isVertical);
     let start = boxStart - CORRIDOR_BOX_PAD;
@@ -136,7 +137,7 @@ export function syncPanelSidesToBackground(dockActor) {
     let startMove = 0;
     let endMove = 0;
 
-    if (Settings.dynamicPanel && isActorAlive(bg) && bg._baseW !== undefined) {
+    if (isDynamicPanelLayout() && isActorAlive(bg) && bg._baseW !== undefined) {
         const base = isVertical ? bg._baseY : bg._baseX;
         const baseSize = isVertical ? bg._baseH : bg._baseW;
         const pos = isVertical ? bg.y : bg.x;
@@ -210,11 +211,11 @@ export function getFixedSlots(dockActor, isVertical, btns) {
 }
 
 export function isPointerWithinDockBounds(dockActor, px, py, isVertical, settings) {
-    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
+    const isPanelOrFull = isPanelOrFullWidth();
 
     let boundsLeft, boundsRight, boundsTop, boundsBottom;
 
-    if (isFullBar && dockActor.boxActor && isActorAlive(dockActor.boxActor)) {
+    if (isPanelOrFull && dockActor.boxActor && isActorAlive(dockActor.boxActor)) {
         const [bx, by] = dockActor.boxActor.get_transformed_position();
         const [bw, bh] = dockActor.boxActor.get_transformed_size();
         const iconSize = Settings.iconSize || 48;

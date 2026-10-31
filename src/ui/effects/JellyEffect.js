@@ -39,11 +39,12 @@ class JellyBase extends BaseDeformEffect {
         if (!this._ready || this.progress <= 0) return;
 
         const p = this.progress;
-        const [meshX, meshY] = this._meshScale(w, h);
-        const cx = w / 2;
-        const cy = h / 2;
-        const vx = (v.tx * w) - cx;
-        const vy = (v.ty * h) - cy;
+        const wW = this._win.w;
+        const wH = this._win.h;
+        const cx = wW / 2;
+        const cy = wH / 2;
+        const vx = (v.tx * wW) - cx;
+        const vy = (v.ty * wH) - cy;
 
         const wobbleEnvelope = Math.sin(p * Math.PI);
         const freq = Math.PI * 8;
@@ -59,20 +60,18 @@ class JellyBase extends BaseDeformEffect {
         let dy = 0;
 
         if (this._dockPos === 'BOTTOM') {
-            dy = -Math.sin(v.ty * Math.PI) * h * bend;
+            dy = -Math.sin(v.ty * Math.PI) * wH * bend;
         } else if (this._dockPos === 'TOP') {
-            dy = Math.sin(v.ty * Math.PI) * h * bend;
+            dy = Math.sin(v.ty * Math.PI) * wH * bend;
         } else if (this._dockPos === 'LEFT') {
-            dx = Math.sin(v.tx * Math.PI) * w * bend;
+            dx = Math.sin(v.tx * Math.PI) * wW * bend;
         } else if (this._dockPos === 'RIGHT') {
-            dx = -Math.sin(v.tx * Math.PI) * w * bend;
+            dx = -Math.sin(v.tx * Math.PI) * wW * bend;
         }
 
         const moveP = p * p * (3 - 2 * p);
-        const targetX = (this._tgt.x - this._win.x) * meshX;
-        const targetY = (this._tgt.y - this._win.y) * meshY;
-        const currentCenterX = cx + (targetX - cx) * moveP;
-        const currentCenterY = cy + (targetY - cy) * moveP;
+        const currentCenterX = cx + ((this._tgt.x - this._win.x) - cx) * moveP;
+        const currentCenterY = cy + ((this._tgt.y - this._win.y) - cy) * moveP;
 
         v.x = currentCenterX + rx + dx;
         v.y = currentCenterY + ry + dy;

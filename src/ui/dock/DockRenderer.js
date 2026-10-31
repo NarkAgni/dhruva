@@ -25,6 +25,7 @@ import Shell from 'gi://Shell';
 import { MusicPill } from '../modules/MusicPill.js';
 import { updateLayout } from './DockLayoutEngine.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isDynamicPanelLayout, isPanelOrFullWidth } from '../../core/LayoutMode.js';
 import { buildModules } from '../modules/DockModules.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { applyDynamicStyles } from './DockThemeResolver.js';
@@ -182,19 +183,19 @@ function extractActorId(c) {
 }
 
 function _computeDesiredState(dockUI) {
-    const isFullWidth = Settings.fullWidth || Settings.hybridPanelMode;
+    const isPanelOrFull = isPanelOrFullWidth();
     const isVerticalDock = _isVerticalDock(dockUI);
     const showClock = Settings.showClock && !dockUI._isOverviewActive;
     const showGridBtn = Settings.showGridButton;
 
     const rawGridPos = Settings.gridButtonPosition || 'END';
-    const gridPos = (rawGridPos === 'LEFT_EDGE' && !isFullWidth) ? 'START' : rawGridPos;
+    const gridPos = (rawGridPos === 'LEFT_EDGE' && !isPanelOrFull) ? 'START' : rawGridPos;
 
     const rawClockPos = Settings.clockPosition || 'END';
-    const clockPos = (rawClockPos === 'RIGHT_END' && !isFullWidth) ? 'END' : rawClockPos;
+    const clockPos = (rawClockPos === 'RIGHT_END' && !isPanelOrFull) ? 'END' : rawClockPos;
 
-    const extractClock = isFullWidth && clockPos === 'RIGHT_END';
-    const extractGrid = isFullWidth && gridPos === 'LEFT_EDGE';
+    const extractClock = isPanelOrFull && clockPos === 'RIGHT_END';
+    const extractGrid = isPanelOrFull && gridPos === 'LEFT_EDGE';
 
     const showMusicPill = Settings.showMusicPill;
     const musicPillPos = Settings.musicPillPosition || 'START';
@@ -325,7 +326,7 @@ function _computeDesiredState(dockUI) {
     }
 
     const endModuleKeys = [];
-    if (Settings.showDesktopButton && !isFullWidth) {
+    if (Settings.showDesktopButton && !isPanelOrFull) {
         endModuleKeys.push({ key: 'dhruva-desktop-module', type: 'desktop', entity: null });
     }
 
@@ -429,7 +430,7 @@ function _measureFreeCorridor(dockUI, isVertical) {
     const cfg = HYBRID_PANEL_CONFIG;
     const leftBox = dockUI.panelIntegrator.leftContainer;
     const rightBox = dockUI.panelIntegrator.container;
-    const isDynamicPanel = Boolean(dockUI.settings && dockUI.settings.get_boolean('dynamic-panel'));
+    const isDynamicPanel = isDynamicPanelLayout();
 
     const gapStart = isDynamicPanel ? 16 : (isVertical ? cfg.DOCK_GAP_AFTER_LEFT_VERTICAL : cfg.DOCK_GAP_AFTER_LEFT);
     const gapEnd = isDynamicPanel ? 16 : (isVertical ? cfg.DOCK_GAP_BEFORE_RIGHT_VERTICAL : cfg.DOCK_GAP_BEFORE_RIGHT);
@@ -811,8 +812,8 @@ function _renderDockFull(dockUI, transition) {
     }
     dockUI.gridBtn = gridBtn;
 
-    const isFullBar = Settings.fullWidth || Settings.hybridPanelMode;
-    if (isFullBar && Settings.showDesktopButton && desktopModule) {
+    const isPanelOrFull = isPanelOrFullWidth();
+    if (isPanelOrFull && Settings.showDesktopButton && desktopModule) {
         dockUI.extractedDesktop = desktopModule;
         const currentParent = desktopModule.get_parent();
         if (currentParent && currentParent !== dockUI.actor) {
@@ -824,7 +825,7 @@ function _renderDockFull(dockUI, transition) {
         dockUI.actor.set_child_above_sibling(desktopModule, null);
         desktopModule.show();
         desktopModule.opacity = 255;
-    } else if (desktopModule && (!Settings.showDesktopButton || isFullBar) && isActorAlive(desktopModule)) {
+    } else if (desktopModule && (!Settings.showDesktopButton || isPanelOrFull) && isActorAlive(desktopModule)) {
         markActorDisposed(desktopModule);
         desktopModule.destroy();
     }

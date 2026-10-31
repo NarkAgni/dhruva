@@ -24,6 +24,7 @@ import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 
 import { isActorAlive } from '../core/Utils.js';
 import { Settings } from '../core/SettingsManager.js';
+import { isPanelOrFullWidth } from '../core/LayoutMode.js';
 import { resetMagnification } from './magnifier/MagnifierReset.js';
 import { getDockButtons, getFixedSlots } from './magnifier/MagnifierMath.js';
 import { startDragLoop, stopDragLoop } from './magnifier/MagnifierDragLoop.js';
@@ -288,7 +289,7 @@ class ExternalDrop {
         });
 
         const bg = this._dockUI.bgActor;
-        if (Settings.fullWidth || Settings.hybridPanelMode || !isActorAlive(bg) || this._bgSpread === half) return;
+        if (isPanelOrFullWidth() || !isActorAlive(bg) || this._bgSpread === half) return;
         this._bgSpread = half;
 
         const blur = this._dockUI._dockBlur;

@@ -22,7 +22,7 @@ import Clutter from 'gi://Clutter';
 
 import { isActorAlive } from '../../core/Utils.js';
 import { getDockButtons } from './MagnifierMath.js';
-import { Settings } from '../../core/SettingsManager.js';
+import { isFullBarLayout } from '../../core/LayoutMode.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { clearTooltipDelay, hideTooltip } from './MagnifierTooltip.js';
 
@@ -133,8 +133,7 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
         }
     }
 
-    const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
-    const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
+    const isFullBar = isFullBarLayout();
 
     if (isActorAlive(dockActor.bgActor) && !isFullBar) {
         dockActor.bgActor.remove_all_transitions();

@@ -23,6 +23,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { getCursorTracker, setUnredirectEnabled } from '../Compat.js';
 import { Settings } from '../SettingsManager.js';
 import { EdgeDetection } from './EdgeDetection.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
@@ -52,9 +53,7 @@ export default class AutoHideManager {
         this._isGrabPassThrough = false;
         this._isPointerCaptured = false;
         this._isUnredirectBlocked = false;
-        this._cursorTracker = global.backend.get_cursor_tracker
-            ? global.backend.get_cursor_tracker()
-            : Meta.CursorTracker.get_for_display(global.display);
+        this._cursorTracker = getCursorTracker();
 
         this._hideTimeoutId = 0;
         this._showTimeoutId = 0;
@@ -306,16 +305,7 @@ export default class AutoHideManager {
     _setUnredirectBlocked(blocked) {
         if (this._isUnredirectBlocked === blocked) return;
         this._isUnredirectBlocked = blocked;
-
-        const compositor = global.compositor;
-        if (compositor && compositor.disable_unredirect) {
-            if (blocked) compositor.disable_unredirect();
-            else compositor.enable_unredirect();
-        } else if (blocked) {
-            Meta.disable_unredirect_for_display(global.display);
-        } else {
-            Meta.enable_unredirect_for_display(global.display);
-        }
+        setUnredirectEnabled(!blocked);
     }
 
     _getFullscreenMode() {

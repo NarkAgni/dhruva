@@ -20,6 +20,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from './SettingsManager.js';
+import { isDynamicPanelLayout, isFullBarLayout } from './LayoutMode.js';
 
 
 const FALLBACK_PANEL_HEIGHT = 27;
@@ -64,8 +65,8 @@ export default class DockManager {
 
         const rawMargin = Math.max(0, Settings.dockMargin || 0);
         const pos = Settings.dockPosition;
-        const isDynamicPanel = isHybrid && Settings.dynamicPanel;
-        const isFullWidth = Settings.fullWidth || (isHybrid && !isDynamicPanel);
+        const isDynamicPanel = isDynamicPanelLayout();
+        const isFullWidth = isFullBarLayout();
         const isNeverHide = Settings.hideMode === 'none';
         const dynAlign = isDynamicPanel ? (Settings.dynamicPanelPosition || 'CENTER') : 'CENTER';
         const edgeGap = Math.max(8, rawMargin);

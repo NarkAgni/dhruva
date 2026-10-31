@@ -34,6 +34,7 @@ import { buildTrashModule } from './TrashModule.js';
 import { buildAppGridModule } from './AppGridModule.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isPanelOrFullWidth } from '../../core/LayoutMode.js';
 import { userCacheDir } from '../../core/DataPaths.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
@@ -394,7 +395,7 @@ export function buildModules(dockUI, iconSize) {
     }
 
     if (Settings.showDesktopButton) {
-        if (Settings.fullWidth || Settings.hybridPanelMode) {
+        if (isPanelOrFullWidth()) {
             desktopModule = buildDesktopButtonModule(dockUI);
         } else {
             desktopModule = createBtn('user-desktop', _('Show Desktop'), () => {

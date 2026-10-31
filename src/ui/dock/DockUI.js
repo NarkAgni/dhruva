@@ -32,6 +32,7 @@ import DockManager from '../../core/DockManager.js';
 import { updateLayout } from './DockLayoutEngine.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isFullBarLayout } from '../../core/LayoutMode.js';
 import { destroyExternalDrop } from '../ExternalDrop.js';
 import MonitorManager from '../../core/MonitorManager.js';
 import PanelIntegrator from '../../core/PanelIntegrator.js';
@@ -236,21 +237,20 @@ export default class DockUI {
             }
         }
 
-        const isDynamicPanel = Settings.hybridPanelMode && Boolean(this.settings && this.settings.get_boolean('dynamic-panel'));
-        const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
-        const dockRadius = isFullBar ? 0 : Settings.borderRadius;
-        this._dockBlur = new BlurPanel(this.bgActor, this.settings, dockRadius, this.actor);
+        this._dockBlur = new BlurPanel(this.bgActor, this.settings, this._getDockCornerRadius(), this.actor);
 
         this._syncBlurGeometry = () => {
             if (this._dockBlur) {
-                const dynNow = Settings.hybridPanelMode && Boolean(this.settings && this.settings.get_boolean('dynamic-panel'));
-                const fullBarNow = Settings.fullWidth || (Settings.hybridPanelMode && !dynNow);
-                this._dockBlur.setCornerRadius(fullBarNow ? 0 : Settings.borderRadius);
+                this._dockBlur.setCornerRadius(this._getDockCornerRadius());
                 this._dockBlur.syncGeometry();
             }
         };
 
         ScrollManager.setupDockScroll(this.actor);
+    }
+
+    _getDockCornerRadius() {
+        return isFullBarLayout() ? 0 : Settings.borderRadius;
     }
 
     _connectSignals() {

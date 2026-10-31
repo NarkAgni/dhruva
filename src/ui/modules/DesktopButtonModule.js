@@ -22,6 +22,7 @@ import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
 
 import { hexToRgba } from '../../core/Utils.js';
+import { isFullBarLayout } from '../../core/LayoutMode.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { fadeMinimize, fadeRestore } from '../effects/WindowEffects.js';
 
@@ -109,9 +110,7 @@ function _computeDesktopButtonStyle(dockUI, stateMode = 'default') {
     const colorHex = dockUI.settings.get_string('desktop-btn-color') || '#ffffff';
     const opacity = dockUI.settings.get_int('desktop-btn-opacity');
 
-    const isHybrid = dockUI.settings.get_boolean('hybrid-panel-mode');
-    const isDynamic = isHybrid && dockUI.settings.get_boolean('dynamic-panel');
-    const isFullWidth = dockUI.settings.get_boolean('full-width') || (isHybrid && !isDynamic);
+    const isFullWidth = isFullBarLayout();
 
     const rawRadius = isFullWidth ? 0 : dockUI.settings.get_int('border-radius');
     const sWidth = (!isFullWidth && !dockUI.settings.get_boolean('blur-enabled'))

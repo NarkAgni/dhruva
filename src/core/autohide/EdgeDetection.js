@@ -25,6 +25,8 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 
 import { isActorAlive } from '../Utils.js';
+import { hasPointerBarriers } from '../Compat.js';
+import { isFullBarLayout } from '../LayoutMode.js';
 import { Settings } from '../SettingsManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 
@@ -33,10 +35,6 @@ const TRIGGER_DEPTH_PX = 4;
 const DEFAULT_BARRIER_DWELL_MS = 150;
 const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
 const MIN_MEASURED_SIZE_PX = 20;
-
-function isFullBarLayout() {
-    return Settings.fullWidth || (Settings.hybridPanelMode && !Settings.dynamicPanel);
-}
 
 function isHorizontalEdge(pos) {
     return pos === 'BOTTOM' || pos === 'TOP';
@@ -65,11 +63,7 @@ export class EdgeDetection {
         this._isPassThrough = false;
         this._isActive = true;
         this._lastBarrierKey = '';
-        this._hasBarrierSupport = Boolean(
-            global.backend &&
-            Meta.BackendCapabilities &&
-            (global.backend.capabilities & Meta.BackendCapabilities.BARRIERS) !== 0
-        );
+        this._hasBarrierSupport = hasPointerBarriers();
 
         this._createTrigger();
         this._setupBarriers();

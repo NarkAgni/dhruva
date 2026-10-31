@@ -20,6 +20,7 @@
 import Gio from 'gi://Gio';
 
 import { Settings } from '../../core/SettingsManager.js';
+import { isFullBarLayout } from '../../core/LayoutMode.js';
 import { hexToRgba, isActorAlive } from '../../core/Utils.js';
 import { DockThemes, applyDockTheme, extractWallpaperDominantColor, getChameleonAccentColor } from '../Themes.js';
 
@@ -107,9 +108,7 @@ export function resolvePopupBubbleColors(dockUI) {
 export function applyDynamicStyles(dockUI) {
     if (!isActorAlive(dockUI.actor) || !dockUI.actor.is_mapped()) return;
 
-    const isHybrid = Settings.hybridPanelMode;
-    const isDynamicPanel = isHybrid && Boolean(dockUI.settings && dockUI.settings.get_boolean('dynamic-panel'));
-    const isFullWidth = (dockUI.settings ? dockUI.settings.get_boolean('full-width') : false) || (isHybrid && !isDynamicPanel);
+    const isFullWidth = isFullBarLayout();
     const radius = isFullWidth ? 0 : (dockUI.settings ? dockUI.settings.get_int('border-radius') : 20);
     const isBlurEnabled = dockUI.settings ? dockUI.settings.get_boolean('blur-enabled') : false;
 

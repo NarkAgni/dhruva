@@ -25,6 +25,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { isActorAlive } from '../../core/Utils.js';
 import PeekManager from '../../core/PeekManager.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isDynamicPanelLayout, isFullBarLayout } from '../../core/LayoutMode.js';
 import { FrameTicker } from '../../core/FrameTicker.js';
 import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
@@ -612,8 +613,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         rightExp += gapSpread;
     }
 
-    const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
-    const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
+    const isDynamicPanel = isDynamicPanelLayout();
+    const isFullBar = isFullBarLayout();
     const origin = isVertical ? dy : dx;
 
     let clusterBoundaryShift = 0;

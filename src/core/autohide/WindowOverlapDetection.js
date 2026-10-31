@@ -20,6 +20,7 @@
 import Meta from 'gi://Meta';
 
 import { isActorAlive } from '../Utils.js';
+import { isWindowHidden } from '../Compat.js';
 
 
 const DEFAULT_INTERSECT_TOLERANCE = 16;
@@ -42,7 +43,7 @@ export function getVisibleMonitorWindows(dockUI) {
 
     return global.display.get_tab_list(Meta.TabList.NORMAL, activeWs).filter(win =>
         !win.minimized &&
-        !(win.is_hidden && win.is_hidden()) &&
+        !isWindowHidden(win) &&
         win.get_monitor() === monitorIndex
     );
 }

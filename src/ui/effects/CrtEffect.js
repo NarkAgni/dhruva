@@ -39,11 +39,12 @@ class CRTBase extends BaseDeformEffect {
         if (!this._ready || this.progress <= 0) return;
 
         const p = this.progress;
-        const [meshX, meshY] = this._meshScale(w, h);
-        const cx = w / 2;
-        const cy = h / 2;
-        const vx = (v.tx * w) - cx;
-        const vy = (v.ty * h) - cy;
+        const wW = this._win.w;
+        const wH = this._win.h;
+        const cx = wW / 2;
+        const cy = wH / 2;
+        const vx = (v.tx * wW) - cx;
+        const vy = (v.ty * wH) - cy;
 
         let scaleX = 1.0;
         let scaleY = 1.0;
@@ -62,10 +63,8 @@ class CRTBase extends BaseDeformEffect {
 
         const rx = vx * scaleX;
         const ry = vy * scaleY;
-        const targetX = (this._tgt.x - this._win.x) * meshX;
-        const targetY = (this._tgt.y - this._win.y) * meshY;
-        const currentCenterX = cx + (targetX - cx) * moveP;
-        const currentCenterY = cy + (targetY - cy) * moveP;
+        const currentCenterX = cx + ((this._tgt.x - this._win.x) - cx) * moveP;
+        const currentCenterY = cy + ((this._tgt.y - this._win.y) - cy) * moveP;
 
         v.x = currentCenterX + rx;
         v.y = currentCenterY + ry;

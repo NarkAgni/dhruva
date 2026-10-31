@@ -896,7 +896,7 @@
     </key>
 
     <key name="window-effect-speed" type="i">
-      <default>450</default>
+      <default>550</default>
       <summary>Window Effect Animation Speed</summary>
       <description>Duration in milliseconds for window minimize and restore effects.</description>
     </key>
