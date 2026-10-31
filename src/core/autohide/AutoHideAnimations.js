@@ -25,10 +25,11 @@ import { Settings } from '../SettingsManager.js';
 
 const HIDE_OFFSET_BUFFER = 20;
 const DEFAULT_ANIM_DURATION_MS = 250;
+const MIN_ANIM_DURATION_MS = 50;
 
 function getAnimDuration() {
     const val = Settings.autohideAnimationSpeed;
-    return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_ANIM_DURATION_MS;
+    return Number.isFinite(val) && val >= MIN_ANIM_DURATION_MS ? val : DEFAULT_ANIM_DURATION_MS;
 }
 
 function nextSerial(dockUI) {
@@ -36,29 +37,38 @@ function nextSerial(dockUI) {
     return dockUI._autohideSerial;
 }
 
+function easeDock(dockUI, props, mode, onStopped) {
+    dockUI.actor.remove_all_transitions();
+    dockUI.actor.ease({
+        ...props,
+        duration: getAnimDuration(),
+        mode,
+        onStopped,
+    });
+}
+
 export function getHideOffsets(dockUI, peek = 0) {
-    if (dockUI._isWindowGrabbed || (dockUI._isOnSharedMonitorEdge && dockUI._isOnSharedMonitorEdge())) {
+    if (dockUI._isWindowGrabbed || dockUI._isOnSharedMonitorEdge()) {
         return { hideX: 0, hideY: 0 };
     }
 
-    const pos = dockUI.dockPosition;
-    let hideX = 0;
-    let hideY = 0;
-
     const margin = Settings.dockMargin;
-    const totalExtra = peek > 0 ? margin - peek : margin + HIDE_OFFSET_BUFFER;
+    const extra = peek > 0 ? margin - peek : margin + HIDE_OFFSET_BUFFER;
+    const width = dockUI.actor.width + extra;
+    const height = dockUI.actor.height + extra;
 
-    if (pos === 'BOTTOM') {
-        hideY = dockUI.actor.height + totalExtra;
-    } else if (pos === 'TOP') {
-        hideY = -(dockUI.actor.height + totalExtra);
-    } else if (pos === 'LEFT') {
-        hideX = -(dockUI.actor.width + totalExtra);
-    } else if (pos === 'RIGHT') {
-        hideX = dockUI.actor.width + totalExtra;
+    switch (dockUI.dockPosition) {
+    case 'BOTTOM':
+        return { hideX: 0, hideY: height };
+    case 'TOP':
+        return { hideX: 0, hideY: -height };
+    case 'LEFT':
+        return { hideX: -width, hideY: 0 };
+    case 'RIGHT':
+        return { hideX: width, hideY: 0 };
+    default:
+        return { hideX: 0, hideY: 0 };
     }
-
-    return { hideX, hideY };
 }
 
 export function animateShow(dockUI, onComplete) {
@@ -66,22 +76,15 @@ export function animateShow(dockUI, onComplete) {
 
     const serial = nextSerial(dockUI);
     dockUI.actor._isAutohiding = false;
-    dockUI.actor.remove_all_transitions();
     dockUI.actor.show();
-    dockUI.actor.ease({
-        translation_x: 0,
-        translation_y: 0,
-        opacity: 255,
-        duration: getAnimDuration(),
-        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onStopped: isFinished => {
-            if (dockUI._autohideSerial !== serial) return;
-            if (isFinished && dockUI._dockBlur) {
-                dockUI._dockBlur.syncGeometry();
-                dockUI._dockBlur.queueCapture(true);
-            }
-            if (onComplete) onComplete();
-        },
+
+    easeDock(dockUI, { translation_x: 0, translation_y: 0, opacity: 255 }, Clutter.AnimationMode.EASE_OUT_QUAD, isFinished => {
+        if (dockUI._autohideSerial !== serial) return;
+        if (isFinished) {
+            dockUI._dockBlur.syncGeometry();
+            dockUI._dockBlur.queueCapture(true);
+        }
+        onComplete();
     });
 }
 
@@ -90,22 +93,11 @@ export function animateHide(dockUI, onComplete, peek = 0) {
 
     const serial = nextSerial(dockUI);
     const { hideX, hideY } = getHideOffsets(dockUI, peek);
-    const targetOpacity = peek > 0 ? 255 : 0;
 
     dockUI.actor._isAutohiding = true;
-    if (dockUI._dockBlur) {
-        dockUI._dockBlur._hideBlur();
-    }
+    dockUI._dockBlur._hideBlur();
 
-    dockUI.actor.remove_all_transitions();
-    dockUI.actor.ease({
-        translation_x: hideX,
-        translation_y: hideY,
-        opacity: targetOpacity,
-        duration: getAnimDuration(),
-        mode: Clutter.AnimationMode.EASE_IN_QUAD,
-        onStopped: () => {
-            if (dockUI._autohideSerial === serial && onComplete) onComplete();
-        },
+    easeDock(dockUI, { translation_x: hideX, translation_y: hideY, opacity: peek > 0 ? 255 : 0 }, Clutter.AnimationMode.EASE_IN_QUAD, () => {
+        if (dockUI._autohideSerial === serial) onComplete();
     });
 }

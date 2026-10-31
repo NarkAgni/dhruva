@@ -176,7 +176,9 @@ export const KaraokeLyricsWidget = GObject.registerClass({
     _onMarqueeFrame() {
         const elapsed = this._marqueeTimeline.get_elapsed_time();
         const progress = Math.min(1.0, Math.max(0, elapsed - INITIAL_HEAD_PAUSE_MS) / this._marqueeDuration);
-        this._marqueeOffset = -Math.round(this._marqueeOverflow * progress);
+        const offset = -Math.round(this._marqueeOverflow * progress);
+        if (offset === this._marqueeOffset) return;
+        this._marqueeOffset = offset;
         this.queue_repaint();
     }
 

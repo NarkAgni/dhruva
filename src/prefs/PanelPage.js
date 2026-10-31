@@ -38,6 +38,7 @@ const ITEM_GAP = 16;
 const DYN_PAD = 12;
 const DATE_FORMAT_KEY = 'panel-date-format';
 const DEFAULT_DATE_FORMAT = '%d/%m/%Y';
+const WEB_SEARCH_URL_KEY = 'start-menu-web-search-url';
 
 const DATE_FORMATS = () => [
     { name: _('System Default'), value: '%x' },
@@ -312,6 +313,26 @@ function addDateFormatRow(group, settings) {
     return row;
 }
 
+function addWebSearchUrlRow(group, settings) {
+    const row = new Adw.EntryRow({
+        title: _('Web Search Address (%s is the search text)'),
+        show_apply_button: true,
+        text: settings.get_string(WEB_SEARCH_URL_KEY),
+    });
+    row.connect('apply', () => {
+        const value = row.get_text().trim();
+        if (value) settings.set_string(WEB_SEARCH_URL_KEY, value);
+        else settings.reset(WEB_SEARCH_URL_KEY);
+        row.set_text(settings.get_string(WEB_SEARCH_URL_KEY));
+    });
+    onSettingChanged(settings, WEB_SEARCH_URL_KEY, () => {
+        const value = settings.get_string(WEB_SEARCH_URL_KEY);
+        if (row.get_text() !== value) row.set_text(value);
+    });
+    group.add(row);
+    return row;
+}
+
 function addClockSwitch(group, clockSettings, key, title, subtitle = '') {
     const row = new Adw.SwitchRow({ title, subtitle: subtitle ?? '' });
     clockSettings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
@@ -390,9 +411,24 @@ export function buildPanelPage(window, settings) {
     const startGroup = addGroup(page, _('App Grid Button'), _('What the App Grid button opens in Panel mode'));
     addSwitchRow(startGroup, settings, 'start-menu', _('Dhruva Start Menu'),
         _('Pinned apps, recent apps and files, search, Lock and Power. Turn off to open GNOME’s app grid instead'));
+    const isStartMenu = () => settings.get_boolean('start-menu');
+    const recentAppsRow = addSwitchRow(startGroup, settings, 'start-menu-recent-apps', _('Recent Apps'),
+        _('Show the apps you use most under Pinned'));
+    const continueRow = addSwitchRow(startGroup, settings, 'start-menu-continue', _('Continue Where You Left Off'),
+        _('Show the files you opened recently'));
     const recentRow = addSliderRow(startGroup, settings, 'start-menu-recent-files', _('Recent Files'),
         _('How many files Continue where you left off shows'), { lower: 1, upper: 50, step: 1 }, value => `${Math.round(value)}`);
-    showWhen(recentRow, settings, ['start-menu'], () => settings.get_boolean('start-menu'));
+    const providersRow = addSwitchRow(startGroup, settings, 'start-menu-search-providers', _('Search Providers'),
+        _('Results from apps like Characters, Calendar and Calculator'));
+    const webRow = addSwitchRow(startGroup, settings, 'start-menu-web-search', _('Web Search'),
+        _('Offer to search the web for what you type'));
+    const webUrlRow = addWebSearchUrlRow(startGroup, settings);
+    showWhen(recentAppsRow, settings, ['start-menu'], isStartMenu);
+    showWhen(continueRow, settings, ['start-menu'], isStartMenu);
+    showWhen(recentRow, settings, ['start-menu', 'start-menu-continue'], () => isStartMenu() && settings.get_boolean('start-menu-continue'));
+    showWhen(providersRow, settings, ['start-menu'], isStartMenu);
+    showWhen(webRow, settings, ['start-menu'], isStartMenu);
+    showWhen(webUrlRow, settings, ['start-menu', 'start-menu-web-search'], () => isStartMenu() && settings.get_boolean('start-menu-web-search'));
     showWhen(startGroup, settings, ['hybrid-panel-mode'], isPanel);
 
     const clockGroup = addGroup(page, _('Clock'), _('These are GNOME’s own clock settings, so the lock screen follows too'));

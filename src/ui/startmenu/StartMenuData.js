@@ -20,6 +20,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
+import * as RemoteSearch from 'resource:///org/gnome/shell/ui/remoteSearch.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 
@@ -34,7 +35,7 @@ const START_FOLDER_PREFIX = 'smfolder:';
 const FOLDERS_KEY = 'start-menu-folders';
 const RECENT_COUNT_KEY = 'start-menu-recent-files';
 const RECENT_FILES_LIMIT = 60;
-const SEARCH_LIMIT = 8;
+const SEARCH_LIMIT = 20;
 const INDEX_LIMIT = 20000;
 const INDEX_DEPTH = 8;
 const TRACKER_LIMIT = 40;
@@ -55,9 +56,27 @@ const RECENCY_BONUS = [[1, 100], [7, 70], [14, 50], [30, 30], [90, 10]];
 const INDEX_BATCH = 200;
 const INDEX_TTL_US = 10 * 60 * 1000000;
 const SETTINGS_PANEL_KEY = 'X-GNOME-Settings-Panel';
-const FILE_ATTRIBUTES = 'standard::name,standard::display-name,standard::content-type,standard::icon,standard::type,thumbnail::path,time::modified,time::access';
+const FILE_ATTRIBUTES = 'standard::name,standard::display-name,standard::content-type,standard::icon,standard::type,standard::is-symlink,thumbnail::path,time::modified,time::access';
 const SKIPPED_DIRS = ['node_modules', '__pycache__', 'snap', 'venv', 'build', 'dist', 'target'];
 const XML_ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&apos;': '\'' };
+const SEARCH_PROVIDERS_SCHEMA = 'org.gnome.desktop.search-providers';
+const SKIPPED_PROVIDERS = ['org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop'];
+const REMOTE_LIMIT = 10;
+const WEB_SEARCH_URL_KEY = 'start-menu-web-search-url';
+const SEARCH_ENGINES = [
+    ['duckduckgo.', 'DuckDuckGo'],
+    ['google.', 'Google'],
+    ['bing.', 'Bing'],
+    ['search.brave.', 'Brave Search'],
+    ['startpage.', 'Startpage'],
+    ['ecosia.', 'Ecosia'],
+    ['yahoo.', 'Yahoo'],
+    ['yandex.', 'Yandex'],
+    ['qwant.', 'Qwant'],
+];
+const LOGIN_BUS = 'org.freedesktop.login1';
+const LOGIN_PATH = '/org/freedesktop/login1';
+const LOGIN_IFACE = 'org.freedesktop.login1.Manager';
 
 
 function attribute(attrs, name) {
@@ -151,6 +170,35 @@ export class StartMenuData {
         this._settingsPanels = null;
         this._trackerPromise = null;
         this._trackerStatement = null;
+        this._recentPromise = null;
+        this._isRecentDirty = true;
+        this._providers = null;
+        this.canHibernate = false;
+
+        this._recentFile = Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_data_dir(), 'recently-used.xbel']));
+        this._recentMonitor = this._recentFile.monitor_file(Gio.FileMonitorFlags.NONE, null);
+        this._recentMonitor.connectObject('changed', () => {
+            this._isRecentDirty = true;
+        }, this);
+
+        this._checkHibernate();
+    }
+
+    _checkHibernate() {
+        Gio.DBus.system.call(LOGIN_BUS, LOGIN_PATH, LOGIN_IFACE, 'CanHibernate', null, new GLib.VariantType('(s)'),
+            Gio.DBusCallFlags.NONE, -1, this._cancellable, (connection, res) => {
+                try {
+                    const [answer] = connection.call_finish(res).deepUnpack();
+                    this.canHibernate = answer === 'yes';
+                } catch (_e) {
+                    this.canHibernate = false;
+                }
+            });
+    }
+
+    hibernate() {
+        Gio.DBus.system.call(LOGIN_BUS, LOGIN_PATH, LOGIN_IFACE, 'Hibernate', new GLib.Variant('(b)', [true]), null,
+            Gio.DBusCallFlags.NONE, -1, null, null);
     }
 
     get recentFiles() {
@@ -160,17 +208,27 @@ export class StartMenuData {
     async _describe(file, time) {
         try {
             const info = await file.query_info_async(FILE_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, this._cancellable);
-            return entryFromInfo(file, info, time);
+            return info.get_file_type() === Gio.FileType.SYMBOLIC_LINK ? null : entryFromInfo(file, info, time);
         } catch (_e) {
             return null;
         }
     }
 
-    async loadRecentFiles() {
-        const file = Gio.File.new_for_path(GLib.build_filenamev([GLib.get_user_data_dir(), 'recently-used.xbel']));
+    loadRecentFiles() {
+        if (this._recentPromise) return this._recentPromise;
+        if (!this._isRecentDirty) return Promise.resolve(this._recentFiles);
+
+        this._isRecentDirty = false;
+        this._recentPromise = this._readRecentFiles().finally(() => {
+            this._recentPromise = null;
+        });
+        return this._recentPromise;
+    }
+
+    async _readRecentFiles() {
         let contents;
         try {
-            [contents] = await file.load_contents_async(this._cancellable);
+            [contents] = await this._recentFile.load_contents_async(this._cancellable);
         } catch (_e) {
             return this._recentFiles;
         }
@@ -199,7 +257,7 @@ export class StartMenuData {
     async _scan(dir, depth, out) {
         let enumerator;
         try {
-            enumerator = await dir.enumerate_children_async(FILE_ATTRIBUTES, Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, GLib.PRIORITY_LOW, this._cancellable);
+            enumerator = await dir.enumerate_children_async(FILE_ATTRIBUTES, Gio.FileQueryInfoFlags.NONE, GLib.PRIORITY_LOW, this._cancellable);
         } catch (_e) {
             return;
         }
@@ -217,10 +275,11 @@ export class StartMenuData {
             for (const info of infos) {
                 const name = info.get_name();
                 if (name.startsWith('.') || SKIPPED_DIRS.includes(name)) continue;
+                if (info.get_file_type() === Gio.FileType.SYMBOLIC_LINK) continue;
                 const child = dir.get_child(name);
                 const entry = entryFromInfo(child, info, 0);
                 out.push(entry);
-                if (entry.isDirectory && depth > 0) subdirs.push(child);
+                if (entry.isDirectory && depth > 0 && !info.get_is_symlink()) subdirs.push(child);
             }
         }
         enumerator.close_async(GLib.PRIORITY_LOW, null, () => { });
@@ -311,6 +370,58 @@ export class StartMenuData {
             .map(id => this._appSystem.lookup_app(id))
             .filter(app => app && app.get_app_info().should_show())
             .slice(0, SEARCH_LIMIT);
+    }
+
+    remoteProviders() {
+        if (!this._providers) {
+            try {
+                this._providers = RemoteSearch.loadRemoteSearchProviders(new Gio.Settings({ schema_id: SEARCH_PROVIDERS_SCHEMA }))
+                    .filter(provider => !SKIPPED_PROVIDERS.includes(provider.appInfo.get_id()));
+            } catch (e) {
+                console.error('[Dhruva] Could not load search providers:', e.message);
+                this._providers = [];
+            }
+        }
+        return this._providers;
+    }
+
+    async _searchProvider(provider, terms, cancellable) {
+        try {
+            const ids = await provider.getInitialResultSet(terms, cancellable);
+            if (ids.length === 0) return null;
+            const metas = await provider.getResultMetas(ids.slice(0, REMOTE_LIMIT), cancellable);
+            return metas.length > 0 ? { provider, metas } : null;
+        } catch (_e) {
+            return null;
+        }
+    }
+
+    async searchRemote(terms, skippedIds, cancellable) {
+        const providers = this.remoteProviders().filter(provider => !skippedIds.includes(provider.appInfo.get_id()));
+        const groups = await Promise.all(providers.map(provider => this._searchProvider(provider, terms, cancellable)));
+        return groups.filter(Boolean);
+    }
+
+    webSearchEngine() {
+        let host = '';
+        try {
+            host = GLib.Uri.parse(this._settings.get_string(WEB_SEARCH_URL_KEY).replace('%s', ''), GLib.UriFlags.NONE).get_host() || '';
+        } catch (_e) {
+            return null;
+        }
+        const name = host.replace(/^www\./, '');
+        const known = SEARCH_ENGINES.find(([prefix]) => name.startsWith(prefix));
+        return known ? known[1] : name || null;
+    }
+
+    webBrowser() {
+        return Gio.AppInfo.get_default_for_uri_scheme('https');
+    }
+
+    webSearchUri(query) {
+        const template = this._settings.get_string(WEB_SEARCH_URL_KEY);
+        const encoded = encodeURIComponent(query);
+        return template.includes('%s') ? template.replace('%s', encoded) : `${template}${encoded}`;
     }
 
     _loadSettingsPanels() {
@@ -474,6 +585,9 @@ export class StartMenuData {
     }
 
     destroy() {
+        this._recentMonitor.disconnectObject(this);
+        this._recentMonitor.cancel();
+        this._recentMonitor = null;
         this._cancellable.cancel();
         this._recentFiles = [];
         this._indexedFiles = [];
@@ -481,5 +595,6 @@ export class StartMenuData {
         this._settingsPanels = null;
         this._trackerPromise = null;
         this._trackerStatement = null;
+        this._providers = null;
     }
 }

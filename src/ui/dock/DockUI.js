@@ -47,7 +47,7 @@ import { requestAttention, cancelDockTransitions } from './DockTransitions.js';
 import { applyOverviewDockMargin, clearOverviewDockMargin } from './OverviewMargin.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
 import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
-import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer } from './DockRenderer.js';
+import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer, isDockLayoutUnchanged } from './DockRenderer.js';
 
 
 const RENDER_DEBOUNCE_MS = 5;
@@ -271,7 +271,17 @@ export default class DockUI {
             }
         }, this);
 
-        const handleEmptySpaceClick = () => {
+        const isOnMenuButton = (event, menu) => {
+            if (!menu || !isActorAlive(menu.buttonActor)) return false;
+            const target = global.stage.get_event_actor(event);
+            return Boolean(target) && menu.buttonActor.contains(target);
+        };
+
+        const handleEmptySpaceClick = (_actor, event) => {
+            if (isOnMenuButton(event, this._activeContextMenu) || isOnMenuButton(event, this._activeFolderMenu)) {
+                return Clutter.EVENT_PROPAGATE;
+            }
+
             let menuClosed = false;
 
             if (this._activeContextMenu) {
@@ -310,18 +320,18 @@ export default class DockUI {
         }, this);
 
         this.appManager.appSystem.connectObject('installed-changed', () => this.queueRender('incremental'), this);
-        this.appManager.appSystem.connectObject('app-state-changed', () => this.queueRender('incremental'), this);
+        this.appManager.appSystem.connectObject('app-state-changed', () => this._refreshForWindows(false), this);
 
         global.window_manager.connectObject('destroy', () => {
             if (this.actor) this.actor._lastIconClickTime = 0;
-            this.queueRender('incremental', true);
+            this._refreshForWindows(true);
             if (this._wmDestroyRenderId) {
                 this.registry.remove(this._wmDestroyRenderId);
                 this._wmDestroyRenderId = 0;
             }
             this._wmDestroyRenderId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
                 this._wmDestroyRenderId = 0;
-                this.queueRender('incremental', true);
+                this._refreshForWindows(true);
                 return GLib.SOURCE_REMOVE;
             });
         }, this);
@@ -364,14 +374,14 @@ export default class DockUI {
                 this.actor._tooltipHoveredIndex = -1;
                 this.actor._magTooltipAppId = null;
             }
-            this.queueRender('incremental', true);
+            this._refreshForWindows(true);
             if (this._wmMapRenderId) {
                 this.registry.remove(this._wmMapRenderId);
                 this._wmMapRenderId = 0;
             }
             this._wmMapRenderId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
                 this._wmMapRenderId = 0;
-                this.queueRender('incremental', true);
+                this._refreshForWindows(true);
                 return GLib.SOURCE_REMOVE;
             });
 
@@ -438,7 +448,7 @@ export default class DockUI {
 
             if (Settings.hybridPanelMode && this._overflowKeys && (!this._overflowMenu || !this._overflowMenu._isOpen)) {
                 const focusWin = global.display.get_focus_window();
-                if (focusWin) this.queueRender('incremental', true);
+                if (focusWin) this._refreshForWindows(true);
             }
         }, this);
 
@@ -578,6 +588,15 @@ export default class DockUI {
             }
             return GLib.SOURCE_REMOVE;
         });
+    }
+
+    _refreshForWindows(force) {
+        if (this._initialLayoutDone && !this._isRendering && isActorAlive(this.actor) && isDockLayoutUnchanged(this)) {
+            this.actor._magTooltipAppId = null;
+            this._updateRunningStatesFast();
+            return;
+        }
+        this.queueRender('incremental', force);
     }
 
     _updateRunningStatesFast() {

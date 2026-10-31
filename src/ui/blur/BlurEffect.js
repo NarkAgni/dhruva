@@ -214,6 +214,8 @@ class BlurEffect extends BlurShaderBase {
     }
 
     updateDimensions(cw, ch, mw, mh, mx = 0, my = 0) {
+        if (this._cw === cw && this._ch === ch && this._mw === mw && this._mh === mh && this._mx === mx && this._my === my) return;
+
         this._cw = cw;
         this._ch = ch;
         this._mw = mw;

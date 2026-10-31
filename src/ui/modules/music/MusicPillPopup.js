@@ -28,6 +28,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { BlurEffect } from '../../blur/BlurEffect.js';
 import { PopupLyricsWidget } from './PopupLyricsWidget.js';
+import { FrameTicker } from '../../../core/FrameTicker.js';
 import { TimeoutTracker } from '../../../core/TimeoutTracker.js';
 import { extractColorsFromPixbuf } from './MusicColorExtractor.js';
 import { isActorAlive, setBoxVertical } from '../../../core/Utils.js';
@@ -37,6 +38,8 @@ let POPUP_ART_BLUR_INTENSITY = 4.0;
 
 const WAVE_AMPLITUDE = 3.5;
 const WAVE_FREQUENCY = 0.08;
+const WAVE_PHASE_PER_MS = 0.04 / 33;
+const STATE_SYNC_MS = 100;
 const SLIDER_HEIGHT = 26;
 const POPUP_GAP_PX = 20;
 const INACTIVE_ICON_OPACITY = 150;
@@ -54,6 +57,10 @@ const META_FADE_MS = 180;
 function formatOffset(ms) {
     if (ms === 0) return '0.0s';
     return `${ms > 0 ? '+' : '−'}${(Math.abs(ms) / 1000).toFixed(1)}s`;
+}
+
+function setLabelText(label, text) {
+    if (label.text !== text) label.text = text;
 }
 
 function formatTime(seconds) {
@@ -91,6 +98,7 @@ export class MusicPillPopup {
         this._lyricsVersion = -1;
 
         this._buildUI();
+        this._waveTicker = new FrameTicker(this._sliderCanvas, () => this._onWaveFrame());
         this._rebuildPlayers();
         this._service.connectObject('players-changed', () => this._rebuildPlayers(), this);
     }
@@ -511,7 +519,7 @@ export class MusicPillPopup {
         }
 
         this._offsetRow.visible = isSynced;
-        this._offsetLabel.text = formatOffset(this._pill.lyricsOffsetMs);
+        setLabelText(this._offsetLabel, formatOffset(this._pill.lyricsOffsetMs));
         this._lyricsWidget.setActiveIndex(this._pill.currentLyricIndex);
     }
 
@@ -722,9 +730,9 @@ export class MusicPillPopup {
 
         const isPlaying = this._pill._isPlaying;
 
-        this._titleLabel.text = this._pill._titleLabel.text;
-        this._artistLabel.text = this._pill._artistLabel.text;
-        this._albumLabel.text = this._service.album;
+        setLabelText(this._titleLabel, this._pill._titleLabel.text);
+        setLabelText(this._artistLabel, this._pill._artistLabel.text);
+        setLabelText(this._albumLabel, this._service.album || '');
         this._albumLabel.visible = Boolean(this._service.album);
         this._syncToolButtons();
         this._syncLyricsView();
@@ -760,20 +768,36 @@ export class MusicPillPopup {
         }
 
         if (!this._isDragging) {
-            const nowMono = GLib.get_monotonic_time() / 1000;
-            const elapsed = isPlaying ? Math.max(0, nowMono - this._pill._lastPositionTimeMs) : 0;
-            this._positionSec = (this._pill._lastBasePositionMs + elapsed) / 1000;
+            this._syncPosition(GLib.get_monotonic_time() / 1000, isPlaying);
+            setLabelText(this._timeElapsedLabel, formatTime(this._positionSec));
+            setLabelText(this._timeTotalLabel, this._pill.hasDuration ? formatTime(this._durationSec) : '--:--');
 
-            this._timeElapsedLabel.text = formatTime(this._positionSec);
-            this._timeTotalLabel.text = this._pill.hasDuration ? formatTime(this._durationSec) : '--:--';
-
-            if (isPlaying) {
-                this._phase += 0.04;
-            }
             if (isActorAlive(this._sliderCanvas)) {
-                this._sliderCanvas.queue_repaint();
+                if (isPlaying) this._waveTicker.start();
+                else this._sliderCanvas.queue_repaint();
             }
         }
+    }
+
+    _syncPosition(nowMs, isPlaying) {
+        const elapsed = isPlaying ? Math.max(0, nowMs - this._pill._lastPositionTimeMs) : 0;
+        this._positionSec = (this._pill._lastBasePositionMs + elapsed) / 1000;
+    }
+
+    _onWaveFrame() {
+        if (!this._isOpen || this._isDragging || !isActorAlive(this._sliderCanvas)) {
+            this._lastFrameTime = 0;
+            return false;
+        }
+
+        const now = GLib.get_monotonic_time() / 1000;
+        const isPlaying = this._pill._isPlaying;
+        if (isPlaying && this._lastFrameTime) this._phase += (now - this._lastFrameTime) * WAVE_PHASE_PER_MS;
+        this._lastFrameTime = isPlaying ? now : 0;
+
+        this._syncPosition(now, isPlaying);
+        this._sliderCanvas.queue_repaint();
+        return isPlaying;
     }
 
     _positionPopup() {
@@ -863,8 +887,11 @@ export class MusicPillPopup {
             this._tracker.remove(this._loopId);
             this._loopId = 0;
         }
-        this._loopId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 33, () => {
-            if (!this._isOpen) return GLib.SOURCE_REMOVE;
+        this._loopId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, STATE_SYNC_MS, () => {
+            if (!this._isOpen) {
+                this._loopId = 0;
+                return GLib.SOURCE_REMOVE;
+            }
             this._updateState();
             return GLib.SOURCE_CONTINUE;
         });
@@ -900,6 +927,9 @@ export class MusicPillPopup {
 
     _disconnectOpenState() {
         this._endSliderDrag();
+
+        if (this._waveTicker) this._waveTicker.stop();
+        this._lastFrameTime = 0;
 
         if (this._loopId && this._tracker) {
             this._tracker.remove(this._loopId);
@@ -945,6 +975,11 @@ export class MusicPillPopup {
         if (this._tracker) {
             this._tracker.destroy();
             this._tracker = null;
+        }
+
+        if (this._waveTicker) {
+            this._waveTicker.destroy();
+            this._waveTicker = null;
         }
 
         [this._overlay, this._artBackground, this._sliderCanvas, this._prevBtn, this._playBtn, this._nextBtn,

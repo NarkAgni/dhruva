@@ -23,6 +23,29 @@ import { isActorAlive } from '../Utils.js';
 
 
 const DEFAULT_INTERSECT_TOLERANCE = 16;
+const DODGEABLE_WINDOW_TYPES = new Set([
+    Meta.WindowType.NORMAL,
+    Meta.WindowType.DIALOG,
+    Meta.WindowType.MODAL_DIALOG,
+]);
+
+export function isWindowMaximized(win) {
+    return (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
+}
+
+export function getVisibleMonitorWindows(dockUI) {
+    const activeWs = global.workspace_manager.get_active_workspace();
+    if (!activeWs) return [];
+
+    const monitorResult = dockUI.monitorManager.getCurrentMonitor();
+    const monitorIndex = monitorResult ? monitorResult.index : 0;
+
+    return global.display.get_tab_list(Meta.TabList.NORMAL, activeWs).filter(win =>
+        !win.minimized &&
+        !(win.is_hidden && win.is_hidden()) &&
+        win.get_monitor() === monitorIndex
+    );
+}
 
 export class WindowOverlapDetection {
     constructor(dockUI) {
@@ -31,10 +54,9 @@ export class WindowOverlapDetection {
 
     getDockRect() {
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return null;
-        const [x, y] = this.dockUI.actor.get_position();
-        const w = this.dockUI.actor.width;
-        const h = this.dockUI.actor.height;
-        return { x, y, width: w, height: h };
+        const actor = this.dockUI.actor;
+        const [x, y] = actor.get_position();
+        return { x, y, width: actor.width, height: actor.height };
     }
 
     rectsIntersect(r1, r2, tolerance = DEFAULT_INTERSECT_TOLERANCE) {
@@ -44,15 +66,10 @@ export class WindowOverlapDetection {
         let top = r1.y;
         let bottom = r1.y + r1.height;
 
-        if (pos === 'BOTTOM') {
-            top -= tolerance;
-        } else if (pos === 'TOP') {
-            bottom += tolerance;
-        } else if (pos === 'LEFT') {
-            right += tolerance;
-        } else if (pos === 'RIGHT') {
-            left -= tolerance;
-        }
+        if (pos === 'BOTTOM') top -= tolerance;
+        else if (pos === 'TOP') bottom += tolerance;
+        else if (pos === 'LEFT') right += tolerance;
+        else if (pos === 'RIGHT') left -= tolerance;
 
         return !(
             r2.x >= right ||
@@ -69,51 +86,16 @@ export class WindowOverlapDetection {
         const dockRect = this.getDockRect();
         if (!dockRect) return false;
 
-        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
-        const curMonitorIdx = monitorResult ? monitorResult.index : 0;
-
-        const activeWs = global.workspace_manager.get_active_workspace();
-        if (!activeWs) return false;
-
-        const allWindows = global.display.get_tab_list(Meta.TabList.NORMAL, activeWs);
         const focusWindow = global.display.get_focus_window();
 
-        for (let i = 0; i < allWindows.length; i++) {
-            const win = allWindows[i];
-            if (!win) continue;
+        return getVisibleMonitorWindows(this.dockUI).some(win => {
+            if (!DODGEABLE_WINDOW_TYPES.has(win.get_window_type())) return false;
 
-            if (win.minimized || (win.is_hidden && win.is_hidden())) continue;
-            if (win.get_monitor() !== curMonitorIdx) continue;
+            const isMaximized = isWindowMaximized(win);
+            if (mode === 'maximized') return isMaximized;
 
-            const winType = win.get_window_type();
-            if (winType !== Meta.WindowType.NORMAL && winType !== Meta.WindowType.DIALOG && winType !== Meta.WindowType.MODAL_DIALOG) {
-                continue;
-            }
-
-            const winRect = win.get_frame_rect();
-
-            if (mode === 'maximized') {
-                const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
-                if (isMax) return true;
-            }
-
-            if (mode === 'intelligent') {
-                if (win === focusWindow) {
-                    const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
-                    if (isMax || this.rectsIntersect(dockRect, winRect, DEFAULT_INTERSECT_TOLERANCE)) {
-                        return true;
-                    }
-                }
-            }
-
-            if (mode === 'dodge-all') {
-                const isMax = (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
-                if (isMax || this.rectsIntersect(dockRect, winRect, DEFAULT_INTERSECT_TOLERANCE)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+            const dodgesWindow = mode === 'dodge-all' || (mode === 'intelligent' && win === focusWindow);
+            return dodgesWindow && (isMaximized || this.rectsIntersect(dockRect, win.get_frame_rect()));
+        });
     }
 }

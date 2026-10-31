@@ -22,6 +22,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import { gettext as _, ngettext } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
@@ -41,6 +42,8 @@ const SCROLLBAR_HIDE_MS = 900;
 const SCROLLBAR_FADE_MS = 200;
 const SCROLLBAR_HOVER_ZONE = 18;
 const WHEEL_STEP_PX = 60;
+const REVEAL_MARGIN = 24;
+const REVEAL_MS = 150;
 
 export function vbox(style = '', params = {}) {
     const box = new St.BoxLayout({ style, ...params });
@@ -96,6 +99,13 @@ function isSecondary(event) {
     return event.get_button() === Clutter.BUTTON_SECONDARY;
 }
 
+export function isKeyboardEvent() {
+    const event = Clutter.get_current_event();
+    if (!event) return false;
+    const type = event.type();
+    return type === Clutter.EventType.KEY_PRESS || type === Clutter.EventType.KEY_RELEASE;
+}
+
 export function onSecondaryClick(actor, callback, owner) {
     actor.connectObject(
         'button-press-event', (_actor, event) => {
@@ -105,52 +115,125 @@ export function onSecondaryClick(actor, callback, owner) {
             return Clutter.EVENT_STOP;
         },
         'button-release-event', (_actor, event) => (isSecondary(event) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE),
+        'popup-menu', () => {
+            const [x, y] = actor.get_transformed_position();
+            const [width, height] = actor.get_transformed_size();
+            callback(x + width / 2, y + height / 2);
+        },
         owner
     );
 }
 
+export function scrollAdjustment(view, isVertical) {
+    if (isVertical) return view.vadjustment ? view.vadjustment : view.vscroll.adjustment;
+    return view.hadjustment ? view.hadjustment : view.hscroll.adjustment;
+}
+
+function revealAxis(adjustment, start, size, viewSize) {
+    const maxValue = adjustment.upper - adjustment.page_size;
+    if (maxValue <= adjustment.lower) return;
+
+    let shift = 0;
+    if (start < REVEAL_MARGIN) shift = start - REVEAL_MARGIN;
+    else if (start + size > viewSize - REVEAL_MARGIN) shift = start + size - viewSize + REVEAL_MARGIN;
+    if (shift === 0) return;
+
+    const value = Math.max(adjustment.lower, Math.min(maxValue, adjustment.value + shift));
+    adjustment.ease(value, { duration: REVEAL_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+}
+
+export function revealInScroll(view, actor) {
+    const [viewX, viewY] = view.get_transformed_position();
+    const [x, y] = actor.get_transformed_position();
+    const [width, height] = actor.get_transformed_size();
+    revealAxis(scrollAdjustment(view, true), y - viewY, height, view.height);
+    revealAxis(scrollAdjustment(view, false), x - viewX, width, view.width);
+}
+
+export function revealOnFocus(view) {
+    view._revealChild = actor => revealInScroll(view, actor);
+    return view;
+}
+
+function isVerticalBar(child) {
+    return child.vertical === true || child.orientation === Clutter.Orientation.VERTICAL;
+}
+
 function verticalScrollbar(view) {
-    return view.get_children().find(child => child !== view.child && child.vertical === true && Boolean(child.adjustment)) || null;
+    return view.get_children().find(child => child !== view.child && Boolean(child.adjustment) && isVerticalBar(child)) || null;
 }
 
 export class AutoHideScrollbar {
     constructor(scrollView) {
         this._timers = new TimeoutTracker();
         this._hideId = 0;
+        this._isHovering = false;
         this._view = scrollView;
         this._bar = verticalScrollbar(scrollView);
-        this._adjustment = scrollView.vadjustment ? scrollView.vadjustment : (this._bar ? this._bar.adjustment : null);
-        if (!this._bar || !this._adjustment) return;
+        if (!this._bar) return;
 
         this._bar.opacity = 0;
-        this._adjustment.connectObject('notify::value', () => this._reveal(), this);
-        scrollView.connectObject('motion-event', (_actor, event) => {
-            const [x] = event.get_coords();
-            const [viewX] = scrollView.get_transformed_position();
-            if (x >= viewX + scrollView.width - SCROLLBAR_HOVER_ZONE) this._reveal();
-            return Clutter.EVENT_PROPAGATE;
-        }, this);
+        scrollView.connectObject(
+            'scroll-event', () => {
+                this._show();
+                if (!this._isHovering) this._scheduleHide();
+                return Clutter.EVENT_PROPAGATE;
+            },
+            'motion-event', (_actor, event) => {
+                const [x, y] = event.get_coords();
+                this._setHovering(this._isInZone(x, y));
+                return Clutter.EVENT_PROPAGATE;
+            },
+            'leave-event', () => {
+                const [x, y] = global.get_pointer();
+                const target = global.stage.get_actor_at_pos(Clutter.PickMode.REACTIVE, x, y);
+                this._setHovering(this._isInZone(x, y) && Boolean(target) && scrollView.contains(target));
+                return Clutter.EVENT_PROPAGATE;
+            },
+            this
+        );
     }
 
-    _reveal() {
+    _isInZone(x, y) {
+        const [viewX, viewY] = this._view.get_transformed_position();
+        const [width, height] = this._view.get_transformed_size();
+        return x >= viewX + width - SCROLLBAR_HOVER_ZONE && x <= viewX + width && y >= viewY && y <= viewY + height;
+    }
+
+    _setHovering(isHovering) {
+        if (isHovering === this._isHovering) return;
+        this._isHovering = isHovering;
+        if (isHovering) this._show();
+        else this._scheduleHide();
+    }
+
+    _show() {
+        this._cancelHide();
         this._bar.remove_transition('opacity');
         this._bar.opacity = 255;
+    }
+
+    _cancelHide() {
         if (this._hideId) this._timers.remove(this._hideId);
+        this._hideId = 0;
+    }
+
+    _scheduleHide() {
+        this._cancelHide();
         this._hideId = this._timers.addTimeout(GLib.PRIORITY_DEFAULT, SCROLLBAR_HIDE_MS, () => {
             this._hideId = 0;
-            if (isActorAlive(this._bar)) this._bar.ease({ opacity: 0, duration: SCROLLBAR_FADE_MS });
+            if (isActorAlive(this._bar) && !this._isHovering) this._bar.ease({ opacity: 0, duration: SCROLLBAR_FADE_MS });
             return GLib.SOURCE_REMOVE;
         });
     }
 
     destroy() {
         this._timers.destroy();
-        if (this._adjustment) this._adjustment.disconnectObject(this);
         if (isActorAlive(this._view)) this._view.disconnectObject(this);
     }
 }
 
-export function edgeScrollView(child) {
+export function edgeScrollView(child, rightPadding = EDGE_PADDING) {
     const view = new St.ScrollView({
         style_class: 'dhruva-start-scroll',
         x_expand: true,
@@ -160,9 +243,9 @@ export function edgeScrollView(child) {
         vscrollbar_policy: St.PolicyType.AUTOMATIC,
         style: '-st-vfade-offset: 24px;',
     });
-    child.set_style(`${child.get_style() || ''} padding-right: ${EDGE_PADDING}px;`);
+    child.set_style(`${child.get_style() || ''} padding-right: ${rightPadding}px;`);
     view.set_child(child);
-    return view;
+    return revealOnFocus(view);
 }
 
 export function horizontalScroller(child, owner) {
@@ -174,7 +257,7 @@ export function horizontalScroller(child, owner) {
     });
     view.set_child(child);
     view.connectObject('scroll-event', (_actor, event) => {
-        const adjustment = view.hadjustment ? view.hadjustment : view.hscroll.adjustment;
+        const adjustment = scrollAdjustment(view, false);
         const direction = event.get_scroll_direction();
         let delta = 0;
         if (direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT) delta = -WHEEL_STEP_PX;
@@ -187,7 +270,35 @@ export function horizontalScroller(child, owner) {
         adjustment.value = Math.max(adjustment.lower, Math.min(adjustment.upper - adjustment.page_size, adjustment.value + delta));
         return Clutter.EVENT_STOP;
     }, owner);
-    return view;
+    return revealOnFocus(view);
+}
+
+export function highlightedLabel(text, query, styleClass, params = {}) {
+    const actor = label(text, styleClass, params);
+    const lower = text.toLowerCase();
+    const terms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+    if (terms.length === 0 || lower.length !== text.length) return actor;
+
+    const marked = new Array(text.length).fill(false);
+    for (const term of terms) {
+        let index = lower.indexOf(term);
+        while (index !== -1) {
+            marked.fill(true, index, index + term.length);
+            index = lower.indexOf(term, index + term.length);
+        }
+    }
+    if (!marked.includes(true)) return actor;
+
+    let markup = '';
+    let start = 0;
+    for (let i = 1; i <= text.length; i++) {
+        if (i < text.length && marked[i] === marked[start]) continue;
+        const chunk = GLib.markup_escape_text(text.slice(start, i), -1);
+        markup += marked[start] ? `<b>${chunk}</b>` : chunk;
+        start = i;
+    }
+    actor.clutter_text.set_markup(markup);
+    return actor;
 }
 
 export function rowContent(params = {}) {
@@ -273,9 +384,39 @@ export function preloadPreviews(entries) {
     entries.filter(entry => !entry.previewText && isTextFile(entry)).forEach(entry => readPreview(entry, () => { }));
 }
 
-function imageActor(file, width, height) {
+function loadImage(file, width, height) {
     const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-    return St.TextureCache.get_default().load_file_async(file, width, height, scaleFactor, 1.0);
+    const actor = St.TextureCache.get_default().load_file_async(file, width, height, scaleFactor, 1.0);
+    actor.content_gravity = Clutter.ContentGravity.RESIZE_ASPECT;
+    actor.x_align = Clutter.ActorAlign.CENTER;
+    actor.y_align = Clutter.ActorAlign.CENTER;
+    return actor;
+}
+
+function showImage(bin, file, width, height, isCover) {
+    const path = file.get_path();
+    if (!isCover || !path) {
+        bin.set_child(loadImage(file, width, height));
+        return;
+    }
+
+    GdkPixbuf.Pixbuf.get_file_info_async(path, null, (_source, res) => {
+        let size = null;
+        try {
+            const [format, imageWidth, imageHeight] = GdkPixbuf.Pixbuf.get_file_info_finish(res);
+            if (format && imageWidth > 0 && imageHeight > 0) size = [imageWidth, imageHeight];
+        } catch (_e) {
+            size = null;
+        }
+        if (!isActorAlive(bin)) return;
+
+        if (!size) {
+            bin.set_child(loadImage(file, width, height));
+            return;
+        }
+        const isWider = size[0] / size[1] > width / height;
+        bin.set_child(loadImage(file, isWider ? -1 : width, isWider ? height : -1));
+    });
 }
 
 export function thumbnail(entry, width, height, radius) {
@@ -284,14 +425,16 @@ export function thumbnail(entry, width, height, radius) {
         height,
         style_class: 'dhruva-start-thumb',
         style: `border-radius: ${radius}px;`,
+        clip_to_allocation: true,
         x_align: Clutter.ActorAlign.CENTER,
         y_align: Clutter.ActorAlign.CENTER,
     });
+    const isCover = !Gio.content_type_is_a(entry.contentType, 'image/svg+xml');
 
     if (entry.thumbnail) {
-        bin.set_child(imageActor(Gio.File.new_for_path(entry.thumbnail), width, height));
+        showImage(bin, Gio.File.new_for_path(entry.thumbnail), width, height, isCover);
     } else if (entry.contentType.startsWith('image/')) {
-        bin.set_child(imageActor(Gio.File.new_for_uri(entry.uri), width, height));
+        showImage(bin, Gio.File.new_for_uri(entry.uri), width, height, isCover);
     } else if (entry.previewText) {
         showCode(bin, entry.previewText, height, radius);
     } else {

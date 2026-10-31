@@ -22,7 +22,10 @@ import Clutter from 'gi://Clutter';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { isActorAlive } from '../../core/Utils.js';
-import { vbox, hbox, label, button, iconButton, appIcon, rowContent, onSecondaryClick, CONTENT_WIDTH, EDGE_PADDING } from './StartMenuWidgets.js';
+import {
+    vbox, hbox, label, button, iconButton, appIcon, rowContent, onSecondaryClick, scrollAdjustment, edgeScrollView, AutoHideScrollbar,
+    CONTENT_WIDTH, EDGE_PADDING,
+} from './StartMenuWidgets.js';
 
 
 const ROW_ICON_SIZE = 32;
@@ -34,6 +37,8 @@ const GRID_COLUMNS = 6;
 const GRID_SPACING = 2;
 const GRID_ICON_SIZE = 44;
 const RAIL_RESERVE = 40;
+const ACTIVE_SLACK = 4;
+const RAIL_EDGE_MARGIN = 8;
 const GRID_CELL_WIDTH = Math.floor((CONTENT_WIDTH - RAIL_RESERVE - GRID_SPACING * (GRID_COLUMNS - 1)) / GRID_COLUMNS);
 
 
@@ -49,28 +54,32 @@ export class AllAppsView {
         this._headers = new Map();
         this._railKeys = new Map();
         this._activeKey = null;
+        this._targetKey = null;
 
-        this.actor = vbox(`spacing: 12px; margin-right: ${EDGE_PADDING}px;`, { x_expand: true, y_expand: true });
+        this.actor = vbox('spacing: 12px;', { x_expand: true, y_expand: true });
 
         this._settings = menu.settings;
         this._isGrid = this._settings.get_boolean(GRID_KEY);
 
-        const header = hbox('spacing: 8px; padding: 0 4px;', { x_expand: true });
+        const header = hbox(`spacing: 8px; padding: 0 4px; margin-right: ${EDGE_PADDING}px;`, { x_expand: true });
         header.add_child(label(_('All apps'), 'dhruva-start-title', { x_expand: true, y_align: Clutter.ActorAlign.CENTER }));
         this._viewToggle = iconButton('', _('Switch between list and grid'), () => this._toggleLayout(), this);
         header.add_child(this._viewToggle);
         this.actor.add_child(header);
 
-        const body = hbox('spacing: 8px;', { x_expand: true, y_expand: true });
-        this._scroll = new St.ScrollView({
-            x_expand: true,
-            y_expand: true,
-            hscrollbar_policy: St.PolicyType.NEVER,
-            vscrollbar_policy: St.PolicyType.EXTERNAL,
-            style: '-st-vfade-offset: 24px;',
-        });
+        const body = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true, y_expand: true });
         this._list = vbox('spacing: 2px;', { x_expand: true });
-        this._scroll.set_child(this._list);
+        this._scroll = edgeScrollView(this._list, RAIL_RESERVE + EDGE_PADDING);
+        this._scrollbar = new AutoHideScrollbar(this._scroll);
+        const revealChild = this._scroll._revealChild;
+        this._scroll._revealChild = actor => {
+            this._targetKey = null;
+            revealChild(actor);
+        };
+        this._scroll.connectObject('scroll-event', () => {
+            this._targetKey = null;
+            return Clutter.EVENT_PROPAGATE;
+        }, this);
         body.add_child(this._scroll);
         this._populate();
         body.add_child(this._buildRail());
@@ -85,12 +94,21 @@ export class AllAppsView {
     }
 
     _syncActiveKey() {
+        const keys = [...this._headers.keys()];
+        if (keys.length === 0) return;
+
         const adjustment = this._adjustment();
-        const bottom = adjustment.value + adjustment.page_size;
-        let active = this._headers.keys().next().value;
-        for (const [key, heading] of this._headers) {
-            if (heading.y + heading.height > bottom) break;
-            active = key;
+        const maxValue = adjustment.upper - adjustment.page_size;
+        const isAtEnd = maxValue > 0 && adjustment.value >= maxValue - 1;
+
+        let active = keys[0];
+        if (this._targetKey) active = this._targetKey;
+        else if (isAtEnd) active = keys[keys.length - 1];
+        else {
+            for (const [key, heading] of this._headers) {
+                if (heading.y > adjustment.value + ACTIVE_SLACK) break;
+                active = key;
+            }
         }
         if (active === this._activeKey) return;
 
@@ -104,7 +122,7 @@ export class AllAppsView {
         this._settings.set_boolean(GRID_KEY, this._isGrid);
         this._populate();
         this._adjustment().value = 0;
-        this._activeKey = null;
+        this._targetKey = null;
         this._syncActiveKey();
     }
 
@@ -115,7 +133,7 @@ export class AllAppsView {
             if (!groups.has(key)) groups.set(key, []);
             groups.get(key).push(app);
         }
-        return groups;
+        return new Map(RAIL_KEYS.filter(key => groups.has(key)).map(key => [key, groups.get(key)]));
     }
 
     _populate() {
@@ -159,11 +177,18 @@ export class AllAppsView {
     }
 
     _buildRail() {
-        const rail = vbox('spacing: 0;', { style_class: 'dhruva-start-rail', y_expand: true });
+        const rail = vbox(`spacing: 0; margin-right: ${RAIL_EDGE_MARGIN}px;`, {
+            style_class: 'dhruva-start-rail',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.FILL,
+            y_expand: true,
+        });
         RAIL_KEYS.forEach(key => {
             const hasApps = this._headers.has(key);
             const railKey = button('dhruva-start-rail-key', new St.Label({ text: key }), () => this._scrollTo(key), this, {
                 reactive: hasApps,
+                can_focus: hasApps,
                 opacity: hasApps ? 255 : 90,
                 y_expand: true,
             });
@@ -174,10 +199,16 @@ export class AllAppsView {
     }
 
     _adjustment() {
-        return this._scroll.vadjustment ? this._scroll.vadjustment : this._scroll.vscroll.adjustment;
+        return scrollAdjustment(this._scroll, true);
+    }
+
+    focusFirst() {
+        this._list.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
     }
 
     _scrollTo(key) {
+        this._targetKey = key;
+        this._syncActiveKey();
         const heading = this._headers.get(key);
         const adjustment = this._adjustment();
         const value = Math.min(heading.y, adjustment.upper - adjustment.page_size);
@@ -185,7 +216,9 @@ export class AllAppsView {
     }
 
     destroy() {
-        if (this._scroll) this._adjustment().disconnectObject(this);
+        this._scrollbar.destroy();
+        this._adjustment().disconnectObject(this);
+        this._scroll.disconnectObject(this);
         this._headers.clear();
         this._railKeys.clear();
         if (isActorAlive(this.actor)) this.actor.destroy();

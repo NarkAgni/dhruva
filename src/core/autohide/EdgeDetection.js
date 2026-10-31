@@ -32,6 +32,23 @@ import { TimeoutTracker } from '../TimeoutTracker.js';
 const TRIGGER_DEPTH_PX = 4;
 const DEFAULT_BARRIER_DWELL_MS = 150;
 const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
+const MIN_MEASURED_SIZE_PX = 20;
+
+function isFullBarLayout() {
+    return Settings.fullWidth || (Settings.hybridPanelMode && !Settings.dynamicPanel);
+}
+
+function isHorizontalEdge(pos) {
+    return pos === 'BOTTOM' || pos === 'TOP';
+}
+
+function clampSpan(monitorStart, monitorLength, start, size) {
+    const monitorEnd = monitorStart + monitorLength;
+    if (size <= MIN_MEASURED_SIZE_PX) return [monitorStart, monitorEnd];
+
+    const roundedStart = Math.round(start);
+    return [Math.max(monitorStart, roundedStart), Math.min(monitorEnd, roundedStart + Math.round(size))];
+}
 
 export class EdgeDetection {
     constructor(dockUI, onEdgeTrigger, onEdgeLeave, getDwellDelay) {
@@ -42,10 +59,17 @@ export class EdgeDetection {
         this.timers = new TimeoutTracker();
         this._dwellTimeoutId = 0;
         this.triggerActor = null;
+        this._barrier = null;
+        this._pressure = null;
 
         this._isPassThrough = false;
         this._isActive = true;
         this._lastBarrierKey = '';
+        this._hasBarrierSupport = Boolean(
+            global.backend &&
+            Meta.BackendCapabilities &&
+            (global.backend.capabilities & Meta.BackendCapabilities.BARRIERS) !== 0
+        );
 
         this._createTrigger();
         this._setupBarriers();
@@ -78,105 +102,104 @@ export class EdgeDetection {
 
         this.triggerActor.connectObject(
             'enter-event', () => {
-                const dwellDelay = this.getDwellDelay();
-
-                if (this._dwellTimeoutId) {
-                    this.timers.remove(this._dwellTimeoutId);
-                    this._dwellTimeoutId = 0;
-                }
-
-                if (dwellDelay <= 0) {
-                    if (this.onEdgeTrigger) this.onEdgeTrigger();
-                } else {
-                    this._dwellTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, dwellDelay, () => {
-                        this._dwellTimeoutId = 0;
-                        if (this.onEdgeTrigger) this.onEdgeTrigger();
-                        return GLib.SOURCE_REMOVE;
-                    });
-                }
+                this._startDwell();
                 return Clutter.EVENT_PROPAGATE;
             },
             'leave-event', () => {
-                if (this._dwellTimeoutId) {
-                    this.timers.remove(this._dwellTimeoutId);
-                    this._dwellTimeoutId = 0;
-                }
-                if (this.onEdgeLeave) this.onEdgeLeave();
+                this._cancelDwell();
+                this.onEdgeLeave();
                 return Clutter.EVENT_PROPAGATE;
             },
             this
         );
     }
 
+    _startDwell() {
+        this._cancelDwell();
+
+        const dwellDelay = this.getDwellDelay();
+        if (dwellDelay <= 0) {
+            this.onEdgeTrigger();
+            return;
+        }
+
+        this._dwellTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, dwellDelay, () => {
+            this._dwellTimeoutId = 0;
+            this.onEdgeTrigger();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _cancelDwell() {
+        this.timers.remove(this._dwellTimeoutId);
+        this._dwellTimeoutId = 0;
+    }
+
+    _getMonitor() {
+        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
+        return monitorResult ? monitorResult.monitor : null;
+    }
+
+    _getTriggerRect(monitor) {
+        const pos = this.dockUI.dockPosition;
+        const source = isFullBarLayout() ? monitor : this.dockUI.actor;
+        const [start, length] = isHorizontalEdge(pos)
+            ? [source.x, source.width]
+            : [source.y, source.height];
+
+        switch (pos) {
+        case 'BOTTOM':
+            return { x: start, y: monitor.y + monitor.height - TRIGGER_DEPTH_PX, width: length, height: TRIGGER_DEPTH_PX };
+        case 'TOP':
+            return { x: start, y: monitor.y, width: length, height: TRIGGER_DEPTH_PX };
+        case 'LEFT':
+            return { x: monitor.x, y: start, width: TRIGGER_DEPTH_PX, height: length };
+        case 'RIGHT':
+            return { x: monitor.x + monitor.width - TRIGGER_DEPTH_PX, y: start, width: TRIGGER_DEPTH_PX, height: length };
+        default:
+            return { x: 0, y: 0, width: 0, height: 0 };
+        }
+    }
+
+    _getBarrierProps(monitor) {
+        const actor = this.dockUI.actor;
+        const isFullBar = isFullBarLayout();
+
+        const [xStart, xEnd] = isFullBar
+            ? [monitor.x, monitor.x + monitor.width]
+            : clampSpan(monitor.x, monitor.width, actor.x, actor.width * (actor.scale_x || 1.0));
+        const [yStart, yEnd] = isFullBar
+            ? [monitor.y, monitor.y + monitor.height]
+            : clampSpan(monitor.y, monitor.height, actor.y, actor.height * (actor.scale_y || 1.0));
+
+        if (xEnd <= xStart || yEnd <= yStart) return null;
+
+        const right = monitor.x + monitor.width;
+        const bottom = monitor.y + monitor.height;
+
+        switch (this.dockUI.dockPosition) {
+        case 'BOTTOM':
+            return { x1: xStart, x2: xEnd, y1: bottom, y2: bottom, directions: Meta.BarrierDirection.NEGATIVE_Y };
+        case 'TOP':
+            return { x1: xStart, x2: xEnd, y1: monitor.y, y2: monitor.y, directions: Meta.BarrierDirection.POSITIVE_Y };
+        case 'LEFT':
+            return { x1: monitor.x, x2: monitor.x, y1: yStart, y2: yEnd, directions: Meta.BarrierDirection.POSITIVE_X };
+        case 'RIGHT':
+            return { x1: right, x2: right, y1: yStart, y2: yEnd, directions: Meta.BarrierDirection.NEGATIVE_X };
+        default:
+            return null;
+        }
+    }
+
     updateGeometry() {
         if (!this.dockUI || !isActorAlive(this.dockUI.actor) || !isActorAlive(this.triggerActor)) return;
 
-        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
-        if (!monitorResult || !monitorResult.monitor) return;
+        const monitor = this._getMonitor();
+        if (!monitor) return;
 
-        const monitor = monitorResult.monitor;
-        const pos = this.dockUI.dockPosition;
-        const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
-        const isFullWidth = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
-
-        let x = 0;
-        let y = 0;
-        let w = 0;
-        let h = 0;
-
-        if (isFullWidth) {
-            if (pos === 'BOTTOM') {
-                x = monitor.x;
-                y = monitor.y + monitor.height - TRIGGER_DEPTH_PX;
-                w = monitor.width;
-                h = TRIGGER_DEPTH_PX;
-            } else if (pos === 'TOP') {
-                x = monitor.x;
-                y = monitor.y;
-                w = monitor.width;
-                h = TRIGGER_DEPTH_PX;
-            } else if (pos === 'LEFT') {
-                x = monitor.x;
-                y = monitor.y;
-                w = TRIGGER_DEPTH_PX;
-                h = monitor.height;
-            } else if (pos === 'RIGHT') {
-                x = monitor.x + monitor.width - TRIGGER_DEPTH_PX;
-                y = monitor.y;
-                w = TRIGGER_DEPTH_PX;
-                h = monitor.height;
-            }
-        } else {
-            const dockX = this.dockUI.actor.x;
-            const dockY = this.dockUI.actor.y;
-            const dockW = this.dockUI.actor.width;
-            const dockH = this.dockUI.actor.height;
-
-            if (pos === 'BOTTOM') {
-                x = dockX;
-                y = monitor.y + monitor.height - TRIGGER_DEPTH_PX;
-                w = dockW;
-                h = TRIGGER_DEPTH_PX;
-            } else if (pos === 'TOP') {
-                x = dockX;
-                y = monitor.y;
-                w = dockW;
-                h = TRIGGER_DEPTH_PX;
-            } else if (pos === 'LEFT') {
-                x = monitor.x;
-                y = dockY;
-                w = TRIGGER_DEPTH_PX;
-                h = dockH;
-            } else if (pos === 'RIGHT') {
-                x = monitor.x + monitor.width - TRIGGER_DEPTH_PX;
-                y = dockY;
-                w = TRIGGER_DEPTH_PX;
-                h = dockH;
-            }
-        }
-
-        this.triggerActor.set_position(x, y);
-        this.triggerActor.set_size(w, h);
+        const rect = this._getTriggerRect(monitor);
+        this.triggerActor.set_position(rect.x, rect.y);
+        this.triggerActor.set_size(rect.width, rect.height);
 
         this._setupBarriers();
     }
@@ -195,87 +218,23 @@ export class EdgeDetection {
     }
 
     _setupBarriers() {
-        if (this._isPassThrough || !this._isActive) return;
-
-        const hasBarrierCapability = Boolean(
-            global.backend &&
-            Meta.BackendCapabilities &&
-            (global.backend.capabilities & Meta.BackendCapabilities.BARRIERS) !== 0
-        );
-
-        if (!hasBarrierCapability) return;
+        if (this._isPassThrough || !this._isActive || !this._hasBarrierSupport) return;
         if (!this.dockUI || !isActorAlive(this.dockUI.actor)) return;
 
-        const monitorResult = this.dockUI.monitorManager.getCurrentMonitor();
-        if (!monitorResult || !monitorResult.monitor) return;
-        const monitor = monitorResult.monitor;
-        const pos = this.dockUI.dockPosition;
+        const monitor = this._getMonitor();
+        if (!monitor) return;
 
-        if (this.dockUI._isOnSharedMonitorEdge && this.dockUI._isOnSharedMonitorEdge()) {
+        if (this.dockUI._isOnSharedMonitorEdge()) {
             this._teardownBarriers();
             return;
         }
 
-        const isDynamicPanel = Settings.hybridPanelMode && Settings.dynamicPanel;
-        const isFullBar = Settings.fullWidth || (Settings.hybridPanelMode && !isDynamicPanel);
-
-        const dockScaleX = this.dockUI.actor.scale_x || 1.0;
-        const dockScaleY = this.dockUI.actor.scale_y || 1.0;
-        const rawW = (this.dockUI.actor.width || 0) * dockScaleX;
-        const rawH = (this.dockUI.actor.height || 0) * dockScaleY;
-
-        const dockW = rawW > 20 ? Math.round(rawW) : monitor.width;
-        const dockH = rawH > 20 ? Math.round(rawH) : monitor.height;
-        const dockX = rawW > 20 ? Math.round(this.dockUI.actor.x) : monitor.x;
-        const dockY = rawH > 20 ? Math.round(this.dockUI.actor.y) : monitor.y;
-
-        const xStart = isFullBar ? monitor.x : Math.max(monitor.x, dockX);
-        const xEnd = isFullBar ? (monitor.x + monitor.width) : Math.min(monitor.x + monitor.width, dockX + dockW);
-        const yStart = isFullBar ? monitor.y : Math.max(monitor.y, dockY);
-        const yEnd = isFullBar ? (monitor.y + monitor.height) : Math.min(monitor.y + monitor.height, dockY + dockH);
-
-        if (xEnd <= xStart || yEnd <= yStart) return;
-
-        let props;
-        if (pos === 'BOTTOM') {
-            props = {
-                x1: xStart,
-                x2: xEnd,
-                y1: monitor.y + monitor.height,
-                y2: monitor.y + monitor.height,
-                directions: Meta.BarrierDirection.NEGATIVE_Y,
-            };
-        } else if (pos === 'TOP') {
-            props = {
-                x1: xStart,
-                x2: xEnd,
-                y1: monitor.y,
-                y2: monitor.y,
-                directions: Meta.BarrierDirection.POSITIVE_Y,
-            };
-        } else if (pos === 'LEFT') {
-            props = {
-                x1: monitor.x,
-                x2: monitor.x,
-                y1: yStart,
-                y2: yEnd,
-                directions: Meta.BarrierDirection.POSITIVE_X,
-            };
-        } else if (pos === 'RIGHT') {
-            props = {
-                x1: monitor.x + monitor.width,
-                x2: monitor.x + monitor.width,
-                y1: yStart,
-                y2: yEnd,
-                directions: Meta.BarrierDirection.NEGATIVE_X,
-            };
-        }
+        const props = this._getBarrierProps(monitor);
+        if (!props) return;
 
         const dwellDelay = this.getDwellDelay() || DEFAULT_BARRIER_DWELL_MS;
-        const barrierKey = `${pos}:${props.x1},${props.y1}-${props.x2},${props.y2}:${dwellDelay}`;
-        if (this._barrier && this._lastBarrierKey === barrierKey) {
-            return;
-        }
+        const barrierKey = `${this.dockUI.dockPosition}:${props.x1},${props.y1}-${props.x2},${props.y2}:${dwellDelay}`;
+        if (this._barrier && this._lastBarrierKey === barrierKey) return;
 
         this._teardownBarriers();
         this._lastBarrierKey = barrierKey;
@@ -292,52 +251,42 @@ export class EdgeDetection {
         );
 
         this._pressure.addBarrier(this._barrier);
-        this._pressure.connectObject('trigger', () => {
-            if (this.onEdgeTrigger) this.onEdgeTrigger();
-        }, this);
+        this._pressure.connectObject('trigger', () => this.onEdgeTrigger(), this);
+    }
+
+    _setTriggerEnabled(enabled) {
+        if (!isActorAlive(this.triggerActor)) return;
+        this.triggerActor.reactive = enabled;
+        if (enabled) this.triggerActor.show();
+        else this.triggerActor.hide();
     }
 
     setPassThrough(passThrough) {
         this._isPassThrough = Boolean(passThrough);
 
         if (this._isPassThrough) {
-            if (this._dwellTimeoutId) {
-                this.timers.remove(this._dwellTimeoutId);
-                this._dwellTimeoutId = 0;
-            }
+            this._cancelDwell();
             this._teardownBarriers();
-            if (isActorAlive(this.triggerActor)) {
-                this.triggerActor.reactive = false;
-                this.triggerActor.hide();
-            }
-        } else {
-            this._setupBarriers();
-            const mode = Settings.hideMode || 'none';
-            if (mode !== 'none' && isActorAlive(this.triggerActor)) {
-                this.triggerActor.reactive = true;
-                this.triggerActor.show();
-            }
+            this._setTriggerEnabled(false);
+            return;
         }
+
+        this._setupBarriers();
+        if ((Settings.hideMode || 'none') !== 'none') this._setTriggerEnabled(true);
     }
 
     show() {
         this._isActive = true;
         if (this._isPassThrough) return;
         this._setupBarriers();
-        if (isActorAlive(this.triggerActor)) {
-            this.triggerActor.reactive = true;
-            this.triggerActor.show();
-        }
+        this._setTriggerEnabled(true);
     }
 
     hide() {
         this._isActive = false;
-        if (this._dwellTimeoutId) {
-            this.timers.remove(this._dwellTimeoutId);
-            this._dwellTimeoutId = 0;
-        }
+        this._cancelDwell();
         this._teardownBarriers();
-        if (isActorAlive(this.triggerActor)) this.triggerActor.hide();
+        this._setTriggerEnabled(false);
     }
 
     destroy() {
@@ -345,11 +294,7 @@ export class EdgeDetection {
             this.dockUI.actor.disconnectObject(this);
         }
         this._teardownBarriers();
-
-        if (this._dwellTimeoutId) {
-            this.timers.remove(this._dwellTimeoutId);
-            this._dwellTimeoutId = 0;
-        }
+        this._cancelDwell();
         this.timers.destroy();
 
         if (this.triggerActor) {

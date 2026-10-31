@@ -568,6 +568,26 @@
 }
 .dhruva-start-context-item:hover,
 .dhruva-start-context-item:focus { background-color: rgba(255, 255, 255, 0.1); }
+.dhruva-start-item:focus,
+.dhruva-start-card:focus,
+.dhruva-start-row:focus,
+.dhruva-start-pill:focus,
+.dhruva-start-round:focus,
+.dhruva-start-context-item:focus { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.4); }
+.dhruva-start-primary:focus { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.dhruva-start-more { padding: 4px 10px; }
+.dhruva-start-page-dot {
+    width: 6px;
+    height: 6px;
+    min-width: 6px;
+    min-height: 6px;
+    padding: 0;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.3);
+    transition-duration: 150ms;
+}
+.dhruva-start-page-dot:hover { background-color: rgba(255, 255, 255, 0.55); }
+.dhruva-start-page-dot:checked { width: 16px; background-color: #ffffff; }
 .dhruva-start-menu-box .dhruva-start-scroll StScrollBar {
     width: 4px;
     min-width: 4px;

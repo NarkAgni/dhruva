@@ -1,3 +1,46 @@
+## [5.1.3] - 30-10-2026
+
+### New
+* **Keyboard Navigation in the Start Menu:** Press ↓ in the search box to jump to the first pinned app, search result or app in All Apps, then move around with the arrow keys and Tab. The list scrolls along with you, pinned pages turn on their own, and Enter or Space opens the selected item. The Menu key or Shift+F10 opens the right-click menu of the selected item, folders and right-click menus keep the keyboard inside them while open, and focus returns to where you were when they close. The selected item gets a clear outline so you always know where you are.
+* **App Shortcuts:** Apps that offer extra actions, like Firefox's New Private Window, now show them on the best match card in search and in their right-click menu.
+* **Calculator in Search:** Type a sum like `25*4` or `(2+3)^2` and the answer appears at the top of the results. Press Enter or Copy to copy it.
+* **Run Commands:** Start the search with `>` followed by a command, like `> sudo apt update`, and press Enter to run it in your terminal. The terminal stays open afterwards so you can read the output. Press Ctrl+Enter instead to run it in the background, which is handy for opening apps like `> gnome-text-editor`.
+* **Web Search:** The last search result offers to search the web for what you typed. DuckDuckGo is used by default, and you can set any other search address in the settings.
+* **Results from Your Apps:** Search now also shows results from GNOME apps that support it, like emoji from Characters, events from Calendar and people from Contacts. It follows GNOME's own Search settings, so apps you turned off there stay off.
+* **Pinned Pages:** When you pin more than 12 items, the Pinned section splits into pages with dots underneath. Scroll over it, click a dot or move with the arrow keys to turn the page. While dragging an app, hold it at the edge of the section to move to the next page.
+* **More Power Options:** The power menu now has Switch User and Hibernate when your system supports them, and only shows options that are actually available.
+* **Start Menu Settings:** New switches under Panel → App Grid Button let you hide Recent Apps or Continue Where You Left Off, turn off results from other apps or web search, and change the web search address.
+
+### Improved
+* **Tidier Search Results:** Each group of results shows the first four items with a Show More row for the rest, and the part of a name that matches what you typed is shown in bold.
+* **Smoother Start Menu:** The start menu now slides in from the dock when it opens, and switching to All Apps, Search or back to Home has a short slide or fade.
+* **All Apps Letter Bar:** The letter bar now lights up the letter of the apps at the top of the list. It starts on # or A, ends on the last letter when you reach the bottom, and stays on the letter you clicked. Apps whose names don't start with A–Z are always grouped under # at the top, and the letter bar now sits at the right edge, next to the scrollbar.
+* **Scrollbars That Stay Out of the Way:** Home, Search and All Apps all use the same thin scrollbar on the right edge. It only appears while you scroll with the mouse or move the pointer close to it, and fades away again when you stop.
+* **Recent Apps:** Apps that aren't running now say "Recently used" instead of "Frequent".
+* **Faster Recent Files:** The start menu now only reads your recent files again when they actually change, so it opens faster.
+* **Linked Files in Search:** Files that are shortcuts to other files now show the real file's icon and preview, and links that point to nothing no longer show up.
+* **Smoother Hover Zoom:** Hover zoom now updates exactly once per screen refresh instead of on every mouse movement. Zooming feels the same with any mouse and on 60, 120 or 144 Hz screens, has no more small stutters, and uses less CPU.
+* **Less Work When Windows Open and Close:** The dock no longer rebuilds all of its icons every time a window, dialog or app menu opens or closes. When only the running dots change, just the dots are updated, which removes the short hitch some users noticed.
+* **Smoother Tooltips:** Tooltips follow their icon in step with the screen, their background is only redrawn when the arrow actually moves, and they stop working in the background once hidden.
+* **Blur Follows the Dock:** The dock, tooltip and menu blur now moves together with the dock while icons zoom instead of trailing a frame behind, and no longer makes the whole screen recalculate its layout or the graphics card create new images on every frame.
+* **Smoother Song Titles:** Long song titles on the Music Pill scroll in step with the screen and do no work while paused at either end.
+* **Lighter Player Popup:** The wavy slider in the player popup moves in step with the screen at the same speed on any display, and the popup only updates text that has changed. Full lyrics are measured once instead of on every frame while scrolling, and lyrics on the pill are redrawn less often.
+* **Auto-Hide While Dragging Windows:** When you drag a window over the dock, auto-hide now reacts while you are still dragging instead of waiting for you to stop.
+* **Start Menu Blur:** The start menu now uses Dhruva's own blur, the same as folders, and Blur my Shell no longer blurs it on top.
+
+### Fixed
+* **Dynamic Blur flickers the screen, making it unusable (#108):** Fixed Dynamic Blur flickering issue 
+* **Flickering and loss of icon animation (#100):** Fixed flickering issue on panel/dynamic panel mode.
+* **Clicking the Dock Clock (#107):** With Magnify on Hover on, clicking the clock on the dock no longer opens the app next to it.
+* **Zoom Around the Clock:** Hovering the dock clock no longer zooms the icon next to it.
+* **Stretched Previews:** Photos, screenshots and icons in Continue Where You Left Off and in search results no longer look stretched. Photos fill their card and logos are shown whole.
+* **Scrollbars Not Hiding:** On newer GNOME versions, the start menu scrollbars stayed visible all the time. They now hide as they should.
+* **Window Effects with Fractional Scaling (#10, #106):** With display scaling like 125% or 166%, the minimize and restore effects now land exactly on the dock icon instead of stopping short. Thanks to @dsyfb437.
+* **Start Menu Error in the Logs:** Fixed an error that could show up in the system log after the start menu was closed.
+* **Flicker After Leaving the Overview:** With dynamic blur on, leaving the overview could make the screen flicker from the edges, freeze windows mid-animation and block all input, mostly seen on GNOME 50. Dynamic blur now pauses while the overview is shown and comes back on the desktop.
+* **Folders Opening Again on a Second Click:** Clicking a folder on the dock while it is open now closes it instead of opening it again. The same goes for right-clicking an icon whose menu is already open.
+* **See-Through Start Menu:** With blur turned on, the start menu no longer shows up without a background.
+
 ## [5.1.2] - 30-10-2026
 
 ### New

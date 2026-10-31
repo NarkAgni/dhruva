@@ -27,6 +27,7 @@ import GObject from 'gi://GObject';
 import { CrispLabel } from './music/CrispLabel.js';
 import { userCacheDir } from '../../core/DataPaths.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { FrameTicker } from '../../core/FrameTicker.js';
 import { MusicPillPopup } from './music/MusicPillPopup.js';
 import { MusicPillSlider } from './music/MusicPillSlider.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
@@ -578,62 +579,42 @@ export const MusicPill = GObject.registerClass(
 
                 const state = {
                     active: true,
-                    phase: 'pause-start',
-                    phaseStart: GLib.get_monotonic_time() / 1000,
-                    offset: 0,
-                    tickId: 0,
+                    forward: true,
+                    phaseStart: 0,
+                    pauseId: 0,
+                    ticker: null,
                 };
                 scrollBin._marqueeState = state;
 
-                const step = () => {
-                    if (!this._cancellable) {
-                        state.tickId = 0;
+                const isLive = () => Boolean(this._cancellable) && isActorAlive(scrollBin) &&
+                    scrollBin._marqueeState === state && state.active;
+
+                const startPause = () => {
+                    state.pauseId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, MARQUEE_PAUSE_MS, () => {
+                        state.pauseId = 0;
+                        if (isLive()) {
+                            state.phaseStart = GLib.get_monotonic_time() / 1000;
+                            state.ticker.start();
+                        }
                         return GLib.SOURCE_REMOVE;
-                    }
-                    if (!isActorAlive(scrollBin) || scrollBin._marqueeState !== state || !state.active) {
-                        state.tickId = 0;
-                        return GLib.SOURCE_REMOVE;
-                    }
-
-                    const now = GLib.get_monotonic_time() / 1000;
-                    const elapsed = now - state.phaseStart;
-
-                    if (state.phase === 'pause-start') {
-                        if (elapsed >= MARQUEE_PAUSE_MS) {
-                            state.phase = 'forward';
-                            state.phaseStart = now;
-                        }
-                    } else if (state.phase === 'forward') {
-                        const t = Math.min(1, elapsed / scrollDuration);
-                        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-                        state.offset = -overflow * e;
-                        scrollBin.translation_x = state.offset;
-
-                        if (t >= 1) {
-                            state.phase = 'pause-end';
-                            state.phaseStart = now;
-                        }
-                    } else if (state.phase === 'pause-end') {
-                        if (elapsed >= MARQUEE_PAUSE_MS) {
-                            state.phase = 'backward';
-                            state.phaseStart = now;
-                        }
-                    } else if (state.phase === 'backward') {
-                        const t = Math.min(1, elapsed / scrollDuration);
-                        const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-                        state.offset = -overflow * (1 - e);
-                        scrollBin.translation_x = state.offset;
-
-                        if (t >= 1) {
-                            state.phase = 'pause-start';
-                            state.phaseStart = now;
-                        }
-                    }
-
-                    return GLib.SOURCE_CONTINUE;
+                    });
                 };
 
-                state.tickId = this._tracker.addTimeout(GLib.PRIORITY_DEFAULT, 16, step);
+                state.ticker = new FrameTicker(scrollBin, () => {
+                    if (!isLive()) return false;
+
+                    const elapsed = GLib.get_monotonic_time() / 1000 - state.phaseStart;
+                    const t = Math.min(1, elapsed / scrollDuration);
+                    const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+                    scrollBin.translation_x = -overflow * (state.forward ? e : 1 - e);
+                    if (t < 1) return true;
+
+                    state.forward = !state.forward;
+                    startPause();
+                    return false;
+                });
+
+                startPause();
                 return GLib.SOURCE_REMOVE;
             });
         }
@@ -648,11 +629,15 @@ export const MusicPill = GObject.registerClass(
 
             const state = scrollBin._marqueeState;
             if (state) {
-                if (state.tickId) {
-                    this._tracker.remove(state.tickId);
-                    state.tickId = 0;
-                }
                 state.active = false;
+                if (state.pauseId) {
+                    this._tracker.remove(state.pauseId);
+                    state.pauseId = 0;
+                }
+                if (state.ticker) {
+                    state.ticker.destroy();
+                    state.ticker = null;
+                }
             }
             scrollBin._marqueeState = null;
 

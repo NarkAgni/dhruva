@@ -27,10 +27,11 @@ import { gettext as _, ngettext } from 'resource:///org/gnome/shell/extensions/e
 
 import { GridReorder } from './GridReorder.js';
 import { isActorAlive } from '../../core/Utils.js';
+import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import {
     vbox, hbox, label, button, iconButton, pillButton, sectionHeader,
-    appIcon, folderIcon, thumbnail, relativeTime, fitWidth,
-    onSecondaryClick, edgeScrollView, horizontalScroller, AutoHideScrollbar, EDGE_PADDING,
+    appIcon, folderIcon, thumbnail, relativeTime, fitWidth, isKeyboardEvent,
+    onSecondaryClick, edgeScrollView, horizontalScroller, AutoHideScrollbar, CONTENT_WIDTH, EDGE_PADDING,
 } from './StartMenuWidgets.js';
 
 
@@ -38,8 +39,11 @@ const COLUMNS = 6;
 const PINNED_SPACING = 2;
 const CARD_SPACING = 10;
 const PINNED_ROWS = 2;
-const PINNED_ROW_HEIGHT = 92;
-const PINNED_PEEK = 40;
+const PAGE_SIZE = COLUMNS * PINNED_ROWS;
+const PAGE_MS = 250;
+const PAGE_EDGE = 24;
+const PAGE_DWELL_MS = 450;
+const WHEEL_COOLDOWN_MS = 300;
 const RECENT_APPS = 6;
 const CONTINUE_VISIBLE = 5;
 const ICON_SIZE = 44;
@@ -56,12 +60,22 @@ export class HomeView {
         this._cells = new Map();
         this._order = [];
         this._items = new Map();
+        this._pageBoxes = [];
+        this._dotButtons = [];
+        this._page = 0;
+        this._lastFlip = 0;
+        this._wheelDelta = 0;
+        this._dwellId = 0;
+        this._dwellStep = 0;
+        this._timers = new TimeoutTracker();
         this._reorder = new GridReorder({
             order: () => this._order,
             cell: key => this._cells.get(key),
             commit: order => this._menu.data.setPinnedOrder(order),
             canGroup: (sourceKey, targetKey) => this._canGroup(sourceKey, targetKey),
             group: (sourceKey, targetKey) => this._group(sourceKey, targetKey),
+            motion: (x, y) => this._onDragMotion(x, y),
+            end: () => this._cancelDwell(),
         });
         this._systemActions = SystemActions.getDefault();
 
@@ -84,8 +98,10 @@ export class HomeView {
         this.actor.add_child(this._buildFooter());
 
         this.refreshPinned();
-        this._buildRecentApps();
-        this._loadContinue();
+        const settings = this._menu.settings;
+        if (settings.get_boolean('start-menu-recent-apps')) this._buildRecentApps();
+        else this._recentAppsSection.visible = false;
+        if (settings.get_boolean('start-menu-continue')) this._loadContinue();
     }
 
     refreshPinned() {
@@ -98,41 +114,156 @@ export class HomeView {
         this._pinnedSection.add_child(sectionHeader(_('Pinned'), pillButton(_('All apps'), 'go-next-symbolic', () => this._menu.showAllApps(), this, true)));
 
         items.forEach(item => this._cells.set(item.key, item.folder ? this._folderCell(item) : this._appCell(item)));
-        this._grid = vbox(`spacing: ${PINNED_SPACING}px;`);
+
+        this._pages = hbox('spacing: 0;', { x_align: Clutter.ActorAlign.START, y_align: Clutter.ActorAlign.START });
+        this._pager = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            clip_to_allocation: true,
+            reactive: true,
+            width: CONTENT_WIDTH,
+        });
+        this._pager.add_child(this._pages);
+        this._pager._revealChild = actor => this._showPageOf(actor);
+        this._pager.connectObject('scroll-event', (_actor, event) => this._onPagerScroll(event), this);
+
+        this._dots = hbox('spacing: 6px; padding-top: 4px;', { x_align: Clutter.ActorAlign.CENTER });
         this._layoutGrid();
 
+        this._pinnedSection.add_child(this._pager);
+        this._pinnedSection.add_child(this._dots);
         this._pinnedSection._delegate = this._reorder.areaDelegate;
-
-        if (items.length <= COLUMNS * PINNED_ROWS) {
-            this._pinnedSection.add_child(this._grid);
-            return;
-        }
-
-        const scroll = new St.ScrollView({
-            x_expand: true,
-            height: PINNED_ROWS * PINNED_ROW_HEIGHT + PINNED_PEEK,
-            hscrollbar_policy: St.PolicyType.NEVER,
-            vscrollbar_policy: St.PolicyType.EXTERNAL,
-            style: `-st-vfade-offset: ${PINNED_PEEK}px;`,
-        });
-        scroll.set_child(this._grid);
-        this._pinnedSection.add_child(scroll);
     }
 
     _layoutGrid() {
-        for (const row of this._grid.get_children()) {
-            for (const cell of row.get_children()) row.remove_child(cell);
-        }
-        this._grid.destroy_all_children();
-
-        let row = null;
-        this._order.forEach((key, index) => {
-            if (index % COLUMNS === 0) {
-                row = hbox(`spacing: ${PINNED_SPACING}px;`);
-                this._grid.add_child(row);
+        this._pageBoxes = [];
+        const pageCount = Math.max(1, Math.ceil(this._order.length / PAGE_SIZE));
+        for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            const page = vbox(`spacing: ${PINNED_SPACING}px;`, { width: CONTENT_WIDTH });
+            const keys = this._order.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE);
+            for (let start = 0; start < keys.length; start += COLUMNS) {
+                const row = hbox(`spacing: ${PINNED_SPACING}px;`);
+                keys.slice(start, start + COLUMNS).forEach(key => row.add_child(this._cells.get(key)));
+                page.add_child(row);
             }
-            row.add_child(this._cells.get(key));
+            this._pages.add_child(page);
+            this._pageBoxes.push(page);
+        }
+
+        this._page = Math.min(this._page, pageCount - 1);
+        this._pages.translation_x = -this._page * CONTENT_WIDTH;
+        this._buildDots();
+    }
+
+    _buildDots() {
+        this._dots.destroy_all_children();
+        this._dots.visible = this._pageBoxes.length > 1;
+        this._dotButtons = this._pageBoxes.map((_page, index) => {
+            const dot = new St.Button({
+                style_class: 'dhruva-start-page-dot',
+                can_focus: false,
+                accessible_name: _('Page %d').format(index + 1),
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            dot.connectObject('clicked', () => this._setPage(index), this);
+            this._dots.add_child(dot);
+            return dot;
         });
+        this._syncDots();
+    }
+
+    _syncDots() {
+        this._dotButtons.forEach((dot, index) => {
+            dot.checked = index === this._page;
+        });
+    }
+
+    _setPage(index) {
+        const page = Math.max(0, Math.min(this._pageBoxes.length - 1, index));
+        if (page === this._page) return false;
+
+        const shift = (page - this._page) * CONTENT_WIDTH;
+        this._page = page;
+        this._pages.remove_transition('translation-x');
+        this._pages.ease({ translation_x: -page * CONTENT_WIDTH, duration: PAGE_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+        this._syncDots();
+        this._reorder.shiftSlots(-shift, 0);
+        return true;
+    }
+
+    _showPageOf(actor) {
+        const index = this._pageBoxes.findIndex(page => page.contains(actor));
+        if (index >= 0) this._setPage(index);
+    }
+
+    _onPagerScroll(event) {
+        if (this._pageBoxes.length < 2) return Clutter.EVENT_PROPAGATE;
+
+        const direction = event.get_scroll_direction();
+        let step = 0;
+        if (direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT) step = -1;
+        else if (direction === Clutter.ScrollDirection.DOWN || direction === Clutter.ScrollDirection.RIGHT) step = 1;
+        else if (direction === Clutter.ScrollDirection.SMOOTH) {
+            const [dx, dy] = event.get_scroll_delta();
+            this._wheelDelta += Math.abs(dx) > Math.abs(dy) ? dx : dy;
+            const pending = Math.sign(this._wheelDelta);
+            if (pending === 0) return Clutter.EVENT_STOP;
+            if (!this._canMove(pending)) {
+                this._wheelDelta = 0;
+                return Clutter.EVENT_PROPAGATE;
+            }
+            if (Math.abs(this._wheelDelta) < 1) return Clutter.EVENT_STOP;
+            step = pending;
+            this._wheelDelta = 0;
+        }
+
+        if (step === 0 || !this._canMove(step)) return Clutter.EVENT_PROPAGATE;
+
+        const now = GLib.get_monotonic_time() / 1000;
+        if (now - this._lastFlip < WHEEL_COOLDOWN_MS) return Clutter.EVENT_STOP;
+        if (this._setPage(this._page + step)) this._lastFlip = now;
+        return Clutter.EVENT_STOP;
+    }
+
+    _canMove(step) {
+        const target = this._page + step;
+        return target >= 0 && target < this._pageBoxes.length;
+    }
+
+    _onDragMotion(x, y) {
+        let step = 0;
+        if (this._pageBoxes.length > 1) {
+            const [pagerX, pagerY] = this._pager.get_transformed_position();
+            const [width, height] = this._pager.get_transformed_size();
+            if (y >= pagerY && y <= pagerY + height) {
+                if (x < pagerX + PAGE_EDGE) step = -1;
+                else if (x > pagerX + width - PAGE_EDGE) step = 1;
+            }
+        }
+        if (step !== 0 && !this._canMove(step)) step = 0;
+        if (step === this._dwellStep) return;
+
+        this._cancelDwell();
+        this._dwellStep = step;
+        if (step === 0) return;
+
+        this._dwellId = this._timers.addTimeout(GLib.PRIORITY_DEFAULT, PAGE_DWELL_MS, () => {
+            this._dwellId = 0;
+            this._dwellStep = 0;
+            this._setPage(this._page + step);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _cancelDwell() {
+        if (this._dwellId) this._timers.remove(this._dwellId);
+        this._dwellId = 0;
+        this._dwellStep = 0;
+    }
+
+    focusFirst() {
+        const first = this._cells.get(this._order[this._page * PAGE_SIZE]);
+        if (first) first.grab_key_focus();
+        else this.actor.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
     }
 
     _cell(icon, name, onClick) {
@@ -206,7 +337,7 @@ export class HomeView {
         content.add_child(iconBox);
         content.add_child(label(app.get_name(), 'dhruva-start-title', { x_align: Clutter.ActorAlign.CENTER }));
         content.add_child(label(
-            isRunning ? ngettext('%d window', '%d windows', windows).format(windows) : _('Frequent'),
+            isRunning ? ngettext('%d window', '%d windows', windows).format(windows) : _('Recently used'),
             'dhruva-start-meta',
             { x_align: Clutter.ActorAlign.CENTER }
         ));
@@ -278,17 +409,25 @@ export class HomeView {
         return footer;
     }
 
+    _sessionActions() {
+        const actions = this._systemActions;
+        const data = this._menu.data;
+        return [
+            [actions.can_switch_user, _('Switch User'), 'system-switch-user-symbolic', () => actions.activateSwitchUser()],
+            [actions.can_suspend, _('Suspend'), 'media-playback-pause-symbolic', () => actions.activateSuspend()],
+            [data.canHibernate, _('Hibernate'), 'document-save-symbolic', () => data.hibernate()],
+            [actions.can_restart, _('Restart'), 'system-reboot-symbolic', () => actions.activateRestart()],
+            [actions.can_power_off, _('Power Off'), 'system-shutdown-symbolic', () => actions.activatePowerOff()],
+            [actions.can_logout, _('Log Out'), 'system-log-out-symbolic', () => actions.activateLogout()],
+        ].filter(([isAvailable]) => isAvailable);
+    }
+
     _toggleSession() {
         if (this._sessionRow.get_n_children() === 0) {
-            const actions = [
-                [_('Suspend'), 'media-playback-pause-symbolic', () => this._systemActions.activateSuspend()],
-                [_('Restart'), 'system-reboot-symbolic', () => this._systemActions.activateRestart()],
-                [_('Power Off'), 'system-shutdown-symbolic', () => this._systemActions.activatePowerOff()],
-                [_('Log Out'), 'system-log-out-symbolic', () => this._systemActions.activateLogout()],
-            ];
-            actions.forEach(([text, icon, run]) => this._sessionRow.add_child(pillButton(text, icon, () => this._runAction(run), this)));
+            this._sessionActions().forEach(([, text, icon, run]) => this._sessionRow.add_child(pillButton(text, icon, () => this._runAction(run), this)));
         }
         this._sessionRow.visible = !this._sessionRow.visible;
+        if (this._sessionRow.visible && isKeyboardEvent()) this._sessionRow.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
     }
 
     _runAction(run) {
@@ -297,6 +436,8 @@ export class HomeView {
     }
 
     destroy() {
+        this._timers.destroy();
+        this._timers = null;
         this._reorder.destroy();
         this._scrollbar.destroy();
         if (this._user) this._user.disconnectObject(this);

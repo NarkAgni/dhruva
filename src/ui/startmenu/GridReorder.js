@@ -33,12 +33,14 @@ function isCtrlHeld() {
 
 
 export class GridReorder {
-    constructor({ order, cell, commit, canGroup = () => false, group = () => { } }) {
+    constructor({ order, cell, commit, canGroup = () => false, group = () => { }, motion = () => { }, end = () => { } }) {
         this._order = order;
         this._cell = cell;
         this._commitOrder = commit;
         this._canGroup = canGroup;
         this._group = group;
+        this._onDragMotion = motion;
+        this._onDragEnd = end;
         this._draggables = [];
         this._monitor = null;
         this._dropTarget = null;
@@ -98,10 +100,20 @@ export class GridReorder {
         this._monitor = {
             dragMotion: event => {
                 this._onMotion(event.x, event.y);
+                this._onDragMotion(event.x, event.y);
                 return DND.DragMotionResult.CONTINUE;
             },
         };
         DND.addDragMonitor(this._monitor);
+    }
+
+    shiftSlots(dx, dy) {
+        for (const slot of this._slots) {
+            slot.x += dx;
+            slot.cx += dx;
+            slot.y += dy;
+            slot.cy += dy;
+        }
     }
 
     _slotAt(x, y) {
@@ -179,6 +191,7 @@ export class GridReorder {
             cell.ease({ translation_x: 0, translation_y: 0, duration: SLIDE_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
         }
         this._reset();
+        this._onDragEnd();
     }
 
     _acceptDrop(source, key) {

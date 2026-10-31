@@ -22,7 +22,7 @@ import Clutter from 'gi://Clutter';
 
 import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
-import { applyRealtimeFrame } from './MagnifierFrameEngine.js';
+import { queueMagnifierMotion, cancelMagnifierMotion } from './MagnifierFrameEngine.js';
 import { isActorAlive, getBoxVertical } from '../../core/Utils.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
 import { getDockButtons, isPointerWithinDockBounds, isPointerInIconCorridor, isPointerOnPanelItems, syncPanelSidesToBackground } from './MagnifierMath.js';
@@ -133,7 +133,6 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
     dockActor._tooltipWatchId = null;
     if (!isActorAlive(dockActor)) return;
 
-    dockActor._lastMagMotionFrameTs = 0;
     const dockPos = dockPositionGetter();
 
     const initialBtns = getDockButtons(dockActor);
@@ -174,12 +173,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             if (dockActor._isDragging) return Clutter.EVENT_PROPAGATE;
             if ((event.get_state() & Clutter.ModifierType.BUTTON1_MASK) !== 0) return Clutter.EVENT_PROPAGATE;
 
-            const frameNow = Date.now();
-            const minFrameGap = 7;
-            if (dockActor._lastMagMotionFrameTs && (frameNow - dockActor._lastMagMotionFrameTs) < minFrameGap) {
-                return Clutter.EVENT_PROPAGATE;
-            }
-            dockActor._lastMagMotionFrameTs = frameNow;
+            cancelMagnifierMotion(dockActor);
 
             const motionCoords = event.get_coords();
             const ex = motionCoords[0];
@@ -233,7 +227,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
 
             dockActor._isMagnifierResetDone = false;
-            applyRealtimeFrame(dockActor, ex, ey, isVertical, settings, Date.now());
+            queueMagnifierMotion(dockActor, ex, ey, isVertical, settings);
             return Clutter.EVENT_PROPAGATE;
         }
 
@@ -345,7 +339,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
         for (let i = 0; i < n; i++) {
             const btn = btns[i];
-            if (!btn || !btn._activateCallback || !isActorAlive(btn) || !btn.visible) continue;
+            if (!btn || !isActorAlive(btn) || !btn.visible || btn._sepId) continue;
 
             const pos = btn.get_transformed_position();
             const bx = pos[0];
@@ -368,10 +362,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
         }
 
-        if (closestBtn) {
-            invokeButton(closestBtn);
-            return Clutter.EVENT_STOP;
-        }
+        if (closestBtn && invokeButton(closestBtn)) return Clutter.EVENT_STOP;
 
         return Clutter.EVENT_PROPAGATE;
     }, dockActor);

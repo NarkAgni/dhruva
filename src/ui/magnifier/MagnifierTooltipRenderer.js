@@ -28,6 +28,7 @@ import { BlurPanel } from '../blur/BlurPanel.js';
 import { traceMenuPath } from '../shared/MenuShape.js';
 import { Settings } from '../../core/SettingsManager.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
+import { FrameTicker } from '../../core/FrameTicker.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isPointerWithinDockBounds } from './MagnifierMath.js';
 import { resolveTooltipColors } from '../dock/DockThemeResolver.js';
@@ -330,7 +331,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                     onComplete: () => {
                         if (thumbContainer) thumbContainer.destroy();
                         if (parentBox && parentBox.get_children().length === 0) hideTooltip(dockActor);
-                        else dockActor._lastTooltipStateStr = null; 
+                        else dockActor._lastTooltipState = null;
                     }
                 });
                 if (dockActor._magPeekManager) dockActor._magPeekManager.stopPeek();
@@ -425,10 +426,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         }
     }
 
-    if (dockActor._tooltipPosTrackerId && dockActor._magTimers) {
-        dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
-        dockActor._tooltipPosTrackerId = null;
-    }
+    dockActor._lastTooltipState = null;
 
     if (!dockActor._tooltipDestroyHooked && dockActor._magTooltip) {
         dockActor._tooltipDestroyHooked = true;
@@ -437,9 +435,9 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                 dockActor._magTimers.remove(dockActor._tooltipLeaveIdleId);
                 dockActor._tooltipLeaveIdleId = 0;
             }
-            if (dockActor._tooltipPosTrackerId && dockActor._magTimers) {
-                dockActor._magTimers.remove(dockActor._tooltipPosTrackerId);
-                dockActor._tooltipPosTrackerId = 0;
+            if (dockActor._tooltipTicker) {
+                dockActor._tooltipTicker.destroy();
+                dockActor._tooltipTicker = null;
             }
             if (dockActor._magTooltipBlur) {
                 dockActor._magTooltipBlur.destroy();
@@ -449,11 +447,7 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
     }
     
     const trackPos = () => {
-        if (!isActorAlive(dockActor) || !dockActor._magTooltip) {
-            dockActor._tooltipPosTrackerId = null;
-            return GLib.SOURCE_REMOVE;
-        }
-        if (!dockActor._magTooltip.visible || dockActor._magTooltip.opacity === 0) return GLib.SOURCE_CONTINUE;
+        if (!isActorAlive(dockActor) || !isActorAlive(dockActor._magTooltip) || !dockActor._magTooltip.visible) return false;
 
         if (!isActorAlive(btn) || !btn.get_parent()) {
             if (dockActor.boxActor) {
@@ -462,11 +456,11 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
                     btn = newBtn; 
                 } else {
                     hideTooltip(dockActor);
-                    return GLib.SOURCE_REMOVE;
+                    return false;
                 }
             } else {
                 hideTooltip(dockActor);
-                return GLib.SOURCE_REMOVE;
+                return false;
             }
         }
 
@@ -476,11 +470,19 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         const [bx, by] = btn.get_transformed_position();
         const [bw, bh] = btn.get_transformed_size();
 
-        if (Number.isNaN(bx) || Number.isNaN(by) || bw <= 0 || (bx === 0 && by === 0 && !btn.get_parent())) return GLib.SOURCE_CONTINUE;
+        if (Number.isNaN(bx) || Number.isNaN(by) || bw <= 0 || (bx === 0 && by === 0 && !btn.get_parent())) return true;
 
-        const stateStr = `${bx},${by},${bw},${tw},${th}`;
-        if (dockActor._lastTooltipStateStr === stateStr) return GLib.SOURCE_CONTINUE;
-        dockActor._lastTooltipStateStr = stateStr;
+        const last = dockActor._lastTooltipState;
+        if (last && last.bx === bx && last.by === by && last.bw === bw && last.tw === tw && last.th === th) return true;
+        if (last) {
+            last.bx = bx;
+            last.by = by;
+            last.bw = bw;
+            last.tw = tw;
+            last.th = th;
+        } else {
+            dockActor._lastTooltipState = { bx, by, bw, tw, th };
+        }
 
         const dockPosStr = Settings.dockPosition || 'BOTTOM';
         const btnClassStr = btn.get_style_class_name ? btn.get_style_class_name() : (btn.style_class || '');
@@ -501,14 +503,15 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
         if (ty < 10) ty = 10;
         if (ty + th > global.stage.height - 10) ty = global.stage.height - th - 10;
 
-        if (dockPosStr === 'BOTTOM' || dockPosStr === 'TOP') {
-            dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
-        } else {
-            dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
-        }
+        const arrowCenter = (dockPosStr === 'BOTTOM' || dockPosStr === 'TOP')
+            ? Math.round(Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING)))
+            : Math.round(Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING)));
 
         dockActor._magTooltip.ease({ x: tx, y: ty, width: tw, height: th, duration: 100, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
-        dockActor._magTooltipBg.queue_repaint();
+        if (dockActor._magTooltipBg._arrowCenter !== arrowCenter) {
+            dockActor._magTooltipBg._arrowCenter = arrowCenter;
+            dockActor._magTooltipBg.queue_repaint();
+        }
 
         if (dockActor._magTooltipBlur) {
             const blur = dockActor._magTooltipBlur;
@@ -518,9 +521,14 @@ export function populateTooltipContent(dockActor, btn, appName, settings) {
             blur.syncGeometry();
         }
         
-        return GLib.SOURCE_CONTINUE;
+        return true;
     };
 
-    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
-    dockActor._tooltipPosTrackerId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, trackPos);
+    if (dockActor._tooltipTicker) dockActor._tooltipTicker.setCallback(trackPos);
+    else dockActor._tooltipTicker = new FrameTicker(dockActor, trackPos);
+    dockActor._tooltipTicker.start();
+}
+
+export function resumeTooltipTracking(dockActor) {
+    if (dockActor._tooltipTicker) dockActor._tooltipTicker.start();
 }

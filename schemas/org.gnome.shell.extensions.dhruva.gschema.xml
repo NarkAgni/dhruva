@@ -731,6 +731,36 @@
       <description>Show the start menu's All apps page as a grid of icons instead of a list.</description>
     </key>
 
+    <key name="start-menu-recent-apps" type="b">
+      <default>true</default>
+      <summary>Start menu recent apps</summary>
+      <description>Show the Recent apps row on the start menu's home page.</description>
+    </key>
+
+    <key name="start-menu-continue" type="b">
+      <default>true</default>
+      <summary>Start menu recent files</summary>
+      <description>Show Continue where you left off on the start menu's home page.</description>
+    </key>
+
+    <key name="start-menu-search-providers" type="b">
+      <default>true</default>
+      <summary>Start menu search providers</summary>
+      <description>Include results from GNOME search providers, like Characters and Calendar, in start menu search.</description>
+    </key>
+
+    <key name="start-menu-web-search" type="b">
+      <default>true</default>
+      <summary>Start menu web search</summary>
+      <description>Offer a web search for the typed text at the end of start menu search results.</description>
+    </key>
+
+    <key name="start-menu-web-search-url" type="s">
+      <default>'https://duckduckgo.com/?q=%s'</default>
+      <summary>Start menu web search URL</summary>
+      <description>Address used for web search. %s is replaced with the search text.</description>
+    </key>
+
     <key name="music-pill-lyrics" type="b">
       <default>true</default>
       <summary>Music Pill lyrics</summary>

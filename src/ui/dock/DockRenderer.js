@@ -622,7 +622,7 @@ export function syncRunningStates(dockUI, force = false) {
     }
 }
 
-function _isLayoutUnchanged(dockUI) {
+export function isDockLayoutUnchanged(dockUI) {
     const { normalItems, overflowItems } = _partitionForOverflow(dockUI, _computeDesiredState(dockUI));
     return _keysOf(normalItems) === dockUI._currentOrder.join('|') &&
         _keysOf(overflowItems) === dockUI._overflowKeys;
@@ -630,7 +630,7 @@ function _isLayoutUnchanged(dockUI) {
 
 export function syncOverflowWithPanel(dockUI) {
     if (!Settings.hybridPanelMode || !isActorAlive(dockUI.actor) || dockUI._isRendering) return;
-    if (!_isLayoutUnchanged(dockUI)) dockUI.queueRender('incremental', true);
+    if (!isDockLayoutUnchanged(dockUI)) dockUI.queueRender('incremental', true);
 }
 
 function _captureMagnifierVisuals(dockUI) {
@@ -965,7 +965,7 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
 
     if (mode !== 'full' && dockUI.actor._lastIconClickTime) {
         const elapsed = Date.now() - dockUI.actor._lastIconClickTime;
-        if (elapsed < POST_CLICK_DELAY_MS && _isLayoutUnchanged(dockUI)) {
+        if (elapsed < POST_CLICK_DELAY_MS && isDockLayoutUnchanged(dockUI)) {
             dockUI._pendingRender = false;
             if (dockUI._updateRunningStatesFast) dockUI._updateRunningStatesFast();
 

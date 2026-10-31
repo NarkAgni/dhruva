@@ -17,22 +17,20 @@
 */
 
 
-import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 
 import { isActorAlive } from '../../core/Utils.js';
-import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { FrameTicker } from '../../core/FrameTicker.js';
 import { applyRealtimeFrame } from './MagnifierFrameEngine.js';
 import { getDockButtons, isPointerWithinDockBounds } from './MagnifierMath.js';
 
 
-const DRAG_TICK_INTERVAL_MS = 16;
 const RESET_DURATION_MS = 200;
 
 export function stopDragLoop(dockActor) {
-    if (dockActor && dockActor._dragLoopId && dockActor._magTimers) {
-        dockActor._magTimers.remove(dockActor._dragLoopId);
-        dockActor._dragLoopId = null;
+    if (dockActor && dockActor._dragTicker) {
+        dockActor._dragTicker.destroy();
+        dockActor._dragTicker = null;
     }
 }
 
@@ -41,10 +39,7 @@ export function startDragLoop(dockActor, isVertical, settings) {
     let dragWasOutside = false;
 
     const loopTick = () => {
-        if (!isActorAlive(dockActor) || !dockActor._isDragging) {
-            dockActor._dragLoopId = null;
-            return GLib.SOURCE_REMOVE;
-        }
+        if (!isActorAlive(dockActor) || !dockActor._isDragging) return false;
 
         const [cx, cy] = global.get_pointer();
         const isInsideDock = isPointerWithinDockBounds(dockActor, cx, cy, isVertical, settings);
@@ -77,7 +72,7 @@ export function startDragLoop(dockActor, isVertical, settings) {
                 }
                 dragWasOutside = true;
             }
-            return GLib.SOURCE_CONTINUE;
+            return true;
         }
 
         if (dragWasOutside) {
@@ -86,9 +81,9 @@ export function startDragLoop(dockActor, isVertical, settings) {
         }
 
         applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, Date.now());
-        return GLib.SOURCE_CONTINUE;
+        return true;
     };
 
-    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
-    dockActor._dragLoopId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, DRAG_TICK_INTERVAL_MS, loopTick);
+    dockActor._dragTicker = new FrameTicker(dockActor, loopTick);
+    dockActor._dragTicker.start();
 }

@@ -32,6 +32,8 @@ import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
 
 const KERNEL_REACH = 1.5;
 const PAD_SLACK = 32;
+const CANVAS_BUCKET = 64;
+const CANVAS_SHRINK_SLACK = 192;
 const INITIAL_SYNC_DELAY_MS = 350;
 const UNLOCK_SYNC_DELAY_MS = 120;
 
@@ -47,6 +49,11 @@ function getIconsDir() {
         .get_parent()
         .get_parent()
         .get_child('icons');
+}
+
+function fitCanvas(current, needed) {
+    if (current >= needed && current - needed <= CANVAS_SHRINK_SLACK) return current;
+    return Math.ceil(needed / CANVAS_BUCKET) * CANVAS_BUCKET;
 }
 
 function hexToRgb(str) {
@@ -83,6 +90,8 @@ export class BlurPanel {
         this._pad = PAD_SLACK;
         this._arrow = null;
         this._targetRect = null;
+        this._canvasW = 0;
+        this._canvasH = 0;
         this._initialSyncId = 0;
         this._unlockDelayId = 0;
         this._showLaterId = 0;
@@ -93,6 +102,9 @@ export class BlurPanel {
         this._winClone = new Clutter.Clone();
 
         this.blurActor = new Clutter.Actor({ reactive: false, clip_to_allocation: true, visible: false });
+        this.blurActor.set_position(0, 0);
+        this._bgClone.set_position(0, 0);
+        this._winClone.set_position(0, 0);
         this.blurActor.add_child(this._bgClone);
         this.blurActor.add_child(this._winClone);
         this.blurActor.add_effect(this._effect);
@@ -115,7 +127,7 @@ export class BlurPanel {
 
     _syncCloneSources() {
         if (!this.blurActor) return;
-        const isLive = this.blurActor.visible && !this._isStaticMode();
+        const isLive = this.blurActor.visible && !this._isStaticMode() && global.window_group.visible;
         this._bgClone.source = isLive ? Main.layoutManager._backgroundGroup : null;
         this._winClone.source = isLive ? global.window_group : null;
     }
@@ -151,6 +163,9 @@ export class BlurPanel {
         if (current !== parent) {
             if (current) current.remove_child(this.blurActor);
             parent.insert_child_below(this.blurActor, this.rootContainer);
+            this._canvasW = 0;
+            this._canvasH = 0;
+            this._lastKey = '';
         } else if (this.rootContainer.get_previous_sibling() !== this.blurActor) {
             parent.set_child_below_sibling(this.blurActor, this.rootContainer);
         }
@@ -207,6 +222,8 @@ export class BlurPanel {
                 return GLib.SOURCE_REMOVE;
             });
         };
+
+        global.window_group.connectObject('notify::visible', () => this._syncCloneSources(), this);
 
         Main.sessionMode.connectObject('updated', onLockChanged, this);
         if (Main.screenShield) Main.screenShield.connectObject('locked-changed', onLockChanged, this);
@@ -351,14 +368,24 @@ export class BlurPanel {
 
         const parent = this.blurActor.get_parent();
         const [, left, top] = parent.transform_stage_point(areaX, areaY);
-        const [, right, bottom] = parent.transform_stage_point(areaX + areaW, areaY + areaH);
 
-        this.blurActor.set_position(Math.round(left), Math.round(top));
-        this.blurActor.set_size(Math.round(right - left), Math.round(bottom - top));
-        this._bgClone.set_position(-areaX, -areaY);
-        this._winClone.set_position(-areaX, -areaY);
+        const canvasW = fitCanvas(this._canvasW, areaW);
+        const canvasH = fitCanvas(this._canvasH, areaH);
+        if (canvasW !== this._canvasW || canvasH !== this._canvasH) {
+            this._canvasW = canvasW;
+            this._canvasH = canvasH;
+            const [, right, bottom] = parent.transform_stage_point(areaX + canvasW, areaY + canvasH);
+            this.blurActor.set_size(Math.round(right - left), Math.round(bottom - top));
+        }
 
-        this._effect.updateDimensions(areaW, areaH, w, h, pad, pad);
+        this.blurActor.translation_x = Math.round(left);
+        this.blurActor.translation_y = Math.round(top);
+        this._bgClone.translation_x = -areaX;
+        this._bgClone.translation_y = -areaY;
+        this._winClone.translation_x = -areaX;
+        this._winClone.translation_y = -areaY;
+
+        this._effect.updateDimensions(canvasW, canvasH, w, h, pad, pad);
         return true;
     }
 
@@ -458,6 +485,7 @@ export class BlurPanel {
     destroy() {
         if (this.blurActor) {
             Main.sessionMode.disconnectObject(this);
+            global.window_group.disconnectObject(this);
             if (Main.screenShield) Main.screenShield.disconnectObject(this);
             if (this._loaderActor) {
                 this._loaderActor.disconnectObject(this);

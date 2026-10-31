@@ -25,11 +25,12 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { isActorAlive } from '../../core/Utils.js';
 import PeekManager from '../../core/PeekManager.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { FrameTicker } from '../../core/FrameTicker.js';
 import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
 import { getDockButtons, getFixedSlots, easeOutCirc, isStaticItem, axisSpan, getPanelSideActors } from './MagnifierMath.js';
-import { createTooltipActor, populateTooltipContent } from './MagnifierTooltipRenderer.js';
+import { createTooltipActor, populateTooltipContent, resumeTooltipTracking } from './MagnifierTooltipRenderer.js';
 import { TOOLTIP_GAP, clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
 
@@ -39,6 +40,7 @@ const TOOLTIP_DELAY_MS = 600;
 const MIN_ARROW_PADDING = 18;
 const HOVER_EDGE_PX = 8;
 const STAGE_EDGE_MARGIN = 8;
+const REFERENCE_FRAME_MS = 1000 / 60;
 const PANEL_CORRIDOR_GAP = 8;
 const DOCK_BG_BUFFER = 16;
 
@@ -139,6 +141,47 @@ function getDynamicPanelShift(dockActor, isVertical, origin, startExp, endExp) {
     const minShift = startExp - roomStart;
     const maxShift = roomEnd - endExp;
     return Math.max(minShift, Math.min(0, maxShift));
+}
+
+function updateArrowCenter(bg, value) {
+    const rounded = Math.round(value);
+    if (bg._arrowCenter === rounded) return;
+    bg._arrowCenter = rounded;
+    bg.queue_repaint();
+}
+
+function onMagnifierTick(dockActor) {
+    if (!isActorAlive(dockActor) || dockActor._isAutohiding || dockActor._isDragging) return false;
+
+    const fromMotion = dockActor._magMotionPending;
+    dockActor._magMotionPending = false;
+    if (!fromMotion && (!dockActor._magNeedsFrames || dockActor._isResetting)) return false;
+    dockActor._magNeedsFrames = false;
+
+    let px = dockActor._magMotionX;
+    let py = dockActor._magMotionY;
+    if (!fromMotion) [px, py] = global.get_pointer();
+
+    applyRealtimeFrame(dockActor, px, py, dockActor._magTickVertical, dockActor._magTickSettings, Date.now());
+    return dockActor._magNeedsFrames || dockActor._magMotionPending;
+}
+
+function ensureMagnifierTicker(dockActor, isVertical, settings) {
+    dockActor._magTickVertical = isVertical;
+    dockActor._magTickSettings = settings;
+    if (!dockActor._magTicker) dockActor._magTicker = new FrameTicker(dockActor, () => onMagnifierTick(dockActor));
+    dockActor._magTicker.start();
+}
+
+export function queueMagnifierMotion(dockActor, x, y, isVertical, settings) {
+    dockActor._magMotionX = x;
+    dockActor._magMotionY = y;
+    dockActor._magMotionPending = true;
+    ensureMagnifierTicker(dockActor, isVertical, settings);
+}
+
+export function cancelMagnifierMotion(dockActor) {
+    dockActor._magMotionPending = false;
 }
 
 export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now = null) {
@@ -284,6 +327,14 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
     clusterEnvelope = clusterEnvelope * clusterEnvelope * (3.0 - 2.0 * clusterEnvelope);
 
+    const pointerAxis = isVertical ? cy : cx;
+    const pointerOnClock = btns.some(b => {
+        if (!isActorAlive(b) || !b.visible || !(b.get_style_class_name() || '').includes('clock-module')) return false;
+        const [spanStart, spanEnd] = axisSpan(b, isVertical);
+        return pointerAxis >= spanStart && pointerAxis <= spanEnd;
+    });
+    const zoomEnvelope = pointerOnClock ? 0.0 : clusterEnvelope;
+
     if (clusterEnvelope <= 0.001) {
         hideTooltip(dockActor);
 
@@ -363,7 +414,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
         const dist = Math.abs(effectiveCursor - orderedSlots[orderIndex]);
         const calculatedScale = calculateScaleCurve(dist, RADIUS, zoomRange, zoomStyle);
-        orderedScales[orderIndex] = 1.0 + (calculatedScale - 1.0) * clusterEnvelope;
+        orderedScales[orderIndex] = 1.0 + (calculatedScale - 1.0) * zoomEnvelope;
     }
 
     orderedCenters[0] = orderedSlots[0];
@@ -418,7 +469,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         anglesX[i] = 0;
         magOffsets[i] = 0;
 
-        if (zoomEnabled && !isStaticItem(btns[i])) {
+        if (zoomEnabled && !pointerOnClock && !isStaticItem(btns[i])) {
             const delta = effectiveCursor - orderedSlots[orderIndex];
             const dist = Math.abs(delta);
             const ratio = dist / RADIUS;
@@ -515,7 +566,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     const lateralAxis = isVertical ? 'translation_y' : 'translation_x';
     const riseAxis = isVertical ? 'translation_x' : 'translation_y';
 
-    const SMOOTH_FACTOR = dockActor._isDragging ? 0.35 : Math.max(0.08, Math.min(0.60, smoothnessSetting));
+    const baseSmooth = dockActor._isDragging ? 0.35 : Math.max(0.08, Math.min(0.60, smoothnessSetting));
+    const SMOOTH_FACTOR = 1 - Math.pow(1 - baseSmooth, dt / REFERENCE_FRAME_MS);
     let leftExp = 0;
     let rightExp = 0;
     let topExp = 0;
@@ -785,23 +837,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         }
     }
 
-    if (needsMoreFrames && !dockActor._isResetting && !dockActor._isDragging) {
-        if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
-        if (!dockActor._settleTickId) {
-            dockActor._settleTickId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, 16, () => {
-                dockActor._settleTickId = null;
-                if (!isActorAlive(dockActor) || dockActor._isResetting || dockActor._isAutohiding) {
-                    return GLib.SOURCE_REMOVE;
-                }
-                const [px, py] = global.get_pointer();
-                applyRealtimeFrame(dockActor, px, py, isVertical, settings, Date.now());
-                return GLib.SOURCE_REMOVE;
-            });
-        }
-    } else if (!needsMoreFrames && dockActor._settleTickId && dockActor._magTimers) {
-        dockActor._magTimers.remove(dockActor._settleTickId);
-        dockActor._settleTickId = null;
-    }
+    dockActor._magNeedsFrames = needsMoreFrames && !dockActor._isResetting && !dockActor._isDragging;
+    if (dockActor._magNeedsFrames) ensureMagnifierTicker(dockActor, isVertical, settings);
 
     if (isAppGrid || isMenu || !Settings.showAppsPreview) {
         hideTooltip(dockActor);
@@ -994,6 +1031,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                     duration: 220,
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD
                 });
+                resumeTooltipTracking(dockActor);
             } else if (dockActor._tooltipReady && dockActor._magTooltip.visible && isActorAlive(dockActor._magTooltipBg)) {
                 const btnPos = btn.get_transformed_position();
                 const bx = btnPos[0];
@@ -1012,13 +1050,13 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 if (tw > 0 && th > 0) {
                     if (currentDockPos === 'BOTTOM' || currentDockPos === 'TOP') {
                         const iconCenterX = bx + bw / 2;
-                        dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING));
+                        updateArrowCenter(dockActor._magTooltipBg, Math.max(MIN_ARROW_PADDING, Math.min(iconCenterX - tx, tw - MIN_ARROW_PADDING)));
                     } else {
                         const iconCenterY = by + bh / 2;
-                        dockActor._magTooltipBg._arrowCenter = Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING));
+                        updateArrowCenter(dockActor._magTooltipBg, Math.max(MIN_ARROW_PADDING, Math.min(iconCenterY - ty, th - MIN_ARROW_PADDING)));
                     }
-                    dockActor._magTooltipBg.queue_repaint();
                 }
+                resumeTooltipTracking(dockActor);
             }
         }
     } else {

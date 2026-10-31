@@ -60,6 +60,9 @@ export const PopupLyricsWidget = GObject.registerClass({
         this._lines = [];
         this._isSynced = false;
         this._geometries = [];
+        this._geometryLines = null;
+        this._geometryWidth = -1;
+        this._geometryIndex = -2;
         this._totalHeight = 0;
         this._activeIndex = -1;
         this._scrollOffset = 0;
@@ -73,6 +76,7 @@ export const PopupLyricsWidget = GObject.registerClass({
         this.connectObject(
             'style-changed', () => {
                 this._family = null;
+                this._geometryLines = null;
             },
             'button-release-event', (_actor, event) => this._onClick(event),
             'scroll-event', (_actor, event) => this._onWheel(event),
@@ -100,6 +104,7 @@ export const PopupLyricsWidget = GObject.registerClass({
         if (!this._isAlive) return;
         this._lines = lines;
         this._isSynced = isSynced;
+        this._geometryLines = null;
         this._activeIndex = -1;
         this._scrollOffset = 0;
         this._targetScrollOffset = 0;
@@ -146,20 +151,25 @@ export const PopupLyricsWidget = GObject.registerClass({
         return Math.abs(index - this._activeIndex) === 1 ? NEIGHBOR_COLOR : INACTIVE_COLOR;
     }
 
-    _measure(layout, height) {
-        this._geometries = [];
-        let cursorY = 0;
+    _measure(layout, width, height) {
+        if (this._geometryLines !== this._lines || this._geometryWidth !== width || this._geometryIndex !== this._activeIndex) {
+            this._geometryLines = this._lines;
+            this._geometryWidth = width;
+            this._geometryIndex = this._activeIndex;
+            this._geometries = [];
+            let cursorY = 0;
 
-        this._lines.forEach((line, index) => {
-            const font = this._font(this._sizeFor(index));
-            layout.set_font_description(font);
-            layout.set_text(line.text, -1);
-            const lineHeight = layout.get_extents()[1].height / Pango.SCALE;
-            this._geometries.push({ y: cursorY, height: lineHeight, text: line.text, font, color: this._colorFor(index) });
-            cursorY += lineHeight + LINE_SPACING;
-        });
+            this._lines.forEach((line, index) => {
+                const font = this._font(this._sizeFor(index));
+                layout.set_font_description(font);
+                layout.set_text(line.text, -1);
+                const lineHeight = layout.get_extents()[1].height / Pango.SCALE;
+                this._geometries.push({ y: cursorY, height: lineHeight, text: line.text, font, color: this._colorFor(index) });
+                cursorY += lineHeight + LINE_SPACING;
+            });
 
-        this._totalHeight = Math.max(cursorY - LINE_SPACING, 0);
+            this._totalHeight = Math.max(cursorY - LINE_SPACING, 0);
+        }
 
         if (!this._isSynced) {
             this._targetScrollOffset = Math.max(0, Math.min(this._targetScrollOffset, this._totalHeight - height));
@@ -186,7 +196,7 @@ export const PopupLyricsWidget = GObject.registerClass({
         layout.set_wrap(Pango.WrapMode.WORD_CHAR);
         layout.set_alignment(Pango.Alignment.CENTER);
 
-        this._measure(layout, height);
+        this._measure(layout, width, height);
         if (Math.abs(this._targetScrollOffset - this._scrollOffset) >= SETTLE_PX) this._startScroll();
 
         for (const geo of this._geometries) {
