@@ -568,7 +568,7 @@ export function updateLayout(dockUI) {
         dockUI.dockManager.updatePosition();
     }
 
-    if (isDynamicPanel && !dockUI._isOverviewActive) {
+    if (isDynamicPanel && !dockUI.isOverviewActive) {
         const dynPos = dockUI.settings ? (dockUI.settings.get_string('dynamic-panel-position') || 'CENTER') : 'CENTER';
         const outerGap = Math.max(8, Settings.dockMargin || 0);
         if (!isVertical) {

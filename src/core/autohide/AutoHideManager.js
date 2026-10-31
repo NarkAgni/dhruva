@@ -477,7 +477,7 @@ export default class AutoHideManager {
     }
 
     _reveal() {
-        if (this._isGrabPassThrough || this.dockUI._originalPosForOverview) return;
+        if (this._isGrabPassThrough || this.dockUI.isRelocatedForOverview) return;
 
         this._cancelHide();
         this._cancelShow();

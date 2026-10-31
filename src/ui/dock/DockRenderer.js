@@ -185,7 +185,7 @@ function extractActorId(c) {
 function _computeDesiredState(dockUI) {
     const isPanelOrFull = isPanelOrFullWidth();
     const isVerticalDock = _isVerticalDock(dockUI);
-    const showClock = Settings.showClock && !dockUI._isOverviewActive;
+    const showClock = Settings.showClock && !dockUI.isOverviewActive;
     const showGridBtn = Settings.showGridButton;
 
     const rawGridPos = Settings.gridButtonPosition || 'END';

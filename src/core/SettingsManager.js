@@ -17,6 +17,160 @@
 */
 
 
+const BOOLEAN = {
+    read: (settings, key) => settings.get_boolean(key),
+    write: (settings, key, value) => settings.set_boolean(key, value),
+    empty: () => false,
+};
+
+const INT = {
+    read: (settings, key) => settings.get_int(key),
+    write: (settings, key, value) => settings.set_int(key, value),
+    empty: () => 0,
+};
+
+const DOUBLE = {
+    read: (settings, key) => settings.get_double(key),
+    write: (settings, key, value) => settings.set_double(key, value),
+    empty: () => 0,
+};
+
+const STRING = {
+    read: (settings, key) => settings.get_string(key),
+    write: (settings, key, value) => settings.set_string(key, value),
+    empty: () => '',
+};
+
+const JSON_ARRAY = {
+    read: (settings, key) => {
+        try {
+            const parsed = JSON.parse(settings.get_string(key) || '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_e) {
+            return [];
+        }
+    },
+    write: (settings, key, value) => settings.set_string(key, JSON.stringify(value)),
+    empty: () => [],
+};
+
+const KEYS = {
+    customFolders: [JSON_ARRAY, 'custom-folders'],
+    appFolders: [JSON_ARRAY, 'app-folders'],
+    preferredMonitor: [INT, 'preferred-monitor'],
+    customGridIcon: [STRING, 'custom-grid-icon'],
+    dockPosition: [STRING, 'dock-position'],
+    showOnAllMonitors: [BOOLEAN, 'show-on-all-monitors'],
+    isolateMonitors: [BOOLEAN, 'isolate-monitors'],
+    independentDock: [BOOLEAN, 'independent-dock'],
+    showIndependentInOverview: [BOOLEAN, 'show-independent-in-overview'],
+    fullWidth: [BOOLEAN, 'full-width'],
+    hybridPanelMode: [BOOLEAN, 'hybrid-panel-mode'],
+    dynamicPanel: [BOOLEAN, 'dynamic-panel'],
+    dynamicPanelLength: [INT, 'dynamic-panel-length'],
+    dynamicPanelPosition: [STRING, 'dynamic-panel-position'],
+    iconAlignment: [STRING, 'icon-alignment'],
+    dockMargin: [INT, 'dock-margin'],
+    iconSize: [INT, 'icon-size'],
+    iconSpacing: [INT, 'icon-spacing'],
+    dockPadding: [INT, 'dock-padding'],
+    dockHeight: [INT, 'dock-height'],
+    dockTheme: [STRING, 'dock-theme'],
+    backgroundColor: [STRING, 'background-color'],
+    useGradient: [BOOLEAN, 'use-gradient'],
+    backgroundGradientColor: [STRING, 'background-gradient-color'],
+    gradientDirection: [STRING, 'gradient-direction'],
+    backgroundOpacity: [INT, 'background-opacity'],
+    contextMenuOpacity: [INT, 'context-menu-opacity'],
+    borderRadius: [INT, 'border-radius'],
+    strokeWidth: [INT, 'stroke-width'],
+    strokeColor: [STRING, 'stroke-color'],
+    strokeOpacity: [INT, 'stroke-opacity'],
+    tooltipOpacity: [INT, 'tooltip-opacity'],
+    showRunningIndicators: [BOOLEAN, 'show-running-indicators'],
+    indicatorStyle: [STRING, 'indicator-style'],
+    indicatorColorMode: [STRING, 'indicator-color-mode'],
+    indicatorColor: [STRING, 'indicator-color'],
+    indicatorSize: [INT, 'indicator-size'],
+    indicatorGlow: [BOOLEAN, 'indicator-glow'],
+    showModuleSeparator: [BOOLEAN, 'show-module-separator'],
+    showAppSeparator: [BOOLEAN, 'show-app-separator'],
+    autohideAnimationSpeed: [INT, 'autohide-animation-speed'],
+    windowEffectSpeed: [INT, 'window-effect-speed'],
+    autohidePeek: [INT, 'autohide-peek'],
+    hideMode: [STRING, 'hide-mode'],
+    hideDelay: [INT, 'hide-delay'],
+    unhideDelay: [INT, 'unhide-delay'],
+    edgeDwellDelay: [INT, 'edge-dwell-delay'],
+    fullscreenMode: [STRING, 'fullscreen-mode'],
+    fullscreenRevealDelay: [INT, 'fullscreen-reveal-delay'],
+    clickEffect: [STRING, 'click-effect'],
+    minimizeEffect: [STRING, 'minimize-effect'],
+    lockIcons: [BOOLEAN, 'lock-icons'],
+    isolateWorkspaces: [BOOLEAN, 'isolate-workspaces'],
+    scrollActionDock: [BOOLEAN, 'scroll-action-dock'],
+    scrollActionApp: [BOOLEAN, 'scroll-action-app'],
+    showUnpinnedApps: [BOOLEAN, 'show-unpinned-apps'],
+    newWindowAction: [STRING, 'new-window-action'],
+    enableContextMenu: [BOOLEAN, 'enable-context-menu'],
+    hoverZoom: [BOOLEAN, 'hover-zoom'],
+    hoverAnimation: [BOOLEAN, 'hover-animation'],
+    hoverZoomFactor: [DOUBLE, 'hover-zoom-factor'],
+    hoverZoomStyle: [STRING, 'hover-zoom-style'],
+    hoverZoomRise: [INT, 'hover-zoom-rise'],
+    hoverZoomWidth: [BOOLEAN, 'hover-zoom-width'],
+    hoverZoomSmoothness: [DOUBLE, 'hover-zoom-smoothness'],
+    hoverZoomRadius: [DOUBLE, 'hover-zoom-radius'],
+    hoverZoomGapFactor: [DOUBLE, 'hover-zoom-gap-factor'],
+    hoverZoomDominoTilt: [INT, 'hover-zoom-domino-tilt'],
+    hoverZoomCylinderAngle: [INT, 'hover-zoom-cylinder-angle'],
+    hoverZoomMagneticStrength: [INT, 'hover-zoom-magnetic-strength'],
+    hoverZoomJellyStretch: [DOUBLE, 'hover-zoom-jelly-stretch'],
+    hoverZoomJellySquish: [DOUBLE, 'hover-zoom-jelly-squish'],
+    hoverZoomCoverflowAngle: [INT, 'hover-zoom-coverflow-angle'],
+    showAppsPreview: [BOOLEAN, 'show-apps-preview'],
+    contextMenuSize: [INT, 'context-menu-size'],
+    bigPreviewSize: [INT, 'big-preview-size'],
+    peekEffect: [BOOLEAN, 'peek-effect'],
+    peekAnimationSpeed: [INT, 'peek-animation-speed'],
+    showNotificationBadges: [BOOLEAN, 'show-notification-badges'],
+    showMusicPill: [BOOLEAN, 'show-music-pill'],
+    musicPillPosition: [STRING, 'music-pill-position'],
+    musicPillShowPrev: [BOOLEAN, 'music-pill-show-prev'],
+    musicPillShowNext: [BOOLEAN, 'music-pill-show-next'],
+    musicPillProgress: [STRING, 'music-pill-progress'],
+    musicPillScrollAction: [STRING, 'music-pill-scroll-action'],
+    startMenu: [BOOLEAN, 'start-menu'],
+    musicPillLyrics: [BOOLEAN, 'music-pill-lyrics'],
+    musicPillClickAction: [STRING, 'music-pill-click-action'],
+    musicPillMiddleClickAction: [STRING, 'music-pill-middle-click-action'],
+    musicPillRightClickAction: [STRING, 'music-pill-right-click-action'],
+    musicPillDoubleClickAction: [STRING, 'music-pill-double-click-action'],
+    showTrash: [BOOLEAN, 'show-trash'],
+    showDesktopButton: [BOOLEAN, 'show-desktop-button'],
+    desktopBtnWidth: [INT, 'desktop-btn-width'],
+    showGridButton: [BOOLEAN, 'show-grid-button'],
+    gridButtonPosition: [STRING, 'grid-button-position'],
+    useOldGridIcon: [BOOLEAN, 'use-old-grid-icon'],
+    gridIconColor: [STRING, 'grid-icon-color'],
+    customGridIconScale: [INT, 'custom-grid-icon-scale'],
+    showClock: [BOOLEAN, 'show-clock'],
+    use24hClock: [BOOLEAN, 'use-24h-clock'],
+    clockFontSize: [INT, 'clock-font-size'],
+    clockPosition: [STRING, 'clock-position'],
+    showHome: [BOOLEAN, 'show-home'],
+    showMounts: [BOOLEAN, 'show-mounts'],
+    blurEnabled: [BOOLEAN, 'blur-enabled'],
+    blurMode: [STRING, 'blur-mode'],
+    blurIntensity: [DOUBLE, 'blur-intensity'],
+    blurVibrancy: [DOUBLE, 'blur-vibrancy'],
+    blurBrightness: [DOUBLE, 'blur-brightness'],
+    blurBorderGlow: [DOUBLE, 'blur-border-glow'],
+    blurHighlightAngle: [DOUBLE, 'blur-highlight-angle'],
+    blurTintColor: [STRING, 'blur-tint-color'],
+    blurTintOpacity: [DOUBLE, 'blur-tint-opacity'],
+};
+
 export const Settings = {
     _settings: null,
 
@@ -24,213 +178,19 @@ export const Settings = {
         this._settings = settings;
     },
 
-    get raw() {
-        return this._settings;
-    },
-
-    get customFolders() {
-        if (!this._settings) return [];
-        try {
-            const val = this._settings.get_string('custom-folders');
-            if (!val) return [];
-            const parsed = JSON.parse(val);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (_e) {
-            return [];
-        }
-    },
-    set customFolders(arr) {
-        if (this._settings) {
-            this._settings.set_string('custom-folders', JSON.stringify(arr));
-        }
-    },
-
-    get appFolders() {
-        if (!this._settings) return [];
-        try {
-            const val = this._settings.get_string('app-folders');
-            if (!val) return [];
-            const parsed = JSON.parse(val);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (_e) {
-            return [];
-        }
-    },
-    set appFolders(arr) {
-        if (this._settings) {
-            this._settings.set_string('app-folders', JSON.stringify(arr));
-        }
-    },
-
-    get preferredMonitor() { return this._settings ? this._settings.get_int('preferred-monitor') : 0; },
-    set preferredMonitor(val) { if (this._settings) this._settings.set_int('preferred-monitor', val); },
-    get customGridIcon() { return this._settings ? this._settings.get_string('custom-grid-icon') : ''; },
-    set customGridIcon(val) { if (this._settings) this._settings.set_string('custom-grid-icon', val); },
-    get dockPosition() { return this._settings ? this._settings.get_string('dock-position') : 'BOTTOM'; },
-    get showOnAllMonitors() { return this._settings ? this._settings.get_boolean('show-on-all-monitors') : false; },
-    get isolateMonitors() { return this._settings ? this._settings.get_boolean('isolate-monitors') : false; },
-    get independentDock() { return this._settings ? this._settings.get_boolean('independent-dock') : false; },
-    set independentDock(val) { if (this._settings) this._settings.set_boolean('independent-dock', val); },
-    get toggleIndependentDockShortcut() { return this._settings ? this._settings.get_strv('toggle-independent-dock-shortcut') : []; },
-    set toggleIndependentDockShortcut(arr) { if (this._settings) this._settings.set_strv('toggle-independent-dock-shortcut', arr); },
-    get showIndependentInOverview() { return this._settings ? this._settings.get_boolean('show-independent-in-overview') : false; },
-    get fullWidth() { return this._settings ? this._settings.get_boolean('full-width') : false; },
-    set fullWidth(v) { if (this._settings) this._settings.set_boolean('full-width', v); },
-    get hybridPanelMode() { return this._settings ? this._settings.get_boolean('hybrid-panel-mode') : false; },
-    set hybridPanelMode(v) { if (this._settings) this._settings.set_boolean('hybrid-panel-mode', v); },
-    get dynamicPanel() { return this._settings ? this._settings.get_boolean('dynamic-panel') : false; },
-    set dynamicPanel(v) { if (this._settings) this._settings.set_boolean('dynamic-panel', v); },
-    get dynamicPanelLength() { return this._settings ? this._settings.get_int('dynamic-panel-length') : 0; },
-    set dynamicPanelLength(v) { if (this._settings) this._settings.set_int('dynamic-panel-length', v); },
-    get dynamicPanelPosition() { return this._settings ? this._settings.get_string('dynamic-panel-position') : 'CENTER'; },
-    set dynamicPanelPosition(v) { if (this._settings) this._settings.set_string('dynamic-panel-position', v); },
-    get iconAlignment() { return this._settings ? this._settings.get_string('icon-alignment') : 'CENTER'; },
-    get dockMargin() { return this._settings ? this._settings.get_int('dock-margin') : 0; },
-    get iconSize() { return this._settings ? this._settings.get_int('icon-size') : 48; },
-    get iconSpacing() { return this._settings ? this._settings.get_int('icon-spacing') : 4; },
-    get dockPadding() { return this._settings ? this._settings.get_int('dock-padding') : 6; },
-    get dockHeight() { return this._settings ? this._settings.get_int('dock-height') : 0; },
-    get dockTheme() { return this._settings ? this._settings.get_string('dock-theme') : 'default'; },
-    get backgroundColor() { return this._settings ? this._settings.get_string('background-color') : '#000000'; },
-    get useGradient() { return this._settings ? this._settings.get_boolean('use-gradient') : false; },
-    get backgroundGradientColor() { return this._settings ? this._settings.get_string('background-gradient-color') : '#000000'; },
-    get gradientDirection() { return this._settings ? this._settings.get_string('gradient-direction') : 'vertical'; },
-    get backgroundOpacity() { return this._settings ? this._settings.get_int('background-opacity') : 80; },
-    get contextMenuOpacity() { return this._settings ? this._settings.get_int('context-menu-opacity') : 92; },
-    get borderRadius() { return this._settings ? this._settings.get_int('border-radius') : 18; },
-    get strokeWidth() { return this._settings ? this._settings.get_int('stroke-width') : 1; },
-    get strokeColor() { return this._settings ? this._settings.get_string('stroke-color') : '#ffffff'; },
-    get strokeOpacity() { return this._settings ? this._settings.get_int('stroke-opacity') : 20; },
-    get tooltipOpacity() { return this._settings ? this._settings.get_int('tooltip-opacity') : 95; },
-    get showRunningIndicators() { return this._settings ? this._settings.get_boolean('show-running-indicators') : true; },
-    get indicatorStyle() { return this._settings ? this._settings.get_string('indicator-style') : 'dot'; },
-    get indicatorColorMode() { return this._settings ? this._settings.get_string('indicator-color-mode') : 'dominant'; },
-    get indicatorColor() { return this._settings ? this._settings.get_string('indicator-color') : '#ffffff'; },
-    get indicatorSize() { return this._settings ? this._settings.get_int('indicator-size') : 4; },
-    get indicatorSpacing() { return this._settings ? this._settings.get_int('indicator-spacing') : 4; },
-    get indicatorGlow() { return this._settings ? this._settings.get_boolean('indicator-glow') : false; },
-    get showModuleSeparator() { return this._settings ? this._settings.get_boolean('show-module-separator') : true; },
-    get separatorWidth() { return this._settings ? this._settings.get_int('separator-width') : 1; },
-    get separatorHeight() { return this._settings ? this._settings.get_int('separator-height') : 24; },
-    get separatorColor() { return this._settings ? this._settings.get_string('separator-color') : '#ffffff'; },
-    get separatorOpacity() { return this._settings ? this._settings.get_int('separator-opacity') : 30; },
-    get showAppSeparator() { return this._settings ? this._settings.get_boolean('show-app-separator') : false; },
-    get runningSeparatorWidth() { return this._settings ? this._settings.get_int('running-separator-width') : 1; },
-    get runningSeparatorHeight() { return this._settings ? this._settings.get_int('running-separator-height') : 24; },
-    get runningSeparatorColor() { return this._settings ? this._settings.get_string('running-separator-color') : '#ffffff'; },
-    get runningSeparatorOpacity() { return this._settings ? this._settings.get_int('running-separator-opacity') : 30; },
-    get autohideAnimationSpeed() { return this._settings ? this._settings.get_int('autohide-animation-speed') : 250; },
-    set autohideAnimationSpeed(val) { if (this._settings) this._settings.set_int('autohide-animation-speed', val); },
-    get windowEffectSpeed() { return this._settings ? this._settings.get_int('window-effect-speed') : 350; },
-    set windowEffectSpeed(val) { if (this._settings) this._settings.set_int('window-effect-speed', val); },
-    get autohidePeek() { return this._settings ? this._settings.get_int('autohide-peek') : 0; },
-    get hideMode() { return this._settings ? this._settings.get_string('hide-mode') : 'none'; },
-    get hideDelay() { return this._settings ? this._settings.get_int('hide-delay') : 250; },
-    get unhideDelay() { return this._settings ? this._settings.get_int('unhide-delay') : 100; },
-    get edgeDwellDelay() { return this._settings ? this._settings.get_int('edge-dwell-delay') : 150; },
-    get fullscreenMode() { return this._settings ? this._settings.get_string('fullscreen-mode') : 'hidden'; },
-    get fullscreenRevealDelay() { return this._settings ? this._settings.get_int('fullscreen-reveal-delay') : 500; },
-    get clickEffect() { return this._settings ? this._settings.get_string('click-effect') : 'bounce'; },
-    get minimizeEffect() { return this._settings ? this._settings.get_string('minimize-effect') : 'magic-lamp'; },
-    get lockIcons() { return this._settings ? this._settings.get_boolean('lock-icons') : false; },
-    get isolateWorkspaces() { return this._settings ? this._settings.get_boolean('isolate-workspaces') : false; },
-    get scrollActionDock() { return this._settings ? this._settings.get_boolean('scroll-action-dock') : true; },
-    get scrollActionApp() { return this._settings ? this._settings.get_boolean('scroll-action-app') : true; },
-    get showUnpinnedApps() { return this._settings ? this._settings.get_boolean('show-unpinned-apps') : true; },
-    get newWindowAction() { return this._settings ? this._settings.get_string('new-window-action') : 'new'; },
-    get enableContextMenu() { return this._settings ? this._settings.get_boolean('enable-context-menu') : true; },
-    get hoverZoom() { return this._settings ? this._settings.get_boolean('hover-zoom') : false; },
-    get hoverAnimation() { return this._settings ? this._settings.get_boolean('hover-animation') : true; },
-    get hoverZoomFactor() { return this._settings ? this._settings.get_double('hover-zoom-factor') : 1.4; },
-    get hoverZoomStyle() { return this._settings ? this._settings.get_string('hover-zoom-style') : 'default'; },
-    get hoverZoomRise() { return this._settings ? this._settings.get_int('hover-zoom-rise') : 0; },
-    get hoverZoomWidth() { return this._settings ? this._settings.get_boolean('hover-zoom-width') : false; },
-    get hoverZoomSmoothness() { return this._settings ? this._settings.get_double('hover-zoom-smoothness') : 1.0; },
-    get hoverZoomRadius() { return this._settings ? this._settings.get_double('hover-zoom-radius') : 2.0; },
-    get hoverZoomGapFactor() { return this._settings ? this._settings.get_double('hover-zoom-gap-factor') : 0.0; },
-    get hoverZoomDominoTilt() { return this._settings ? this._settings.get_int('hover-zoom-domino-tilt') : 15; },
-    get hoverZoomCylinderAngle() { return this._settings ? this._settings.get_int('hover-zoom-cylinder-angle') : 30; },
-    get hoverZoomMagneticStrength() { return this._settings ? this._settings.get_int('hover-zoom-magnetic-strength') : 5; },
-    get hoverZoomJellyStretch() { return this._settings ? this._settings.get_double('hover-zoom-jelly-stretch') : 1.2; },
-    get hoverZoomJellySquish() { return this._settings ? this._settings.get_double('hover-zoom-jelly-squish') : 0.8; },
-    get hoverZoomCoverflowAngle() { return this._settings ? this._settings.get_int('hover-zoom-coverflow-angle') : 45; },
-    get showAppsPreview() { return this._settings ? this._settings.get_boolean('show-apps-preview') : true; },
-    get contextMenuSize() { return this._settings ? this._settings.get_int('context-menu-size') : 240; },
-    get bigPreviewSize() { return this._settings ? this._settings.get_int('big-preview-size') : 95; },
-    get peekEffect() { return this._settings ? this._settings.get_boolean('peek-effect') : true; },
-    get peekAnimationSpeed() { return this._settings ? this._settings.get_int('peek-animation-speed') : 500; },
-    get showNotificationBadges() { return this._settings ? this._settings.get_boolean('show-notification-badges') : true; },
-    get showMusicPill() { return this._settings ? this._settings.get_boolean('show-music-pill') : false; },
-    get musicPillPosition() { return this._settings ? this._settings.get_string('music-pill-position') : 'left'; },
-    get musicPillShowPrev() { return this._settings ? this._settings.get_boolean('music-pill-show-prev') : true; },
-    get musicPillShowNext() { return this._settings ? this._settings.get_boolean('music-pill-show-next') : true; },
-    get musicPillProgress() { return this._settings ? this._settings.get_string('music-pill-progress') : 'pill'; },
-    get musicPillScrollAction() { return this._settings ? this._settings.get_string('music-pill-scroll-action') : 'volume'; },
-    get startMenu() { return this._settings ? this._settings.get_boolean('start-menu') : true; },
-    get musicPillLyrics() { return this._settings ? this._settings.get_boolean('music-pill-lyrics') : true; },
-    get musicPillClickAction() { return this._settings ? this._settings.get_string('music-pill-click-action') : 'none'; },
-    get musicPillMiddleClickAction() { return this._settings ? this._settings.get_string('music-pill-middle-click-action') : 'none'; },
-    get musicPillRightClickAction() { return this._settings ? this._settings.get_string('music-pill-right-click-action') : 'player'; },
-    get musicPillDoubleClickAction() { return this._settings ? this._settings.get_string('music-pill-double-click-action') : 'window'; },
-    get showTrash() { return this._settings ? this._settings.get_boolean('show-trash') : true; },
-    get showDesktopButton() { return this._settings ? this._settings.get_boolean('show-desktop-button') : false; },
-    get desktopBtnWidth() { return this._settings ? this._settings.get_int('desktop-btn-width') : 12; },
-    get desktopBtnOpacity() { return this._settings ? this._settings.get_int('desktop-btn-opacity') : 60; },
-    get desktopBtnColor() { return this._settings ? this._settings.get_string('desktop-btn-color') : '#ffffff'; },
-    get showGridButton() { return this._settings ? this._settings.get_boolean('show-grid-button') : true; },
-    get gridButtonPosition() { return this._settings ? this._settings.get_string('grid-button-position') : 'START'; },
-    get useOldGridIcon() { return this._settings ? this._settings.get_boolean('use-old-grid-icon') : false; },
-    get gridIconColor() { return this._settings ? this._settings.get_string('grid-icon-color') : '#ffffff'; },
-    get customGridIconScale() { return this._settings ? this._settings.get_int('custom-grid-icon-scale') : 100; },
-    get showClock() { return this._settings ? this._settings.get_boolean('show-clock') : false; },
-    get use24hClock() { return this._settings ? this._settings.get_boolean('use-24h-clock') : true; },
-    get clockFontSize() { return this._settings ? this._settings.get_int('clock-font-size') : 14; },
-    get clockPosition() { return this._settings ? this._settings.get_string('clock-position') : 'END'; },
-    get showHome() { return this._settings ? this._settings.get_boolean('show-home') : false; },
-    get showDownloads() { return this._settings ? this._settings.get_boolean('show-downloads') : false; },
-    get showDocuments() { return this._settings ? this._settings.get_boolean('show-documents') : false; },
-    get showPictures() { return this._settings ? this._settings.get_boolean('show-pictures') : false; },
-    get showVideos() { return this._settings ? this._settings.get_boolean('show-videos') : false; },
-    get showMusic() { return this._settings ? this._settings.get_boolean('show-music') : false; },
-    get showMounts() { return this._settings ? this._settings.get_boolean('show-mounts') : true; },
-    get blurEnabled() { return this._settings ? this._settings.get_boolean('blur-enabled') : false; },
-    set blurEnabled(val) { if (this._settings) this._settings.set_boolean('blur-enabled', val); },
-    get blurMode() { return this._settings ? this._settings.get_string('blur-mode') : 'dynamic'; },
-    set blurMode(val) { if (this._settings) this._settings.set_string('blur-mode', val); },
-    get blurStaticSource() { return this._settings ? this._settings.get_string('blur-static-source') : 'preset'; },
-    set blurStaticSource(val) { if (this._settings) this._settings.set_string('blur-static-source', val); },
-    get blurStaticPreset() { return this._settings ? this._settings.get_string('blur-static-preset') : 'abstract-dark'; },
-    set blurStaticPreset(val) { if (this._settings) this._settings.set_string('blur-static-preset', val); },
-    get blurCustomPhoto() { return this._settings ? this._settings.get_string('blur-custom-photo') : ''; },
-    set blurCustomPhoto(val) { if (this._settings) this._settings.set_string('blur-custom-photo', val); },
-    get blurIntensity() { return this._settings ? this._settings.get_double('blur-intensity') : 24.0; },
-    set blurIntensity(val) { if (this._settings) this._settings.set_double('blur-intensity', val); },
-    get blurVibrancy() { return this._settings ? this._settings.get_double('blur-vibrancy') : 1.35; },
-    set blurVibrancy(val) { if (this._settings) this._settings.set_double('blur-vibrancy', val); },
-    get blurBrightness() { return this._settings ? this._settings.get_double('blur-brightness') : 0.18; },
-    set blurBrightness(val) { if (this._settings) this._settings.set_double('blur-brightness', val); },
-    get blurBorderGlow() { return this._settings ? this._settings.get_double('blur-border-glow') : 0.55; },
-    set blurBorderGlow(val) { if (this._settings) this._settings.set_double('blur-border-glow', val); },
-    get blurHighlightAngle() { return this._settings ? this._settings.get_double('blur-highlight-angle') : 45.0; },
-    set blurHighlightAngle(val) { if (this._settings) this._settings.set_double('blur-highlight-angle', val); },
-    get blurTintColor() { return this._settings ? this._settings.get_string('blur-tint-color') : '#ffffff'; },
-    set blurTintColor(val) { if (this._settings) this._settings.set_string('blur-tint-color', val); },
-    get blurTintOpacity() { return this._settings ? this._settings.get_double('blur-tint-opacity') : 0.30; },
-    set blurTintOpacity(val) { if (this._settings) this._settings.set_double('blur-tint-opacity', val); },
-
-    connect(key, callback, target = this) {
-        if (!this._settings) return 0;
-        const signal = key.startsWith('changed::') ? key : `changed::${key}`;
-        return this._settings.connectObject(signal, callback, target);
-    },
-
-    disconnectObject(target) {
-        if (this._settings) {
-            this._settings.disconnectObject(target);
-        }
-    },
-
     destroy() {
         this._settings = null;
     },
 };
+
+for (const [name, [codec, key]] of Object.entries(KEYS)) {
+    Object.defineProperty(Settings, name, {
+        get() {
+            return this._settings ? codec.read(this._settings, key) : codec.empty();
+        },
+        set(value) {
+            if (this._settings) codec.write(this._settings, key, value);
+        },
+        enumerable: true,
+    });
+}

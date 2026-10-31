@@ -34,8 +34,8 @@ export default class DockManager {
         if (!this.dockUI || !this.dockUI.actor || !this.dockUI.boxActor || !this.dockUI.actor.visible) return;
         if (!this.dockUI.actor.is_mapped()) return;
 
-        if (this.dockUI._isOverviewActive) {
-            this.dockUI._applyOverviewLeftPosition();
+        if (this.dockUI.isOverviewActive) {
+            this.dockUI.applyOverviewLeftPosition();
             return;
         }
 
@@ -123,7 +123,7 @@ export default class DockManager {
 
         this.dockUI.actor.set_position(Math.round(xPos), Math.round(yPos));
 
-        if (isNeverHide && !this.dockUI._isOverviewActive) {
+        if (isNeverHide && !this.dockUI.isOverviewActive) {
             Main.layoutManager._queueUpdateRegions();
         }
     }

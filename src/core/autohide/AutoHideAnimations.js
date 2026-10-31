@@ -48,7 +48,7 @@ function easeDock(dockUI, props, mode, onStopped) {
 }
 
 export function getHideOffsets(dockUI, peek = 0) {
-    if (dockUI._isWindowGrabbed || dockUI.isOnSharedMonitorEdge()) {
+    if (dockUI.isWindowGrabbed || dockUI.isOnSharedMonitorEdge()) {
         return { hideX: 0, hideY: 0 };
     }
 
