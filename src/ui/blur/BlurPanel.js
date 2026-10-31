@@ -178,7 +178,7 @@ export class BlurPanel {
         };
         const onVisibility = () => {
             if (this._isShowable()) this.syncGeometry();
-            else this._hideBlur();
+            else this.hideBlur();
         };
         const transformHandlers = TRANSFORM_SIGNALS.flatMap(signal => [signal, onTransform]);
 
@@ -213,7 +213,7 @@ export class BlurPanel {
             }
 
             if (this._isLocked()) {
-                this._hideBlur();
+                this.hideBlur();
                 return;
             }
             this._unlockDelayId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, UNLOCK_SYNC_DELAY_MS, () => {
@@ -236,12 +236,12 @@ export class BlurPanel {
             return;
         }
 
-        this._hideBlur();
+        this.hideBlur();
         const current = this.blurActor.get_parent();
         if (current) current.remove_child(this.blurActor);
     }
 
-    _hideBlur() {
+    hideBlur() {
         if (!this.blurActor) return;
         this.blurActor.hide();
         this._lastKey = '';
@@ -300,7 +300,7 @@ export class BlurPanel {
         if (!this.blurActor) return;
 
         if (!Settings.blurEnabled) {
-            this._hideBlur();
+            this.hideBlur();
             return;
         }
 
@@ -338,7 +338,7 @@ export class BlurPanel {
         let [rawW, rawH] = this._targetRect ? [this._targetRect.width, this._targetRect.height] : this.targetActor.get_transformed_size();
 
         if ((Settings.dockPosition || 'BOTTOM') === 'BOTTOM' && rawY <= 5 && !this.isPopup) {
-            this._hideBlur();
+            this.hideBlur();
             return false;
         }
 

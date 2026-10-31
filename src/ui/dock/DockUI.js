@@ -249,6 +249,18 @@ export default class DockUI {
         ScrollManager.setupDockScroll(this.actor);
     }
 
+    hasActivePopupOrDrag() {
+        return Boolean(
+            this._activeContextMenu ||
+            this._activeFolderMenu ||
+            this._activeTrayMenu ||
+            (this._overflowMenu && this._overflowMenu._isOpen) ||
+            (this._startMenu && this._startMenu.isOpen) ||
+            this.actor._isDragging ||
+            (this.panelIntegrator && this.panelIntegrator.hasOpenPopupOrDrag())
+        );
+    }
+
     _getDockCornerRadius() {
         return isFullBarLayout() ? 0 : Settings.borderRadius;
     }
@@ -541,20 +553,20 @@ export default class DockUI {
         });
 
         this.settings.connectObject('changed::hide-mode', () => {
-            this._updateStruts();
+            this.updateStruts();
         }, this);
 
         this.settings.connectObject('changed::dock-margin', () => {
             this._updateLayout();
             if (this.dockManager) this.dockManager.updatePosition();
             if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
-            this._updateStruts();
+            this.updateStruts();
         }, this);
 
         this.settings.connectObject('changed::preferred-monitor', () => {
             this.dockManager.updatePosition();
             if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
-            this._updateStruts();
+            this.updateStruts();
             this.queueRender('full', true);
         }, this);
 
@@ -737,7 +749,7 @@ export default class DockUI {
 
     _enterOverviewPosition() {
         this._isOverviewActive = true;
-        this._updateStruts();
+        this.updateStruts();
         this.dockPosition = 'LEFT';
         setBoxVertical(this.boxActor, true);
 
@@ -783,7 +795,7 @@ export default class DockUI {
         if (!this._strutHolder || this._strutRestoreId) return;
         this._strutRestoreId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, Settings.autohideAnimationSpeed + STRUT_SETTLE_MS, () => {
             this._strutRestoreId = null;
-            this._updateStruts();
+            this.updateStruts();
             this._releaseStrutHolder();
             return GLib.SOURCE_REMOVE;
         });
@@ -813,7 +825,7 @@ export default class DockUI {
         }
     }
 
-    _isOnSharedMonitorEdge() {
+    isOnSharedMonitorEdge() {
         const monitors = Main.layoutManager.monitors;
         if (!monitors || monitors.length <= 1) return false;
 
@@ -920,7 +932,7 @@ export default class DockUI {
         this._grabbedWindow = window;
         this._isGrabTouchingDock = false;
 
-        this._updateStruts();
+        this.updateStruts();
 
         window.connectObject(
             'position-changed', () => this._checkGrabbedWindowNearDock(),
@@ -965,7 +977,7 @@ export default class DockUI {
         if (isActorAlive(this.bgActor)) this.bgActor.reactive = true;
         if (isActorAlive(this.boxActor)) this.boxActor.reactive = true;
 
-        this._updateStruts();
+        this.updateStruts();
 
         if (wasTouching && this.autoHideManager) {
             this.autoHideManager.setWindowGrabPassThrough(false);
@@ -978,10 +990,10 @@ export default class DockUI {
         }
     }
 
-    _updateStruts() {
+    updateStruts() {
         if (!this.actor || !isActorAlive(this.actor)) return;
 
-        const isSharedEdge = (this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT') && this._isOnSharedMonitorEdge();
+        const isSharedEdge = (this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT') && this.isOnSharedMonitorEdge();
         const shouldAffectStruts = (Settings.hideMode === 'none') &&
             !this._isOverviewActive &&
             !this._isWindowGrabbed &&
@@ -1012,7 +1024,7 @@ export default class DockUI {
     }
 
     show() {
-        const isSharedEdge = (this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT') && this._isOnSharedMonitorEdge();
+        const isSharedEdge = (this.dockPosition === 'LEFT' || this.dockPosition === 'RIGHT') && this.isOnSharedMonitorEdge();
         const shouldAffectStruts = (Settings.hideMode === 'none') && !isSharedEdge;
         this.actor._affectsStruts = shouldAffectStruts;
         this.actor.opacity = 0;

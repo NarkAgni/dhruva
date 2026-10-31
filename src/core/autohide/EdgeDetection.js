@@ -218,7 +218,7 @@ export class EdgeDetection {
         const monitor = this._getMonitor();
         if (!monitor) return;
 
-        if (this.dockUI._isOnSharedMonitorEdge()) {
+        if (this.dockUI.isOnSharedMonitorEdge()) {
             this._teardownBarriers();
             return;
         }

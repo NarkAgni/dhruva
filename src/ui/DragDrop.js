@@ -356,7 +356,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
         const isInsideMain = px >= dx - 20 && px <= dx + dw + 20 && py >= dy - 20 && py <= dy + dh + 20;
 
         if (dockUI.autoHideManager) {
-            dockUI.autoHideManager._isHovered = isInsideMain;
+            dockUI.autoHideManager.setHovered(isInsideMain);
             dockUI.autoHideManager.scheduleCheck(150);
         }
 

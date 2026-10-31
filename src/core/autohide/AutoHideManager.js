@@ -224,13 +224,21 @@ export default class AutoHideManager {
 
         if (nextState) {
             this.forceHideImmediately();
-            this.dockUI._dockBlur._hideBlur();
+            this.dockUI._dockBlur.hideBlur();
         } else if (this._getMode() === 'none') {
             this.show();
         } else {
             this._applyHiddenPosition();
             this.scheduleCheck(WINDOW_EVENT_CHECK_MS);
         }
+    }
+
+    setHovered(isHovered) {
+        this._isHovered = Boolean(isHovered);
+    }
+
+    setTrayDragging(isDragging) {
+        this._isTrayDragging = Boolean(isDragging);
     }
 
     updateTriggerGeometry() {
@@ -334,17 +342,7 @@ export default class AutoHideManager {
     }
 
     _isPopupOrDragActive() {
-        const d = this.dockUI;
-        return Boolean(
-            d._activeContextMenu ||
-            d._activeFolderMenu ||
-            d._activeTrayMenu ||
-            (d._overflowMenu && d._overflowMenu._isOpen) ||
-            (d._startMenu && d._startMenu.isOpen) ||
-            d.actor._isDragging ||
-            this._isTrayDragging ||
-            (d.panelIntegrator && d.panelIntegrator.hasOpenPopupOrDrag())
-        );
+        return this._isTrayDragging || this.dockUI.hasActivePopupOrDrag();
     }
 
     _revealIfEngaged() {
@@ -362,14 +360,14 @@ export default class AutoHideManager {
     _enterFullscreenState() {
         if (this._wasFullscreen) return;
         this._wasFullscreen = true;
-        this.dockUI._updateStruts();
+        this.dockUI.updateStruts();
         this._applyHiddenPosition();
     }
 
     _leaveFullscreenState() {
         if (!this._wasFullscreen) return;
         this._wasFullscreen = false;
-        this.dockUI._updateStruts();
+        this.dockUI.updateStruts();
         this.dockUI.queueRender('incremental');
         this._applyHiddenPosition();
     }

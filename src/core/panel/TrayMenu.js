@@ -421,7 +421,7 @@ export default class TrayMenu {
                     pill._isDraggingActive = true;
                     pill.opacity = 0;
                     if (this.dockUI && this.dockUI.autoHideManager) {
-                        this.dockUI.autoHideManager._isTrayDragging = true;
+                        this.dockUI.autoHideManager.setTrayDragging(true);
                         this.dockUI.autoHideManager.show();
                     }
                     this._dragStartIndex = allPills.indexOf(pill);
@@ -439,7 +439,7 @@ export default class TrayMenu {
                     pill.opacity = 255;
                     pill._isDraggingActive = false;
                     if (this.dockUI && this.dockUI.autoHideManager) {
-                        this.dockUI.autoHideManager._isTrayDragging = false;
+                        this.dockUI.autoHideManager.setTrayDragging(false);
                     }
                     for (let p = 0; p < allPills.length; p++) {
                         const b = allPills[p];
@@ -451,7 +451,7 @@ export default class TrayMenu {
                 'drag-end', () => {
                     pill.opacity = 255;
                     if (this.dockUI && this.dockUI.autoHideManager) {
-                        this.dockUI.autoHideManager._isTrayDragging = false;
+                        this.dockUI.autoHideManager.setTrayDragging(false);
                     }
                     if (this._dragEndTimeoutId) {
                         this.timers.remove(this._dragEndTimeoutId);
@@ -666,7 +666,7 @@ export default class TrayMenu {
                 this.dockUI._activeTrayMenu = null;
             }
             if (this.dockUI.autoHideManager) {
-                this.dockUI.autoHideManager._isTrayDragging = false;
+                this.dockUI.autoHideManager.setTrayDragging(false);
                 this.dockUI.autoHideManager.scheduleCheck(100);
             }
         }

@@ -48,7 +48,7 @@ function easeDock(dockUI, props, mode, onStopped) {
 }
 
 export function getHideOffsets(dockUI, peek = 0) {
-    if (dockUI._isWindowGrabbed || dockUI._isOnSharedMonitorEdge()) {
+    if (dockUI._isWindowGrabbed || dockUI.isOnSharedMonitorEdge()) {
         return { hideX: 0, hideY: 0 };
     }
 
@@ -95,7 +95,7 @@ export function animateHide(dockUI, onComplete, peek = 0) {
     const { hideX, hideY } = getHideOffsets(dockUI, peek);
 
     dockUI.actor._isAutohiding = true;
-    dockUI._dockBlur._hideBlur();
+    dockUI._dockBlur.hideBlur();
 
     easeDock(dockUI, { translation_x: hideX, translation_y: hideY, opacity: peek > 0 ? 255 : 0 }, Clutter.AnimationMode.EASE_IN_QUAD, () => {
         if (dockUI._autohideSerial === serial) onComplete();
