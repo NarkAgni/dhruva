@@ -224,10 +224,10 @@ function _computeDesiredState(dockUI) {
     }
 
     let displayApps = dockUI.appManager.getDisplayApps();
-    if (dockUI._ignoringApps && dockUI._ignoringApps.size > 0) {
+    if (dockUI.ignoredAppIds.size > 0) {
         displayApps = displayApps.filter(app => {
             if (!app.get_id || dockUI.appManager.hasApp(app)) return true;
-            return !dockUI._ignoringApps.has(app.get_id());
+            return !dockUI.ignoredAppIds.has(app.get_id());
         });
     }
     displayApps = displayApps.filter(app => !appsInFolders.has(app.get_id ? app.get_id() : ''));
@@ -244,7 +244,7 @@ function _computeDesiredState(dockUI) {
         let isRunning = app.get_state() === Shell.AppState.RUNNING;
 
         if (isIsolated && activeWindows.length === 0) isRunning = false;
-        if (dockUI._ignoringApps && dockUI._ignoringApps.has(appId)) isRunning = false;
+        if (dockUI.ignoredAppIds.has(appId)) isRunning = false;
 
         const appItem = {
             key: appId,
@@ -401,7 +401,7 @@ function _measureAppSlot(_dockUI) {
 
 function _itemSpan(dockUI, item, appSlot) {
     if (item.type === 'music-pill') {
-        const pill = dockUI._musicPill;
+        const pill = dockUI.musicPill;
         return pill && pill.visible ? _naturalSpan(pill, _isVerticalDock(dockUI)) : 0;
     }
     if (item.type === 'app' || item.type === 'folder' || item.type === 'grid' || item.type === 'module') {
@@ -739,12 +739,12 @@ function _buildItemActor(dockUI, item, iconSize, isVerticalDock, modsContext) {
         case 'module':
             return _resolveModuleActor(item, modsContext.sysModulesMap);
         case 'music-pill':
-            if (!dockUI._musicPill) {
-                dockUI._musicPill = new MusicPill(dockUI, dockUI.settings);
+            if (!dockUI.musicPill) {
+                dockUI.musicPill = new MusicPill(dockUI, dockUI.settings);
             }
-            dockUI._musicPill._isStatic = true;
-            dockUI._musicPill._isMusicPill = true;
-            return dockUI._musicPill;
+            dockUI.musicPill._isStatic = true;
+            dockUI.musicPill._isMusicPill = true;
+            return dockUI.musicPill;
         default:
             return null;
     }
@@ -763,7 +763,7 @@ function _renderDockFull(dockUI, transition) {
             const c = children[i];
             if (isActorAlive(c)) {
                 dockUI.boxActor.remove_child(c);
-                if (c !== dockUI._musicPill && !c._isExternal && !c._isOverflowBtn) {
+                if (c !== dockUI.musicPill && !c._isExternal && !c._isOverflowBtn) {
                     markActorDisposed(c);
                     c.destroy();
                 }
@@ -942,7 +942,7 @@ export function renderDock(dockUI, mode = 'incremental', forceRender = false) {
         const elapsed = Date.now() - dockUI.actor._lastIconClickTime;
         if (elapsed < POST_CLICK_DELAY_MS && isDockLayoutUnchanged(dockUI)) {
             dockUI._pendingRender = false;
-            if (dockUI._updateRunningStatesFast) dockUI._updateRunningStatesFast();
+            if (dockUI.updateRunningStatesFast) dockUI.updateRunningStatesFast();
 
             if (dockUI._delayedRenderId) {
                 dockUI.registry.remove(dockUI._delayedRenderId);

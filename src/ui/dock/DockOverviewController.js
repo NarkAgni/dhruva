@@ -22,6 +22,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from '../../core/SettingsManager.js';
+import { getOverviewStateAdjustment } from '../../core/Compat.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 import { applyOverviewDockMargin, clearOverviewDockMargin } from './OverviewMargin.js';
@@ -31,11 +32,6 @@ const OVERVIEW_FADE_OUT_MS = 120;
 const OVERVIEW_FADE_IN_MS = 180;
 const STRUT_SETTLE_MS = 60;
 const FALLBACK_DOCK_HEIGHT = 400;
-
-function getStateAdjustment() {
-    const controls = Main.overview._overview && Main.overview._overview._controls;
-    return controls ? controls._stateAdjustment : null;
-}
 
 function isOverviewOpen() {
     return Main.overview.visible || Main.overview.visibleTarget;
@@ -89,7 +85,7 @@ export default class DockOverviewController {
             this
         );
 
-        const adjustment = getStateAdjustment();
+        const adjustment = getOverviewStateAdjustment();
         if (adjustment) adjustment.connectObject('notify::value', () => this._onStateChanged(), this);
 
         if (!Main.overview.visible) return;
@@ -300,7 +296,7 @@ export default class DockOverviewController {
 
     destroy() {
         Main.overview.disconnectObject(this);
-        const adjustment = getStateAdjustment();
+        const adjustment = getOverviewStateAdjustment();
         if (adjustment) adjustment.disconnectObject(this);
 
         this.timers.destroy();

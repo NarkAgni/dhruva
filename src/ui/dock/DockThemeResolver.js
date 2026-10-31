@@ -45,7 +45,7 @@ export function refreshChameleonColor(dockUI) {
         dockUI._chameleonCancellable = null;
         if (!extracted || Settings.dockTheme !== 'chameleon' || !isActorAlive(dockUI.actor)) return;
 
-        dockUI._chameleonColor = extracted;
+        dockUI.chameleonColor = extracted;
         dockUI._chameleonAccent = getChameleonAccentColor(extracted.raw.r, extracted.raw.g, extracted.raw.b);
         dockUI.queueRender('full', true);
     });
@@ -57,7 +57,7 @@ export function resolveTooltipColors(dockUI, themeId, customOpacityPct = null) {
     const sColor = Settings.strokeColor || '#ffffff';
 
     if (themeId === 'chameleon') {
-        const bg = (dockUI._chameleonColor && dockUI._chameleonColor.bg) ? dockUI._chameleonColor.bg : DEFAULT_CHAMELEON_BG;
+        const bg = (dockUI.chameleonColor && dockUI.chameleonColor.bg) ? dockUI.chameleonColor.bg : DEFAULT_CHAMELEON_BG;
         return {
             css: `background-color: rgba(${bg.r}, ${bg.g}, ${bg.b}, ${opacity}); background-gradient-direction: none;`,
             fg: dockUI._chameleonAccent || sColor
@@ -70,7 +70,7 @@ export function resolveTooltipColors(dockUI, themeId, customOpacityPct = null) {
         color2: hexToRgba(Settings.backgroundGradientColor || '#000000', opacity),
         useGradient: Settings.useGradient,
         direction: Settings.gradientDirection || 'vertical',
-        chameleonColor: dockUI._chameleonColor,
+        chameleonColor: dockUI.chameleonColor,
     };
 
     let tooltipCss = (DockThemes && DockThemes[themeId]) 
@@ -134,13 +134,13 @@ export function applyDynamicStyles(dockUI) {
     const opacity = Settings.backgroundOpacity / 100.0;
     const currentTheme = Settings.dockTheme || 'default';
 
-    if (currentTheme === 'chameleon' && !dockUI._chameleonColor) {
-        dockUI._chameleonColor = { bg: DEFAULT_CHAMELEON_BG, raw: DEFAULT_CHAMELEON_RAW };
+    if (currentTheme === 'chameleon' && !dockUI.chameleonColor) {
+        dockUI.chameleonColor = { bg: DEFAULT_CHAMELEON_BG, raw: DEFAULT_CHAMELEON_RAW };
         dockUI._chameleonAccent = DEFAULT_CHAMELEON_ACCENT;
         refreshChameleonColor(dockUI);
     } else if (currentTheme !== 'chameleon') {
         cancelChameleonColor(dockUI);
-        dockUI._chameleonColor = null;
+        dockUI.chameleonColor = null;
         dockUI._chameleonAccent = null;
     }
 
@@ -151,7 +151,7 @@ export function applyDynamicStyles(dockUI) {
             color2: hexToRgba(Settings.backgroundGradientColor, opacity),
             useGradient: Settings.useGradient,
             direction: Settings.gradientDirection,
-            chameleonColor: dockUI._chameleonColor,
+            chameleonColor: dockUI.chameleonColor,
         };
 
         applyDockTheme(dockUI.bgActor, currentTheme, baseLayoutCss, customConfig);

@@ -58,7 +58,7 @@ function _syncPanelSeparator(dockUI, isVertical, boxX, boxY, boxW, boxH) {
         settings.get_boolean('show-panel-separator') && thickness > 0 &&
         isActorAlive(rightBox) && rightBox.visible && rightBox.get_children().some(_hasVisibleContent);
 
-    let sep = dockUI._panelSeparator;
+    let sep = dockUI.panelSeparator;
     if (!shouldShow) {
         if (isActorAlive(sep)) sep.hide();
         return;
@@ -67,7 +67,7 @@ function _syncPanelSeparator(dockUI, isVertical, boxX, boxY, boxW, boxH) {
     if (!isActorAlive(sep)) {
         sep = new St.Widget({ name: 'DhruvaPanelSeparator', reactive: false });
         dockUI.actor.add_child(sep);
-        dockUI._panelSeparator = sep;
+        dockUI.panelSeparator = sep;
     }
 
     const rgba = hexToRgba(settings.get_string('panel-separator-color'), settings.get_int('panel-separator-opacity') / 100.0);

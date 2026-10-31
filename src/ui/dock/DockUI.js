@@ -50,6 +50,7 @@ import { requestAttention, cancelDockTransitions } from './DockTransitions.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
 import { getWindowIdentity, pruneExpiredLaunches, claimLaunchForWindow } from './LaunchMatcher.js';
 import { counterScaleButtonIndicators } from './DockButtonBase.js';
+import { preloadAppGridIcons } from '../../core/Compat.js';
 import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
 import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer, isDockLayoutUnchanged } from './DockRenderer.js';
 
@@ -114,6 +115,8 @@ export default class DockUI {
         this._launchUnpause = {};
         this.activeContextMenu = null;
         this.pendingLaunches = [];
+        this.ignoredAppIds = new Set();
+        this.recentEmojis = [];
         this._cursorResetTimeouts = [];
         this._overviewController = new DockOverviewController(this);
         this._grabController = new DockGrabController(this);
@@ -173,7 +176,7 @@ export default class DockUI {
             });
         };
         this._applyDynamicStyles = () => applyDynamicStyles(this);
-        this._getIndicatorProps = () => getIndicatorProps(this);
+        this.getIndicatorProps = () => getIndicatorProps(this);
         this.isActorAlive = isActorAlive;
 
         const executeScheduledRender = this._executeScheduledRender = debounce(() => {
@@ -424,7 +427,7 @@ export default class DockUI {
 
     _onFocusWindowChanged() {
         if (this.isWindowGrabbed) return;
-        this._updateRunningStatesFast();
+        this.updateRunningStatesFast();
 
         const overflowClosed = !this.overflowMenu || !this.overflowMenu.isOpen;
         if (Settings.hybridPanelMode && this._overflowKeys && overflowClosed && global.display.get_focus_window()) {
@@ -468,9 +471,9 @@ export default class DockUI {
         this._connectSettings(['grid-button-position', 'show-grid-button'], () => this.queueRender('full', true));
 
         this._connectSettings(['show-music-pill', 'music-pill-position'], () => {
-            if (this._musicPill) {
-                this._musicPill.destroy();
-                this._musicPill = null;
+            if (this.musicPill) {
+                this.musicPill.destroy();
+                this.musicPill = null;
             }
 
             this.queueRender('full', true);
@@ -513,7 +516,7 @@ export default class DockUI {
         this._setupChameleonWatcher();
         this._syncTrashMonitor();
         this._connectSettings(['show-trash'], () => {
-            this._trashIsFull = undefined;
+            this.trashIsFull = undefined;
             this._syncTrashMonitor();
             this.queueRender('incremental', true);
         });
@@ -529,10 +532,7 @@ export default class DockUI {
         this.registry.remove(this._preloadAppsTimeoutId);
         this._preloadAppsTimeoutId = this.registry.addTimeout(GLib.PRIORITY_LOW, PRELOAD_APPS_DELAY_MS, () => {
             this._preloadAppsTimeoutId = 0;
-            const controls = Main.overview._overview && Main.overview._overview._controls;
-            if (controls && controls._appDisplay && controls._appDisplay._ensureIcon) {
-                controls._appDisplay.create_all_apps();
-            }
+            preloadAppGridIcons();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -540,13 +540,13 @@ export default class DockUI {
     _refreshForWindows(force) {
         if (this._initialLayoutDone && !this._isRendering && isActorAlive(this.actor) && isDockLayoutUnchanged(this)) {
             this.actor._magTooltipAppId = null;
-            this._updateRunningStatesFast();
+            this.updateRunningStatesFast();
             return;
         }
         this.queueRender('incremental', force);
     }
 
-    _updateRunningStatesFast() {
+    updateRunningStatesFast() {
         if (!isActorAlive(this.boxActor)) return;
         syncRunningStates(this);
         if (!this.actor._isZoomActive) return;
@@ -692,8 +692,8 @@ export default class DockUI {
         if (this.actor._affectsStruts === shouldAffectStruts) return;
         this.actor._affectsStruts = shouldAffectStruts;
 
-        Main.layoutManager._untrackActor(this.actor);
-        Main.layoutManager._trackActor(this.actor, {
+        Main.layoutManager.untrackChrome(this.actor);
+        Main.layoutManager.trackChrome(this.actor, {
             affectsStruts: shouldAffectStruts,
             trackFullscreen: true,
         });
@@ -820,7 +820,7 @@ export default class DockUI {
         this._overviewController.bind();
     }
 
-    _scheduleCursorResetBurst() {
+    scheduleCursorResetBurst() {
         if (!this._cursorResetTimeouts) {
             this._cursorResetTimeouts = [];
         } else {
@@ -982,9 +982,9 @@ export default class DockUI {
             this.startMenu.destroy();
             this.startMenu = null;
         }
-        if (this._musicPill) {
-            this._musicPill.destroy();
-            this._musicPill = null;
+        if (this.musicPill) {
+            this.musicPill.destroy();
+            this.musicPill = null;
         }
 
         if (this.appManager) {
@@ -996,9 +996,9 @@ export default class DockUI {
         if (this._actorRegistry) this._actorRegistry.clear();
         if (this._separatorRegistry) this._separatorRegistry.clear();
         cancelDockTransitions(this);
-        if (this._desktopToggle) {
-            this._desktopToggle.destroy();
-            this._desktopToggle = null;
+        if (this.desktopToggle) {
+            this.desktopToggle.destroy();
+            this.desktopToggle = null;
         }
 
         if (this.dockBlur) {

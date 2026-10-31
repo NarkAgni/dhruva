@@ -101,8 +101,8 @@ class DesktopToggle {
 }
 
 export function toggleDesktop(dockUI) {
-    if (!dockUI._desktopToggle) dockUI._desktopToggle = new DesktopToggle();
-    dockUI._desktopToggle.toggle();
+    if (!dockUI.desktopToggle) dockUI.desktopToggle = new DesktopToggle();
+    dockUI.desktopToggle.toggle();
 }
 
 function _computeDesktopButtonStyle(dockUI, stateMode = 'default') {

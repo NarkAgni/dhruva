@@ -26,6 +26,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { BlurEffect } from './BlurEffect.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { getBackgroundGroup } from '../../core/Compat.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
 
@@ -128,7 +129,7 @@ export class BlurPanel {
     _syncCloneSources() {
         if (!this.blurActor) return;
         const isLive = this.blurActor.visible && !this._isStaticMode() && global.window_group.visible;
-        this._bgClone.source = isLive ? Main.layoutManager._backgroundGroup : null;
+        this._bgClone.source = isLive ? getBackgroundGroup() : null;
         this._winClone.source = isLive ? global.window_group : null;
     }
 

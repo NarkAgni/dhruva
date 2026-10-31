@@ -271,7 +271,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             return Clutter.EVENT_PROPAGATE;
         }
 
-        const pill = (dockActor._dockUI && dockActor._dockUI._musicPill) ? dockActor._dockUI._musicPill : null;
+        const pill = (dockActor._dockUI && dockActor._dockUI.musicPill) ? dockActor._dockUI.musicPill : null;
         if (pill && isActorAlive(pill) && pill.visible) {
             const targetActor = global.stage.get_event_actor(event);
             if (targetActor && (targetActor === pill || (pill.contains && pill.contains(targetActor)))) {

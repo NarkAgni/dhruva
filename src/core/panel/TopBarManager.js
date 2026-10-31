@@ -20,6 +20,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { NativeActorState } from './NativeActorState.js';
+import { queueLayoutRegionsUpdate } from '../Compat.js';
 
 
 const OFFSCREEN_Y = -9999;
@@ -47,14 +48,14 @@ export default class TopBarManager {
         });
         this._state.setSize(panelBox, -1, 0);
 
-        Main.layoutManager._queueUpdateRegions();
+        queueLayoutRegionsUpdate();
     }
 
     restore() {
         if (this._state) {
             this._state.restore();
             this._state = null;
-            Main.layoutManager._queueUpdateRegions();
+            queueLayoutRegionsUpdate();
         }
     }
 

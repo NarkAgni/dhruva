@@ -1,3 +1,9 @@
+## [5.1.9] - 31-10-2026
+
+### Improved
+* **Better Prepared for GNOME Updates:** Dhruva now uses GNOME Shell's official, public ways of doing things wherever GNOME offers them, for example when reserving the dock's space on screen and when playing the minimize and restore effects. The few places where Dhruva has to reach into GNOME's own internals are now gathered in one spot, so supporting a new GNOME version is quicker and less likely to break the dock.
+* **Tidier Internals:** The dock's parts no longer reach into each other's private data. The music pill, wallpaper colours, recycle bin state, hovered icon and similar shared details now go through clearly named connections, and pieces that only one part needs, like drag-and-drop from the app grid, are kept inside that part. Nothing changes in how Dhruva looks or works, but future changes are safer.
+
 ## [5.1.8] - 31-10-2026
 
 ### New

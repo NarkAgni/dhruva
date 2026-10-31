@@ -26,6 +26,7 @@ import TrayMenu from './TrayMenu.js';
 import AppletReorder from './AppletReorder.js';
 import { isSingleIcon } from './TrayManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
+import { getPanelLeftBox } from '../Compat.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { isActorAlive, setBoxVertical } from '../Utils.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
@@ -195,7 +196,7 @@ export default class ExtensionAppletsManager {
         for (const { actor, indicator } of this._applets) {
             const isSmallIcon = isSingleIcon(actor);
             const parent = actor.get_parent();
-            const zone = parent === Main.panel._leftBox ? this.leftBox : this.box;
+            const zone = parent === getPanelLeftBox() ? this.leftBox : this.box;
             if (parent) {
                 this._state.rememberPlace(actor);
                 parent.remove_child(actor);

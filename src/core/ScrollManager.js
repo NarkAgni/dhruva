@@ -57,7 +57,7 @@ export default class ScrollManager {
             actor._lastIconClickTime = Date.now();
 
             const dockUI = actor._dockUI;
-            const hoveredBtn = dockUI ? dockUI._hoveredAppButton : null;
+            const hoveredBtn = dockUI ? dockUI.hoveredAppButton : null;
             const hoveredApp = hoveredBtn && hoveredBtn._delegate ? hoveredBtn._delegate.app : null;
 
             if (hoveredApp && Settings.scrollActionApp) {

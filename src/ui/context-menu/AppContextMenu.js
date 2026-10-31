@@ -430,8 +430,7 @@ export default class AppContextMenu {
     _addAppToIgnoreList(app) {
         if (!this.dockUI || !app.get_id) return;
         const appId = app.get_id();
-        if (!this.dockUI._ignoringApps) this.dockUI._ignoringApps = new Set();
-        this.dockUI._ignoringApps.add(appId);
+        this.dockUI.ignoredAppIds.add(appId);
 
         if (this._ignoreExpiryId) {
             this.timers.remove(this._ignoreExpiryId);
@@ -439,7 +438,7 @@ export default class AppContextMenu {
         }
         this._ignoreExpiryId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, IGNORE_EXPIRY_MS, () => {
             this._ignoreExpiryId = null;
-            if (this.dockUI && this.dockUI._ignoringApps) this.dockUI._ignoringApps.delete(appId);
+            if (this.dockUI) this.dockUI.ignoredAppIds.delete(appId);
             return GLib.SOURCE_REMOVE;
         });
     }

@@ -482,7 +482,7 @@ export default class AppGridUI {
         let strokeRgba = sWidth > 0 ? hexToRgba(sColor, sOpacity) : 'transparent';
 
         if (themeId === 'chameleon') {
-            const c = (this.dockUI._chameleonColor && this.dockUI._chameleonColor.bg) || { r: 30, g: 30, b: 45 };
+            const c = (this.dockUI.chameleonColor && this.dockUI.chameleonColor.bg) || { r: 30, g: 30, b: 45 };
             bgRgba = `rgba(${c.r}, ${c.g}, ${c.b}, ${opacity})`;
             strokeRgba = 'rgba(255, 255, 255, 0.2)';
         } else if (this.dockUI.actor._tooltipBg) {

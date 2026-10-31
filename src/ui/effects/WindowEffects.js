@@ -20,9 +20,9 @@
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
-import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from '../../core/SettingsManager.js';
+import { getWindowAnimationFilter, setWindowAnimationFilter } from '../../core/Compat.js';
 import { CRTMinimize, CRTRestore } from './CrtEffect.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { SnakeMinimize, SnakeRestore } from './SnakeEffect.js';
@@ -153,12 +153,24 @@ function _makeRestore(iconPos, dockPos, type) {
     return _applyEffectDuration(effect, duration);
 }
 
+function _completeMinimize(actor) {
+    if (_origCompletedMinimize) _origCompletedMinimize.call(global.window_manager, actor);
+}
+
+function _completeUnminimize(actor) {
+    if (_origCompletedUnminimize) _origCompletedUnminimize.call(global.window_manager, actor);
+}
+
+function _completeMap(actor) {
+    if (_origCompletedMap) _origCompletedMap.call(global.window_manager, actor);
+}
+
 function _patchWm() {
     if (_origShouldAnimate) return;
-    if (!Main.wm || !Main.wm._shellwm || !Main.wm._shouldAnimateActor) return;
+    if (!getWindowAnimationFilter()) return;
 
-    _origShouldAnimate = Main.wm._shouldAnimateActor;
-    Main.wm._shouldAnimateActor = function (actor, types) {
+    _origShouldAnimate = getWindowAnimationFilter();
+    setWindowAnimationFilter(function (actor, types) {
         if (actor === _pendingActor || actor === _pendingLaunchActor || _animatingActors.includes(actor)) return false;
 
         if (actor.meta_window && _dockUI && _dockUI.pendingLaunches.length > 0) {
@@ -167,9 +179,9 @@ function _patchWm() {
         }
 
         return _origShouldAnimate.call(this, actor, types);
-    };
+    });
 
-    const shellwm = Main.wm._shellwm;
+    const shellwm = global.window_manager;
 
     _origCompletedMinimize = shellwm.completed_minimize;
     shellwm.completed_minimize = function (actor) {
@@ -192,12 +204,11 @@ function _patchWm() {
 
 function _unpatchWm() {
     if (_origShouldAnimate) {
-        if (Main.wm) Main.wm._shouldAnimateActor = _origShouldAnimate;
-        if (Main.wm && Main.wm._shellwm) {
-            Main.wm._shellwm.completed_minimize = _origCompletedMinimize;
-            Main.wm._shellwm.completed_unminimize = _origCompletedUnminimize;
-            if (_origCompletedMap) Main.wm._shellwm.completed_map = _origCompletedMap;
-        }
+        const shellwm = global.window_manager;
+        setWindowAnimationFilter(_origShouldAnimate);
+        shellwm.completed_minimize = _origCompletedMinimize;
+        shellwm.completed_unminimize = _origCompletedUnminimize;
+        shellwm.completed_map = _origCompletedMap;
 
         _origShouldAnimate = null;
         _origCompletedMinimize = null;
@@ -208,9 +219,7 @@ function _unpatchWm() {
 
 export function finishMinimizeEffect(actor) {
     _removeAnimatingActor(actor);
-    if (isActorAlive(actor) && _origCompletedMinimize && Main.wm && Main.wm._shellwm) {
-        _origCompletedMinimize.call(Main.wm._shellwm, actor);
-    }
+    if (isActorAlive(actor)) _completeMinimize(actor);
 }
 
 export function finishRestoreEffect(actor) {
@@ -218,11 +227,9 @@ export function finishRestoreEffect(actor) {
     if (isActorAlive(actor)) {
         if (actor._isDhruvaLaunching) {
             actor._isDhruvaLaunching = false;
-            if (_origCompletedMap && Main.wm && Main.wm._shellwm) {
-                _origCompletedMap.call(Main.wm._shellwm, actor);
-            }
-        } else if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm) {
-            _origCompletedUnminimize.call(Main.wm._shellwm, actor);
+            _completeMap(actor);
+        } else {
+            _completeUnminimize(actor);
         }
     }
 }
@@ -272,9 +279,7 @@ export function setupWindowEffects(settings, dockUI) {
                             actor.set_scale(1.0, 1.0);
                             actor.opacity = 255;
                             actor.hide();
-                            if (_origCompletedMinimize && Main.wm && Main.wm._shellwm) {
-                                _origCompletedMinimize.call(Main.wm._shellwm, actor);
-                            }
+                            _completeMinimize(actor);
                         }
                     }
                 });
@@ -282,9 +287,7 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (type === 'none') {
-                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
-                    _origCompletedMinimize.call(Main.wm._shellwm, actor);
-                }
+                if (isActorAlive(actor)) _completeMinimize(actor);
                 return;
             }
 
@@ -313,9 +316,7 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (!isOurAnimation) {
-                if (_origCompletedMinimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
-                    _origCompletedMinimize.call(Main.wm._shellwm, actor);
-                }
+                if (isActorAlive(actor)) _completeMinimize(actor);
                 return;
             }
 
@@ -361,9 +362,7 @@ export function setupWindowEffects(settings, dockUI) {
                             actor.set_pivot_point(0, 0);
                             actor.set_scale(1.0, 1.0);
                             actor.opacity = 255;
-                            if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm) {
-                                _origCompletedUnminimize.call(Main.wm._shellwm, actor);
-                            }
+                            _completeUnminimize(actor);
                         }
                     }
                 });
@@ -371,9 +370,7 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (type === 'none') {
-                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
-                    _origCompletedUnminimize.call(Main.wm._shellwm, actor);
-                }
+                if (isActorAlive(actor)) _completeUnminimize(actor);
                 return;
             }
 
@@ -402,9 +399,7 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (!isOurAnimation) {
-                if (_origCompletedUnminimize && Main.wm && Main.wm._shellwm && isActorAlive(actor)) {
-                    _origCompletedUnminimize.call(Main.wm._shellwm, actor);
-                }
+                if (isActorAlive(actor)) _completeUnminimize(actor);
                 return;
             }
 
@@ -475,9 +470,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
 
     const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
     if (type === 'none') {
-        if (_origCompletedMap && Main.wm && Main.wm._shellwm) {
-            _origCompletedMap.call(Main.wm._shellwm, actor);
-        }
+        _completeMap(actor);
         return;
     }
 

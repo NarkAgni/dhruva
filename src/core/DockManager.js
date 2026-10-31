@@ -20,6 +20,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from './SettingsManager.js';
+import { queueLayoutRegionsUpdate } from './Compat.js';
 import { isDynamicPanelLayout, isFullBarLayout } from './LayoutMode.js';
 
 
@@ -124,7 +125,7 @@ export default class DockManager {
         this.dockUI.actor.set_position(Math.round(xPos), Math.round(yPos));
 
         if (isNeverHide && !this.dockUI.isOverviewActive) {
-            Main.layoutManager._queueUpdateRegions();
+            queueLayoutRegionsUpdate();
         }
     }
 

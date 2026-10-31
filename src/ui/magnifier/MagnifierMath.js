@@ -94,7 +94,7 @@ export function getPanelSideActors(dockActor) {
     const integrator = dockUI.panelIntegrator;
     return {
         start: [integrator.leftContainer].filter(actor => isActorAlive(actor)),
-        end: [integrator.container, dockUI.extractedDesktop, dockUI._panelSeparator].filter(actor => isActorAlive(actor)),
+        end: [integrator.container, dockUI.extractedDesktop, dockUI.panelSeparator].filter(actor => isActorAlive(actor)),
     };
 }
 

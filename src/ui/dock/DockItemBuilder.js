@@ -318,7 +318,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
                 app.activate();
             }
 
-            dockUI._scheduleCursorResetBurst();
+            dockUI.scheduleCursorResetBurst();
             animateIconClick(iconBin, Settings.clickEffect);
             return;
         }
@@ -346,7 +346,7 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
                     app.activate();
                 }
 
-                dockUI._scheduleCursorResetBurst();
+                dockUI.scheduleCursorResetBurst();
 
                 dockUI.pendingLaunches.push({
                     appId: app.get_id(),

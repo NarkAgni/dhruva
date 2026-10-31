@@ -209,7 +209,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
         dockActor._structureChanged = false;
     }
 
-    const pill = (dockActor._dockUI && dockActor._dockUI._musicPill) ? dockActor._dockUI._musicPill : null;
+    const pill = (dockActor._dockUI && dockActor._dockUI.musicPill) ? dockActor._dockUI.musicPill : null;
     if (pill && isActorAlive(pill) && pill.visible) {
         const pillPos = pill.get_transformed_position();
         const px = pillPos[0];

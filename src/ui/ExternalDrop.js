@@ -361,15 +361,22 @@ class ExternalDrop {
     }
 }
 
+const externalDrops = new WeakMap();
+
 export function ensureExternalDrop(dockUI) {
-    if (dockUI._externalDrop) dockUI._externalDrop.attach();
-    else dockUI._externalDrop = new ExternalDrop(dockUI);
-    return dockUI._externalDrop;
+    let drop = externalDrops.get(dockUI);
+    if (drop) {
+        drop.attach();
+    } else {
+        drop = new ExternalDrop(dockUI);
+        externalDrops.set(dockUI, drop);
+    }
+    return drop;
 }
 
 export function destroyExternalDrop(dockUI) {
-    if (dockUI && dockUI._externalDrop) {
-        dockUI._externalDrop.destroy();
-        dockUI._externalDrop = null;
-    }
+    const drop = dockUI ? externalDrops.get(dockUI) : null;
+    if (!drop) return;
+    drop.destroy();
+    externalDrops.delete(dockUI);
 }

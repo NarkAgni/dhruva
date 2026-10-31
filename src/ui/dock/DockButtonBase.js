@@ -243,8 +243,8 @@ export function attachHoverBackground(dockUI, btn, appBox, isIndicatorActive, in
     btn._tightCross = tightCross;
 
     btn.connectObject('notify::hover', () => {
-        if (btn.hover) dockUI._hoveredAppButton = btn;
-        else if (dockUI._hoveredAppButton === btn) dockUI._hoveredAppButton = null;
+        if (btn.hover) dockUI.hoveredAppButton = btn;
+        else if (dockUI.hoveredAppButton === btn) dockUI.hoveredAppButton = null;
 
         if (Settings.hoverZoom) return;
 

@@ -26,6 +26,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { getOverviewStateAdjustment, resetOverviewSearch } from '../../core/Compat.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg, getPreviewBoxOpacity, previewBoxColor } from '../dock/DockButtonBase.js';
@@ -106,7 +107,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     gridIconBin.set_pivot_point(0.5, 0.5);
     gridIconBin._baseScaleX = shouldFlip ? -1.0 : 1.0;
 
-    const gridIndProps = dockUI._getIndicatorProps();
+    const gridIndProps = dockUI.getIndicatorProps();
     gridIconBin.translation_x = gridIndProps.iconTx;
     gridIconBin.translation_y = gridIndProps.iconTy;
     gridIconBin._baseTx = gridIndProps.iconTx;
@@ -213,17 +214,15 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
                 return;
             }
 
-            const controls = Main.overview._overview && Main.overview._overview._controls;
+            const stateAdjustment = getOverviewStateAdjustment();
 
             if (!Main.overview.visible) {
                 Main.overview.showApps();
-            } else if (controls && controls._stateAdjustment) {
-                const currentState = Math.round(controls._stateAdjustment.value);
+            } else if (stateAdjustment) {
+                const currentState = Math.round(stateAdjustment.value);
                 if (currentState !== 2) {
-                    if (controls._searchController && controls._searchController.reset) {
-                        controls._searchController.reset();
-                    }
-                    controls._stateAdjustment.ease(2, {
+                    resetOverviewSearch();
+                    stateAdjustment.ease(2, {
                         duration: OVERVIEW_APPS_EASE_DURATION_MS,
                         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     });

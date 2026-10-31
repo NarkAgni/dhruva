@@ -43,20 +43,20 @@ export function refreshTrashState(dockUI) {
             }
             enumerator.close_async(GLib.PRIORITY_LOW, cancellable, () => {});
 
-            if (isFull === dockUI._trashIsFull) return;
-            dockUI._trashIsFull = isFull;
+            if (isFull === dockUI.trashIsFull) return;
+            dockUI.trashIsFull = isFull;
             if (isActorAlive(dockUI.actor)) dockUI.queueRender('incremental', true);
         });
     });
 }
 
 export function buildTrashModule(dockUI, createBtn, toggleAppWindow) {
-    const iconName = dockUI._trashIsFull ? 'user-trash-full' : 'user-trash';
+    const iconName = dockUI.trashIsFull ? 'user-trash-full' : 'user-trash';
     const btn = createBtn(iconName, _('Recycle Bin'), (button) => toggleAppWindow('trash:///', null, _('Recycle Bin'), button), null);
     btn._isTrash = true;
 
-    if (dockUI._trashIsFull === undefined) {
-        dockUI._trashIsFull = false;
+    if (dockUI.trashIsFull === undefined) {
+        dockUI.trashIsFull = false;
         refreshTrashState(dockUI);
     }
     return btn;

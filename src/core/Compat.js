@@ -18,6 +18,7 @@
 
 
 import Meta from 'gi://Meta';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 
 export function getCursorTracker() {
@@ -48,4 +49,50 @@ export function hasPointerBarriers() {
 
 export function isWindowHidden(win) {
     return Boolean(win.is_hidden && win.is_hidden());
+}
+
+export function getOverviewControls() {
+    const overview = Main.overview._overview;
+    return overview ? overview._controls : null;
+}
+
+export function getOverviewStateAdjustment() {
+    const controls = getOverviewControls();
+    return controls ? controls._stateAdjustment : null;
+}
+
+export function resetOverviewSearch() {
+    const controls = getOverviewControls();
+    const search = controls ? controls._searchController : null;
+    if (search && search.reset) search.reset();
+}
+
+export function preloadAppGridIcons() {
+    const controls = getOverviewControls();
+    const appDisplay = controls ? controls._appDisplay : null;
+    if (appDisplay && appDisplay._ensureIcon) appDisplay.create_all_apps();
+}
+
+export function queueLayoutRegionsUpdate() {
+    Main.layoutManager._queueUpdateRegions();
+}
+
+export function getBackgroundGroup() {
+    return Main.layoutManager._backgroundGroup;
+}
+
+export function getPanelLeftBox() {
+    return Main.panel._leftBox;
+}
+
+export function getNotificationBannerBin() {
+    return Main.messageTray._bannerBin;
+}
+
+export function getWindowAnimationFilter() {
+    return Main.wm._shouldAnimateActor;
+}
+
+export function setWindowAnimationFilter(filter) {
+    Main.wm._shouldAnimateActor = filter;
 }

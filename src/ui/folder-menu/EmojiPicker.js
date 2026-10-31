@@ -105,10 +105,7 @@ export class EmojiPicker {
         this.onSelect = onSelect;
         this.timers = folderMenu.timers;
 
-        if (!this.dockUI._recentEmojis) {
-            this.dockUI._recentEmojis = [];
-        }
-        this._recentEmojis = this.dockUI._recentEmojis;
+        this._recentEmojis = this.dockUI.recentEmojis;
 
         this._entries = [];
         this._cells = [];

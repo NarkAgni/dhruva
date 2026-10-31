@@ -22,6 +22,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { getNotificationBannerBin } from '../Compat.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { NativeActorState } from './NativeActorState.js';
 
@@ -46,7 +47,7 @@ export default class NotificationBannerManager {
     enable(anchor) {
         if (this._state) return;
         const tray = Main.messageTray;
-        const bin = tray._bannerBin;
+        const bin = getNotificationBannerBin();
 
         this._anchor = anchor;
         this._state = new NativeActorState();
@@ -61,7 +62,7 @@ export default class NotificationBannerManager {
     }
 
     _sync() {
-        const bin = Main.messageTray._bannerBin;
+        const bin = getNotificationBannerBin();
         const dock = this.dockUI.bgActor;
         if (!isPlaced(this._anchor) || !isPlaced(dock) || !isPlaced(bin)) return;
 

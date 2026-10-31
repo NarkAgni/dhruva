@@ -90,7 +90,7 @@ export function releaseRemovedItems(dockUI, transition, keptKeys) {
 
     for (const [key, { actor, type }] of transition.actors) {
         if (keptKeys.has(key) || key === draggedOutKey || !GHOST_TYPES.includes(type)) continue;
-        if (actor === dockUI._musicPill || actor._isOverflowBtn) continue;
+        if (actor === dockUI.musicPill || actor._isOverflowBtn) continue;
         spawnExitGhost(dockUI, actor, transition.rects.get(key));
     }
 }
