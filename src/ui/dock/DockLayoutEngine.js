@@ -18,6 +18,7 @@
 
 
 import St from 'gi://St';
+import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from '../../core/SettingsManager.js';
@@ -28,6 +29,7 @@ import { calculateScale, calculatePivot, calculateBackgroundBounds } from './Doc
 
 
 const DEFAULT_BOX_SIZE = 10;
+const BG_SETTLE_MS = 200;
 const LEADING_CONTENT_DEPTH = 4;
 
 function _hasVisibleContent(actor) {
@@ -87,6 +89,28 @@ function _syncPanelSeparator(dockUI, isVertical, boxX, boxY, boxW, boxH) {
         Math.round((isVertical ? center : crossCenter) - h / 2)
     );
     sep.show();
+}
+
+function _settleBackgroundAfterReset(dockUI, x, y, width, height) {
+    const bg = dockUI.bgActor;
+    const syncBlur = () => {
+        if (dockUI._syncBlurGeometry) dockUI._syncBlurGeometry();
+    };
+
+    bg.ease({
+        x,
+        y,
+        width,
+        height,
+        duration: BG_SETTLE_MS,
+        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        onUpdate: syncBlur,
+        onStopped: () => {
+            if (isActorAlive(bg)) bg._isMagResetting = false;
+            syncBlur();
+        },
+    });
+    bg._isMagResetting = true;
 }
 
 export function updateLayout(dockUI) {
@@ -554,7 +578,9 @@ export function updateLayout(dockUI) {
     dockUI.bgActor._baseW = bgW;
     dockUI.bgActor._baseH = bgH;
 
-    if (!dockUI.actor._isZoomActive || isFullWidth) {
+    if (!isFullWidth && dockUI.bgActor._isMagResetting) {
+        _settleBackgroundAfterReset(dockUI, bgX, bgY, bgW, bgH);
+    } else if (!dockUI.actor._isZoomActive || isFullWidth) {
         dockUI.bgActor.remove_all_transitions();
         dockUI.bgActor.set_position(bgX, bgY);
         dockUI.bgActor.set_size(bgW, bgH);

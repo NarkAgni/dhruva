@@ -19,6 +19,15 @@
 #                                Deletes local <uuid>.zip after successful upload.
 #    uninstall                   Remove the extension from the local GNOME Shell dir.
 #    clean                       Remove build artifacts (zip, locale/, gschemas.compiled).
+#    completion [zsh|bash]       Print a Tab-completion script for your shell.
+#
+# TAB COMPLETION
+#    Add this line to the END of ~/.zshrc (after compinit / oh-my-zsh), using the
+#    real path to this script, then open a new terminal:
+#        eval "$(/path/to/manage.sh completion zsh)"
+#    For bash, add the same line to ~/.bashrc with "bash" instead of "zsh".
+#    Now "./manage.sh re<Tab>" becomes "./manage.sh release", and after
+#    "release " Tab suggests image files to attach.
 #
 # EXAMPLES
 #    ./manage.sh install
@@ -70,6 +79,7 @@ EXCLUDE_TOP=(
     "media"
     "media/*"
     "tests"
+    "docs"
     "node_modules"
     "package.json"
     "package-lock.json"
@@ -137,6 +147,13 @@ COMMANDS
   clean
       Removes build artifacts: <uuid>.zip, locale/ and schemas/gschemas.compiled.
 
+  completion [zsh|bash]
+      Prints a Tab-completion script (default: zsh). Works from any folder.
+      Add this to the END of ~/.zshrc, with the real path, then open a new terminal:
+        eval "$(/path/to/manage.sh completion zsh)"
+      Then "./manage.sh re<Tab>" completes to "release", and Tab after
+      "release " suggests image files to attach.
+
   help, --help, -h
       Shows this menu.
 
@@ -148,7 +165,7 @@ WHAT IS PACKAGED (auto-detected, nothing hardcoded)
     - hidden entries        (.git, .github, .gitignore, ...)
     - manage.sh, Makefile
     - README*, CHANGELOG*
-    - media/, tests/, node_modules/
+    - media/, tests/, docs/, node_modules/
     - package.json, package-lock.json
     - *.zip
     - schemas/gschemas.compiled           (pack only; install keeps it)
@@ -191,10 +208,80 @@ REQUIREMENTS
 HELP_EOF
 }
 
-# Show help before requiring metadata.json, so "./manage.sh help" works anywhere.
+COMMANDS=(
+    "install:Compile schemas and translations, then install locally"
+    "test:Run the unit tests with gjs"
+    "pack:Run the tests and build the EGO zip"
+    "release:Pack, commit, push, tag and publish a GitHub release"
+    "uninstall:Remove the extension from GNOME Shell"
+    "clean:Remove build artifacts"
+    "completion:Print the Tab-completion script for zsh or bash"
+    "help:Show the help menu"
+)
+
+print_zsh_completion() {
+    echo "_manage_sh() {"
+    echo "    local -a commands"
+    echo "    commands=("
+    local entry
+    for entry in "${COMMANDS[@]}"; do
+        echo "        '${entry}'"
+    done
+    echo "    )"
+    echo "    if (( CURRENT == 2 )); then"
+    echo "        _describe -t commands 'manage.sh command' commands"
+    echo "    elif [[ \$words[2] == release ]]; then"
+    echo "        _files -g '*.(png|jpg|jpeg|gif|webp|PNG|JPG|JPEG|GIF|WEBP)'"
+    echo "    elif [[ \$words[2] == completion ]]; then"
+    echo "        compadd zsh bash"
+    echo "    fi"
+    echo "}"
+    echo "compdef _manage_sh manage.sh ./manage.sh"
+}
+
+print_bash_completion() {
+    local names=""
+    local entry
+    for entry in "${COMMANDS[@]}"; do
+        names="${names} ${entry%%:*}"
+    done
+
+    echo "_manage_sh() {"
+    echo "    local cur=\"\${COMP_WORDS[COMP_CWORD]}\""
+    echo "    if [ \"\$COMP_CWORD\" -eq 1 ]; then"
+    echo "        COMPREPLY=(\$(compgen -W \"${names# }\" -- \"\$cur\"))"
+    echo "    elif [ \"\${COMP_WORDS[1]}\" = release ]; then"
+    echo "        COMPREPLY=(\$(compgen -f -- \"\$cur\"))"
+    echo "    elif [ \"\${COMP_WORDS[1]}\" = completion ]; then"
+    echo "        COMPREPLY=(\$(compgen -W \"zsh bash\" -- \"\$cur\"))"
+    echo "    fi"
+    echo "}"
+    echo "complete -o filenames -F _manage_sh manage.sh ./manage.sh"
+}
+
+print_completion() {
+    case "${1:-zsh}" in
+        zsh)
+            print_zsh_completion
+            ;;
+        bash)
+            print_bash_completion
+            ;;
+        *)
+            echo "Error: Unknown shell '${1}'. Use 'zsh' or 'bash'." >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Show help and completion before requiring metadata.json, so they work anywhere.
 case "${1:-}" in
     help|--help|-h|"")
         show_help
+        exit 0
+        ;;
+    completion)
+        print_completion "${2:-zsh}"
         exit 0
         ;;
 esac
@@ -354,6 +441,7 @@ pack_ext() {
         "${FILES[@]}" \
         -x "media/*" \
         -x "tests/*" \
+        -x "docs/*" \
         -x "po/*" \
         -x "README*" \
         -x "LICENSE*" \

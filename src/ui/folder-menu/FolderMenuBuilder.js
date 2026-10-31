@@ -782,9 +782,9 @@ export class FolderMenuBuilder {
             btn.connectObject('button-press-event', (_actor, event) => {
                 if (!isActorAlive(btn)) return Clutter.EVENT_PROPAGATE;
                 if (event.get_button() === 3) {
-                    if (this.dockUI._activeContextMenu) this.dockUI._activeContextMenu.hide();
-                    this.dockUI._activeContextMenu = new AppContextMenu(this.dockUI, app, btn);
-                    this.dockUI._activeContextMenu.show(this.dockUI.dockPosition);
+                    if (this.dockUI.activeContextMenu) this.dockUI.activeContextMenu.hide();
+                    this.dockUI.activeContextMenu = new AppContextMenu(this.dockUI, app, btn);
+                    this.dockUI.activeContextMenu.show(this.dockUI.dockPosition);
                     return Clutter.EVENT_STOP;
                 }
                 return Clutter.EVENT_PROPAGATE;

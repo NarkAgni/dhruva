@@ -360,7 +360,7 @@ export function setupDragAndDrop(btn, app, dockUI) {
             dockUI.autoHideManager.scheduleCheck(150);
         }
 
-        const activeMenu = dockUI._activeFolderMenu;
+        const activeMenu = dockUI.activeFolderMenu;
         if (!btn._wasMerged && !btn._isFolder && activeMenu && activeMenu.menuContainer && isActorAlive(activeMenu.menuContainer)) {
             const [mx, my] = activeMenu.menuContainer.get_transformed_position();
             const [mw, mh] = activeMenu.menuContainer.get_transformed_size();

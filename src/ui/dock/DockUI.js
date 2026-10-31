@@ -48,6 +48,8 @@ import DockOverviewController from './DockOverviewController.js';
 import { teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { requestAttention, cancelDockTransitions } from './DockTransitions.js';
 import { setupWindowEffects, teardownWindowEffects, animateLaunch } from '../effects/WindowEffects.js';
+import { getWindowIdentity, pruneExpiredLaunches, claimLaunchForWindow } from './LaunchMatcher.js';
+import { counterScaleButtonIndicators } from './DockButtonBase.js';
 import { debounce, setBoxVertical, isActorAlive, captureActorRect, clearIconColorCache } from '../../core/Utils.js';
 import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates, cleanupDockRenderer, isDockLayoutUnchanged } from './DockRenderer.js';
 
@@ -55,7 +57,11 @@ import { renderDock, getIndicatorProps, syncOverflowWithPanel, syncRunningStates
 const RENDER_DEBOUNCE_MS = 5;
 const PANEL_OVERFLOW_DEBOUNCE_MS = 40;
 const INDICATOR_REFRESH_DEBOUNCE_MS = 50;
-const LAUNCH_EXPIRY_MS = 8000;
+const WINDOW_SETTLE_REFRESH_MS = 80;
+const ISOLATE_MONITOR_RENDER_DELAY_MS = 150;
+const PRELOAD_APPS_DELAY_MS = 2500;
+const SESSION_MENU_KEYS = ['activeContextMenu', 'activeFolderMenu', 'activeTrayMenu'];
+const DOCK_MENU_KEYS = ['activeContextMenu', 'activeFolderMenu'];
 const CURSOR_BURST_DELAYS = [50, 150, 300, 600, 1000, 1500, 2000];
 
 const BLUR_SETTING_KEYS = [
@@ -106,7 +112,8 @@ export default class DockUI {
 
         this.registry = new TimeoutTracker();
         this._launchUnpause = {};
-        this._activeContextMenu = null;
+        this.activeContextMenu = null;
+        this.pendingLaunches = [];
         this._cursorResetTimeouts = [];
         this._overviewController = new DockOverviewController(this);
         this._grabController = new DockGrabController(this);
@@ -115,8 +122,8 @@ export default class DockUI {
         this._separatorRegistry = new Map();
         this._currentOrder = [];
         this._itemSpans = new Map();
-        this._overflowMenu = null;
-        this._startMenu = null;
+        this.overflowMenu = null;
+        this.startMenu = null;
         this._overflowKeys = '';
         this._panelSyncLaterId = 0;
         this._pendingRenderState = {
@@ -149,8 +156,8 @@ export default class DockUI {
     }
 
     _bindMethods() {
-        this._renderDock = (mode = 'incremental', force = false) => renderDock(this, mode, force);
-        this._updateLayout = () => updateLayout(this);
+        this.render = (mode = 'incremental', force = false) => renderDock(this, mode, force);
+        this.updateLayout = () => updateLayout(this);
 
         this.checkPanelOverflow = debounce(() => syncOverflowWithPanel(this), PANEL_OVERFLOW_DEBOUNCE_MS);
         this.refreshIndicatorColors = debounce(() => syncRunningStates(this, true), INDICATOR_REFRESH_DEBOUNCE_MS);
@@ -159,7 +166,7 @@ export default class DockUI {
             this._panelSyncLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
                 this._panelSyncLaterId = 0;
                 if (isActorAlive(this.actor)) {
-                    this._updateLayout();
+                    this.updateLayout();
                     this.checkPanelOverflow();
                 }
                 return GLib.SOURCE_REMOVE;
@@ -167,11 +174,10 @@ export default class DockUI {
         };
         this._applyDynamicStyles = () => applyDynamicStyles(this);
         this._getIndicatorProps = () => getIndicatorProps(this);
-        this._captureActorRect = (actor, fb) => captureActorRect(actor, fb);
         this.isActorAlive = isActorAlive;
 
         const executeScheduledRender = this._executeScheduledRender = debounce(() => {
-            if (this._renderDock) {
+            if (this.render) {
                 const state = this._pendingRenderState || { mode: 'incremental', force: false };
                 const modeToRun = state.mode || 'incremental';
                 const forceToRun = Boolean(state.force);
@@ -181,7 +187,7 @@ export default class DockUI {
                 this._pendingRenderState.reason = '';
                 this._pendingRenderState.dirtyKeys.clear();
 
-                this._renderDock(modeToRun, forceToRun);
+                this.render(modeToRun, forceToRun);
             }
         }, RENDER_DEBOUNCE_MS);
 
@@ -233,12 +239,12 @@ export default class DockUI {
             }
         }
 
-        this._dockBlur = new BlurPanel(this.bgActor, this.settings, this._getDockCornerRadius(), this.actor);
+        this.dockBlur = new BlurPanel(this.bgActor, this.settings, this._getDockCornerRadius(), this.actor);
 
         this._syncBlurGeometry = () => {
-            if (this._dockBlur) {
-                this._dockBlur.setCornerRadius(this._getDockCornerRadius());
-                this._dockBlur.syncGeometry();
+            if (this.dockBlur) {
+                this.dockBlur.setCornerRadius(this._getDockCornerRadius());
+                this.dockBlur.syncGeometry();
             }
         };
 
@@ -247,11 +253,11 @@ export default class DockUI {
 
     hasActivePopupOrDrag() {
         return Boolean(
-            this._activeContextMenu ||
-            this._activeFolderMenu ||
-            this._activeTrayMenu ||
-            (this._overflowMenu && this._overflowMenu._isOpen) ||
-            (this._startMenu && this._startMenu.isOpen) ||
+            this.activeContextMenu ||
+            this.activeFolderMenu ||
+            this.activeTrayMenu ||
+            (this.overflowMenu && this.overflowMenu.isOpen) ||
+            (this.startMenu && this.startMenu.isOpen) ||
             this.actor._isDragging ||
             (this.panelIntegrator && this.panelIntegrator.hasOpenPopupOrDrag())
         );
@@ -263,324 +269,265 @@ export default class DockUI {
 
     _connectSignals() {
         this.appManager.attachDock(this);
+        this._bindMenuDismissal();
+        this._bindAllocation();
+        this._bindAppEvents();
+        this._bindWindowEvents();
+        this._bindDisplayEvents();
+        this._bindRenderSettings();
+        this._bindPlacementSettings();
+        this._bindSystemWatchers();
+        this._schedulePreloadApps();
+    }
 
-        Main.sessionMode.connectObject('updated', () => {
-            if (this._activeContextMenu) {
-                this._activeContextMenu.hide();
-                this._activeContextMenu = null;
-            }
-            if (this._activeFolderMenu) {
-                this._activeFolderMenu.hide();
-                this._activeFolderMenu = null;
-            }
-            if (this._activeTrayMenu) {
-                this._activeTrayMenu.hide();
-                this._activeTrayMenu = null;
-            }
-        }, this);
+    _closeMenus(menuKeys) {
+        let closedAny = false;
+        for (const key of menuKeys) {
+            if (!this[key]) continue;
+            this[key].hide();
+            this[key] = null;
+            closedAny = true;
+        }
+        return closedAny;
+    }
 
-        const isOnMenuButton = (event, menu) => {
-            if (!menu || !isActorAlive(menu.buttonActor)) return false;
-            const target = global.stage.get_event_actor(event);
-            return Boolean(target) && menu.buttonActor.contains(target);
-        };
+    _isEventOnMenuButton(event, menu) {
+        if (!menu || !isActorAlive(menu.buttonActor)) return false;
+        const target = global.stage.get_event_actor(event);
+        return Boolean(target) && menu.buttonActor.contains(target);
+    }
 
-        const handleEmptySpaceClick = (_actor, event) => {
-            if (isOnMenuButton(event, this._activeContextMenu) || isOnMenuButton(event, this._activeFolderMenu)) {
-                return Clutter.EVENT_PROPAGATE;
-            }
+    _onEmptySpaceClick(event) {
+        if (this._isEventOnMenuButton(event, this.activeContextMenu) || this._isEventOnMenuButton(event, this.activeFolderMenu)) {
+            return Clutter.EVENT_PROPAGATE;
+        }
+        return this._closeMenus(DOCK_MENU_KEYS) ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
+    }
 
-            let menuClosed = false;
+    _bindMenuDismissal() {
+        Main.sessionMode.connectObject('updated', () => this._closeMenus(SESSION_MENU_KEYS), this);
 
-            if (this._activeContextMenu) {
-                this._activeContextMenu.hide();
-                this._activeContextMenu = null;
-                menuClosed = true;
-            }
-            if (this._activeFolderMenu) {
-                this._activeFolderMenu.hide();
-                this._activeFolderMenu = null;
-                menuClosed = true;
-            }
+        const onClick = (_actor, event) => this._onEmptySpaceClick(event);
+        this.actor.connectObject('button-press-event', onClick, 'button-release-event', onClick, this);
+        this.bgActor.connectObject('button-press-event', onClick, this);
+        this.boxActor.connectObject('button-press-event', onClick, this);
+    }
 
-            return menuClosed ? Clutter.EVENT_STOP : Clutter.EVENT_PROPAGATE;
-        };
-
-        this.actor.connectObject('button-press-event', handleEmptySpaceClick, this);
-        this.actor.connectObject('button-release-event', handleEmptySpaceClick, this);
-        this.bgActor.connectObject('button-press-event', handleEmptySpaceClick, this);
-        this.boxActor.connectObject('button-press-event', handleEmptySpaceClick, this);
-
+    _bindAllocation() {
         this.boxActor.connectObject('notify::allocation', () => {
             if (this._allocIdleId) return;
             this._allocIdleId = this.registry.addIdle(GLib.PRIORITY_DEFAULT, () => {
-                this._allocIdleId = null;
-                if (this.actor && isActorAlive(this.actor) && this.actor.is_mapped()) {
-                    this._updateLayout();
+                this._allocIdleId = 0;
+                if (isActorAlive(this.actor) && this.actor.is_mapped()) {
+                    this.updateLayout();
                     this._overviewController.syncPlacement();
                 }
                 return GLib.SOURCE_REMOVE;
             });
         }, this);
+    }
 
-        this.appManager.appSystem.connectObject('installed-changed', () => this.queueRender('incremental'), this);
-        this.appManager.appSystem.connectObject('app-state-changed', () => this._refreshForWindows(false), this);
+    _bindAppEvents() {
+        this.appManager.appSystem.connectObject(
+            'installed-changed', () => this.queueRender('incremental'),
+            'app-state-changed', () => this._refreshForWindows(false),
+            this
+        );
+    }
 
-        global.window_manager.connectObject('destroy', () => {
-            if (this.actor) this.actor._lastIconClickTime = 0;
+    _refreshNowAndSoon(timerKey) {
+        this._refreshForWindows(true);
+        this.registry.remove(this[timerKey]);
+        this[timerKey] = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, WINDOW_SETTLE_REFRESH_MS, () => {
+            this[timerKey] = 0;
             this._refreshForWindows(true);
-            if (this._wmDestroyRenderId) {
-                this.registry.remove(this._wmDestroyRenderId);
-                this._wmDestroyRenderId = 0;
-            }
-            this._wmDestroyRenderId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
-                this._wmDestroyRenderId = 0;
-                this._refreshForWindows(true);
-                return GLib.SOURCE_REMOVE;
-            });
-        }, this);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _bindWindowEvents() {
+        const captureBlur = () => this.dockBlur.queueCapture();
 
         global.window_manager.connectObject(
-            'switch-workspace', () => {
-                if (this._dockBlur) this._dockBlur.queueCapture();
+            'destroy', () => {
+                this.actor._lastIconClickTime = 0;
+                this._refreshNowAndSoon('_wmDestroyRenderId');
             },
-            'minimize', () => {
-                if (this._dockBlur) this._dockBlur.queueCapture();
-            },
-            'unminimize', () => {
-                if (this._dockBlur) this._dockBlur.queueCapture();
-            },
-            'size-change', () => {
-                if (this._dockBlur) this._dockBlur.queueCapture();
-            },
+            'map', (_wm, actor) => this._onWindowMapped(actor),
+            'switch-workspace', captureBlur,
+            'minimize', captureBlur,
+            'unminimize', captureBlur,
+            'size-change', captureBlur,
             this
         );
+    }
 
-        if (global.display) {
-            global.display.connectObject(
-                'restacked', () => {
-                    if (this._dockBlur) this._dockBlur.queueCapture();
-                },
-                'grab-op-begin', (_display, window) => this._grabController.onGrabBegin(window),
-                'grab-op-end', () => this._grabController.onGrabEnd(),
-                this
-            );
-        }
+    _onWindowMapped(windowActor) {
+        this.actor._lastIconClickTime = 0;
+        this.actor._fixedSlots = null;
+        this.actor._tooltipHoveredIndex = -1;
+        this.actor._magTooltipAppId = null;
+        this._refreshNowAndSoon('_wmMapRenderId');
 
-        global.window_manager.connectObject('map', (_wm, actor) => {
-            if (this.actor) {
-                this.actor._lastIconClickTime = 0;
-                this.actor._fixedSlots = null;
-                this.actor._tooltipHoveredIndex = -1;
-                this.actor._magTooltipAppId = null;
-            }
-            this._refreshForWindows(true);
-            if (this._wmMapRenderId) {
-                this.registry.remove(this._wmMapRenderId);
-                this._wmMapRenderId = 0;
-            }
-            this._wmMapRenderId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 80, () => {
-                this._wmMapRenderId = 0;
-                this._refreshForWindows(true);
+        if (Settings.isolateMonitors) {
+            this.registry.remove(this._isolateMonitorRenderDelayId);
+            this._isolateMonitorRenderDelayId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, ISOLATE_MONITOR_RENDER_DELAY_MS, () => {
+                this._isolateMonitorRenderDelayId = 0;
+                this.queueRender('incremental');
                 return GLib.SOURCE_REMOVE;
             });
+        }
 
-            if (Settings.isolateMonitors) {
-                if (this._isolateMonitorRenderDelayId) {
-                    this.registry.remove(this._isolateMonitorRenderDelayId);
-                }
-                this._isolateMonitorRenderDelayId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 150, () => {
-                    this._isolateMonitorRenderDelayId = null;
-                    this.queueRender('incremental');
-                    return GLib.SOURCE_REMOVE;
-                });
-            }
+        this._animatePendingLaunch(windowActor.meta_window);
+    }
 
-            if (!this._pendingLaunches || this._pendingLaunches.length === 0) return;
-            const nowMs = Date.now();
-            this._pendingLaunches = this._pendingLaunches.filter(p => p && (nowMs - (p.createdAt || nowMs)) < LAUNCH_EXPIRY_MS);
-            if (this._pendingLaunches.length === 0) return;
+    _animatePendingLaunch(win) {
+        if (this.pendingLaunches.length === 0) return;
+        this.pendingLaunches = pruneExpiredLaunches(this.pendingLaunches, Date.now());
+        if (this.pendingLaunches.length === 0) return;
 
-            const win = actor.meta_window;
-            if (!win || win.get_window_type() !== Meta.WindowType.NORMAL) return;
+        if (!win || win.get_window_type() !== Meta.WindowType.NORMAL) return;
 
-            const tracker = Shell.WindowTracker.get_default();
-            const winApp = tracker.get_window_app(win);
-            const winClass = win.get_wm_class() ? win.get_wm_class().toLowerCase() : '';
+        const identity = getWindowIdentity(win, Shell.WindowTracker.get_default());
+        const launch = claimLaunchForWindow(this.pendingLaunches, identity);
+        if (!launch) return;
 
-            let matchedIndex = -1;
-            for (let i = 0; i < this._pendingLaunches.length; i++) {
-                const p = this._pendingLaunches[i];
-                let isMatch = false;
-                if (p.appId && winApp && winApp.get_id() === p.appId) {
-                    isMatch = true;
-                } else if (p.appId && winClass) {
-                    const appBase = p.appId.toLowerCase().replace('.desktop', '');
-                    if (appBase.includes(winClass) || winClass.includes(appBase)) {
-                        isMatch = true;
-                    }
-                } else if (p.isFolder && (winClass.includes('nautilus') || winClass.includes('files'))) {
-                    isMatch = true;
-                }
+        if (Settings.isolateMonitors) {
+            const targetMonitor = this.monitorManager.getCurrentMonitor().index;
+            if (win.get_monitor() !== targetMonitor) win.move_to_monitor(targetMonitor);
+        }
 
-                if (isMatch && !p.consumed) {
-                    matchedIndex = i;
-                    p.consumed = true;
-                    break;
-                }
-            }
+        animateLaunch(win, launch.btn, this.dockPosition, launch.iconRect || captureActorRect(launch.btn, win));
+    }
 
-            if (matchedIndex !== -1) {
-                const pending = this._pendingLaunches[matchedIndex];
-                if (Settings.isolateMonitors) {
-                    const targetMonitor = this.monitorManager.getCurrentMonitor().index;
-                    if (win.get_monitor() !== targetMonitor) win.move_to_monitor(targetMonitor);
-                }
+    _bindDisplayEvents() {
+        const renderIfIsolated = () => {
+            if (!this.isWindowGrabbed && Settings.isolateMonitors) this.queueRender('incremental');
+        };
 
-                const iconRect = pending.iconRect || this._captureActorRect(pending.btn, win);
-                animateLaunch(win, pending.btn, this.dockPosition, iconRect);
-            }
-        }, this);
-
-        global.display.connectObject('notify::focus-window', () => {
-            if (this.isWindowGrabbed) return;
-            this._updateRunningStatesFast();
-
-            if (Settings.hybridPanelMode && this._overflowKeys && (!this._overflowMenu || !this._overflowMenu._isOpen)) {
-                const focusWin = global.display.get_focus_window();
-                if (focusWin) this._refreshForWindows(true);
-            }
-        }, this);
-
-        global.display.connectObject('window-entered-monitor', () => {
-            if (this.isWindowGrabbed) return;
-            if (Settings.isolateMonitors) this.queueRender('incremental');
-        }, this);
-
-        global.display.connectObject('window-left-monitor', () => {
-            if (this.isWindowGrabbed) return;
-            if (Settings.isolateMonitors) this.queueRender('incremental');
-        }, this);
-
-        global.workspace_manager.connectObject('active-workspace-changed', () => {
-            if (Settings.isolateWorkspaces) {
-                this.actor._lastIconClickTime = 0;
-                this.queueRender('incremental');
-            }
-        }, this);
-
-        WATCHED_SETTINGS.forEach(key => {
-            this.settings.connectObject(`changed::${key}`, () => {
-                this.queueRender('full', true);
-                this._updateLayout();
-            }, this);
-        });
-
-        STYLE_SETTINGS.forEach(key => {
-            this.settings.connectObject(`changed::${key}`, () => {
-                this._applyDynamicStyles();
-                this._updateLayout();
-                if (this.dockManager) this.dockManager.updatePosition();
-                this.checkPanelOverflow();
-
-                if (this._activeContextMenu && this._activeContextMenu.bgDrawingArea) {
-                    this._activeContextMenu.bgDrawingArea.queue_repaint();
-                }
-                if (this._activeFolderMenu && this._activeFolderMenu.bgDrawingArea) {
-                    this._activeFolderMenu.bgDrawingArea.queue_repaint();
-                }
-                if (this._activeTrayMenu && this._activeTrayMenu.bgDrawingArea) {
-                    this._activeTrayMenu.bgDrawingArea.queue_repaint();
-                }
-                if (this._overflowMenu && this._overflowMenu._bubble) {
-                    this._overflowMenu._bubble.queue_repaint();
-                }
-            }, this);
-        });
-
-        BLUR_SETTING_KEYS.forEach(key => {
-            this.settings.connectObject(`changed::${key}`, () => {
-                if (this._dockBlur) {
-                    this._dockBlur.syncSettings();
-                    this._dockBlur.syncGeometry();
-                }
-                this._applyDynamicStyles();
-                this._updateLayout();
-            }, this);
-        });
-
-        this.settings.connectObject(
-            'changed::grid-button-position', () => {
-                this.queueRender('full', true);
-            },
-            'changed::show-grid-button', () => {
-                this.queueRender('full', true);
-            },
+        global.display.connectObject(
+            'restacked', () => this.dockBlur.queueCapture(),
+            'grab-op-begin', (_display, window) => this._grabController.onGrabBegin(window),
+            'grab-op-end', () => this._grabController.onGrabEnd(),
+            'notify::focus-window', () => this._onFocusWindowChanged(),
+            'window-entered-monitor', renderIfIsolated,
+            'window-left-monitor', renderIfIsolated,
             this
         );
 
-        ['show-music-pill', 'music-pill-position'].forEach(key => {
-            this.settings.connectObject(`changed::${key}`, () => {
-                if (this._musicPill) {
-                    this._musicPill.destroy();
-                    this._musicPill = null;
-                }
+        global.workspace_manager.connectObject('active-workspace-changed', () => {
+            if (!Settings.isolateWorkspaces) return;
+            this.actor._lastIconClickTime = 0;
+            this.queueRender('incremental');
+        }, this);
+    }
 
-                this.queueRender('full', true);
-                if (this._musicPillIdleId) {
-                    this.registry.remove(this._musicPillIdleId);
-                    this._musicPillIdleId = 0;
-                }
-                this._musicPillIdleId = this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                    this._musicPillIdleId = 0;
-                    this._updateLayout();
-                    if (this.dockManager) this.dockManager.updatePosition();
-                    return GLib.SOURCE_REMOVE;
-                });
-            }, this);
+    _onFocusWindowChanged() {
+        if (this.isWindowGrabbed) return;
+        this._updateRunningStatesFast();
+
+        const overflowClosed = !this.overflowMenu || !this.overflowMenu.isOpen;
+        if (Settings.hybridPanelMode && this._overflowKeys && overflowClosed && global.display.get_focus_window()) {
+            this._refreshForWindows(true);
+        }
+    }
+
+    _repaintOpenMenus() {
+        for (const key of SESSION_MENU_KEYS) {
+            const menu = this[key];
+            if (menu && menu.bgDrawingArea) menu.bgDrawingArea.queue_repaint();
+        }
+        if (this.overflowMenu) this.overflowMenu.queueRepaint();
+    }
+
+    _connectSettings(keys, handler) {
+        for (const key of keys) this.settings.connectObject(`changed::${key}`, handler, this);
+    }
+
+    _bindRenderSettings() {
+        this._connectSettings(WATCHED_SETTINGS, () => {
+            this.queueRender('full', true);
+            this.updateLayout();
         });
 
-        this.settings.connectObject('changed::hide-mode', () => {
-            this.updateStruts();
-        }, this);
+        this._connectSettings(STYLE_SETTINGS, () => {
+            this._applyDynamicStyles();
+            this.updateLayout();
+            this.dockManager.updatePosition();
+            this.checkPanelOverflow();
+            this._repaintOpenMenus();
+        });
 
-        this.settings.connectObject('changed::dock-margin', () => {
-            this._updateLayout();
-            if (this.dockManager) this.dockManager.updatePosition();
+        this._connectSettings(BLUR_SETTING_KEYS, () => {
+            this.dockBlur.syncSettings();
+            this.dockBlur.syncGeometry();
+            this._applyDynamicStyles();
+            this.updateLayout();
+        });
+
+        this._connectSettings(['grid-button-position', 'show-grid-button'], () => this.queueRender('full', true));
+
+        this._connectSettings(['show-music-pill', 'music-pill-position'], () => {
+            if (this._musicPill) {
+                this._musicPill.destroy();
+                this._musicPill = null;
+            }
+
+            this.queueRender('full', true);
+            this.registry.remove(this._musicPillIdleId);
+            this._musicPillIdleId = this.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                this._musicPillIdleId = 0;
+                this.updateLayout();
+                this.dockManager.updatePosition();
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+    }
+
+    _bindPlacementSettings() {
+        this._connectSettings(['hide-mode'], () => this.updateStruts());
+
+        this._connectSettings(['dock-margin'], () => {
+            this.updateLayout();
+            this.dockManager.updatePosition();
             if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
             this.updateStruts();
-        }, this);
+        });
 
-        this.settings.connectObject('changed::preferred-monitor', () => {
+        this._connectSettings(['preferred-monitor'], () => {
             this.dockManager.updatePosition();
             if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
             this.updateStruts();
             this.queueRender('full', true);
-        }, this);
+        });
+    }
 
+    _bindSystemWatchers() {
         this.volumeMonitor = Gio.VolumeMonitor.get();
-        this.volumeMonitor.connectObject('mount-added', () => this.queueRender('incremental'), this);
-        this.volumeMonitor.connectObject('mount-removed', () => this.queueRender('incremental'), this);
+        this.volumeMonitor.connectObject(
+            'mount-added', () => this.queueRender('incremental'),
+            'mount-removed', () => this.queueRender('incremental'),
+            this
+        );
 
         this._setupChameleonWatcher();
         this._syncTrashMonitor();
-        this.settings.connectObject('changed::show-trash', () => {
+        this._connectSettings(['show-trash'], () => {
             this._trashIsFull = undefined;
             this._syncTrashMonitor();
             this.queueRender('incremental', true);
-        }, this);
+        });
 
         this._iconThemeSettings = new Gio.Settings({ schema: 'org.gnome.desktop.interface' });
         this._iconThemeSettings.connectObject('changed::icon-theme', () => {
             clearIconColorCache();
             this.queueRender('full', true);
         }, this);
+    }
 
-        if (this._preloadAppsTimeoutId) {
-            this.registry.remove(this._preloadAppsTimeoutId);
-            this._preloadAppsTimeoutId = 0;
-        }
-        this._preloadAppsTimeoutId = this.registry.addTimeout(GLib.PRIORITY_LOW, 2500, () => {
+    _schedulePreloadApps() {
+        this.registry.remove(this._preloadAppsTimeoutId);
+        this._preloadAppsTimeoutId = this.registry.addTimeout(GLib.PRIORITY_LOW, PRELOAD_APPS_DELAY_MS, () => {
             this._preloadAppsTimeoutId = 0;
             const controls = Main.overview._overview && Main.overview._overview._controls;
             if (controls && controls._appDisplay && controls._appDisplay._ensureIcon) {
@@ -602,29 +549,14 @@ export default class DockUI {
     _updateRunningStatesFast() {
         if (!isActorAlive(this.boxActor)) return;
         syncRunningStates(this);
+        if (!this.actor._isZoomActive) return;
 
-        for (const entry of this._actorRegistry.values()) {
-            const btn = entry.actor;
-            if (!isActorAlive(btn)) continue;
-
-            const sx = Math.max(0.01, btn.scale_x || 1.0);
-            const sy = Math.max(0.01, btn.scale_y || 1.0);
+        for (const { actor } of this._actorRegistry.values()) {
+            if (!isActorAlive(actor)) continue;
+            const sx = actor.scale_x || 1.0;
+            const sy = actor.scale_y || 1.0;
             if (Math.abs(sx - 1.0) > 0.001 || Math.abs(sy - 1.0) > 0.001) {
-                const antiSx = 1.0 / sx;
-                const antiSy = 1.0 / sy;
-                const appBox = btn.get_child ? btn.get_child() : null;
-                if (appBox && appBox.get_children) {
-                    appBox.get_children().forEach(c => {
-                        if (c._isIndicator) {
-                            const baseSx = c._baseScaleX !== undefined ? c._baseScaleX : 1.0;
-                            const baseSy = c._baseScaleY !== undefined ? c._baseScaleY : 1.0;
-                            c.scale_x = baseSx * antiSx;
-                            c.scale_y = baseSy * antiSy;
-                            c.translation_x = (c._baseTx || 0) * antiSx;
-                            c.translation_y = (c._baseTy || 0) * antiSy;
-                        }
-                    });
-                }
+                counterScaleButtonIndicators(actor, this.dockPosition);
             }
         }
     }
@@ -686,9 +618,9 @@ export default class DockUI {
         this._bgSettings = new Gio.Settings({ schema: 'org.gnome.desktop.background' });
         const onWallpaperChange = () => {
             if (Settings.dockTheme === 'chameleon') refreshChameleonColor(this);
-            if (this._dockBlur) {
-                this._dockBlur._hasContent = false;
-                this._dockBlur.queueCapture();
+            if (this.dockBlur) {
+                this.dockBlur._hasContent = false;
+                this.dockBlur.queueCapture();
             }
         };
         this._bgSettings.connectObject('changed::picture-uri', onWallpaperChange, this);
@@ -791,11 +723,11 @@ export default class DockUI {
             this.panelIntegrator.integrate();
         }
 
-        this._renderDock('full', true);
+        this.render('full', true);
         if (this.dockManager) {
             this.dockManager.updatePosition();
         }
-        this._updateLayout();
+        this.updateLayout();
 
         if (this._showInitIdleId) {
             this.registry.remove(this._showInitIdleId);
@@ -805,13 +737,13 @@ export default class DockUI {
             this._showInitIdleId = 0;
             if (isActorAlive(this.actor)) {
                 if (this.dockManager) this.dockManager.updatePosition();
-                this._updateLayout();
+                this.updateLayout();
                 this.actor.remove_all_transitions();
                 this.actor.opacity = 255;
-                if (this._dockBlur) {
-                    this._dockBlur.syncGeometry();
-                    this._dockBlur.syncSettings();
-                    this._dockBlur.queueCapture(true);
+                if (this.dockBlur) {
+                    this.dockBlur.syncGeometry();
+                    this.dockBlur.syncSettings();
+                    this.dockBlur.queueCapture(true);
                 }
                 this.queueRender('full', true);
             }
@@ -821,7 +753,7 @@ export default class DockUI {
         this.actor.connectObject('notify::mapped', () => {
             if (!this.actor.is_mapped()) return;
             if (this.dockManager) this.dockManager.updatePosition();
-            this._updateLayout();
+            this.updateLayout();
 
             if (this._mappedRenderTimeoutId) {
                 this.registry.remove(this._mappedRenderTimeoutId);
@@ -830,16 +762,16 @@ export default class DockUI {
             this._mappedRenderTimeoutId = this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 60, () => {
                 this._mappedRenderTimeoutId = 0;
                 if (isActorAlive(this.actor) && this.actor.is_mapped()) {
-                    this._updateLayout();
+                    this.updateLayout();
                     this.queueRender('incremental', true);
                 }
                 return GLib.SOURCE_REMOVE;
             });
 
             if (this.autoHideManager) this.autoHideManager.updateTriggerGeometry();
-            if (this._dockBlur) {
-                this._dockBlur.syncGeometry();
-                this._dockBlur.syncSettings();
+            if (this.dockBlur) {
+                this.dockBlur.syncGeometry();
+                this.dockBlur.syncSettings();
             }
         }, this);
 
@@ -861,15 +793,15 @@ export default class DockUI {
                     this._lastGeometryKey = geometryKey;
                 }
 
-                this._updateLayout();
+                this.updateLayout();
                 if (this.dockManager && !this.isOverviewActive) {
                     this.dockManager.updatePosition();
                 }
                 if (this.autoHideManager) {
                     this.autoHideManager.updateTriggerGeometry();
                 }
-                if (this._dockBlur) {
-                    this._dockBlur.syncGeometry();
+                if (this.dockBlur) {
+                    this.dockBlur.syncGeometry();
                 }
                 return GLib.SOURCE_REMOVE;
             });
@@ -936,14 +868,14 @@ export default class DockUI {
     _preloadStartMenu() {
         if (!Settings.hybridPanelMode || !Settings.startMenu) return;
         this.registry.addIdle(GLib.PRIORITY_LOW, () => {
-            if (!this._startMenu && isActorAlive(this.actor)) this._startMenu = new StartMenu(this);
+            if (!this.startMenu && isActorAlive(this.actor)) this.startMenu = new StartMenu(this);
             return GLib.SOURCE_REMOVE;
         });
     }
 
     toggleStartMenu() {
-        if (!this._startMenu) this._startMenu = new StartMenu(this);
-        this._startMenu.toggle();
+        if (!this.startMenu) this.startMenu = new StartMenu(this);
+        this.startMenu.toggle();
     }
 
     destroy() {
@@ -1034,21 +966,21 @@ export default class DockUI {
         teardownWindowEffects(this);
         teardownMagnification(this.actor);
 
-        if (this._activeContextMenu) {
-            this._activeContextMenu.hide();
-            this._activeContextMenu = null;
+        if (this.activeContextMenu) {
+            this.activeContextMenu.hide();
+            this.activeContextMenu = null;
         }
-        if (this._activeFolderMenu) {
-            this._activeFolderMenu.hide();
-            this._activeFolderMenu = null;
+        if (this.activeFolderMenu) {
+            this.activeFolderMenu.hide();
+            this.activeFolderMenu = null;
         }
-        if (this._overflowMenu) {
-            this._overflowMenu.destroy();
-            this._overflowMenu = null;
+        if (this.overflowMenu) {
+            this.overflowMenu.destroy();
+            this.overflowMenu = null;
         }
-        if (this._startMenu) {
-            this._startMenu.destroy();
-            this._startMenu = null;
+        if (this.startMenu) {
+            this.startMenu.destroy();
+            this.startMenu = null;
         }
         if (this._musicPill) {
             this._musicPill.destroy();
@@ -1069,9 +1001,9 @@ export default class DockUI {
             this._desktopToggle = null;
         }
 
-        if (this._dockBlur) {
-            this._dockBlur.destroy();
-            this._dockBlur = null;
+        if (this.dockBlur) {
+            this.dockBlur.destroy();
+            this.dockBlur = null;
         }
 
         if (this.actor) {

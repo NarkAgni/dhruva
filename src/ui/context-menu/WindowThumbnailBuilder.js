@@ -235,7 +235,7 @@ export function createThumbnailScroll(menu, app, windows, customSize) {
             if (currentWindowsList.length === 0) {
                 menu._addAppToIgnoreList(app);
                 if (menu.dockUI.actor) menu.dockUI.actor._lastIconClickTime = 0;
-                menu.dockUI._renderDock();
+                menu.dockUI.render();
                 menu.hide();
             }
         });

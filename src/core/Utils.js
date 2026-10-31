@@ -21,28 +21,23 @@ import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
-import GObject from 'gi://GObject';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
 import { clampByte } from './Color.js';
+import { isActorAlive, resetDisposedActors } from './ActorState.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 export { hexToRgba } from './Color.js';
+export { isActorAlive, markActorDisposed } from './ActorState.js';
 
 
 const SAMPLE_ICON_SIZE = 32;
 const ICON_FILE_EXTENSION_RE = /\.(png|svg|symbolic)$/i;
 
-let _disposedActors = null;
 let _iconTheme = null;
 let _iconColorCache = null;
 let _pendingColors = null;
 let _colorCancellable = null;
-
-function _getDisposedActors() {
-    if (!_disposedActors) _disposedActors = new WeakSet();
-    return _disposedActors;
-}
 
 function _getIconTheme() {
     if (!_iconTheme) _iconTheme = new St.IconTheme();
@@ -77,33 +72,11 @@ export function destroyUtils() {
     _pendingColors = null;
     _iconColorCache = null;
     _iconTheme = null;
-    _disposedActors = null;
+    resetDisposedActors();
 }
 
 function _toHex(c) {
     return clampByte(c).toString(16).padStart(2, '0');
-}
-
-export function markActorDisposed(actor) {
-    if (actor) _getDisposedActors().add(actor);
-}
-
-export function isActorAlive(actor) {
-    const disposed = _getDisposedActors();
-    if (!actor || disposed.has(actor)) return false;
-
-    const str = GObject.Object.prototype.toString.call(actor);
-    if (!str || str.includes('DISPOSED') || str.includes('finalized') || str.includes('disposed')) {
-        disposed.add(actor);
-        return false;
-    }
-
-    if (!actor.get_stage) {
-        disposed.add(actor);
-        return false;
-    }
-
-    return true;
 }
 
 export function captureActorRect(actor, fallbackWin = null) {

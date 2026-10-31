@@ -326,14 +326,14 @@ export default class AppGridUI {
         btn.connectObject(
             'button-press-event', (_actor, event) => {
                 if (event.get_button() === 3) {
-                    if (this.dockUI._activeContextMenu) {
-                        this.dockUI._activeContextMenu.hide();
+                    if (this.dockUI.activeContextMenu) {
+                        this.dockUI.activeContextMenu.hide();
                     }
 
                     const state = event.get_state();
                     const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
 
-                    this.dockUI._activeContextMenu = new AppContextMenu(
+                    this.dockUI.activeContextMenu = new AppContextMenu(
                         this.dockUI,
                         app,
                         btn,
@@ -345,7 +345,7 @@ export default class AppGridUI {
                     const [, y] = btn.get_transformed_position();
                     const dynamicDockPos = (y > (global.stage.height / 2)) ? 'BOTTOM' : 'TOP';
 
-                    this.dockUI._activeContextMenu.show(dynamicDockPos);
+                    this.dockUI.activeContextMenu.show(dynamicDockPos);
                     return Clutter.EVENT_STOP;
                 }
                 return Clutter.EVENT_PROPAGATE;

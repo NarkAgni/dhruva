@@ -97,7 +97,7 @@ export default class DockOverviewController {
         this.timers.remove(this._visibleIdleId);
         this._visibleIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._visibleIdleId = 0;
-            this.dockUI._updateLayout();
+            this.dockUI.updateLayout();
             if (this.hidesGnomeDash() && !Main.overview.animationInProgress) {
                 applyOverviewDockMargin(this.dockUI);
             }
@@ -147,7 +147,7 @@ export default class DockOverviewController {
                 actor.opacity = 255;
             }
             if (dockUI.autoHideManager) dockUI.autoHideManager.show();
-            dockUI._updateLayout();
+            dockUI.updateLayout();
             applyOverviewDockMargin(dockUI);
             return;
         }
@@ -229,8 +229,8 @@ export default class DockOverviewController {
         actor.opacity = 0;
         actor.show();
 
-        dockUI._renderDock('full', true);
-        dockUI._updateLayout();
+        dockUI.render('full', true);
+        dockUI.updateLayout();
         this.applyLeftPosition();
 
         actor.ease({
@@ -259,10 +259,10 @@ export default class DockOverviewController {
             this.originalPosition = null;
             this.isActive = false;
             setBoxVertical(dockUI.boxActor, dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT');
-            dockUI._renderDock('full', true);
+            dockUI.render('full', true);
         }
 
-        dockUI._updateLayout();
+        dockUI.updateLayout();
         if (dockUI.dockManager) dockUI.dockManager.updatePosition();
         if (wasMoved && dockUI.autoHideManager) dockUI.autoHideManager.forceHideImmediately();
     }

@@ -17,7 +17,7 @@
 */
 
 
-import { isActorAlive } from '../../core/Utils.js';
+import { isActorAlive } from '../../core/ActorState.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { isDynamicPanelLayout, isPanelOrFullWidth } from '../../core/LayoutMode.js';
 

@@ -31,6 +31,7 @@ import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
 import { getDockButtons, getFixedSlots, easeOutCirc, isStaticItem, axisSpan, getPanelSideActors } from './MagnifierMath.js';
+import { setEdgePivot, counterScaleIndicator } from '../dock/DockButtonBase.js';
 import { createTooltipActor, populateTooltipContent, resumeTooltipTracking } from './MagnifierTooltipRenderer.js';
 import { TOOLTIP_GAP, clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
@@ -658,13 +659,13 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
 
         b._gapOffset = approach(b._gapOffset || 0, b._gapTarget || 0, gapEase);
 
-        b.remove_transition('scale_x');
-        b.remove_transition('scale_y');
-        b.remove_transition('translation_x');
-        b.remove_transition('translation_y');
-        b.remove_transition('rotation_angle_z');
-        b.remove_transition('rotation_angle_y');
-        b.remove_transition('rotation_angle_x');
+        b.remove_transition('scale-x');
+        b.remove_transition('scale-y');
+        b.remove_transition('translation-x');
+        b.remove_transition('translation-y');
+        b.remove_transition('rotation-angle-z');
+        b.remove_transition('rotation-angle-y');
+        b.remove_transition('rotation-angle-x');
 
         const targetScaleX = scales[i];
         const targetScaleY = scalesY[i];
@@ -716,39 +717,23 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 if (!isActorAlive(c) || c._isHoverBg) continue;
 
                 if (c._isIndicator) {
-                    c.remove_transition('scale_x');
-                    c.remove_transition('scale_y');
-                    c.remove_transition('translation_x');
-                    c.remove_transition('translation_y');
-
-                    let px = 0.5;
-                    let py = 0.5;
-                    if (dockPos === 'BOTTOM') py = 1.0;
-                    else if (dockPos === 'TOP') py = 0.0;
-                    else if (dockPos === 'LEFT') px = 0.0;
-                    else if (dockPos === 'RIGHT') px = 1.0;
-
-                    c.set_pivot_point(px, py);
+                    c.remove_transition('scale-x');
+                    c.remove_transition('scale-y');
+                    c.remove_transition('translation-x');
+                    c.remove_transition('translation-y');
 
                     if (zoomEnabled) {
-                        const antiScaleX = 1.0 / Math.max(0.01, smoothScaleX);
-                        const antiScaleY = 1.0 / Math.max(0.01, smoothScaleY);
-                        const baseSx = c._baseScaleX !== undefined ? c._baseScaleX : 1.0;
-                        const baseSy = c._baseScaleY !== undefined ? c._baseScaleY : 1.0;
-
-                        c.scale_x = baseSx * antiScaleX;
-                        c.scale_y = baseSy * antiScaleY;
-                        c.translation_x = (c._baseTx || 0) * antiScaleX;
-                        c.translation_y = (c._baseTy || 0) * antiScaleY;
+                        counterScaleIndicator(c, dockPos, smoothScaleX, smoothScaleY);
                     } else {
+                        setEdgePivot(c, dockPos);
                         c.scale_x = c._baseScaleX !== undefined ? c._baseScaleX : 1.0;
                         c.scale_y = c._baseScaleY !== undefined ? c._baseScaleY : 1.0;
                         c.translation_x = c._baseTx || 0;
                         c.translation_y = c._baseTy || 0;
                     }
                 } else {
-                    c.remove_transition('translation_x');
-                    c.remove_transition('translation_y');
+                    c.remove_transition('translation-x');
+                    c.remove_transition('translation-y');
                     if (zoomEnabled) {
                         c.translation_x = c._baseTx || 0;
                         c.translation_y = c._baseTy || 0;
@@ -815,8 +800,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
                 dockActor.bgActor.set_size(nextW, baseH);
             }
 
-            if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
-                dockActor._dockUI._dockBlur.syncGeometry();
+            if (dockActor._dockUI && dockActor._dockUI.dockBlur) {
+                dockActor._dockUI.dockBlur.syncGeometry();
             }
         } else if (
             Math.abs(dockActor.bgActor.width - baseW) > 0.5 ||
@@ -832,8 +817,8 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             dockActor.bgActor.set_position(baseX, baseY);
             dockActor.bgActor.set_size(baseW, baseH);
 
-            if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
-                dockActor._dockUI._dockBlur.syncGeometry();
+            if (dockActor._dockUI && dockActor._dockUI.dockBlur) {
+                dockActor._dockUI.dockBlur.syncGeometry();
             }
         }
     }

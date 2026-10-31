@@ -90,7 +90,7 @@ export default class TrayMenu {
         }
         this._shown = true;
         this._dockPos = dockPosition;
-        this.dockUI._activeTrayMenu = this;
+        this.dockUI.activeTrayMenu = this;
         if (this.dockUI.autoHideManager) {
             this.dockUI.autoHideManager.show();
         }
@@ -662,8 +662,8 @@ export default class TrayMenu {
         this._isHiding = false;
 
         if (this.dockUI) {
-            if (this.dockUI._activeTrayMenu === this) {
-                this.dockUI._activeTrayMenu = null;
+            if (this.dockUI.activeTrayMenu === this) {
+                this.dockUI.activeTrayMenu = null;
             }
             if (this.dockUI.autoHideManager) {
                 this.dockUI.autoHideManager.setTrayDragging(false);

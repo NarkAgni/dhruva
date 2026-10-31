@@ -30,6 +30,7 @@ import { JellyMinimize, JellyRestore } from './JellyEffect.js';
 import { VortexMinimize, VortexRestore } from './VortexEffect.js';
 import { OrigamiMinimize, OrigamiRestore } from './OrigamiEffect.js';
 import { isActorAlive, captureActorRect } from '../../core/Utils.js';
+import { getWindowIdentity, hasPendingLaunchFor } from '../dock/LaunchMatcher.js';
 import { MagicLampMinimize, MagicLampRestore } from './GenieEffect.js';
 
 
@@ -54,6 +55,17 @@ let _origShouldAnimate = null;
 let _origCompletedMinimize = null;
 let _origCompletedUnminimize = null;
 let _origCompletedMap = null;
+
+function _findDockButtonForWindow(win) {
+    const app = Shell.WindowTracker.get_default().get_window_app(win);
+    if (!app) return null;
+
+    const appId = app.get_id();
+    return _dockUI.boxActor.get_children().find(btn => {
+        const delegate = btn._delegate;
+        return delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId;
+    }) || null;
+}
 
 function _getEffectDuration() {
     const val = Settings.windowEffectSpeed;
@@ -149,23 +161,9 @@ function _patchWm() {
     Main.wm._shouldAnimateActor = function (actor, types) {
         if (actor === _pendingActor || actor === _pendingLaunchActor || _animatingActors.includes(actor)) return false;
 
-        if (actor.meta_window && _dockUI && _dockUI._pendingLaunches && _dockUI._pendingLaunches.length > 0) {
-            const tracker = Shell.WindowTracker.get_default();
-            const winApp = tracker.get_window_app(actor.meta_window);
-            const winClass = actor.meta_window.get_wm_class() ? actor.meta_window.get_wm_class().toLowerCase() : '';
-
-            const isPending = _dockUI._pendingLaunches.some(p => {
-                if (p.consumed) return false;
-                if (p.appId && winApp && winApp.get_id() === p.appId) return true;
-                if (p.appId && winClass) {
-                    const appBase = p.appId.toLowerCase().replace('.desktop', '');
-                    if (appBase.includes(winClass) || winClass.includes(appBase)) return true;
-                }
-                if (p.isFolder && (winClass.includes('nautilus') || winClass.includes('files'))) return true;
-                return false;
-            });
-
-            if (isPending) return false;
+        if (actor.meta_window && _dockUI && _dockUI.pendingLaunches.length > 0) {
+            const identity = getWindowIdentity(actor.meta_window, Shell.WindowTracker.get_default());
+            if (hasPendingLaunchFor(_dockUI.pendingLaunches, identity)) return false;
         }
 
         return _origShouldAnimate.call(this, actor, types);
@@ -306,24 +304,11 @@ export function setupWindowEffects(settings, dockUI) {
                     }
                 });
             } else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
-                const win = actor.meta_window;
-                const tracker = Shell.WindowTracker.get_default();
-                const app = tracker.get_window_app(win);
-
-                if (app) {
-                    const appId = app.get_id();
-                    const children = _dockUI.boxActor.get_children();
-
-                    for (let i = 0; i < children.length; i++) {
-                        const btn = children[i];
-                        const delegate = btn._delegate;
-                        if (delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId) {
-                            iconPos = captureActorRect(btn, win);
-                            dockPos = _dockUI.dockPosition;
-                            isOurAnimation = true;
-                            break;
-                        }
-                    }
+                const btn = _findDockButtonForWindow(actor.meta_window);
+                if (btn) {
+                    iconPos = captureActorRect(btn, actor.meta_window);
+                    dockPos = _dockUI.dockPosition;
+                    isOurAnimation = true;
                 }
             }
 
@@ -408,24 +393,11 @@ export function setupWindowEffects(settings, dockUI) {
                     }
                 });
             } else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
-                const win = actor.meta_window;
-                const tracker = Shell.WindowTracker.get_default();
-                const app = tracker.get_window_app(win);
-
-                if (app) {
-                    const appId = app.get_id();
-                    const children = _dockUI.boxActor.get_children();
-
-                    for (let i = 0; i < children.length; i++) {
-                        const btn = children[i];
-                        const delegate = btn._delegate;
-                        if (delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId) {
-                            iconPos = captureActorRect(btn, win);
-                            dockPos = _dockUI.dockPosition;
-                            isOurAnimation = true;
-                            break;
-                        }
-                    }
+                const btn = _findDockButtonForWindow(actor.meta_window);
+                if (btn) {
+                    iconPos = captureActorRect(btn, actor.meta_window);
+                    dockPos = _dockUI.dockPosition;
+                    isOurAnimation = true;
                 }
             }
 

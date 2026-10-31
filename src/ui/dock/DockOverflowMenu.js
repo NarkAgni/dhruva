@@ -79,6 +79,14 @@ export class DockOverflowMenu {
         this._buildPopup();
     }
 
+    get isOpen() {
+        return this._isOpen;
+    }
+
+    queueRepaint() {
+        if (this._bubble) this._bubble.queue_repaint();
+    }
+
     get keys() {
         return this._items.map(item => item.key).join('|');
     }
@@ -201,7 +209,7 @@ export class DockOverflowMenu {
                 this._overlay.disconnectObject(this);
                 this._overlay.destroy();
             }
-            if (this._dockUI._overflowMenu === this) this._dockUI._overflowMenu = null;
+            if (this._dockUI.overflowMenu === this) this._dockUI.overflowMenu = null;
         }
     }
 

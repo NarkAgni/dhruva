@@ -57,8 +57,8 @@ export function animateShow(dockUI, onComplete) {
     easeDock(dockUI, { translation_x: 0, translation_y: 0, opacity: 255 }, Clutter.AnimationMode.EASE_OUT_QUAD, isFinished => {
         if (dockUI._autohideSerial !== serial) return;
         if (isFinished) {
-            dockUI._dockBlur.syncGeometry();
-            dockUI._dockBlur.queueCapture(true);
+            dockUI.dockBlur.syncGeometry();
+            dockUI.dockBlur.queueCapture(true);
         }
         onComplete();
     });
@@ -71,7 +71,7 @@ export function animateHide(dockUI, onComplete, peek = 0) {
     const { hideX, hideY } = getHideOffsets(dockUI, peek);
 
     dockUI.actor._isAutohiding = true;
-    dockUI._dockBlur.hideBlur();
+    dockUI.dockBlur.hideBlur();
 
     easeDock(dockUI, { translation_x: hideX, translation_y: hideY, opacity: peek > 0 ? 255 : 0 }, Clutter.AnimationMode.EASE_IN_QUAD, () => {
         if (dockUI._autohideSerial === serial) onComplete();

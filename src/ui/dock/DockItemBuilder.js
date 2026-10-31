@@ -32,7 +32,7 @@ import { animateIconClick } from '../effects/IconClickEffect.js';
 import { setupDragAndDrop, applyIconFilter } from '../DragDrop.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { getIndicatorProps, filterActiveWindows } from './DockRenderer.js';
-import { hexToRgba, isActorAlive, setBoxVertical } from '../../core/Utils.js';
+import { hexToRgba, isActorAlive, setBoxVertical, captureActorRect } from '../../core/Utils.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import {
     createBaseButtonContainer, createIndicatorBox, attachHoverBackground, stripIndicatorSize, syncDynamicIndicator,
@@ -101,8 +101,8 @@ function setupCommonEvents(btn, dockUI) {
         const button = event.get_button();
         const state = event.get_state();
 
-        if (dockUI._activeContextMenu) {
-            dockUI._activeContextMenu.hide();
+        if (dockUI.activeContextMenu) {
+            dockUI.activeContextMenu.hide();
             return Clutter.EVENT_STOP;
         }
 
@@ -348,11 +348,10 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
 
                 dockUI._scheduleCursorResetBurst();
 
-                if (!dockUI._pendingLaunches) dockUI._pendingLaunches = [];
-                dockUI._pendingLaunches.push({
+                dockUI.pendingLaunches.push({
                     appId: app.get_id(),
                     btn,
-                    iconRect: dockUI._captureActorRect(btn),
+                    iconRect: captureActorRect(btn),
                     createdAt: Date.now(),
                 });
             }
@@ -885,22 +884,22 @@ export function buildFolderButton(dockUI, folder) {
 
     btn._activateCallback = (buttonNum) => {
         if (buttonNum === 3) {
-            if (dockUI._activeContextMenu && dockUI._activeContextMenu.buttonActor === btn) {
-                dockUI._activeContextMenu.hide();
+            if (dockUI.activeContextMenu && dockUI.activeContextMenu.buttonActor === btn) {
+                dockUI.activeContextMenu.hide();
             } else {
-                if (dockUI._activeContextMenu) dockUI._activeContextMenu.hide();
-                if (dockUI._activeFolderMenu) dockUI._activeFolderMenu.hide();
-                dockUI._activeContextMenu = new AppContextMenu(dockUI, null, btn);
-                dockUI._activeContextMenu.show(dockUI.dockPosition);
+                if (dockUI.activeContextMenu) dockUI.activeContextMenu.hide();
+                if (dockUI.activeFolderMenu) dockUI.activeFolderMenu.hide();
+                dockUI.activeContextMenu = new AppContextMenu(dockUI, null, btn);
+                dockUI.activeContextMenu.show(dockUI.dockPosition);
             }
         } else if (buttonNum === 1) {
-            if (dockUI._activeFolderMenu && dockUI._activeFolderMenu.folderData && dockUI._activeFolderMenu.folderData.id === folder.id) {
-                dockUI._activeFolderMenu.hide();
+            if (dockUI.activeFolderMenu && dockUI.activeFolderMenu.folderData && dockUI.activeFolderMenu.folderData.id === folder.id) {
+                dockUI.activeFolderMenu.hide();
             } else {
-                if (dockUI._activeFolderMenu) dockUI._activeFolderMenu.hide();
-                if (dockUI._activeContextMenu) dockUI._activeContextMenu.hide();
-                dockUI._activeFolderMenu = new FolderMenu(dockUI, folder, btn);
-                dockUI._activeFolderMenu.show(dockUI.dockPosition);
+                if (dockUI.activeFolderMenu) dockUI.activeFolderMenu.hide();
+                if (dockUI.activeContextMenu) dockUI.activeContextMenu.hide();
+                dockUI.activeFolderMenu = new FolderMenu(dockUI, folder, btn);
+                dockUI.activeFolderMenu.show(dockUI.dockPosition);
             }
         }
     };

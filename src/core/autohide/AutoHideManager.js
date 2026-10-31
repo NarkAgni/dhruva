@@ -168,10 +168,7 @@ export default class AutoHideManager {
     }
 
     _rebindAllOpenWindows() {
-        const activeWs = global.workspace_manager.get_active_workspace();
-        if (!activeWs) return;
-
-        global.display.get_tab_list(Meta.TabList.NORMAL, activeWs).forEach(win => this._trackWindow(win));
+        global.display.get_tab_list(Meta.TabList.NORMAL, null).forEach(win => this._trackWindow(win));
     }
 
     _trackWindow(win) {
@@ -225,7 +222,7 @@ export default class AutoHideManager {
 
         if (nextState) {
             this.forceHideImmediately();
-            this.dockUI._dockBlur.hideBlur();
+            this.dockUI.dockBlur.hideBlur();
         } else if (this._getMode() === 'none') {
             this.show();
         } else {

@@ -34,6 +34,7 @@ Dhruva is a dock for GNOME Shell that you can shape the way you like. Keep it as
 - Themes, gradients, borders, and a Wallpaper Color theme that follows your light or dark style.
 - Real blur behind the dock and its popups, without banding on dark wallpapers.
 - Running indicators as dots, lines or Windows-style bars, with an optional coloured box behind running apps.
+- Notification badges on app icons.
 
 </details>
 
@@ -47,6 +48,21 @@ Dhruva is a dock for GNOME Shell that you can shape the way you like. Keep it as
 - Apps that don't fit move into an overflow menu instead of squeezing the bar.
 - Rearrange tray applets with <kbd>Ctrl</kbd> + drag, and choose how the date is written.
 - Hover zoom works here too, and the Dynamic Panel grows with the zoom.
+
+</details>
+
+<details>
+<summary><b>Start Menu</b></summary>
+<br>
+
+- In Panel and Dynamic Panel mode, the App Grid button opens Dhruva's own start menu. Turn it off to get GNOME's app grid back.
+- Pinned apps and folders, with pages when you pin more than 12. Drag to rearrange, and hold <kbd>Ctrl</kbd> while dropping one app on another to make a folder.
+- Recent apps, and the files you worked on last with real previews of photos and code.
+- Search apps, files and Settings panels, plus results from GNOME apps like Characters, Calendar and Contacts.
+- Type a sum like `25*4` to get the answer, start with `>` to run a command in your terminal, or search the web.
+- All Apps as an A–Z list or grid, with a letter bar to jump around.
+- Works fully from the keyboard: arrow keys, <kbd>Tab</kbd>, <kbd>Enter</kbd>, and <kbd>Menu</kbd> or <kbd>Shift</kbd> + <kbd>F10</kbd> for right-click menus.
+- Your profile, Settings, Lock and power options, including Switch User and Hibernate when your system supports them.
 
 </details>
 
@@ -84,7 +100,10 @@ Dhruva is a dock for GNOME Shell that you can shape the way you like. Keep it as
 <br>
 
 - Shows the song that's playing right in the dock, with its album art.
-- Synced lyrics, fetched from <a href="https://lrclib.net">LRCLIB</a>.
+- Works with any player that supports media controls: Spotify, Rhythmbox, VLC, or a browser playing YouTube. It switches to whichever player starts playing.
+- Synced lyrics on the pill, fetched from <a href="https://lrclib.net">LRCLIB</a>, with a switch to turn them off.
+- Full lyrics in the player popup: the current line stays in the middle, and clicking a line jumps to that part of the song.
+- Lyrics running early or late? Shift them by half a second at a time, and Dhruva remembers it for that song.
 - A player popup with a seek bar, shuffle and repeat, coloured from the album art.
 - Choose what a click, middle click, right click or double click does.
 
@@ -127,6 +146,7 @@ Dhruva is a dock for GNOME Shell that you can shape the way you like. Keep it as
 <summary><b>Settings</b></summary>
 <br>
 
+- Presets set up a whole style in one click: Fresh Start, GNOME Classic+, macOS Dock, Windows 11 Taskbar, Classic Taskbar, Floating Island, Ubuntu Dock, Minimal and Showcase. Your pinned apps and folders stay as they are.
 - Search any setting from the top of the preferences window.
 - Import and export your setup as a profile.
 - Settings you never changed keep working the same way after an update.
@@ -237,6 +257,52 @@ dconf reset -f /org/gnome/shell/extensions/dhruva/
 ```bash
 journalctl -f -o cat /usr/bin/gnome-shell
 ```
+
+</details>
+
+<br>
+
+## Development
+
+Everything is done through `manage.sh` from the project folder:
+
+| Command | What it does |
+| --- | --- |
+| `./manage.sh install` | Install your local copy into GNOME Shell |
+| `./manage.sh test` | Run the unit tests |
+| `./manage.sh pack` | Run the tests, then build the zip for extensions.gnome.org |
+| `./manage.sh release` | Pack, commit, tag and publish a GitHub release |
+| `./manage.sh uninstall` | Remove the local install |
+| `./manage.sh clean` | Remove build files |
+| `./manage.sh help` | Show every option in detail |
+
+<details>
+<summary><b>Unit tests</b></summary>
+<br>
+
+The tests live in `tests/` and run with `gjs`, which comes with GNOME. No GNOME Shell session is needed:
+
+```bash
+./manage.sh test
+```
+
+`pack` and `release` run them first and stop if any test fails, so a broken build never gets published. The `tests/` folder stays in the repository and is never put in the extension zip.
+
+To add a test, create a `tests/Something.test.js` file and import it in `tests/run.js`. Tests can only load files that don't import GNOME Shell libraries like `St`, `Clutter`, `Meta` or `Shell`, which is why pure logic lives in its own files, such as `src/core/Color.js` and `src/ui/dock/LaunchMatcher.js`.
+
+</details>
+
+<details>
+<summary><b>Tab completion for manage.sh</b></summary>
+<br>
+
+Add this line to the end of your `~/.zshrc` (or `~/.bashrc`, with `bash` instead of `zsh`), using the real path to the script:
+
+```bash
+eval "$(/path/to/dhruva/manage.sh completion zsh)"
+```
+
+Open a new terminal, and `./manage.sh re` + <kbd>Tab</kbd> completes to `./manage.sh release`.
 
 </details>
 

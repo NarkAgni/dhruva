@@ -269,7 +269,7 @@ export default class AppContextMenu {
                             if (!dockUI.folderManager) return;
                             dockUI.folderManager.addAppToFolder(folderId, appId);
 
-                            const activeFMenu = dockUI._activeFolderMenu;
+                            const activeFMenu = dockUI.activeFolderMenu;
                             if (activeFMenu && isActorAlive(activeFMenu.actor) && activeFMenu.folderData && activeFMenu.folderData.id === folderId) {
                                 activeFMenu._suppressSync = false;
                                 if (!activeFMenu.folderData.apps.includes(appId)) {
@@ -388,8 +388,8 @@ export default class AppContextMenu {
                                 if (parent) parent.remove_child(targetBtn);
                                 targetBtn.destroy();
                             }
-                            if (this.dockUI._activeFolderMenu && this.dockUI._activeFolderMenu.folderData && this.dockUI._activeFolderMenu.folderData.id === folderId) {
-                                this.dockUI._activeFolderMenu.forceRefresh(true);
+                            if (this.dockUI.activeFolderMenu && this.dockUI.activeFolderMenu.folderData && this.dockUI.activeFolderMenu.folderData.id === folderId) {
+                                this.dockUI.activeFolderMenu.forceRefresh(true);
                             }
                         }
                     });
@@ -589,10 +589,10 @@ export default class AppContextMenu {
             this._showDelayId = null;
             if (this._isHiding || !this.actor) return GLib.SOURCE_REMOVE;
 
-            if (this.dockUI && this.dockUI._activeContextMenu && this.dockUI._activeContextMenu !== this) {
-                this.dockUI._activeContextMenu.hide();
+            if (this.dockUI && this.dockUI.activeContextMenu && this.dockUI.activeContextMenu !== this) {
+                this.dockUI.activeContextMenu.hide();
             }
-            this.dockUI._activeContextMenu = this;
+            this.dockUI.activeContextMenu = this;
 
             Main.layoutManager.addChrome(this.actor, { affectsStruts: false });
             global.stage.set_key_focus(this.actor);
@@ -675,8 +675,8 @@ export default class AppContextMenu {
                 this.dockUI.actor.disconnectObject(this);
                 setMagnifierPauseState(this.dockUI.actor, 'context-menu', false);
             }
-            if (this.dockUI && this.dockUI._activeContextMenu === this) {
-                this.dockUI._activeContextMenu = null;
+            if (this.dockUI && this.dockUI.activeContextMenu === this) {
+                this.dockUI.activeContextMenu = null;
             }
             if (this.peekManager) this.peekManager.stopPeek();
 

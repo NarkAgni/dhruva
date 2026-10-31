@@ -327,7 +327,7 @@ export default class PanelIntegrator {
 
         this._isIntegrated = true;
         this.alignItems();
-        this.dockUI._updateLayout();
+        this.dockUI.updateLayout();
 
         this.leftContainer.opacity = 255;
         this.container.opacity = 255;
@@ -338,7 +338,7 @@ export default class PanelIntegrator {
         this._alignState.restore();
         this.extensionApplets.refresh();
         this.alignItems();
-        this.dockUI._updateLayout();
+        this.dockUI.updateLayout();
     }
 
     _watchBoxSize(box) {

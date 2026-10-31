@@ -419,8 +419,8 @@ export default class FolderMenu {
                 setMagnifierPauseState(this.dockUI.actor, 'folder-menu', false);
             }
 
-            if (this.dockUI && this.dockUI._activeFolderMenu === this) {
-                this.dockUI._activeFolderMenu = null;
+            if (this.dockUI && this.dockUI.activeFolderMenu === this) {
+                this.dockUI.activeFolderMenu = null;
             }
 
             const actor = this.actor;

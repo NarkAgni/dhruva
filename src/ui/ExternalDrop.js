@@ -292,7 +292,7 @@ class ExternalDrop {
         if (isPanelOrFullWidth() || !isActorAlive(bg) || this._bgSpread === half) return;
         this._bgSpread = half;
 
-        const blur = this._dockUI._dockBlur;
+        const blur = this._dockUI.dockBlur;
         bg.ease({
             x: isVertical ? bg._baseX : bg._baseX - half,
             y: isVertical ? bg._baseY - half : bg._baseY,

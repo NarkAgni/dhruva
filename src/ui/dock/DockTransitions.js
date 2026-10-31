@@ -23,6 +23,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { Settings } from '../../core/SettingsManager.js';
 import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
+import { setEdgePivot } from './DockButtonBase.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
 
 
@@ -49,15 +50,6 @@ function towardDockEdge(dockPos) {
         case 'LEFT': return [-1, 0];
         case 'RIGHT': return [1, 0];
         default: return [0, 1];
-    }
-}
-
-function setEdgePivot(actor, dockPos) {
-    switch (dockPos) {
-        case 'TOP': actor.set_pivot_point(0.5, 0.0); break;
-        case 'LEFT': actor.set_pivot_point(0.0, 0.5); break;
-        case 'RIGHT': actor.set_pivot_point(1.0, 0.5); break;
-        default: actor.set_pivot_point(0.5, 1.0); break;
     }
 }
 
@@ -157,7 +149,7 @@ export function playDockTransition(dockUI, transition) {
         const oldRect = transition.rects.get(key);
         if (oldRect) {
             if (canSlide && playSlide(entry.actor, oldRect, dockScale)) isAnimating = true;
-            if (entry.isRunning && !transition.actors.get(key).isRunning) playIndicatorPop(entry.actor);
+            if (entry.isRunning && !transition.actors.get(key).isRunning) playIndicatorPop(entry.actor, dockUI);
         } else if (!transition.keys.has(key) && ENTER_TYPES.includes(entry.type)) {
             playEnter(entry.actor, dockUI.dockPosition);
             isAnimating = true;
@@ -216,14 +208,15 @@ function playEnter(actor, dockPos) {
     });
 }
 
-function playIndicatorPop(actor) {
+function playIndicatorPop(actor, dockUI) {
     const indicator = actor._indicatorActor;
     if (!indicator) return;
 
-    const targetX = 1.0 / Math.max(0.01, actor.scale_x);
-    const targetY = 1.0 / Math.max(0.01, actor.scale_y);
+    const isZoomed = dockUI.actor._isZoomActive;
+    const targetX = isZoomed ? 1.0 / Math.max(0.01, actor.scale_x) : 1.0;
+    const targetY = isZoomed ? 1.0 / Math.max(0.01, actor.scale_y) : 1.0;
 
-    indicator.set_pivot_point(0.5, 0.5);
+    setEdgePivot(indicator, dockUI.dockPosition);
     indicator.opacity = 0;
     indicator.set_scale(0.2 * targetX, 0.2 * targetY);
     indicator.ease({ opacity: 255, duration: INDICATOR_POP_MS / 2, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
@@ -240,6 +233,8 @@ function playBackgroundResize(dockUI, oldRect, dockScale) {
     if (!oldRect || !actorRect) return false;
 
     const bg = dockUI.bgActor;
+    if (bg._isMagResetting) return false;
+
     const { x: actorX, y: actorY } = actorRect;
 
     const from = {

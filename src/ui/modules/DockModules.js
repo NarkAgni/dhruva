@@ -332,7 +332,7 @@ export function buildModules(dockUI, iconSize) {
         if (Settings.hoverZoom) applyIconFilter(btn);
 
         btn.connectObject('button-press-event', (_actor, event) => {
-            if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
+            if (dockUI.activeContextMenu) return Clutter.EVENT_STOP;
             const [px, py] = event.get_coords();
             btn._pressX = px;
             btn._pressY = py;
@@ -351,16 +351,16 @@ export function buildModules(dockUI, iconSize) {
                 }
             } else if (buttonNum === 3) {
                 const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
-                if (dockUI._activeContextMenu) {
-                    dockUI._activeContextMenu.hide();
+                if (dockUI.activeContextMenu) {
+                    dockUI.activeContextMenu.hide();
                 }
                 new AppContextMenu(dockUI, btn._delegate.app, btn, isCtrl, dockUI.openPrefsCallback).show(dockUI.dockPosition);
             }
         };
 
         btn.connectObject('button-release-event', (_actor, event) => {
-            if (dockUI._activeContextMenu) {
-                dockUI._activeContextMenu.hide();
+            if (dockUI.activeContextMenu) {
+                dockUI.activeContextMenu.hide();
                 return Clutter.EVENT_STOP;
             }
             const button = event.get_button();

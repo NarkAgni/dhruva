@@ -33,6 +33,7 @@ import { setupMagnification } from '../magnifier/Magnifier.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { applyRealtimeFrame } from '../magnifier/MagnifierFrameEngine.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
+import { setEdgePivot, counterScaleButtonIndicators } from './DockButtonBase.js';
 import { DockOverflowMenu, OVERFLOW_BUTTON_KEY } from './DockOverflowMenu.js';
 import { resetMagnification, teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { isActorAlive, markActorDisposed, extractIconDominantColor } from '../../core/Utils.js';
@@ -63,13 +64,6 @@ const TASKBAR_WINDOW_TYPES = [
     Meta.WindowType.MODAL_DIALOG,
     Meta.WindowType.UTILITY,
 ];
-
-const EDGE_PIVOTS = {
-    BOTTOM: [0.5, 1.0],
-    TOP: [0.5, 0.0],
-    LEFT: [0.0, 0.5],
-    RIGHT: [1.0, 0.5],
-};
 
 
 function _isVerticalDock(dockUI) {
@@ -576,12 +570,12 @@ function _keysOf(items) {
 }
 
 function _syncOverflowMenu(dockUI, overflowItems) {
-    let menu = dockUI._overflowMenu;
+    let menu = dockUI.overflowMenu;
 
     if (overflowItems.length === 0) {
         if (menu) {
             menu.destroy();
-            dockUI._overflowMenu = null;
+            dockUI.overflowMenu = null;
         }
         dockUI._overflowKeys = '';
         return;
@@ -590,11 +584,11 @@ function _syncOverflowMenu(dockUI, overflowItems) {
     if (menu && (menu.isStale() || !menu.button || !isActorAlive(menu.button))) {
         menu.destroy();
         menu = null;
-        dockUI._overflowMenu = null;
+        dockUI.overflowMenu = null;
     }
     if (!menu) {
         menu = new DockOverflowMenu(dockUI);
-        dockUI._overflowMenu = menu;
+        dockUI.overflowMenu = menu;
     }
 
     menu.setItems(overflowItems);
@@ -637,7 +631,8 @@ export function syncOverflowWithPanel(dockUI) {
 function _captureMagnifierVisuals(dockUI) {
     const visuals = new Map();
     const [px, py] = global.get_pointer();
-    if (!Settings.hoverZoom || !isPointerWithinDockBounds(dockUI.actor, px, py, _isVerticalDock(dockUI), dockUI.settings)) {
+    if (!Settings.hoverZoom || !dockUI.actor._isZoomActive ||
+        !isPointerWithinDockBounds(dockUI.actor, px, py, _isVerticalDock(dockUI), dockUI.settings)) {
         return visuals;
     }
 
@@ -732,7 +727,7 @@ function _buildItemActor(dockUI, item, iconSize, isVerticalDock, modsContext) {
             return btn;
         }
         case 'overflow':
-            return dockUI._overflowMenu.button;
+            return dockUI.overflowMenu.button;
         case 'separator':
             return createSeparator(dockUI, iconSize, isVerticalDock, item.sepKind, item.key);
         case 'grid':
@@ -846,26 +841,10 @@ function _renderDockFull(dockUI, transition) {
             actor.translation_x = visual.translationX;
             actor.translation_y = visual.translationY;
 
-            const sx = Math.max(0.01, visual.scaleX || 1.0);
-            const sy = Math.max(0.01, visual.scaleY || 1.0);
+            const sx = visual.scaleX || 1.0;
+            const sy = visual.scaleY || 1.0;
             if (Math.abs(sx - 1.0) > 0.001 || Math.abs(sy - 1.0) > 0.001) {
-                const antiSx = 1.0 / sx;
-                const antiSy = 1.0 / sy;
-                const [ipx, ipy] = EDGE_PIVOTS[dockUI.dockPosition] || EDGE_PIVOTS.BOTTOM;
-                const appBox = actor.get_child ? actor.get_child() : null;
-                if (appBox && appBox.get_children) {
-                    appBox.get_children().forEach(c => {
-                        if (c._isIndicator) {
-                            c.set_pivot_point(ipx, ipy);
-                            const baseSx = c._baseScaleX !== undefined ? c._baseScaleX : 1.0;
-                            const baseSy = c._baseScaleY !== undefined ? c._baseScaleY : 1.0;
-                            c.scale_x = baseSx * antiSx;
-                            c.scale_y = baseSy * antiSy;
-                            c.translation_x = (c._baseTx || 0) * antiSx;
-                            c.translation_y = (c._baseTy || 0) * antiSy;
-                        }
-                    });
-                }
+                counterScaleButtonIndicators(actor, dockUI.dockPosition);
             }
         }
         actor.opacity = 255;
@@ -921,15 +900,10 @@ function _syncMagnifierAndPivots(dockUI) {
         return;
     }
 
-    const [px, py] = EDGE_PIVOTS[dockUI.dockPosition] || EDGE_PIVOTS.BOTTOM;
-    const children = dockUI.boxActor.get_children();
-    for (let i = 0; i < children.length; i++) {
-        const c = children[i];
-        if (!_styleClassOf(c).includes('dock-separator')) {
-            c.set_pivot_point(px, py);
-        }
+    for (const child of dockUI.boxActor.get_children()) {
+        if (!_styleClassOf(child).includes('dock-separator')) setEdgePivot(child, dockUI.dockPosition);
     }
-    if (dockUI.gridBtn) dockUI.gridBtn.set_pivot_point(px, py);
+    if (dockUI.gridBtn) setEdgePivot(dockUI.gridBtn, dockUI.dockPosition);
 
     if (!dockUI.actor._isMagSetup) {
         dockUI._magnifierSetupIdleId = dockUI.registry.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {

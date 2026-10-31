@@ -44,6 +44,7 @@ export class EdgeDetection {
         this.getDwellDelay = getDwellDelay;
         this.timers = new TimeoutTracker();
         this._dwellTimeoutId = 0;
+        this._geometryLaterId = 0;
         this.triggerActor = null;
         this._barrier = null;
         this._pressure = null;
@@ -58,9 +59,9 @@ export class EdgeDetection {
 
         if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.connectObject(
-                'notify::allocation', () => this.updateGeometry(),
-                'notify::x', () => this.updateGeometry(),
-                'notify::y', () => this.updateGeometry(),
+                'notify::allocation', () => this._queueGeometryUpdate(),
+                'notify::x', () => this._queueGeometryUpdate(),
+                'notify::y', () => this._queueGeometryUpdate(),
                 this
             );
         }
@@ -150,6 +151,21 @@ export class EdgeDetection {
         default:
             return null;
         }
+    }
+
+    _queueGeometryUpdate() {
+        if (this._geometryLaterId) return;
+        this._geometryLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._geometryLaterId = 0;
+            this.updateGeometry();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _cancelGeometryUpdate() {
+        if (!this._geometryLaterId) return;
+        global.compositor.get_laters().remove(this._geometryLaterId);
+        this._geometryLaterId = 0;
     }
 
     updateGeometry() {
@@ -255,6 +271,7 @@ export class EdgeDetection {
         if (this.dockUI && isActorAlive(this.dockUI.actor)) {
             this.dockUI.actor.disconnectObject(this);
         }
+        this._cancelGeometryUpdate();
         this._teardownBarriers();
         this._cancelDwell();
         this.timers.destroy();

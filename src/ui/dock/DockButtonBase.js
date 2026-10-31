@@ -112,6 +112,40 @@ export function createBaseButtonContainer(appBox) {
     return btn;
 }
 
+const EDGE_PIVOTS = {
+    BOTTOM: [0.5, 1.0],
+    TOP: [0.5, 0.0],
+    LEFT: [0.0, 0.5],
+    RIGHT: [1.0, 0.5],
+};
+
+export function setEdgePivot(actor, dockPosition) {
+    const [px, py] = EDGE_PIVOTS[dockPosition] || EDGE_PIVOTS.BOTTOM;
+    actor.set_pivot_point(px, py);
+}
+
+export function counterScaleIndicator(indicator, dockPosition, scaleX, scaleY) {
+    const antiX = 1.0 / Math.max(0.01, scaleX);
+    const antiY = 1.0 / Math.max(0.01, scaleY);
+    const baseX = indicator._baseScaleX !== undefined ? indicator._baseScaleX : 1.0;
+    const baseY = indicator._baseScaleY !== undefined ? indicator._baseScaleY : 1.0;
+
+    setEdgePivot(indicator, dockPosition);
+    indicator.scale_x = baseX * antiX;
+    indicator.scale_y = baseY * antiY;
+    indicator.translation_x = (indicator._baseTx || 0) * antiX;
+    indicator.translation_y = (indicator._baseTy || 0) * antiY;
+}
+
+export function counterScaleButtonIndicators(btn, dockPosition) {
+    const appBox = btn.get_child ? btn.get_child() : null;
+    if (!appBox) return;
+
+    for (const child of appBox.get_children()) {
+        if (child._isIndicator) counterScaleIndicator(child, dockPosition, btn.scale_x, btn.scale_y);
+    }
+}
+
 export function createIndicatorBox(dockPosition, isVerticalDock, indProps, count, expandedDim, isFocused = false) {
     let dotX = Clutter.ActorAlign.CENTER;
     let dotY = Clutter.ActorAlign.CENTER;
@@ -147,6 +181,7 @@ export function createIndicatorBox(dockPosition, isVerticalDock, indProps, count
     });
     setBoxVertical(dotBox, isVerticalDock);
     dotBox._isIndicator = true;
+    setEdgePivot(dotBox, dockPosition);
     dotBox._baseTx = indProps.tx;
     dotBox._baseTy = indProps.ty;
     dotBox.translation_x = indProps.tx;

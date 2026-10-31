@@ -38,6 +38,10 @@ const DIGIT_KEYS = [
     Clutter.KEY_7, Clutter.KEY_8, Clutter.KEY_9,
 ];
 
+const DUPLICATE_KEY_WINDOW_MS = 70;
+const REVEAL_BEFORE_LAUNCH_MS = 50;
+const TEXT_INPUT_SEARCH_DEPTH = 5;
+
 export default class QuickLaunchManager {
     constructor(settings, getTargetDock) {
         this.settings = settings;
@@ -69,15 +73,11 @@ export default class QuickLaunchManager {
 
     _dispatchDigit(digit) {
         const now = Date.now();
-        if (this._lastQlDigit === digit && now - this._lastQlTs < 70) return;
+        if (this._lastQlDigit === digit && now - this._lastQlTs < DUPLICATE_KEY_WINDOW_MS) return;
         this._lastQlTs = now;
         this._lastQlDigit = digit;
 
-        if (this._dispatchIdleId) {
-            this.timers.remove(this._dispatchIdleId);
-            this._dispatchIdleId = 0;
-        }
-
+        this.timers.remove(this._dispatchIdleId);
         this._dispatchIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT, () => {
             this._dispatchIdleId = 0;
             this._activateDigitSlot(digit);
@@ -86,7 +86,7 @@ export default class QuickLaunchManager {
     }
 
     _onStageCapturedEvent(event) {
-        if (!event || event.type() !== Clutter.EventType.KEY_PRESS) return Clutter.EVENT_PROPAGATE;
+        if (event.type() !== Clutter.EventType.KEY_PRESS) return Clutter.EVENT_PROPAGATE;
         if (this._isLikelyTextInputFocused()) return Clutter.EVENT_PROPAGATE;
 
         const repeatFlag = Clutter.EventFlags.DEVICE_REPEATING;
@@ -94,15 +94,12 @@ export default class QuickLaunchManager {
             return Clutter.EVENT_PROPAGATE;
         }
 
-        const state = event.get_state ? event.get_state() : 0;
-        if (!this._isSuperDigitModifier(state)) return Clutter.EVENT_PROPAGATE;
+        if (!this._isSuperDigitModifier(event.get_state())) return Clutter.EVENT_PROPAGATE;
 
-        const keySym = event.get_key_symbol ? event.get_key_symbol() : 0;
-        const digitIdx = DIGIT_KEYS.indexOf(keySym);
+        const digitIdx = DIGIT_KEYS.indexOf(event.get_key_symbol());
         if (digitIdx === -1) return Clutter.EVENT_PROPAGATE;
-        const digit = digitIdx + 1;
 
-        this._dispatchDigit(digit);
+        this._dispatchDigit(digitIdx + 1);
         return Clutter.EVENT_STOP;
     }
 
@@ -114,7 +111,7 @@ export default class QuickLaunchManager {
 
             const cur = this.settings.get_strv(name);
 
-            if (!cur || cur.length === 0) {
+            if (cur.length === 0) {
                 this.settings.set_strv(name, [wantMain]);
                 continue;
             }
@@ -153,52 +150,41 @@ export default class QuickLaunchManager {
             const name = QUICK_LAUNCH_KEY_NAMES[i];
             const digit = i + 1;
 
-            const a = this.settings.get_strv(name);
-            const accelOk = a && a.length > 0 && Boolean(a[0]);
+            const [accel] = this.settings.get_strv(name);
+            if (!accel) continue;
 
-            if (!accelOk) continue;
-
-            const handler = () => {
-                this._dispatchDigit(digit);
-            };
-
-            Main.wm.addKeybinding(name, this.settings, flags, modes, handler);
+            Main.wm.addKeybinding(name, this.settings, flags, modes, () => this._dispatchDigit(digit));
             this._activeBindings.add(name);
         }
     }
 
     _activateDigitSlot(digit) {
-        const dock = this.getTargetDock ? this.getTargetDock() : null;
-
+        const dock = this.getTargetDock();
         if (!dock || !dock.boxActor) return;
 
         let target = this._resolveTargetByDigit(dock, digit);
-        if (!target && dock._renderDock) {
-            dock._renderDock(true);
+        if (!target) {
+            dock.render('incremental', true);
             target = this._resolveTargetByDigit(dock, digit);
         }
-        if (!target || !target._activateCallback) return;
+        if (!target) return;
 
-        if (dock.autoHideManager && dock.autoHideManager.isHidden) {
-            dock.autoHideManager.show();
-
-            if (this._activateTimeoutId) {
-                this.timers.remove(this._activateTimeoutId);
-                this._activateTimeoutId = 0;
-            }
-
-            this._activateTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, 50, () => {
-                this._activateTimeoutId = 0;
-
-                if (!dock || !dock.actor) return GLib.SOURCE_REMOVE;
-                if (dock.actor) dock.actor._lastIconClickTime = Date.now();
-                target._activateCallback(1, 0);
-                return GLib.SOURCE_REMOVE;
-            });
+        if (!dock.autoHideManager.isHidden) {
+            this._launchTarget(dock, target);
             return;
         }
 
-        if (dock.actor) dock.actor._lastIconClickTime = Date.now();
+        dock.autoHideManager.show();
+        this.timers.remove(this._activateTimeoutId);
+        this._activateTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, REVEAL_BEFORE_LAUNCH_MS, () => {
+            this._activateTimeoutId = 0;
+            if (dock.actor) this._launchTarget(dock, target);
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _launchTarget(dock, target) {
+        dock.actor._lastIconClickTime = Date.now();
         target._activateCallback(1, 0);
     }
 
@@ -213,38 +199,28 @@ export default class QuickLaunchManager {
     }
 
     _isLikelyTextInputFocused() {
-        const focusActor = global.stage.get_key_focus ? global.stage.get_key_focus() : null;
-        if (!focusActor) return false;
-
-        let parent = focusActor;
-        for (let i = 0; i < 5 && parent; i++) {
-            if ('hint_text' in parent) return true;
-            if (!parent.get_parent) break;
-            parent = parent.get_parent();
+        let actor = global.stage.get_key_focus();
+        for (let depth = 0; depth < TEXT_INPUT_SEARCH_DEPTH && actor; depth++) {
+            if ('hint_text' in actor) return true;
+            actor = actor.get_parent();
         }
         return false;
     }
 
     _resolveTargetByDigit(dock, digit) {
-        const children = dock.boxActor && dock.boxActor.get_children ? dock.boxActor.get_children() : [];
-        const targets = [];
-
-        children.forEach(child => {
-            if (!child || child._isExternal || child.visible === false || !child._activateCallback) return;
-            const sClass = child.get_style_class_name ? child.get_style_class_name() : (child.style_class || '');
-            if (!sClass.includes('dock-app-button')) return;
-            targets.push(child);
-        });
-
-        const index = digit - 1;
-        if (index < 0 || index >= targets.length) return null;
-        return targets[index];
+        const targets = dock.boxActor.get_children().filter(child =>
+            !child._isExternal &&
+            child.visible &&
+            child._activateCallback &&
+            (child.get_style_class_name() || '').includes('dock-app-button')
+        );
+        return targets[digit - 1] || null;
     }
 
     destroy() {
         this.timers.destroy();
 
-        if (this.settings) this.settings.disconnectObject(this);
+        this.settings.disconnectObject(this);
 
         global.stage.disconnectObject(this);
 

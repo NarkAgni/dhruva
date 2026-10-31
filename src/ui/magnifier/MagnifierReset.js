@@ -150,8 +150,8 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
         if (duration === 0) {
             dockActor.bgActor.set_position(baseX, baseY);
             dockActor.bgActor.set_size(baseW, baseH);
-            if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
-                dockActor._dockUI._dockBlur.syncGeometry();
+            if (dockActor._dockUI && dockActor._dockUI.dockBlur) {
+                dockActor._dockUI.dockBlur.syncGeometry();
             }
         } else {
             dockActor.bgActor.ease({
@@ -162,20 +162,18 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
                 duration,
                 mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                 onUpdate: () => {
-                    if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
-                        dockActor._dockUI._dockBlur.syncGeometry();
+                    if (dockActor._dockUI && dockActor._dockUI.dockBlur) {
+                        dockActor._dockUI.dockBlur.syncGeometry();
                     }
                 },
                 onStopped: () => {
-                    if (isActorAlive(dockActor.bgActor)) {
-                        dockActor.bgActor.set_position(baseX, baseY);
-                        dockActor.bgActor.set_size(baseW, baseH);
-                    }
-                    if (dockActor._dockUI && dockActor._dockUI._dockBlur) {
-                        dockActor._dockUI._dockBlur.syncGeometry();
+                    if (isActorAlive(dockActor.bgActor)) dockActor.bgActor._isMagResetting = false;
+                    if (dockActor._dockUI && dockActor._dockUI.dockBlur) {
+                        dockActor._dockUI.dockBlur.syncGeometry();
                     }
                 }
             });
+            dockActor.bgActor._isMagResetting = true;
         }
     } else if (isActorAlive(dockActor.bgActor) && isFullBar) {
         dockActor.bgActor.remove_all_transitions();

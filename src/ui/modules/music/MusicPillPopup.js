@@ -854,8 +854,8 @@ export class MusicPillPopup {
         if (this._isOpen) return;
         this._isOpen = true;
 
-        if (this._dockUI && this._dockUI._activeContextMenu) {
-            this._dockUI._activeContextMenu.hide();
+        if (this._dockUI && this._dockUI.activeContextMenu) {
+            this._dockUI.activeContextMenu.hide();
         }
 
         this._overlay.set_position(0, 0);

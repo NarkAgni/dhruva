@@ -18,6 +18,7 @@
 
 
 import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
 
 
 const SCHEMA_FILE = 'org.gnome.shell.extensions.dhruva.gschema.xml';
@@ -77,3 +78,32 @@ export function createRecordingSettings() {
 
     return settings;
 }
+
+export const FakeActor = GObject.registerClass({
+    GTypeName: 'DhruvaTestFakeActor',
+}, class FakeActor extends GObject.Object {
+    constructor(props = {}) {
+        super();
+        Object.assign(this, { x: 0, y: 0, width: 0, height: 0, visible: true, styleClass: null, children: [] }, props);
+    }
+
+    get_stage() {
+        return {};
+    }
+
+    get_transformed_position() {
+        return [this.x, this.y];
+    }
+
+    get_transformed_size() {
+        return [this.width, this.height];
+    }
+
+    get_style_class_name() {
+        return this.styleClass;
+    }
+
+    get_children() {
+        return this.children;
+    }
+});

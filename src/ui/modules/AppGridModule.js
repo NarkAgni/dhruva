@@ -237,8 +237,8 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
             if (dockUI.actor) dockUI.actor._suppressZoom = true;
         } else if (buttonNum === 3) {
             const isCtrl = (state & Clutter.ModifierType.CONTROL_MASK) !== 0;
-            if (dockUI._activeContextMenu) {
-                dockUI._activeContextMenu.hide();
+            if (dockUI.activeContextMenu) {
+                dockUI.activeContextMenu.hide();
             }
             new AppContextMenu(
                 dockUI,
@@ -252,14 +252,14 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     gridModule.connectObject('button-press-event', () => {
         resetGridHoverBg();
-        if (dockUI._activeContextMenu) return Clutter.EVENT_STOP;
+        if (dockUI.activeContextMenu) return Clutter.EVENT_STOP;
         return Clutter.EVENT_PROPAGATE;
     }, gridModule);
 
     gridModule.connectObject('button-release-event', (_actor, event) => {
         resetGridHoverBg();
-        if (dockUI._activeContextMenu) {
-            dockUI._activeContextMenu.hide();
+        if (dockUI.activeContextMenu) {
+            dockUI.activeContextMenu.hide();
             return Clutter.EVENT_STOP;
         }
 
