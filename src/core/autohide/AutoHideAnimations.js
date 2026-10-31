@@ -21,9 +21,9 @@ import Clutter from 'gi://Clutter';
 
 import { isActorAlive } from '../Utils.js';
 import { Settings } from '../SettingsManager.js';
+import { getHideOffsets } from './AutoHideGeometry.js';
 
 
-const HIDE_OFFSET_BUFFER = 20;
 const DEFAULT_ANIM_DURATION_MS = 250;
 const MIN_ANIM_DURATION_MS = 50;
 
@@ -45,30 +45,6 @@ function easeDock(dockUI, props, mode, onStopped) {
         mode,
         onStopped,
     });
-}
-
-export function getHideOffsets(dockUI, peek = 0) {
-    if (dockUI.isWindowGrabbed || dockUI.isOnSharedMonitorEdge()) {
-        return { hideX: 0, hideY: 0 };
-    }
-
-    const margin = Settings.dockMargin;
-    const extra = peek > 0 ? margin - peek : margin + HIDE_OFFSET_BUFFER;
-    const width = dockUI.actor.width + extra;
-    const height = dockUI.actor.height + extra;
-
-    switch (dockUI.dockPosition) {
-    case 'BOTTOM':
-        return { hideX: 0, hideY: height };
-    case 'TOP':
-        return { hideX: 0, hideY: -height };
-    case 'LEFT':
-        return { hideX: -width, hideY: 0 };
-    case 'RIGHT':
-        return { hideX: width, hideY: 0 };
-    default:
-        return { hideX: 0, hideY: 0 };
-    }
 }
 
 export function animateShow(dockUI, onComplete) {

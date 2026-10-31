@@ -27,6 +27,7 @@ import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import { isActorAlive } from '../Utils.js';
 import { hasPointerBarriers } from '../Compat.js';
 import { isFullBarLayout } from '../LayoutMode.js';
+import { clampSpan, getTriggerRect } from './AutoHideGeometry.js';
 import { Settings } from '../SettingsManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 
@@ -34,19 +35,6 @@ import { TimeoutTracker } from '../TimeoutTracker.js';
 const TRIGGER_DEPTH_PX = 4;
 const DEFAULT_BARRIER_DWELL_MS = 150;
 const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
-const MIN_MEASURED_SIZE_PX = 20;
-
-function isHorizontalEdge(pos) {
-    return pos === 'BOTTOM' || pos === 'TOP';
-}
-
-function clampSpan(monitorStart, monitorLength, start, size) {
-    const monitorEnd = monitorStart + monitorLength;
-    if (size <= MIN_MEASURED_SIZE_PX) return [monitorStart, monitorEnd];
-
-    const roundedStart = Math.round(start);
-    return [Math.max(monitorStart, roundedStart), Math.min(monitorEnd, roundedStart + Math.round(size))];
-}
 
 export class EdgeDetection {
     constructor(dockUI, onEdgeTrigger, onEdgeLeave, getDwellDelay) {
@@ -134,27 +122,6 @@ export class EdgeDetection {
         return monitorResult ? monitorResult.monitor : null;
     }
 
-    _getTriggerRect(monitor) {
-        const pos = this.dockUI.dockPosition;
-        const source = isFullBarLayout() ? monitor : this.dockUI.actor;
-        const [start, length] = isHorizontalEdge(pos)
-            ? [source.x, source.width]
-            : [source.y, source.height];
-
-        switch (pos) {
-        case 'BOTTOM':
-            return { x: start, y: monitor.y + monitor.height - TRIGGER_DEPTH_PX, width: length, height: TRIGGER_DEPTH_PX };
-        case 'TOP':
-            return { x: start, y: monitor.y, width: length, height: TRIGGER_DEPTH_PX };
-        case 'LEFT':
-            return { x: monitor.x, y: start, width: TRIGGER_DEPTH_PX, height: length };
-        case 'RIGHT':
-            return { x: monitor.x + monitor.width - TRIGGER_DEPTH_PX, y: start, width: TRIGGER_DEPTH_PX, height: length };
-        default:
-            return { x: 0, y: 0, width: 0, height: 0 };
-        }
-    }
-
     _getBarrierProps(monitor) {
         const actor = this.dockUI.actor;
         const isFullBar = isFullBarLayout();
@@ -191,7 +158,8 @@ export class EdgeDetection {
         const monitor = this._getMonitor();
         if (!monitor) return;
 
-        const rect = this._getTriggerRect(monitor);
+        const source = isFullBarLayout() ? monitor : this.dockUI.actor;
+        const rect = getTriggerRect(this.dockUI.dockPosition, monitor, source, TRIGGER_DEPTH_PX);
         this.triggerActor.set_position(rect.x, rect.y);
         this.triggerActor.set_size(rect.width, rect.height);
 

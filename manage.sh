@@ -10,8 +10,9 @@
 # COMMANDS
 #    install                     Compile schemas + translations and install the
 #                                extension into ~/.local/share/gnome-shell/extensions/<uuid>.
-#    pack                        Build a clean <uuid>.zip ready for upload to
-#                                extensions.gnome.org (EGO).
+#    test                        Run the unit tests in tests/ with gjs.
+#    pack                        Run the tests, then build a clean <uuid>.zip
+#                                ready for upload to extensions.gnome.org (EGO).
 #    release [image ...]         Pack, commit, push, tag and publish a GitHub
 #                                Release. Optional image files are attached to
 #                                the release and embedded in the release notes.
@@ -21,9 +22,11 @@
 #
 # EXAMPLES
 #    ./manage.sh install
+#    ./manage.sh test
 #    ./manage.sh pack
 #    ./manage.sh release
 #    ./manage.sh release folder_test.png preview_test.png
+#    SKIP_TESTS=1 ./manage.sh pack
 #
 # HOW IT WORKS (nothing is hardcoded)
 #    * UUID and version are read from metadata.json ("uuid", "version-name" or "version").
@@ -38,10 +41,14 @@
 #          PACK_EXCLUDE="screenshots *.psd" ./manage.sh pack
 #    * Run it from the extension root (the folder that contains metadata.json
 #      and extension.js).
+#    * "pack" (and therefore "release") runs tests/run.js first and stops if any
+#      test fails, so a broken build is never zipped, committed or published.
+#      Set SKIP_TESTS=1 to bypass this in an emergency.
 #
 # REQUIREMENTS
 #    install : glib-compile-schemas (only if schemas/ exists), msgfmt (only if po/ exists)
-#    pack    : zip, msgfmt (only if po/ exists)
+#    test    : gjs (only if tests/run.js exists)
+#    pack    : zip, msgfmt (only if po/ exists), gjs (only if tests/run.js exists)
 #    release : git, gh (GitHub CLI, already authenticated), zip
 # ==============================================================================
 set -e
@@ -62,6 +69,7 @@ EXCLUDE_TOP=(
     "po"
     "media"
     "media/*"
+    "tests"
     "node_modules"
     "package.json"
     "package-lock.json"
@@ -92,8 +100,13 @@ COMMANDS
       The old installed copy is removed first. Restart GNOME Shell afterwards
       (Wayland: log out/in, X11: Alt+F2 -> r) to load the new code.
 
+  test
+      Runs the unit tests with "gjs -m tests/run.js". Exits with an error if any
+      test fails. Skipped with a notice when tests/run.js does not exist.
+
   pack
       Builds a clean production zip named <uuid>.zip.
+        - runs the unit tests first and stops if any fail (SKIP_TESTS=1 skips)
         - compiles translations first, so locale/ is included
         - removes schemas/gschemas.compiled (EGO compiles schemas itself)
         - skips dev files, docs and hidden files (see "WHAT IS PACKAGED")
@@ -135,7 +148,7 @@ WHAT IS PACKAGED (auto-detected, nothing hardcoded)
     - hidden entries        (.git, .github, .gitignore, ...)
     - manage.sh, Makefile
     - README*, CHANGELOG*
-    - media/, node_modules/
+    - media/, tests/, node_modules/
     - package.json, package-lock.json
     - *.zip
     - schemas/gschemas.compiled           (pack only; install keeps it)
@@ -163,16 +176,18 @@ CHANGELOG FORMAT
 
 EXAMPLES
   ./manage.sh install
+  ./manage.sh test
   ./manage.sh pack
   ./manage.sh release
   ./manage.sh release folder_test.png preview_test.png
   PACK_EXCLUDE="screenshots" ./manage.sh pack
+  SKIP_TESTS=1 ./manage.sh pack
   ./manage.sh uninstall
   ./manage.sh clean
 
 REQUIREMENTS
   glib-compile-schemas (if schemas/ exists), msgfmt (if po/ exists), zip,
-  git, and gh (GitHub CLI, logged in) for "release".
+  gjs (if tests/run.js exists), git, and gh (GitHub CLI, logged in) for "release".
 HELP_EOF
 }
 
@@ -279,6 +294,30 @@ build_locales() {
     fi
 }
 
+run_tests() {
+    if [ "${SKIP_TESTS:-0}" = "1" ]; then
+        echo "--> SKIP_TESTS=1 set, skipping unit tests."
+        return 0
+    fi
+
+    if [ ! -f "tests/run.js" ]; then
+        echo "--> No tests/run.js found, skipping unit tests."
+        return 0
+    fi
+
+    if ! command -v gjs >/dev/null 2>&1; then
+        echo "Error: gjs is required to run the unit tests (it ships with GNOME Shell)."
+        echo "       Install it, or set SKIP_TESTS=1 to skip the tests."
+        exit 1
+    fi
+
+    echo "--> Running unit tests..."
+    if ! gjs -m tests/run.js; then
+        echo "Error: Unit tests failed. Fix them before packaging (or set SKIP_TESTS=1)."
+        exit 1
+    fi
+}
+
 install_ext() {
     check_entry_point
     build_schemas
@@ -300,6 +339,7 @@ install_ext() {
 
 pack_ext() {
     check_entry_point
+    run_tests
     build_locales
 
     rm -f "${SCHEMAS_DIR}/gschemas.compiled"
@@ -313,6 +353,7 @@ pack_ext() {
     zip -r "${ZIP_NAME}" \
         "${FILES[@]}" \
         -x "media/*" \
+        -x "tests/*" \
         -x "po/*" \
         -x "README*" \
         -x "LICENSE*" \
@@ -441,6 +482,9 @@ shift || true
 case "${ACTION}" in
     install)
         install_ext
+        ;;
+    test)
+        run_tests
         ;;
     pack)
         pack_ext

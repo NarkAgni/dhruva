@@ -27,7 +27,8 @@ import { getCursorTracker, setUnredirectEnabled } from '../Compat.js';
 import { Settings } from '../SettingsManager.js';
 import { EdgeDetection } from './EdgeDetection.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
-import { animateShow, animateHide, getHideOffsets } from './AutoHideAnimations.js';
+import { getHideOffsets } from './AutoHideGeometry.js';
+import { animateShow, animateHide } from './AutoHideAnimations.js';
 import { WindowOverlapDetection, getVisibleMonitorWindows } from './WindowOverlapDetection.js';
 
 

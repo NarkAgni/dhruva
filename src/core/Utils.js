@@ -24,10 +24,12 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
+import { clampByte } from './Color.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
+export { hexToRgba } from './Color.js';
 
-const DEFAULT_RGB_CHANNEL = 20;
+
 const SAMPLE_ICON_SIZE = 32;
 const ICON_FILE_EXTENSION_RE = /\.(png|svg|symbolic)$/i;
 
@@ -78,12 +80,8 @@ export function destroyUtils() {
     _disposedActors = null;
 }
 
-function _clampByte(v) {
-    return Math.max(0, Math.min(255, Number.isFinite(v) ? v : 0));
-}
-
 function _toHex(c) {
-    return _clampByte(c).toString(16).padStart(2, '0');
+    return clampByte(c).toString(16).padStart(2, '0');
 }
 
 export function markActorDisposed(actor) {
@@ -165,35 +163,6 @@ export function debounce(func, wait) {
     };
 
     return wrapper;
-}
-
-export function hexToRgba(colorStr, alpha) {
-    let r = DEFAULT_RGB_CHANNEL;
-    let g = DEFAULT_RGB_CHANNEL;
-    let b = DEFAULT_RGB_CHANNEL;
-
-    const isString = Boolean(colorStr && colorStr.substring && colorStr.startsWith);
-
-    if (isString && colorStr.startsWith('#')) {
-        let hex = colorStr.slice(1).trim();
-        if (hex.length === 3) hex = hex.split('').map(ch => ch + ch).join('');
-
-        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
-            r = parseInt(hex.substring(0, 2), 16);
-            g = parseInt(hex.substring(2, 4), 16);
-            b = parseInt(hex.substring(4, 6), 16);
-        }
-    } else if (isString && colorStr.startsWith('rgb')) {
-        const parts = colorStr.match(/[\d.]+/g);
-        if (parts && parts.length >= 3) {
-            r = _clampByte(parseFloat(parts[0]));
-            g = _clampByte(parseFloat(parts[1]));
-            b = _clampByte(parseFloat(parts[2]));
-        }
-    }
-
-    const a = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
-    return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 
 export function setBoxVertical(box, isVertical) {

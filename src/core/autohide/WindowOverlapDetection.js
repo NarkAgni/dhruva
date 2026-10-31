@@ -21,9 +21,9 @@ import Meta from 'gi://Meta';
 
 import { isActorAlive } from '../Utils.js';
 import { isWindowHidden } from '../Compat.js';
+import { rectsIntersect } from './AutoHideGeometry.js';
 
 
-const DEFAULT_INTERSECT_TOLERANCE = 16;
 const DODGEABLE_WINDOW_TYPES = new Set([
     Meta.WindowType.NORMAL,
     Meta.WindowType.DIALOG,
@@ -60,26 +60,6 @@ export class WindowOverlapDetection {
         return { x, y, width: actor.width, height: actor.height };
     }
 
-    rectsIntersect(r1, r2, tolerance = DEFAULT_INTERSECT_TOLERANCE) {
-        const pos = this.dockUI.dockPosition;
-        let left = r1.x;
-        let right = r1.x + r1.width;
-        let top = r1.y;
-        let bottom = r1.y + r1.height;
-
-        if (pos === 'BOTTOM') top -= tolerance;
-        else if (pos === 'TOP') bottom += tolerance;
-        else if (pos === 'LEFT') right += tolerance;
-        else if (pos === 'RIGHT') left -= tolerance;
-
-        return !(
-            r2.x >= right ||
-            (r2.x + r2.width) <= left ||
-            r2.y >= bottom ||
-            (r2.y + r2.height) <= top
-        );
-    }
-
     shouldHide(mode) {
         if (mode === 'none') return false;
         if (mode === 'always') return true;
@@ -96,7 +76,7 @@ export class WindowOverlapDetection {
             if (mode === 'maximized') return isMaximized;
 
             const dodgesWindow = mode === 'dodge-all' || (mode === 'intelligent' && win === focusWindow);
-            return dodgesWindow && (isMaximized || this.rectsIntersect(dockRect, win.get_frame_rect()));
+            return dodgesWindow && (isMaximized || rectsIntersect(this.dockUI.dockPosition, dockRect, win.get_frame_rect()));
         });
     }
 }
