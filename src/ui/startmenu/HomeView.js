@@ -19,6 +19,7 @@
 
 import St from 'gi://St';
 import GLib from 'gi://GLib';
+import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
 import AccountsService from 'gi://AccountsService';
 import * as UserWidget from 'resource:///org/gnome/shell/ui/userWidget.js';
@@ -31,7 +32,7 @@ import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import {
     vbox, hbox, label, button, iconButton, pillButton, sectionHeader,
     appIcon, folderIcon, thumbnail, relativeTime, fitWidth, isKeyboardEvent,
-    onSecondaryClick, edgeScrollView, horizontalScroller, AutoHideScrollbar, CONTENT_WIDTH, EDGE_PADDING,
+    onSecondaryClick, horizontalScroller, revealOnFocus, rowContent, CONTENT_WIDTH, EDGE_PADDING,
 } from './StartMenuWidgets.js';
 
 
@@ -45,12 +46,16 @@ const PAGE_EDGE = 24;
 const PAGE_DWELL_MS = 450;
 const WHEEL_COOLDOWN_MS = 300;
 const RECENT_APPS = 6;
+const RECENT_COLUMNS = 3;
 const CONTINUE_VISIBLE = 5;
-const ICON_SIZE = 44;
+const ICON_SIZE = 48;
+const RECENT_ICON_SIZE = 38;
 const CELL_WIDTH = fitWidth(COLUMNS, PINNED_SPACING);
-const CARD_WIDTH = fitWidth(RECENT_APPS, CARD_SPACING);
+const RECENT_CARD_WIDTH = fitWidth(RECENT_COLUMNS, CARD_SPACING);
 const FILE_CARD_WIDTH = fitWidth(CONTINUE_VISIBLE, CARD_SPACING);
-const THUMB_HEIGHT = 88;
+const FILE_CARD_INSET = 16;
+const THUMB_HEIGHT = 80;
+const THUMB_RADIUS = 10;
 const SETTINGS_APP_ID = 'org.gnome.Settings.desktop';
 
 
@@ -81,14 +86,22 @@ export class HomeView {
 
         this.actor = vbox('spacing: 14px;', { x_expand: true, y_expand: true });
 
-        this._content = vbox('spacing: 16px;', { x_expand: true });
-        const scroll = edgeScrollView(this._content);
-        this._scrollbar = new AutoHideScrollbar(scroll);
-        this.actor.add_child(scroll);
+        this._content = vbox(`spacing: 22px; padding-right: ${EDGE_PADDING}px;`, { x_expand: true });
+        const body = new St.ScrollView({
+            x_expand: true,
+            y_expand: true,
+            min_height: 0,
+            hscrollbar_policy: St.PolicyType.NEVER,
+            vscrollbar_policy: St.PolicyType.NEVER,
+            enable_mouse_scrolling: false,
+            style: '-st-vfade-offset: 24px;',
+        });
+        body.set_child(this._content);
+        this.actor.add_child(revealOnFocus(body));
 
-        this._pinnedSection = vbox('spacing: 4px;');
-        this._recentAppsSection = vbox('spacing: 6px;');
-        this._continueSection = vbox('spacing: 6px;', { visible: false });
+        this._pinnedSection = vbox('spacing: 8px;');
+        this._recentAppsSection = vbox('spacing: 12px;');
+        this._continueSection = vbox('spacing: 12px;', { visible: false });
         this._content.add_child(this._pinnedSection);
         this._content.add_child(this._recentAppsSection);
         this._content.add_child(this._continueSection);
@@ -266,9 +279,21 @@ export class HomeView {
         else this.actor.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
     }
 
-    _cell(icon, name, onClick) {
-        const content = vbox('spacing: 8px;', { x_expand: true });
-        content.add_child(icon);
+    _runningDot(styleClass, isRunning) {
+        return new St.Widget({
+            style_class: styleClass,
+            opacity: isRunning ? 255 : 0,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+    }
+
+    _cell(icon, name, isRunning, onClick) {
+        const content = vbox('spacing: 6px;', { x_expand: true });
+        const iconBox = vbox('spacing: 4px;', { x_align: Clutter.ActorAlign.CENTER });
+        iconBox.add_child(icon);
+        iconBox.add_child(this._runningDot('dhruva-start-dot', isRunning));
+        content.add_child(iconBox);
         content.add_child(label(name, 'dhruva-start-cell-label', { x_align: Clutter.ActorAlign.CENTER }));
         return button('dhruva-start-item', content, onClick, this, { width: CELL_WIDTH });
     }
@@ -276,7 +301,7 @@ export class HomeView {
     _appCell(item) {
         const app = item.app;
         const icon = appIcon(app, ICON_SIZE);
-        const cell = this._cell(icon, app.get_name(), () => this._menu.launchApp(app));
+        const cell = this._cell(icon, app.get_name(), app.get_n_windows() > 0, () => this._menu.launchApp(app));
         onSecondaryClick(cell, (x, y) => this._menu.showContextMenu(this._menu.appMenuItems(app), x, y), this);
         this._makeDraggable(cell, item, icon);
         return cell;
@@ -284,7 +309,7 @@ export class HomeView {
 
     _folderCell(item) {
         const icon = folderIcon(item.apps, ICON_SIZE);
-        const cell = this._cell(icon, item.folder.name, () => this._menu.showFolder(item.key));
+        const cell = this._cell(icon, item.folder.name, false, () => this._menu.showFolder(item.key));
         onSecondaryClick(cell, (x, y) => this._menu.showContextMenu([
             { text: _('Open'), icon: 'folder-open-symbolic', run: () => this._menu.showFolder(item.key) },
             { text: _('Unpin from Start'), icon: 'view-pin-symbolic', run: () => this._menu.data.unpin(item.key) },
@@ -316,32 +341,37 @@ export class HomeView {
         if (apps.length === 0) return;
 
         this._recentAppsSection.add_child(sectionHeader(_('Recent apps')));
-        const row = hbox(`spacing: ${CARD_SPACING}px;`);
-        apps.forEach(app => row.add_child(this._recentAppCard(app)));
-        this._recentAppsSection.add_child(row);
+        const grid = vbox(`spacing: ${CARD_SPACING}px;`);
+        for (let start = 0; start < apps.length; start += RECENT_COLUMNS) {
+            const row = hbox(`spacing: ${CARD_SPACING}px;`);
+            apps.slice(start, start + RECENT_COLUMNS).forEach(app => row.add_child(this._recentAppCard(app)));
+            grid.add_child(row);
+        }
+        this._recentAppsSection.add_child(grid);
     }
 
     _recentAppCard(app) {
         const windows = app.get_n_windows();
         const isRunning = windows > 0;
 
-        const iconBox = vbox('spacing: 4px;', { x_align: Clutter.ActorAlign.CENTER });
-        iconBox.add_child(appIcon(app, ICON_SIZE));
-        iconBox.add_child(new St.Widget({
-            style_class: 'dhruva-start-dot',
-            opacity: isRunning ? 255 : 0,
-            x_align: Clutter.ActorAlign.CENTER,
-        }));
-
-        const content = vbox('spacing: 4px;', { x_expand: true });
-        content.add_child(iconBox);
-        content.add_child(label(app.get_name(), 'dhruva-start-title', { x_align: Clutter.ActorAlign.CENTER }));
-        content.add_child(label(
+        const status = hbox('spacing: 6px;');
+        if (isRunning) status.add_child(this._runningDot('dhruva-start-run-dot', true));
+        status.add_child(label(
             isRunning ? ngettext('%d window', '%d windows', windows).format(windows) : _('Recently used'),
             'dhruva-start-meta',
-            { x_align: Clutter.ActorAlign.CENTER }
+            { y_align: Clutter.ActorAlign.CENTER }
         ));
-        const card = button('dhruva-start-card', content, () => this._menu.launchApp(app), this, { width: CARD_WIDTH });
+
+        const text = vbox('spacing: 3px;', { x_expand: true, y_align: Clutter.ActorAlign.CENTER });
+        text.add_child(label(app.get_name(), 'dhruva-start-title dhruva-start-card-title'));
+        text.add_child(status);
+
+        const content = rowContent();
+        const icon = appIcon(app, RECENT_ICON_SIZE);
+        icon.y_align = Clutter.ActorAlign.CENTER;
+        content.add_child(icon);
+        content.add_child(text);
+        const card = button('dhruva-start-card', content, () => this._menu.launchApp(app), this, { width: RECENT_CARD_WIDTH });
         onSecondaryClick(card, (x, y) => this._menu.showContextMenu(this._menu.appMenuItems(app), x, y), this);
         return card;
     }
@@ -368,25 +398,31 @@ export class HomeView {
         this._continueSection.add_child(horizontalScroller(row, this));
     }
 
-    _fileCard(entry) {
-        const info = vbox('spacing: 1px;', { x_expand: true });
-        info.add_child(label(entry.name, 'dhruva-start-title'));
-        info.add_child(label(relativeTime(entry.time), 'dhruva-start-meta'));
+    _fileType(entry) {
+        if (entry.isDirectory) return _('Folder');
+        const dot = entry.name.lastIndexOf('.');
+        return dot > 0 ? entry.name.slice(dot + 1).toUpperCase() : '';
+    }
 
-        const caption = hbox('spacing: 8px; padding: 0 2px;');
-        caption.add_child(new St.Icon({ gicon: entry.gicon, icon_size: 20, y_align: Clutter.ActorAlign.CENTER }));
-        caption.add_child(info);
+    _fileCard(entry) {
+        const name = label(entry.name, 'dhruva-start-title');
+        const type = this._fileType(entry);
+        const time = relativeTime(entry.time);
+
+        const caption = vbox('spacing: 2px; padding: 0 3px;');
+        caption.add_child(name);
+        caption.add_child(label(type ? `${type} · ${time}` : time, 'dhruva-start-meta'));
 
         const content = vbox('spacing: 8px;');
-        content.add_child(thumbnail(entry, FILE_CARD_WIDTH - 16, THUMB_HEIGHT, 12));
+        content.add_child(thumbnail(entry, FILE_CARD_WIDTH - FILE_CARD_INSET, THUMB_HEIGHT, THUMB_RADIUS));
         content.add_child(caption);
-        const card = button('dhruva-start-card', content, () => this._menu.openFile(entry), this, { width: FILE_CARD_WIDTH });
+        const card = button('dhruva-start-card dhruva-start-file-card', content, () => this._menu.openFile(entry), this, { width: FILE_CARD_WIDTH });
         onSecondaryClick(card, (x, y) => this._menu.showContextMenu(this._menu.fileMenuItems(entry), x, y), this);
         return card;
     }
 
     _buildFooter() {
-        const footer = hbox(`spacing: 8px; padding-top: 12px; margin-right: ${EDGE_PADDING}px;`, { style_class: 'dhruva-start-footer' });
+        const footer = hbox(`spacing: 8px; padding-top: 6px; margin-right: ${EDGE_PADDING}px;`);
 
         const user = AccountsService.UserManager.get_default().get_user(GLib.get_user_name());
         this._user = user;
@@ -405,7 +441,9 @@ export class HomeView {
         footer.add_child(this._userName);
         footer.add_child(iconButton('emblem-system-symbolic', _('Settings'), () => this._menu.launchAppId(SETTINGS_APP_ID), this));
         footer.add_child(iconButton('system-lock-screen-symbolic', _('Lock'), () => this._runAction(() => this._systemActions.activateLockScreen()), this));
-        footer.add_child(iconButton('system-shutdown-symbolic', _('Power Off / Log Out'), () => this._toggleSession(), this));
+        const power = iconButton('system-shutdown-symbolic', _('Power Off / Log Out'), () => this._toggleSession(), this);
+        power.add_style_class_name('dhruva-start-power');
+        footer.add_child(power);
         return footer;
     }
 
@@ -426,7 +464,9 @@ export class HomeView {
         if (this._sessionRow.get_n_children() === 0) {
             this._sessionActions().forEach(([, text, icon, run]) => this._sessionRow.add_child(pillButton(text, icon, () => this._runAction(run), this)));
         }
-        this._sessionRow.visible = !this._sessionRow.visible;
+        const isOpening = !this._sessionRow.visible;
+        this.actor.set_height(isOpening ? this.actor.height : -1);
+        this._sessionRow.visible = isOpening;
         if (this._sessionRow.visible && isKeyboardEvent()) this._sessionRow.navigate_focus(null, St.DirectionType.TAB_FORWARD, false);
     }
 
@@ -439,7 +479,6 @@ export class HomeView {
         this._timers.destroy();
         this._timers = null;
         this._reorder.destroy();
-        this._scrollbar.destroy();
         if (this._user) this._user.disconnectObject(this);
         this._user = null;
         if (isActorAlive(this.actor)) this.actor.destroy();

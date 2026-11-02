@@ -39,7 +39,9 @@ const BLACKLISTED_KEYWORDS = [
 ];
 
 const PANEL_KEY = 'tray-panel-indicators';
+const WIDE_KEY = 'tray-wide-indicators';
 const ORDER_KEY = 'tray-order';
+const MAX_ICON_SPAN = 1.5;
 
 
 function isBlacklisted(name, indicator) {
@@ -59,41 +61,35 @@ function isBlacklisted(name, indicator) {
     );
 }
 
-function hasRealVisualContent(actor) {
-    if (!isActorAlive(actor) || !actor.visible || actor.opacity === 0) return false;
-
-    if ('icon_size' in actor) {
-        return Boolean((actor.icon_name && actor.icon_name.trim()) || actor.gicon);
-    }
-    if ('clutter_text' in actor && actor.text && actor.text.trim()) return true;
-    if (actor.content && (actor.content.get_texture || actor.content.paint)) return true;
-    if ('get_surface_size' in actor || 'source' in actor) return true;
-
-    return actor.get_children().some(child => hasRealVisualContent(child));
+function naturalRatio(actor) {
+    const [, width] = actor.get_preferred_width(-1);
+    const [, height] = actor.get_preferred_height(-1);
+    return width > 0 && height > 0 ? width / height : 1;
 }
 
-function countContent(actor, counts) {
-    if (!isActorAlive(actor) || !actor.visible) return;
+export function visualLeaves(actor, leaves = []) {
+    if (!isActorAlive(actor) || !actor.visible) return leaves;
 
     if ('icon_size' in actor) {
-        if ((actor.icon_name && actor.icon_name.trim()) || actor.gicon) counts.icons++;
-        return;
+        if ((actor.icon_name && actor.icon_name.trim()) || actor.gicon) leaves.push(actor);
+    } else if ('clutter_text' in actor) {
+        if (actor.text && actor.text.trim()) leaves.push(actor);
+    } else if ('get_surface_size' in actor || 'source' in actor || actor.content) {
+        leaves.push(actor);
+    } else {
+        for (const child of actor.get_children()) visualLeaves(child, leaves);
     }
-    if ('clutter_text' in actor) {
-        if (actor.text && actor.text.trim()) counts.other++;
-        return;
-    }
-    if ('get_surface_size' in actor || 'source' in actor) {
-        counts.other++;
-        return;
-    }
-    for (const child of actor.get_children()) countContent(child, counts);
+    return leaves;
 }
 
-export function isSingleIcon(actor) {
-    const counts = { icons: 0, other: 0 };
-    countContent(actor, counts);
-    return counts.icons === 1 && counts.other === 0;
+function contentStats(actor) {
+    const stats = { span: 0, hasText: false };
+    for (const leaf of visualLeaves(actor)) {
+        if ('icon_size' in leaf) stats.span += 1;
+        else if ('clutter_text' in leaf) stats.hasText = true;
+        else stats.span += naturalRatio(leaf);
+    }
+    return stats;
 }
 
 function indicatorDisplayName(name, indicator) {
@@ -108,8 +104,8 @@ export default class TrayManager {
         this.onStateChanged = onStateChanged;
     }
 
-    get _panelChoices() {
-        return new Set(this._settings.get_strv(PANEL_KEY));
+    _choices(key) {
+        return new Set(this._settings.get_strv(key));
     }
 
     _liveIndicators() {
@@ -117,61 +113,88 @@ export default class TrayManager {
         for (const [name, indicator] of Object.entries(Main.panel.statusArea)) {
             if (!indicator || !indicator.visible || isBlacklisted(name, indicator)) continue;
             const actor = indicator.container;
-            if (!hasRealVisualContent(actor)) continue;
-            list.push({ name, actor, indicator, displayName: indicatorDisplayName(name, indicator) });
+            const { span, hasText } = contentStats(actor);
+            if (span === 0 && !hasText) continue;
+            list.push({
+                name,
+                actor,
+                indicator,
+                isIconLike: !hasText && span <= MAX_ICON_SPAN,
+                displayName: indicatorDisplayName(name, indicator),
+            });
         }
         return list;
     }
 
-    isInTray(name, actor) {
-        return isSingleIcon(actor) && !this._panelChoices.has(name);
+    _partition() {
+        const pinned = this._choices(PANEL_KEY);
+        const wide = this._choices(WIDE_KEY);
+        const tray = [];
+        const panel = [];
+        for (const item of this._liveIndicators()) {
+            const inTray = item.isIconLike ? !pinned.has(item.name) : wide.has(item.name);
+            if (inTray) tray.push(item);
+            else panel.push(item);
+        }
+        return { tray, panel };
     }
 
     getTrayIndicators() {
-        const inTray = this._liveIndicators().filter(item => this.isInTray(item.name, item.actor));
         const order = this._settings.get_strv(ORDER_KEY);
         const rank = name => {
             const index = order.indexOf(name);
             return index === -1 ? order.length : index;
         };
-        return inTray.sort((a, b) => rank(a.name) - rank(b.name));
+        return this._partition().tray.sort((a, b) => rank(a.name) - rank(b.name));
     }
 
     getPanelIndicators() {
-        return this._liveIndicators().filter(item => !this.isInTray(item.name, item.actor));
+        return this._partition().panel;
     }
 
-    getPinnedIndicators() {
-        const pinned = this._panelChoices;
-        return this._liveIndicators().filter(item => isSingleIcon(item.actor) && pinned.has(item.name));
+    snapshot() {
+        const { tray, panel } = this._partition();
+        return [...tray.map(item => item.actor), null, ...panel.map(item => item.actor)];
+    }
+
+    _setChoices(name, toPanel) {
+        const pinned = this._choices(PANEL_KEY);
+        const wide = this._choices(WIDE_KEY);
+        if (toPanel) {
+            pinned.add(name);
+            wide.delete(name);
+        } else {
+            pinned.delete(name);
+            wide.add(name);
+        }
+        this._settings.set_strv(PANEL_KEY, [...pinned]);
+        this._settings.set_strv(WIDE_KEY, [...wide]);
+        this.onStateChanged();
     }
 
     moveToPanel(name) {
-        const pinned = this._panelChoices;
-        pinned.add(name);
-        this._settings.set_strv(PANEL_KEY, [...pinned]);
-        this.onStateChanged();
+        this._setChoices(name, true);
     }
 
     moveToTray(name) {
-        const pinned = this._panelChoices;
-        pinned.delete(name);
-        this._settings.set_strv(PANEL_KEY, [...pinned]);
-        this.onStateChanged();
+        this._setChoices(name, false);
     }
 
     resetToDefaults() {
         this._settings.set_strv(PANEL_KEY, []);
+        this._settings.set_strv(WIDE_KEY, []);
         this._settings.set_strv(ORDER_KEY, []);
         this.onStateChanged();
     }
 
     reorderTrayIndicators(fromIndex, toIndex) {
-        const names = this.getTrayIndicators().map(item => item.name);
+        const trayItems = this.getTrayIndicators();
+        const names = trayItems.filter(item => item.isIconLike).map(item => item.name);
         if (fromIndex < 0 || fromIndex >= names.length || toIndex < 0 || toIndex >= names.length) return;
 
         const [moved] = names.splice(fromIndex, 1);
         names.splice(toIndex, 0, moved);
-        this._settings.set_strv(ORDER_KEY, names);
+        const wideNames = trayItems.filter(item => !item.isIconLike).map(item => item.name);
+        this._settings.set_strv(ORDER_KEY, [...names, ...wideNames]);
     }
 }

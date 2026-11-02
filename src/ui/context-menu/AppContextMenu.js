@@ -55,11 +55,12 @@ function folderDisplayName(name) {
 }
 
 export default class AppContextMenu {
-    constructor(dockUI, app, buttonActor, isCtrlPressed = false, openPrefsCallback = null, disablePeek = false) {
+    constructor(dockUI, app, buttonActor, isCtrlPressed = false, openPrefsCallback = null, disablePeek = false, pickerWindows = null) {
         this.dockUI = dockUI;
         this.appManager = dockUI.appManager;
         this.app = app;
         this.buttonActor = buttonActor;
+        this._pickerWindows = pickerWindows;
 
         if (this.buttonActor && isActorAlive(this.buttonActor)) {
             this.buttonActor.connectObject('destroy', () => { this.buttonActor = null; }, this);
@@ -226,12 +227,13 @@ export default class AppContextMenu {
         this.panel.add_child(titleBox);
         addSeparator(this.panel);
 
-        const windows = this.app.get_windows();
+        const windows = this._pickerWindows || this.app.get_windows();
         if (windows.length > 0) {
             const customSize = Settings.contextMenuSize;
             this._dynamicPanelWidth = Math.max(200, (windows.length === 1 ? customSize : (customSize * 2) + 12) + 24 + 16);
             const thumbScroll = createThumbnailScroll(this, this.app, windows, customSize);
             this.panel.add_child(thumbScroll);
+            if (this._pickerWindows) return;
             addSeparator(this.panel);
         } else {
             this._dynamicPanelWidth = 220;
@@ -567,7 +569,7 @@ export default class AppContextMenu {
 
     show(dockPosition) {
         const isDockIcon = this.buttonActor && !this.buttonActor._inFolder && !this.buttonActor._isGridBtn && Boolean(this.peekManager);
-        if (isDockIcon && !Settings.enableContextMenu && !this.isCtrlPressed) {
+        if (isDockIcon && !this._pickerWindows && !Settings.enableContextMenu && !this.isCtrlPressed) {
             this.hide();
             return;
         }

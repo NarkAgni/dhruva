@@ -210,6 +210,8 @@ export default class QuickLaunchManager {
     _resolveTargetByDigit(dock, digit) {
         const targets = dock.boxActor.get_children().filter(child =>
             !child._isExternal &&
+            !child._isGridBtn &&
+            child._entityId !== 'dhruva-grid-button' &&
             child.visible &&
             child._activateCallback &&
             (child.get_style_class_name() || '').includes('dock-app-button')

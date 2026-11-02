@@ -83,11 +83,10 @@ const BLUR_SETTING_KEYS = [
 const WATCHED_SETTINGS = [
     'icon-size', 'show-running-indicators', 'hover-zoom', 'hover-zoom-factor',
     'lock-icons', 'show-apps-preview', 'click-effect', 'show-clock', 'use-24h-clock',
-    'clock-position', 'clock-font-size', 'show-desktop-button', 'show-home', 'show-downloads',
-    'show-documents', 'show-pictures', 'show-videos', 'show-music', 'context-menu-size',
+    'clock-position', 'clock-font-size', 'show-desktop-button', 'context-menu-size',
     'big-preview-size', 'minimize-effect', 'stroke-width', 'indicator-style', 'indicator-color',
-    'indicator-size', 'indicator-glow', 'custom-folders', 'isolate-workspaces',
-    'isolate-monitors', 'show-notification-badges', 'show-mounts', 'show-app-separator', 'separator-width',
+    'indicator-size', 'indicator-glow', 'isolate-workspaces',
+    'isolate-monitors', 'show-notification-badges', 'show-app-separator', 'separator-width',
     'show-module-separator', 'separator-height', 'dock-padding', 'dock-height', 'tooltip-opacity',
     'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
     'running-separator-color', 'running-separator-opacity', 'show-panel-separator', 'panel-separator-width',
@@ -251,7 +250,7 @@ export default class DockUI {
             }
         };
 
-        ScrollManager.setupDockScroll(this.actor);
+        ScrollManager.setupDockScroll(this);
     }
 
     hasActivePopupOrDrag() {
@@ -468,6 +467,15 @@ export default class DockUI {
             this.updateLayout();
         });
 
+        this._connectSettings([
+            'show-home', 'show-downloads', 'show-documents',
+            'show-pictures', 'show-videos', 'show-music',
+            'show-mounts', 'custom-folders'
+        ], () => {
+            this.queueRender('incremental', true);
+            this.updateLayout();
+        });
+
         this._connectSettings(['grid-button-position', 'show-grid-button'], () => this.queueRender('full', true));
 
         this._connectSettings(['show-music-pill', 'music-pill-position'], () => {
@@ -508,8 +516,17 @@ export default class DockUI {
     _bindSystemWatchers() {
         this.volumeMonitor = Gio.VolumeMonitor.get();
         this.volumeMonitor.connectObject(
-            'mount-added', () => this.queueRender('incremental'),
-            'mount-removed', () => this.queueRender('incremental'),
+            'mount-added', (_monitor, mount) => {
+                this.queueRender('incremental', true);
+                const mountUri = mount.get_root ? mount.get_root().get_uri() : null;
+                this.registry.addTimeout(GLib.PRIORITY_DEFAULT, 120, () => {
+                    requestAttention(this, actor =>
+                        actor._modType === 'mounts' && (!mountUri || actor._mountUri === mountUri)
+                    );
+                    return GLib.SOURCE_REMOVE;
+                });
+            },
+            'mount-removed', () => this.queueRender('incremental', true),
             this
         );
 

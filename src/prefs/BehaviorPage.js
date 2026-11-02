@@ -196,6 +196,8 @@ export function buildBehaviorPage(window, settings) {
 
     const previewGroup = addGroup(page, _('Window Previews'));
     addSwitchRow(previewGroup, settings, 'show-apps-preview', _('Preview on Hover'), _('Window thumbnails above the icon'));
+    addSwitchRow(previewGroup, settings, 'click-window-picker', _('Pick Window on Click'),
+        _('Clicking an app with several windows shows their previews to choose from'));
     addSliderRow(previewGroup, settings, 'context-menu-size', _('Thumbnail Width'), null, { lower: 100, upper: 500, step: 10 }, fmt.px);
     addSliderRow(previewGroup, settings, 'big-preview-size', _('Large Preview'), _('Share of the screen for the big preview'),
         { lower: 40, upper: 95, step: 5 }, fmt.percent);

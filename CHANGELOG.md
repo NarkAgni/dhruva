@@ -1,3 +1,21 @@
+## [5.2.0] - 02-11-2026
+
+### New
+* **Pick a Window on Click (#110):** A new switch under Behavior → Window Previews, Pick Window on Click, changes what a click does on an app with more than one window. Instead of switching to the last window, Dhruva shows previews of all its windows so you can click the one you want. It is off by default.
+* **Wide Applets in the Tray:** Applets with text or graphs, like CPU, network speed or weather, can now be moved into the tray too. They get their own full-width row below the icon grid, so the grid stays tidy, and long text is shortened to fit. Open the tray, press the edit button, and use Move to Tray on any item under On Panel.
+
+### Improved
+* **Tray Manager:** The edit view of the tray now lists everything on the panel under On Panel, not just pinned icons, so any item can be moved in either direction. Items in the list now line up neatly on the left, whatever their size.
+* **Applet Menus from the Tray:** Menus of applets opened from the tray now appear right above the tray, centred on the item you clicked, instead of sliding off to the side and covering the tray.
+* **Tidy Up Tray:** The Reset button under Panel → Tray now also puts wide applets you moved into the tray back on the panel.
+
+### Fixed
+* **Scroll on Dock Not Working (#111):** Scrolling over the dock icons with Scroll on Dock turned on now switches workspaces. The scroll action was being switched off as soon as the dock first appeared, and scrolling over an icon was also swallowed when Scroll on Icon was off.
+* **Apps Missing from the Tray (#111):** In Panel Mode, apps that add their icon after Dhruva starts, like Discord, Telegram or Steam, now appear in the tray right away instead of only after a restart. Icons that load a moment late are picked up too.
+* **Apps Next to the Tray Arrow (#111):** Apps that use the older tray icon style no longer end up next to the arrow. Any item that is a single icon now goes inside the tray, while items with text stay on the panel unless you move them.
+* **Show Apps and Super + 1–9 (#110):** The App Grid button is no longer counted by the Super + 1–9 shortcuts, so Super + 1 always opens the first app on the dock.
+* **Recycle Bin Missing with Drives (#109):** With USB and other drive icons turned on, the Recycle Bin icon now shows on the dock as it should.
+
 ## [5.1.9] - 31-10-2026
 
 ### Improved

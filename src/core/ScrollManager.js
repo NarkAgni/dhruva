@@ -23,79 +23,52 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { Settings } from './SettingsManager.js';
 
 
-function cycleAppWindows(windows, dir) {
-    if (!windows || windows.length === 0) return;
+function scrollStep(event) {
+    const dir = event.get_scroll_direction();
+    if (dir === Clutter.ScrollDirection.UP) return -1;
+    if (dir === Clutter.ScrollDirection.DOWN) return 1;
+    return 0;
+}
 
-    if (windows.length < 2) {
-        const target = windows[0];
-        target.unminimize();
-        Main.activateWindow(target);
-        return;
-    }
+function cycleAppWindows(windows, step) {
+    if (windows.length === 0) return;
 
-    const focusWin = global.display.get_focus_window();
-    let idx = windows.indexOf(focusWin);
-    if (idx === -1) idx = 0;
+    const idx = Math.max(0, windows.indexOf(global.display.get_focus_window()));
+    const target = windows.length < 2 ? windows[0] : windows[(idx + step + windows.length) % windows.length];
 
-    let nextIdx = idx;
-    if (dir === Clutter.ScrollDirection.UP) {
-        nextIdx = (idx - 1 + windows.length) % windows.length;
-    } else if (dir === Clutter.ScrollDirection.DOWN) {
-        nextIdx = (idx + 1) % windows.length;
-    }
-
-    if (nextIdx !== idx) {
-        const target = windows[nextIdx];
-        target.unminimize();
-        Main.activateWindow(target);
-    }
+    target.unminimize();
+    Main.activateWindow(target);
 }
 
 export default class ScrollManager {
-    static setupDockScroll(dockActor) {
-        dockActor.connectObject('scroll-event', (actor, event) => {
+    static setupDockScroll(dockUI) {
+        dockUI.actor.connectObject('scroll-event', (actor, event) => {
             actor._lastIconClickTime = Date.now();
 
-            const dockUI = actor._dockUI;
-            const hoveredBtn = dockUI ? dockUI.hoveredAppButton : null;
-            const hoveredApp = hoveredBtn && hoveredBtn._delegate ? hoveredBtn._delegate.app : null;
+            const step = scrollStep(event);
+            if (!Settings.scrollActionDock || step === 0) return Clutter.EVENT_PROPAGATE;
 
-            if (hoveredApp && Settings.scrollActionApp) {
-                const windows = hoveredApp.get_windows();
-                cycleAppWindows(windows, event.get_scroll_direction());
-                return Clutter.EVENT_STOP;
-            }
-
-            if (!Settings.scrollActionDock) return Clutter.EVENT_PROPAGATE;
-
-            const dir = event.get_scroll_direction();
             const wm = global.workspace_manager;
             const activeIdx = wm.get_active_workspace_index();
-            let nextIdx = activeIdx;
+            const nextIdx = Math.max(0, Math.min(wm.get_n_workspaces() - 1, activeIdx + step));
 
-            if (dir === Clutter.ScrollDirection.UP) {
-                nextIdx = Math.max(0, activeIdx - 1);
-            } else if (dir === Clutter.ScrollDirection.DOWN) {
-                nextIdx = Math.min(wm.get_n_workspaces() - 1, activeIdx + 1);
-            }
+            if (nextIdx === activeIdx) return Clutter.EVENT_PROPAGATE;
 
-            if (nextIdx !== activeIdx) {
-                wm.get_workspace_by_index(nextIdx).activate(global.get_current_time());
-                return Clutter.EVENT_STOP;
-            }
-            return Clutter.EVENT_PROPAGATE;
-        }, dockActor);
+            wm.get_workspace_by_index(nextIdx).activate(global.get_current_time());
+            return Clutter.EVENT_STOP;
+        }, dockUI);
     }
 
     static setupAppScroll(appButton, getWindowsFn) {
         appButton.connectObject('scroll-event', (actor, event) => {
+            const step = scrollStep(event);
+            if (!Settings.scrollActionApp || step === 0) return Clutter.EVENT_PROPAGATE;
+
             const parent = actor.get_parent();
             const mainDockActor = parent ? parent.get_parent() : null;
             if (mainDockActor) mainDockActor._lastIconClickTime = Date.now();
 
-            if (!Settings.scrollActionApp) return Clutter.EVENT_STOP;
-
-            cycleAppWindows(getWindowsFn(), event.get_scroll_direction());
+            cycleAppWindows(getWindowsFn(), step);
             return Clutter.EVENT_STOP;
         }, appButton);
     }

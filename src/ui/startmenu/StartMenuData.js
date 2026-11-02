@@ -69,6 +69,8 @@ const SEARCH_ENGINES = [
     ['bing.', 'Bing'],
     ['search.brave.', 'Brave Search'],
     ['startpage.', 'Startpage'],
+    ['perplexity.', 'Perplexity'],
+    ['kagi.', 'Kagi'],
     ['ecosia.', 'Ecosia'],
     ['yahoo.', 'Yahoo'],
     ['yandex.', 'Yandex'],

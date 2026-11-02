@@ -329,6 +329,11 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
 
             animateIconClick(iconBin, Settings.clickEffect);
 
+            if (Settings.clickWindowPicker && windows.length > 1) {
+                new AppContextMenu(dockUI, app, btn, false, dockUI.openPrefsCallback, false, windows).show(dockUI.dockPosition);
+                return;
+            }
+
             const focusWin = global.display.get_focus_window();
             const activeWin = windows.find(w => w === focusWin);
             const firstUnminimized = windows.find(w => !w.minimized);

@@ -30,15 +30,22 @@ export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
 
     if (Settings.showHome) {
         const homeDir = GLib.get_home_dir();
-        systemModules.push(createBtn('user-home', _('Home'), (btn) => toggleAppWindow(`file://${homeDir}`, homeDir, _('Home'), btn), homeDir));
+        const btn = createBtn('user-home', _('Home'), (b) => toggleAppWindow(`file://${homeDir}`, homeDir, _('Home'), b), homeDir);
+        btn._modType = 'home';
+        if (btn._delegate && btn._delegate.app) btn._delegate.app.get_id = () => 'dhruva-sys-home';
+        systemModules.push(btn);
     }
 
     const addHomeFolder = (setting, icon, dirEnum, localizedName, fallback) => {
         if (settings.get_boolean(setting)) {
+            const modName = setting.replace('show-', '');
             const dirPath = GLib.get_user_special_dir(dirEnum) || `${GLib.get_home_dir()}/${fallback}`;
             const file = Gio.File.new_for_path(dirPath);
             const uri = file.get_uri();
-            systemModules.push(createBtn(icon, localizedName, (btn) => toggleAppWindow(uri, dirPath, localizedName, btn), dirPath));
+            const btn = createBtn(icon, localizedName, (b) => toggleAppWindow(uri, dirPath, localizedName, b), dirPath);
+            btn._modType = modName;
+            if (btn._delegate && btn._delegate.app) btn._delegate.app.get_id = () => `dhruva-sys-${modName}`;
+            systemModules.push(btn);
         }
     };
 
@@ -51,7 +58,7 @@ export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
     if (Settings.showMounts) {
         const volumeMonitor = Gio.VolumeMonitor.get();
         const mounts = volumeMonitor.get_mounts();
-        mounts.forEach(mount => {
+        mounts.forEach((mount, idx) => {
             const name = mount.get_name();
             const uri = mount.get_root().get_uri();
             const gicon = mount.get_icon() || Gio.ThemedIcon.new('drive-harddisk-symbolic');
@@ -59,6 +66,11 @@ export function buildSystemFoldersModule(dockUI, createBtn, toggleAppWindow) {
 
             const btn = createBtn(gicon, name, (b) => toggleAppWindow(uri, rootPath, name, b), rootPath);
             btn._modType = 'mounts';
+            btn._mountUri = uri;
+            const slug = (name || 'mount').toLowerCase().replace(/[^a-z0-9]/g, '-');
+            if (btn._delegate && btn._delegate.app) {
+                btn._delegate.app.get_id = () => `dhruva-sys-mount-${idx}-${slug}`;
+            }
             systemModules.push(btn);
         });
     }

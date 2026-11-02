@@ -53,9 +53,14 @@ function rectOf(actor) {
     };
 }
 
-function gapFromSource(dockUI, menu) {
+function anchorRect(state) {
+    return rectOf(state.anchor || state.dockUI.bgActor);
+}
+
+function gapFromSource(state, menu) {
+    const { dockUI } = state;
     const s = rectOf(menu.sourceActor);
-    const d = rectOf(dockUI.bgActor);
+    const d = anchorRect(state);
     const scale = scaleFactor();
     const target = HYBRID_PANEL_CONFIG.POPUP_BOX_GAP * scale;
 
@@ -70,7 +75,7 @@ function gapFromSource(dockUI, menu) {
 }
 
 function applyGap(state, menu) {
-    const gap = gapFromSource(state.dockUI, menu);
+    const gap = gapFromSource(state, menu);
     state.boxPointer.set_style(`-arrow-rise: 0px; -boxpointer-gap: ${gap.toFixed(2)}px;`);
 }
 
@@ -132,7 +137,7 @@ function lockPosition(state, menu) {
         return;
     }
 
-    const dock = rectOf(dockUI.bgActor);
+    const dock = anchorRect(state);
     const target = HYBRID_PANEL_CONFIG.POPUP_BOX_GAP * scaleFactor();
     const delta = visibleGap(dockUI.dockPosition, dock, box) - target;
 
@@ -143,7 +148,7 @@ function lockPosition(state, menu) {
         default: boxPointer.translation_y += delta; break;
     }
 
-    if (state.isCentered && Settings.dynamicPanel) {
+    if (state.anchor || (state.isCentered && Settings.dynamicPanel)) {
         const shift = centeringShift(dockUI, menu, box);
         if (isVerticalDock(dockUI)) boxPointer.translation_y += shift;
         else boxPointer.translation_x += shift;
@@ -170,12 +175,12 @@ function followBoxPointer(state, overlay) {
     sync();
 }
 
-export function hookPopupGap(dockUI, menu, isCentered = false) {
+export function hookPopupGap(dockUI, menu, isCentered = false, anchor = null) {
     if (menu._dhruvaGapState) return;
     const boxPointer = menu._boxPointer;
 
     const state = {
-        dockUI, boxPointer, isCentered,
+        dockUI, boxPointer, isCentered, anchor,
         originalStyle: boxPointer.style,
         originalOpacity: boxPointer.opacity,
         measureId: 0,

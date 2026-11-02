@@ -24,17 +24,16 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import TrayMenu from './TrayMenu.js';
 import AppletReorder from './AppletReorder.js';
-import { isSingleIcon } from './TrayManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
-import { getPanelLeftBox } from '../Compat.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { isActorAlive, setBoxVertical } from '../Utils.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
+import { CHILD_ADDED_SIGNAL, CHILD_REMOVED_SIGNAL, getPanelBoxes, getPanelLeftBox } from '../Compat.js';
 import { NativeActorState, panelItemMetrics, stylePanelItem } from './NativeActorState.js';
 
 
 const CFG = HYBRID_PANEL_CONFIG;
-const EXTENSION_SETTLE_MS = 120;
+const RESYNC_SETTLE_MS = 120;
 const ORDER_KEY = 'panel-applet-order';
 
 const TRAY_ARROW_ICONS = {
@@ -65,9 +64,11 @@ export default class ExtensionAppletsManager {
         this._applets = [];
         this._trayMenu = null;
         this._isTrayOpen = false;
-        this._extensionTimerId = 0;
+        this._resyncId = 0;
+        this._snapshot = [];
+        this._watchedIndicators = new Set();
 
-        Main.extensionManager.connectObject('extension-state-changed', () => this._onExtensionsChanged(), this);
+        Main.extensionManager.connectObject('extension-state-changed', () => this._queueResync(), this);
     }
 
     createBox(isVertical) {
@@ -118,8 +119,45 @@ export default class ExtensionAppletsManager {
         this._reorder.watch(this.box, child => child !== this._arrowButton);
         this._reorder.watch(this.leftBox, () => true);
 
+        for (const panelBox of getPanelBoxes()) {
+            panelBox.connectObject(
+                CHILD_ADDED_SIGNAL, () => this._queueResync(),
+                CHILD_REMOVED_SIGNAL, () => this._queueResync(),
+                this);
+        }
+
         this._populate();
         return this.box;
+    }
+
+    _watchIndicators() {
+        for (const indicator of Object.values(Main.panel.statusArea)) {
+            if (!isActorAlive(indicator) || this._watchedIndicators.has(indicator)) continue;
+            this._watchedIndicators.add(indicator);
+            indicator.connectObject(
+                'notify::visible', () => this._queueResync(),
+                'destroy', () => this._watchedIndicators.delete(indicator),
+                this);
+            indicator.container.connectObject(
+                'notify::width', () => this._queueResync(),
+                'notify::height', () => this._queueResync(),
+                this);
+        }
+    }
+
+    _unwatchIndicators() {
+        for (const indicator of this._watchedIndicators) {
+            if (!isActorAlive(indicator)) continue;
+            indicator.disconnectObject(this);
+            if (isActorAlive(indicator.container)) indicator.container.disconnectObject(this);
+        }
+        this._watchedIndicators.clear();
+    }
+
+    _isSnapshotCurrent() {
+        const current = this.trayManager.snapshot();
+        return current.length === this._snapshot.length &&
+            current.every((actor, index) => actor === this._snapshot[index]);
     }
 
     _anchorBox(isVertical) {
@@ -193,8 +231,7 @@ export default class ExtensionAppletsManager {
         const dockPos = this.dockUI.dockPosition;
         this._applets = this._collectApplets();
 
-        for (const { actor, indicator } of this._applets) {
-            const isSmallIcon = isSingleIcon(actor);
+        for (const { actor, indicator, isIconLike } of this._applets) {
             const parent = actor.get_parent();
             const zone = parent === getPanelLeftBox() ? this.leftBox : this.box;
             if (parent) {
@@ -212,7 +249,7 @@ export default class ExtensionAppletsManager {
                 y_align: Clutter.ActorAlign.CENTER,
             });
             this._compactTree(actor);
-            stylePanelItem(this._state, actor, isSmallIcon);
+            stylePanelItem(this._state, actor, isIconLike);
 
             if (indicator.menu) {
                 this._state.connect(indicator.menu, 'open-state-changed', (_menu, isOpen) => {
@@ -231,6 +268,8 @@ export default class ExtensionAppletsManager {
 
         this.box.add_child(this._arrowButton);
         this.leftBox.visible = this.leftBox.get_n_children() > 0;
+        this._snapshot = this.trayManager.snapshot();
+        this._watchIndicators();
     }
 
     _compactTree(actor) {
@@ -265,24 +304,27 @@ export default class ExtensionAppletsManager {
         this.dockUI.syncPanelSpace();
     }
 
-    _onExtensionsChanged() {
-        this._closeTray();
-        if (this._extensionTimerId) {
-            this.timers.remove(this._extensionTimerId);
-            this._extensionTimerId = 0;
-        }
-        this._extensionTimerId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, EXTENSION_SETTLE_MS, () => {
-            this._extensionTimerId = 0;
-            this.panelIntegrator.refreshApplets();
+    _queueResync() {
+        if (!isActorAlive(this.box)) return;
+        if (this._resyncId) this.timers.remove(this._resyncId);
+        this._resyncId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, RESYNC_SETTLE_MS, () => {
+            this._resyncId = 0;
+            this._watchIndicators();
+            if (!this._isSnapshotCurrent()) {
+                this._closeTray();
+                this.panelIntegrator.refreshApplets();
+            }
             return GLib.SOURCE_REMOVE;
         });
     }
 
     restore() {
-        if (this._extensionTimerId) {
-            this.timers.remove(this._extensionTimerId);
-            this._extensionTimerId = 0;
+        if (this._resyncId) {
+            this.timers.remove(this._resyncId);
+            this._resyncId = 0;
         }
+        for (const panelBox of getPanelBoxes()) panelBox.disconnectObject(this);
+        this._unwatchIndicators();
         this._closeTray();
         this._reorder.release();
         this._releaseApplets();

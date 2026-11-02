@@ -28,7 +28,9 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { BlurPanel } from '../../ui/blur/BlurPanel.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
+import { visualLeaves } from './TrayManager.js';
 import { NativeActorState } from './NativeActorState.js';
+import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
 import { isActorAlive, setBoxVertical } from '../Utils.js';
 import { paintMenuBubble } from '../../ui/shared/MenuShape.js';
 import { resolvePopupBubbleColors } from '../../ui/dock/DockThemeResolver.js';
@@ -42,6 +44,9 @@ const PANEL_PAD_X = 12;
 const PANEL_PAD_Y = 10;
 const GRID_COLUMNS = 4;
 const SCREEN_MARGIN = 10;
+const WIDE_ITEM_MAX_WIDTH = 240;
+const LONG_PRESS_US = 350000;
+const MANAGE_CONTENT_INSET = 6;
 
 const ARROW_SIDES = { BOTTOM: St.Side.BOTTOM, TOP: St.Side.TOP, LEFT: St.Side.LEFT, RIGHT: St.Side.RIGHT };
 
@@ -79,8 +84,11 @@ export default class TrayMenu {
         this._changeIdleId = 0;
         this._settleId = 0;
         this._dragEndTimeoutId = 0;
+        this._alignIdleId = 0;
+        this._startAligned = [];
         this._trayBlur = null;
         this._movedState = new NativeActorState();
+        this._hookedMenus = new Set();
     }
 
     show(dockPosition) {
@@ -176,16 +184,14 @@ export default class TrayMenu {
     }
 
     _detachMovedActors() {
-        for (const item of this.trayManager.getTrayIndicators()) {
-            if (item.indicator && item.indicator.menu) {
-                delete item.indicator.menu._dhruvaTrayAutohideHooked;
-            }
-        }
+        for (const menu of this._hookedMenus) unhookPopupGap(menu);
+        this._hookedMenus.clear();
         this._movedState.restore();
     }
 
     _buildContent() {
         this._detachMovedActors();
+        this._startAligned = [];
         this.panel.destroy_all_children();
         this.panel.set_style(`padding: ${this._panelPadding()};`);
 
@@ -260,13 +266,74 @@ export default class TrayMenu {
         makeTreeInert(this._movedState, actor);
         this._movedState.set(actor, { visible: true, opacity: 255 });
         const menu = item.indicator.menu;
-        if (menu && menu._boxPointer) this._movedState.setArrowSide(menu._boxPointer, ARROW_SIDES[this._dockPos]);
+        if (menu && menu._boxPointer) {
+            this._movedState.setArrowSide(menu._boxPointer, ARROW_SIDES[this._dockPos]);
+            hookPopupGap(this.dockUI, menu, false, this.menuContainer);
+            this._hookedMenus.add(menu);
+        }
         slot.add_child(actor);
     }
 
-    _makeIconSlot() {
+    _makeSlot(item) {
         const size = HYBRID_PANEL_CONFIG.TRAY_BUTTON_SIZE;
-        return new St.Widget({ layout_manager: new Clutter.BinLayout(), width: size, height: size });
+        if (item.isIconLike) return new St.Widget({ layout_manager: new Clutter.BinLayout(), width: size, height: size });
+        return new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            height: size,
+            clip_to_allocation: true,
+            style: `max-width: ${WIDE_ITEM_MAX_WIDTH}px;`,
+        });
+    }
+
+    _connectIndicatorPill(pill, entry) {
+        pill._isDraggingActive = false;
+        pill._wasDragged = false;
+        pill._pressTime = 0;
+        pill._pressEvent = null;
+
+        pill.connectObject(
+            'button-press-event', (_actor, event) => {
+                pill._pressTime = GLib.get_monotonic_time();
+                pill._pressEvent = event;
+                return Clutter.EVENT_PROPAGATE;
+            },
+            'clicked', () => {
+                if (pill._isDraggingActive || pill._wasDragged) {
+                    pill._wasDragged = false;
+                    return;
+                }
+                if (pill._pressTime > 0 && (GLib.get_monotonic_time() - pill._pressTime) > LONG_PRESS_US) return;
+
+                const pressEvent = pill._pressEvent;
+                pill._pressEvent = null;
+                if (!pressEvent) return;
+
+                const indicator = entry.indicator;
+                const menu = indicator.menu;
+                const wasOpen = menu ? menu.isOpen : false;
+                indicator.event(pressEvent, false);
+                indicator.event(Clutter.get_current_event(), false);
+                if (menu && menu.isOpen === wasOpen) menu.toggle();
+            },
+            this
+        );
+    }
+
+    _buildWideRow(entry) {
+        const slot = this._makeSlot(entry);
+        this._adoptIndicator(entry, slot);
+        slot.connectObject('notify::width', () => this._queueReposition(), this);
+
+        const pill = new St.Button({
+            child: slot,
+            can_focus: false,
+            track_hover: true,
+            x_expand: true,
+            accessible_name: entry.displayName,
+            style_class: 'dhruva-tray-wide-pill',
+        });
+        this._connectIndicatorPill(pill, entry);
+        return pill;
     }
 
     _emptyLabel(text) {
@@ -284,6 +351,19 @@ export default class TrayMenu {
             return;
         }
 
+        const iconItems = trayItems.filter(item => item.isIconLike);
+        if (iconItems.length > 0) this._buildIconGrid(iconItems);
+
+        const wideItems = trayItems.filter(item => !item.isIconLike);
+        if (wideItems.length === 0) return;
+
+        const wideBox = new St.BoxLayout({ style_class: 'dhruva-tray-wide-list', x_expand: true });
+        setBoxVertical(wideBox, true);
+        for (const entry of wideItems) wideBox.add_child(this._buildWideRow(entry));
+        this.panel.add_child(wideBox);
+    }
+
+    _buildIconGrid(trayItems) {
         this.gridContainer = new St.BoxLayout({ style_class: 'dhruva-tray-grid', x_align: Clutter.ActorAlign.CENTER });
         setBoxVertical(this.gridContainer, true);
         this.panel.add_child(this.gridContainer);
@@ -313,7 +393,7 @@ export default class TrayMenu {
                 this.gridContainer.add_child(currentRow);
             }
 
-            const iconContainer = this._makeIconSlot();
+            const iconContainer = this._makeSlot(entry);
             this._adoptIndicator(entry, iconContainer);
 
             const pill = new St.Button({
@@ -327,45 +407,7 @@ export default class TrayMenu {
             });
 
             pill._entryName = entry.name;
-            pill._isDraggingActive = false;
-            pill._wasDragged = false;
-            pill._pressTime = 0;
-
-
-            pill.connectObject(
-                'button-press-event', (_actor, event) => {
-                    pill._pressTime = GLib.get_monotonic_time();
-                    pill._pressEvent = event;
-                    return Clutter.EVENT_PROPAGATE;
-                },
-                'clicked', () => {
-                    if (pill._isDraggingActive || pill._wasDragged) {
-                        pill._wasDragged = false;
-                        return;
-                    }
-                    if (pill._pressTime > 0 && (GLib.get_monotonic_time() - pill._pressTime) > 350000) return;
-
-                    const pressEvent = pill._pressEvent;
-                    pill._pressEvent = null;
-                    if (!pressEvent) return;
-
-                    const indicator = entry.indicator;
-                    const menu = indicator.menu;
-                    if (menu && !menu._dhruvaTrayAutohideHooked) {
-                        menu._dhruvaTrayAutohideHooked = true;
-                        this._movedState.connect(menu, 'open-state-changed', (_m, isOpen) => {
-                            if (!this.dockUI || !this.dockUI.autoHideManager) return;
-                            if (isOpen) this.dockUI.autoHideManager.show();
-                            else this.dockUI.autoHideManager.scheduleCheck(100);
-                        });
-                    }
-                    const wasOpen = menu ? menu.isOpen : false;
-                    indicator.event(pressEvent, false);
-                    indicator.event(Clutter.get_current_event(), false);
-                    if (menu && menu.isOpen === wasOpen) menu.toggle();
-                },
-                this
-            );
+            this._connectIndicatorPill(pill, entry);
 
             pill._delegate = {
                 entryName: entry.name,
@@ -473,16 +515,17 @@ export default class TrayMenu {
 
     _buildManager() {
         const trayItems = this.trayManager.getTrayIndicators();
-        const pinnedItems = this.trayManager.getPinnedIndicators();
+        const panelItems = this.trayManager.getPanelIndicators();
 
         this.panel.add_child(this._buildSection(_('In tray'), trayItems, _('No icons in the tray'), item => {
-            const slot = this._makeIconSlot();
+            const slot = this._makeSlot(item);
             this._adoptIndicator(item, slot);
+            this._alignToStart(item.actor, slot);
             return this._buildManageRow(slot, 'view-pin-symbolic', _('Show on panel'),
                 () => this.trayManager.moveToPanel(item.name));
         }));
 
-        this.panel.add_child(this._buildSection(_('Pinned to panel'), pinnedItems, _('No pinned icons'), item => {
+        this.panel.add_child(this._buildSection(_('On panel'), panelItems, _('Nothing on the panel'), item => {
             return this._buildManageRow(this._makePreview(item.actor), 'go-down-symbolic', _('Move to tray'),
                 () => this.trayManager.moveToTray(item.name));
         }));
@@ -490,7 +533,7 @@ export default class TrayMenu {
         const footer = new St.BoxLayout({ style_class: 'dhruva-tray-footer', x_expand: true });
         setBoxVertical(footer, false);
         footer.add_child(new St.Label({
-            text: _('Only small icons can live in the tray'),
+            text: _('Wide applets get their own row in the tray'),
             style_class: 'dhruva-tray-note',
             x_expand: true,
             y_align: Clutter.ActorAlign.CENTER,
@@ -526,7 +569,7 @@ export default class TrayMenu {
     _makePreview(actor) {
         const slotHeight = HYBRID_PANEL_CONFIG.TRAY_BUTTON_SIZE;
         const [width, height] = actor.get_size();
-        const scale = height > 0 ? Math.min(1, slotHeight / height) : 1;
+        const scale = height > 0 && width > 0 ? Math.min(1, slotHeight / height, WIDE_ITEM_MAX_WIDTH / width) : 1;
 
         const slot = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
@@ -558,15 +601,45 @@ export default class TrayMenu {
         this._changeIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._changeIdleId = 0;
             this.refresh();
-            if (this._settleId) {
-                this.timers.remove(this._settleId);
-                this._settleId = 0;
-            }
-            this._settleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
-                this._settleId = 0;
-                if (this._shown) this._updatePosition();
-                return GLib.SOURCE_REMOVE;
-            });
+            this._queueReposition();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _alignToStart(actor, slot) {
+        this._startAligned.push({ actor, slot });
+        const queue = () => this._queueStartAlignment();
+        this._movedState.connect(slot, 'notify::allocation', queue);
+        this._movedState.connect(actor, 'notify::allocation', queue);
+        for (const leaf of visualLeaves(actor)) this._movedState.connect(leaf, 'notify::allocation', queue);
+    }
+
+    _queueStartAlignment() {
+        if (!this._shown || this._alignIdleId) return;
+        this._alignIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._alignIdleId = 0;
+            this._applyStartAlignment();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    _applyStartAlignment() {
+        for (const { actor, slot } of this._startAligned) {
+            if (!isActorAlive(actor) || !isActorAlive(slot)) continue;
+            const lefts = visualLeaves(actor).map(leaf => leaf.get_transformed_position()[0]);
+            if (lefts.length === 0) continue;
+
+            const [slotX] = slot.get_transformed_position();
+            const shift = Math.round(slotX + MANAGE_CONTENT_INSET - Math.min(...lefts));
+            if (shift !== 0) this._movedState.set(actor, { translation_x: actor.translation_x + shift });
+        }
+    }
+
+    _queueReposition() {
+        if (!this._shown || this._settleId) return;
+        this._settleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            this._settleId = 0;
+            if (this._shown) this._updatePosition();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -639,6 +712,10 @@ export default class TrayMenu {
         if (this._settleId && this.timers) {
             this.timers.remove(this._settleId);
             this._settleId = 0;
+        }
+        if (this._alignIdleId && this.timers) {
+            this.timers.remove(this._alignIdleId);
+            this._alignIdleId = 0;
         }
         this.timers.destroy();
 

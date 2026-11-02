@@ -19,7 +19,6 @@
 
 import GLib from 'gi://GLib';
 import Pango from 'gi://Pango';
-import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -28,15 +27,13 @@ import { Settings } from '../SettingsManager.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
+import { CHILD_ADDED_SIGNAL, CHILD_REMOVED_SIGNAL } from '../Compat.js';
 import { NativeActorState, stylePanelItem } from './NativeActorState.js';
 
 
 const CFG = HYBRID_PANEL_CONFIG;
 const MIN_ICON_BOX = 10;
 const RELAYOUT_DELAY_MS = 30;
-
-const CHILD_ADDED_SIGNAL = GObject.signal_lookup('child-added', Clutter.Actor.$gtype) ? 'child-added' : 'actor-added';
-const CHILD_REMOVED_SIGNAL = GObject.signal_lookup('child-removed', Clutter.Actor.$gtype) ? 'child-removed' : 'actor-removed';
 
 
 function iconBoxSize(icon) {

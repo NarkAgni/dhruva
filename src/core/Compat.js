@@ -18,8 +18,13 @@
 
 
 import Meta from 'gi://Meta';
+import GObject from 'gi://GObject';
+import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+
+export const CHILD_ADDED_SIGNAL = GObject.signal_lookup('child-added', Clutter.Actor.$gtype) ? 'child-added' : 'actor-added';
+export const CHILD_REMOVED_SIGNAL = GObject.signal_lookup('child-removed', Clutter.Actor.$gtype) ? 'child-removed' : 'actor-removed';
 
 export function getCursorTracker() {
     return global.backend.get_cursor_tracker
@@ -83,6 +88,10 @@ export function getBackgroundGroup() {
 
 export function getPanelLeftBox() {
     return Main.panel._leftBox;
+}
+
+export function getPanelBoxes() {
+    return [Main.panel._leftBox, Main.panel._centerBox, Main.panel._rightBox];
 }
 
 export function getNotificationBannerBin() {

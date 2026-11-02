@@ -54,6 +54,10 @@ export function buildTrashModule(dockUI, createBtn, toggleAppWindow) {
     const iconName = dockUI.trashIsFull ? 'user-trash-full' : 'user-trash';
     const btn = createBtn(iconName, _('Recycle Bin'), (button) => toggleAppWindow('trash:///', null, _('Recycle Bin'), button), null);
     btn._isTrash = true;
+    btn._modType = 'trash';
+    if (btn._delegate && btn._delegate.app) {
+        btn._delegate.app.get_id = () => 'dhruva-sys-trash';
+    }
 
     if (dockUI.trashIsFull === undefined) {
         dockUI.trashIsFull = false;

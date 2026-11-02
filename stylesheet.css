@@ -398,6 +398,16 @@
 }
 .dhruva-tray-pill:hover { background-color: rgba(255, 255, 255, 0.16); }
 
+.dhruva-tray-wide-list { spacing: 4px; }
+.dhruva-tray-wide-pill {
+    height: 30px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.06);
+    transition-duration: 150ms;
+}
+.dhruva-tray-wide-pill:hover { background-color: rgba(255, 255, 255, 0.16); }
+
 .dhruva-tray-section { spacing: 2px; min-width: 180px; }
 .dhruva-tray-section-title { font-size: 10px; font-weight: bold; color: rgba(255, 255, 255, 0.5); padding: 2px 4px; }
 .dhruva-tray-row {
@@ -434,10 +444,10 @@
 .dhruva-start-menu-box .dhruva-start-search,
 .dhruva-start-menu-box .dhruva-start-search:hover,
 .dhruva-start-menu-box .dhruva-start-search:focus {
-    min-height: 36px;
-    padding: 0 8px;
+    min-height: 44px;
+    padding: 0 14px;
     border: none;
-    border-radius: 12px;
+    border-radius: 14px;
     background-color: transparent;
     box-shadow: none;
     color: #ffffff;
@@ -449,18 +459,19 @@
 .dhruva-start-menu-box .dhruva-start-search .hint-text { color: rgba(255, 255, 255, 0.5); }
 .dhruva-start-search-icon { icon-size: 18px; color: rgba(255, 255, 255, 0.75); padding-right: 10px; }
 
-.dhruva-start-section { font-size: 11px; font-weight: bold; color: rgba(255, 255, 255, 0.62); }
+.dhruva-start-section { font-size: 11px; font-weight: bold; letter-spacing: 1px; color: rgba(255, 255, 255, 0.6); }
 .dhruva-start-title { font-size: 12px; font-weight: bold; color: #ffffff; }
 .dhruva-start-best-title { font-size: 20px; font-weight: bold; color: #ffffff; }
 .dhruva-start-meta { font-size: 11px; color: rgba(255, 255, 255, 0.62); }
-.dhruva-start-cell-label { font-size: 12px; color: #ffffff; }
+.dhruva-start-cell-label { font-size: 12px; color: rgba(255, 255, 255, 0.92); }
+.dhruva-start-card-title { font-size: 13px; }
 .dhruva-start-app-name { font-size: 14px; color: #ffffff; }
 .dhruva-start-user { font-size: 14px; font-weight: bold; color: #ffffff; }
 .dhruva-start-empty { font-size: 13px; color: rgba(255, 255, 255, 0.62); padding: 24px 0; }
 .dhruva-start-letter { font-size: 13px; font-weight: bold; color: #ffffff; padding: 8px 10px 2px; }
 
 .dhruva-start-item {
-    padding: 10px 2px;
+    padding: 12px 2px 10px;
     border-radius: 14px;
     background-color: transparent;
     transition-duration: 120ms;
@@ -469,13 +480,15 @@
 .dhruva-start-item:focus { background-color: rgba(255, 255, 255, 0.1); }
 
 .dhruva-start-card {
-    padding: 12px 6px 10px;
-    border-radius: 16px;
-    background-color: rgba(255, 255, 255, 0.05);
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background-color: rgba(255, 255, 255, 0.045);
     transition-duration: 120ms;
 }
 .dhruva-start-card:hover,
-.dhruva-start-card:focus { background-color: rgba(255, 255, 255, 0.12); }
+.dhruva-start-card:focus { background-color: rgba(255, 255, 255, 0.085); border-color: rgba(255, 255, 255, 0.12); }
+.dhruva-start-file-card { padding: 7px 7px 10px; }
 
 .dhruva-start-row {
     padding: 6px 10px;
@@ -502,18 +515,29 @@
 .dhruva-start-primary:focus { background-color: #ffffff; }
 
 .dhruva-start-round {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
+    width: 42px;
+    height: 42px;
+    min-width: 42px;
+    min-height: 42px;
     padding: 0;
     border-radius: 999px;
-    color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.85);
+    background-color: rgba(255, 255, 255, 0.06);
     transition-duration: 120ms;
 }
 .dhruva-start-round:hover,
-.dhruva-start-round:focus { background-color: rgba(255, 255, 255, 0.18); }
+.dhruva-start-round:focus { background-color: rgba(255, 255, 255, 0.14); }
+.dhruva-start-back {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border-radius: 14px;
+}
+.dhruva-start-power { color: #ff8a8f; border-color: rgba(229, 72, 77, 0.3); background-color: rgba(229, 72, 77, 0.16); }
+.dhruva-start-power:hover,
+.dhruva-start-power:focus { background-color: rgba(229, 72, 77, 0.28); }
 
 .dhruva-start-best {
     border-radius: 18px;
@@ -533,12 +557,17 @@
     border-radius: 999px;
 }
 .dhruva-start-dot {
-    width: 14px;
-    height: 3px;
-    border-radius: 2px;
+    width: 5px;
+    height: 5px;
+    border-radius: 3px;
     background-color: #ffffff;
 }
-.dhruva-start-footer { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.dhruva-start-run-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
 .dhruva-start-rail { padding: 0 2px; }
 .dhruva-start-rail-key {
     width: 22px;

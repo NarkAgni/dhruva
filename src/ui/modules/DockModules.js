@@ -298,7 +298,7 @@ export function buildModules(dockUI, iconSize) {
         btn._delegate = {
             app: {
                 is_module: true,
-                get_id: () => safeId,
+                get_id: () => btn._entityId || safeId,
                 get_name: () => tooltipName,
                 get_state: () => (getMatchingWindows().length > 0 ? Shell.AppState.RUNNING : 0),
                 get_windows: () => getMatchingWindows(),

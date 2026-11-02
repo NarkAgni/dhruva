@@ -55,7 +55,6 @@ const SYSTEM_MODULES = [
     ['pictures', 'folder-pictures'],
     ['videos', 'folder-videos'],
     ['music', 'folder-music'],
-    ['trash', 'user-trash'],
 ];
 
 const TASKBAR_WINDOW_TYPES = [
@@ -336,7 +335,7 @@ function _computeDesiredState(dockUI) {
         for (let i = 0; i < mounts.length; i++) {
             const mount = mounts[i];
             endModuleKeys.push({
-                key: `dhruva-sys-mount-${_slugify(mount.get_name())}`,
+                key: `dhruva-sys-mount-${i}-${_slugify(mount.get_name())}`,
                 type: 'module',
                 entity: 'mounts',
                 mountRef: mount,
@@ -356,6 +355,10 @@ function _computeDesiredState(dockUI) {
             entity: 'custom',
             folderData: f,
         });
+    }
+
+    if (Settings.showTrash) {
+        endModuleKeys.push({ key: 'dhruva-sys-trash', type: 'module', entity: 'user-trash' });
     }
 
     if (showGridBtn && gridPos === 'END' && !extractGrid) {
@@ -672,6 +675,12 @@ function _modButtonName(modBtn) {
 }
 
 function _resolveModuleActor(item, sysModulesMap) {
+    if (sysModulesMap.has(item.key)) {
+        const exactBtn = sysModulesMap.get(item.key);
+        sysModulesMap.delete(item.key);
+        return exactBtn;
+    }
+
     if (item.entity === 'custom' && item.folderData) {
         const targetName = item.folderData.name || '';
         const match = item.key ? item.key.match(/custom-(\d+)/) : null;
@@ -687,9 +696,10 @@ function _resolveModuleActor(item, sysModulesMap) {
     }
 
     if (item.entity === 'mounts' && item.mountRef) {
+        const targetUri = item.mountRef.get_root().get_uri();
         const targetName = item.mountRef.get_name();
         for (const [modId, modBtn] of sysModulesMap.entries()) {
-            if (_modButtonName(modBtn) === targetName) {
+            if (modBtn._modType === 'mounts' && (modBtn._mountUri === targetUri || _modButtonName(modBtn) === targetName)) {
                 sysModulesMap.delete(modId);
                 return modBtn;
             }
@@ -698,17 +708,12 @@ function _resolveModuleActor(item, sysModulesMap) {
     }
 
     for (const [modId, modBtn] of sysModulesMap.entries()) {
-        if (modId.includes(item.entity) || item.key.includes(modId.replace('dhruva-module-', ''))) {
+        if (item.key === `dhruva-sys-${modBtn._modType}` ||
+            (modBtn._isTrash && item.key === 'dhruva-sys-trash') ||
+            modId.includes(item.entity)) {
             sysModulesMap.delete(modId);
             return modBtn;
         }
-    }
-
-    if (sysModulesMap.size > 0) {
-        const firstKey = sysModulesMap.keys().next().value;
-        const actor = sysModulesMap.get(firstKey);
-        sysModulesMap.delete(firstKey);
-        return actor;
     }
 
     return null;

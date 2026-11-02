@@ -42,9 +42,6 @@ import {
 } from './StartMenuWidgets.js';
 
 
-const MIN_VIEW_HEIGHT = 300;
-const MAX_VIEW_HEIGHT = 620;
-const RESERVED_HEIGHT = 300;
 const PAUSE_KEY = 'start-menu';
 const MENU_RADIUS = 24;
 const BLUR_BASE_PAD = 2;
@@ -65,8 +62,11 @@ const NAV_DIRECTIONS = new Map([
 const OPEN_MS = 200;
 const OPEN_SLIDE = 12;
 const OPEN_OFFSETS = { BOTTOM: [0, OPEN_SLIDE], TOP: [0, -OPEN_SLIDE], LEFT: [-OPEN_SLIDE, 0], RIGHT: [OPEN_SLIDE, 0] };
-const VIEW_MS = 180;
-const VIEW_SLIDE = 24;
+const FADE_OUT_MS = 160;
+const FADE_IN_MS = 280;
+const FADE_DELAY_MS = 60;
+const PUSH_MS = 520;
+const PREWARM_DELAY_MS = OPEN_MS + 100;
 const CALCULATOR_PROGRAM = 'gnome-calculator';
 const TERMINAL_SCHEMA = 'org.gnome.desktop.default-applications.terminal';
 const TERMINALS = [
@@ -121,6 +121,9 @@ export class StartMenu {
         this._activeView = null;
         this._focusIdleId = 0;
         this._refreshIdleId = 0;
+        this._repositionIdleId = 0;
+        this._prewarmId = 0;
+        this._switchTracker = {};
         this._recoverIdleId = 0;
         this._contextReturnFocus = null;
         this._folderReturnFocus = null;
@@ -144,9 +147,13 @@ export class StartMenu {
         this._buildContent();
         this._box.set_child(this._root);
         global.focus_manager.add_group(this._box);
-        this._box.connectObject('notify::allocation', () => {
-            if (this._isOpen && this._blur) this._blur.syncGeometry();
-        }, this);
+        this._box.connectObject(
+            'notify::allocation', () => {
+                if (this._isOpen && this._blur) this._blur.syncGeometry();
+            },
+            'notify::height', () => this._queueReposition(),
+            this
+        );
 
         this._overlay.connectObject(
             'captured-event', (_actor, event) => this._onOverlayCapturedEvent(event),
@@ -183,17 +190,40 @@ export class StartMenu {
         const isRelease = type === Clutter.EventType.BUTTON_RELEASE || type === Clutter.EventType.TOUCH_END;
         if (!isPress && !isRelease) return Clutter.EVENT_PROPAGATE;
 
+        if (isRelease && this._dismissedOnPress) {
+            this._dismissedOnPress = false;
+            return Clutter.EVENT_STOP;
+        }
+
         const target = global.stage.get_event_actor(event);
+
+        if (this._contextLayer.visible) {
+            if (!containsActor(this._contextBox, target)) {
+                if (isPress) {
+                    this._dismissedOnPress = true;
+                    this.hideContextMenu();
+                }
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        }
+
+        if (this._folderLayer.visible) {
+            if (!containsActor(this._folderBox, target)) {
+                if (isPress) {
+                    this._dismissedOnPress = true;
+                    this.hideFolder();
+                }
+                return Clutter.EVENT_STOP;
+            }
+            return Clutter.EVENT_PROPAGATE;
+        }
+
         if (!containsActor(this._box, target)) {
             if (isRelease) this.close();
             return Clutter.EVENT_STOP;
         }
 
-        if (!isPress) return Clutter.EVENT_PROPAGATE;
-        if (this._contextLayer.visible && !containsActor(this._contextBox, target)) {
-            this.hideContextMenu();
-            return Clutter.EVENT_STOP;
-        }
         return Clutter.EVENT_PROPAGATE;
     }
 
@@ -234,6 +264,15 @@ export class StartMenu {
         this._box.set_position(Math.round(x), Math.round(y));
     }
 
+    _queueReposition() {
+        if (this._repositionIdleId) return;
+        this._repositionIdleId = this._timers.addIdle(GLib.PRIORITY_DEFAULT, () => {
+            this._repositionIdleId = 0;
+            this._reposition();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     _queuePinnedRefresh() {
         if (this._refreshIdleId) return;
         this._refreshIdleId = this._timers.addIdle(GLib.PRIORITY_DEFAULT, () => {
@@ -250,7 +289,8 @@ export class StartMenu {
         const background = this._dockUI.settings.get_boolean('blur-enabled') ? '' : `background-color: ${colors.fill};`;
         this._box.set_style(`${background} border: ${colors.strokeWidth}px solid ${colors.stroke}; color: #ffffff; ` +
             `border-radius: ${MENU_RADIUS}px; padding: ${EDGE_PADDING}px 0 ${EDGE_PADDING}px ${EDGE_PADDING}px;`);
-        this._entry.set_style(`background-color: ${colors.fill}; border: 1px solid ${colors.stroke}; border-radius: 999px;`);
+        this._entry.set_style(`background-color: ${colors.fill}; border: 1px solid ${colors.stroke}; border-radius: 14px;`);
+        this._backButton.set_style(`border: 1px solid ${colors.stroke}; border-radius: 14px;`);
         this._folderBox.set_style(`background-color: ${colors.fill}; border: ${strokeWidth}px solid ${colors.stroke}; border-radius: ${MENU_RADIUS}px;`);
         this._contextBox.set_style(`background-color: ${colors.fill}; border: ${strokeWidth}px solid ${colors.stroke};`);
     }
@@ -448,7 +488,7 @@ export class StartMenu {
             const name = entry.text;
             entry.clutter_text.disconnectObject(this);
             if (isSaved) this.data.renameFolder(item.folder.id, name);
-            else this.showFolder(this._folderKey);
+            else if (this._folderKey) this.showFolder(this._folderKey);
         };
         entry.clutter_text.connectObject(
             'activate', () => finish(true),
@@ -540,13 +580,54 @@ export class StartMenu {
         this._root.ease({ opacity: 255, translation_x: 0, translation_y: 0, duration: OPEN_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
     }
 
-    _animateView(actor, from, to) {
-        let slide = 0;
-        if (to === 'all') slide = VIEW_SLIDE;
-        else if (from === 'all') slide = -VIEW_SLIDE;
-        actor.remove_all_transitions();
-        actor.set({ opacity: 0, translation_x: slide });
-        actor.ease({ opacity: 255, translation_x: 0, duration: VIEW_MS, mode: Clutter.AnimationMode.EASE_OUT_CUBIC });
+    _fadeView(from, to) {
+        const incoming = this._views[to].actor;
+        const outgoing = this._views[from].actor;
+        incoming.opacity = 0;
+
+        this._startSwitch(() => {
+            outgoing.ease({ opacity: 0, duration: FADE_OUT_MS, mode: Clutter.AnimationMode.EASE_OUT_QUAD });
+            incoming.ease({
+                opacity: 255,
+                delay: FADE_DELAY_MS,
+                duration: FADE_IN_MS,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => this._finishSwitch(from, to),
+            });
+        });
+    }
+
+    _pushView(from, to) {
+        const isForward = to === 'all';
+        const width = CONTENT_WIDTH + EDGE_PADDING;
+        const allActor = this._views.all.actor;
+        const otherActor = this._views[isForward ? from : to].actor;
+        allActor.translation_x = isForward ? width : 0;
+        otherActor.translation_x = isForward ? 0 : -width;
+
+        this._startSwitch(() => {
+            const params = { duration: PUSH_MS, mode: Clutter.AnimationMode.EASE_OUT_QUINT };
+            allActor.ease({ ...params, translation_x: isForward ? 0 : width });
+            otherActor.ease({ ...params, translation_x: isForward ? -width : 0, onComplete: () => this._finishSwitch(from, to) });
+        });
+    }
+
+    _startSwitch(run) {
+        global.stage.connectObject('after-paint', () => {
+            this._cancelSwitch();
+            run();
+        }, this._switchTracker);
+    }
+
+    _cancelSwitch() {
+        global.stage.disconnectObject(this._switchTracker);
+    }
+
+    _finishSwitch(from, to) {
+        const actor = this._views[from].actor;
+        actor.visible = false;
+        actor.set({ translation_x: 0, opacity: 255 });
+        if (to === 'home') this._viewArea.set_height(-1);
     }
 
     open() {
@@ -563,7 +644,6 @@ export class StartMenu {
         this.data.ensureIndex().then(() => this.refreshSearch());
         this._applyTheme();
         this._syncBlur();
-        this._viewArea.set_height(this._viewHeight());
         this._entry.text = '';
         this.showHome();
         if (this.settings.get_boolean('start-menu-search-providers')) this.data.remoteProviders();
@@ -610,6 +690,13 @@ export class StartMenu {
             if (this._isOpen) this._entry.grab_key_focus();
             return GLib.SOURCE_REMOVE;
         });
+
+        if (this._prewarmId) this._timers.remove(this._prewarmId);
+        this._prewarmId = this._timers.addTimeout(GLib.PRIORITY_LOW, PREWARM_DELAY_MS, () => {
+            this._prewarmId = 0;
+            if (this._isOpen) this._ensureView('all');
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _onClosed() {
@@ -633,19 +720,38 @@ export class StartMenu {
         if (this._activeView === 'search') this._views.search.setQuery(this._entry.text.trim());
     }
 
+    _ensureView(name) {
+        if (this._views[name]) return;
+        const view = new VIEW_TYPES[name](this);
+        view.actor.visible = false;
+        this._viewArea.add_child(view.actor);
+        view.actor.ensure_style();
+        view.actor.get_preferred_height(this._viewArea.width);
+        this._views[name] = view;
+    }
+
     _setView(name) {
-        if (!this._views[name]) {
-            this._views[name] = new VIEW_TYPES[name](this);
-            this._viewArea.add_child(this._views[name].actor);
-        }
-        for (const [key, view] of Object.entries(this._views)) view.actor.visible = key === name;
+        this._cancelSwitch();
+        this._ensureView(name);
         const previous = this._activeView;
+        const isSwitch = Boolean(previous) && previous !== name;
+        if (previous === 'home' && name !== 'home') this._viewArea.set_height(this._views.home.actor.height);
+        else if (name === 'home' && !isSwitch) this._viewArea.set_height(-1);
+
+        for (const [key, view] of Object.entries(this._views)) {
+            view.actor.remove_all_transitions();
+            view.actor.set({ translation_x: 0, opacity: 255 });
+            view.actor.visible = key === name || (isSwitch && key === previous);
+        }
         this._activeView = name;
         this._backButton.visible = name !== 'home';
-        if (previous && previous !== name) this._animateView(this._views[name].actor, previous, name);
+        if (!isSwitch) return;
+        if (name === 'all' || previous === 'all') this._pushView(previous, name);
+        else this._fadeView(previous, name);
     }
 
     _destroyViews() {
+        this._cancelSwitch();
         for (const view of Object.values(this._views)) view.destroy();
         this._views = {};
         this._activeView = null;
@@ -770,12 +876,13 @@ export class StartMenu {
             this._entry.text = '';
             this.showHome();
         }, this);
+        this._backButton.add_style_class_name('dhruva-start-back');
 
         const searchRow = hbox(`spacing: 10px; margin-right: ${EDGE_PADDING}px;`, { x_expand: true });
         searchRow.add_child(this._backButton);
         searchRow.add_child(this._entry);
 
-        this._viewArea = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
+        this._viewArea = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true, clip_to_allocation: true });
 
         this._content = vbox('spacing: 14px;', { x_expand: true, width: CONTENT_WIDTH + EDGE_PADDING });
         this._content.add_child(searchRow);
@@ -804,29 +911,12 @@ export class StartMenu {
             y_align: Clutter.ActorAlign.FILL,
         });
         this._folderLayer.add_child(this._folderBox);
-        this._folderLayer.connectObject(
-            'button-press-event', (_actor, event) => {
-                if (!containsActor(this._folderBox, global.stage.get_event_actor(event))) this.hideFolder();
-                return Clutter.EVENT_STOP;
-            },
-            'button-release-event', (_actor, event) => {
-                if (!containsActor(this._folderBox, global.stage.get_event_actor(event))) this.hideFolder();
-                return Clutter.EVENT_STOP;
-            },
-            this
-        );
 
         this._root = new St.Widget({ layout_manager: new Clutter.BinLayout(), x_expand: true });
         this._root.add_child(this._content);
         this._root.add_child(this._folderLayer);
         this._root.add_child(this._contextLayer);
         this._root.connectObject('key-press-event', (_actor, event) => this._onRootKeyPress(event), this);
-    }
-
-    _viewHeight() {
-        const current = this._dockUI.monitorManager.getCurrentMonitor();
-        const height = current && current.monitor ? current.monitor.height : global.stage.height;
-        return Math.max(MIN_VIEW_HEIGHT, Math.min(MAX_VIEW_HEIGHT, height - RESERVED_HEIGHT));
     }
 
     destroy() {

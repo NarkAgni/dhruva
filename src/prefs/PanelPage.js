@@ -40,6 +40,21 @@ const DATE_FORMAT_KEY = 'panel-date-format';
 const DEFAULT_DATE_FORMAT = '%d/%m/%Y';
 const WEB_SEARCH_URL_KEY = 'start-menu-web-search-url';
 
+const WEB_SEARCH_PROVIDERS = () => [
+    { name: 'Google', url: 'https://www.google.com/search?q=%s' },
+    { name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=%s' },
+    { name: 'Bing', url: 'https://www.bing.com/search?q=%s' },
+    { name: 'Brave Search', url: 'https://search.brave.com/search?q=%s' },
+    { name: 'Startpage', url: 'https://www.startpage.com/sp/search?query=%s' },
+    { name: 'Perplexity', url: 'https://www.perplexity.ai/search?q=%s' },
+    { name: 'Kagi', url: 'https://kagi.com/search?q=%s' },
+    { name: 'Ecosia', url: 'https://www.ecosia.org/search?q=%s' },
+    { name: 'Yahoo', url: 'https://search.yahoo.com/search?p=%s' },
+    { name: 'Yandex', url: 'https://yandex.com/search/?text=%s' },
+    { name: 'Qwant', url: 'https://www.qwant.com/?q=%s' },
+    { name: _('Custom'), url: null },
+];
+
 const DATE_FORMATS = () => [
     { name: _('System Default'), value: '%x' },
     { name: 'DD/MM/YYYY', value: '%d/%m/%Y' },
@@ -313,24 +328,70 @@ function addDateFormatRow(group, settings) {
     return row;
 }
 
-function addWebSearchUrlRow(group, settings) {
-    const row = new Adw.EntryRow({
-        title: _('Web Search Address (%s is the search text)'),
+function addWebSearchRows(group, settings) {
+    const providers = WEB_SEARCH_PROVIDERS();
+    const customIndex = providers.length - 1;
+
+    const providerRow = new Adw.ComboRow({
+        title: _('Search Engine'),
+        subtitle: _('Provider used for web searches in the Start Menu'),
+        model: Gtk.StringList.new(providers.map(p => p.name)),
+    });
+
+    const urlRow = new Adw.EntryRow({
+        title: _('Custom Search Address (%s is the search text)'),
         show_apply_button: true,
         text: settings.get_string(WEB_SEARCH_URL_KEY),
     });
-    row.connect('apply', () => {
-        const value = row.get_text().trim();
+
+    let isUpdating = false;
+
+    const syncFromSettings = () => {
+        isUpdating = true;
+        const currentUrl = settings.get_string(WEB_SEARCH_URL_KEY).trim();
+        const matchIndex = providers.findIndex(p => p.url === currentUrl);
+        const targetIndex = matchIndex !== -1 ? matchIndex : customIndex;
+
+        if (providerRow.get_selected() !== targetIndex)
+            providerRow.set_selected(targetIndex);
+
+        if (urlRow.get_text() !== currentUrl)
+            urlRow.set_text(currentUrl);
+
+        const isWebOn = settings.get_boolean('start-menu') && settings.get_boolean('start-menu-web-search');
+        urlRow.set_visible(isWebOn && targetIndex === customIndex);
+        isUpdating = false;
+    };
+
+    providerRow.connect('notify::selected', () => {
+        if (isUpdating) return;
+        const selected = providers[providerRow.get_selected()];
+        if (selected && selected.url) {
+            if (settings.get_string(WEB_SEARCH_URL_KEY) !== selected.url)
+                settings.set_string(WEB_SEARCH_URL_KEY, selected.url);
+            urlRow.set_visible(false);
+        } else {
+            const isWebOn = settings.get_boolean('start-menu') && settings.get_boolean('start-menu-web-search');
+            urlRow.set_visible(isWebOn);
+        }
+    });
+
+    urlRow.connect('apply', () => {
+        const value = urlRow.get_text().trim();
         if (value) settings.set_string(WEB_SEARCH_URL_KEY, value);
         else settings.reset(WEB_SEARCH_URL_KEY);
-        row.set_text(settings.get_string(WEB_SEARCH_URL_KEY));
+        syncFromSettings();
     });
-    onSettingChanged(settings, WEB_SEARCH_URL_KEY, () => {
-        const value = settings.get_string(WEB_SEARCH_URL_KEY);
-        if (row.get_text() !== value) row.set_text(value);
-    });
-    group.add(row);
-    return row;
+
+    onSettingChanged(settings, WEB_SEARCH_URL_KEY, syncFromSettings);
+    onSettingChanged(settings, 'start-menu', syncFromSettings);
+    onSettingChanged(settings, 'start-menu-web-search', syncFromSettings);
+
+    group.add(providerRow);
+    group.add(urlRow);
+    syncFromSettings();
+
+    return providerRow;
 }
 
 function addClockSwitch(group, clockSettings, key, title, subtitle = '') {
@@ -422,13 +483,13 @@ export function buildPanelPage(window, settings) {
         _('Results from apps like Characters, Calendar and Calculator'));
     const webRow = addSwitchRow(startGroup, settings, 'start-menu-web-search', _('Web Search'),
         _('Offer to search the web for what you type'));
-    const webUrlRow = addWebSearchUrlRow(startGroup, settings);
+    const webProviderRow = addWebSearchRows(startGroup, settings);
     showWhen(recentAppsRow, settings, ['start-menu'], isStartMenu);
     showWhen(continueRow, settings, ['start-menu'], isStartMenu);
     showWhen(recentRow, settings, ['start-menu', 'start-menu-continue'], () => isStartMenu() && settings.get_boolean('start-menu-continue'));
     showWhen(providersRow, settings, ['start-menu'], isStartMenu);
     showWhen(webRow, settings, ['start-menu'], isStartMenu);
-    showWhen(webUrlRow, settings, ['start-menu', 'start-menu-web-search'], () => isStartMenu() && settings.get_boolean('start-menu-web-search'));
+    showWhen(webProviderRow, settings, ['start-menu', 'start-menu-web-search'], () => isStartMenu() && settings.get_boolean('start-menu-web-search'));
     showWhen(startGroup, settings, ['hybrid-panel-mode'], isPanel);
 
     const clockGroup = addGroup(page, _('Clock'), _('These are GNOME’s own clock settings, so the lock screen follows too'));
@@ -443,26 +504,23 @@ export function buildPanelPage(window, settings) {
         _('Small icons from other extensions live behind the arrow. Wide ones like CPU or network speed stay on the bar'));
     const resetRow = new Adw.ActionRow({
         title: _('Tidy Up Tray'),
-        subtitle: _('Move every pinned icon back behind the arrow, in the default order'),
+        subtitle: _('Undo every move and reorder made from the tray'),
     });
+    const trayKeys = ['tray-panel-indicators', 'tray-wide-indicators', 'tray-order'];
     const resetBtn = new Gtk.Button({ label: _('Reset'), valign: Gtk.Align.CENTER });
     const syncReset = () => {
-        const isDefault = settings.get_strv('tray-panel-indicators').length === 0 &&
-            settings.get_strv('tray-order').length === 0;
-        resetBtn.set_sensitive(!isDefault);
+        resetBtn.set_sensitive(trayKeys.some(key => settings.get_strv(key).length > 0));
     };
     resetBtn.connect('clicked', () => {
-        settings.set_strv('tray-panel-indicators', []);
-        settings.set_strv('tray-order', []);
+        for (const key of trayKeys) settings.set_strv(key, []);
     });
-    onSettingChanged(settings, 'tray-panel-indicators', syncReset);
-    onSettingChanged(settings, 'tray-order', syncReset);
+    for (const key of trayKeys) onSettingChanged(settings, key, syncReset);
     syncReset();
     resetRow.add_suffix(resetBtn);
     trayGroup.add(resetRow);
     trayGroup.add(new Adw.ActionRow({
         title: _('Pin an icon to the bar'),
-        subtitle: _('Open the tray from the arrow to pin or reorder icons'),
+        subtitle: _('Open the tray from the arrow to pin, reorder, or move wide applets into it'),
     }));
     showWhen(trayGroup, settings, ['hybrid-panel-mode'], isPanel);
 

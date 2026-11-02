@@ -380,6 +380,12 @@
       <summary>Switch workspace on dock scroll</summary>
     </key>
 
+    <key name="click-window-picker" type="b">
+      <default>false</default>
+      <summary>Pick a window on click</summary>
+      <description>Clicking an app that has more than one window shows previews of its windows to choose from, instead of switching to the last one.</description>
+    </key>
+
     <key name="scroll-action-app" type="b">
       <default>false</default>
       <summary>Cycle windows on app icon scroll</summary>
@@ -934,6 +940,12 @@
       <default>[]</default>
       <summary>Tray icons shown on the panel</summary>
       <description>Small status icons the user chose to keep on the panel instead of inside the tray.</description>
+    </key>
+
+    <key name="tray-wide-indicators" type="as">
+      <default>[]</default>
+      <summary>Wide applets shown in the tray</summary>
+      <description>Wide applets, such as ones with text or graphs, the user chose to show as a row inside the tray instead of on the panel.</description>
     </key>
 
     <key name="tray-order" type="as">

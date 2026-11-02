@@ -110,6 +110,7 @@ const KEYS = {
     isolateWorkspaces: [BOOLEAN, 'isolate-workspaces'],
     scrollActionDock: [BOOLEAN, 'scroll-action-dock'],
     scrollActionApp: [BOOLEAN, 'scroll-action-app'],
+    clickWindowPicker: [BOOLEAN, 'click-window-picker'],
     showUnpinnedApps: [BOOLEAN, 'show-unpinned-apps'],
     newWindowAction: [STRING, 'new-window-action'],
     enableContextMenu: [BOOLEAN, 'enable-context-menu'],
