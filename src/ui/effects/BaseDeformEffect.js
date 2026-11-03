@@ -176,6 +176,14 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
         }
     }
 
+    vfunc_deform_vertex(w, h, v) {
+        if (!this._ready || this.progress <= 0) return;
+
+        this._deform(v);
+        v.x *= w / this._win.w;
+        v.y *= h / this._win.h;
+    }
+
     vfunc_modify_paint_volume() {
         return false;
     }

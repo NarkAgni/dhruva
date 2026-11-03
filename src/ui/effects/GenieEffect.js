@@ -77,9 +77,7 @@ class MagicLampBase extends BaseDeformEffect {
         this._reach = Math.max(1, this._reach);
     }
 
-    vfunc_deform_vertex(w, h, v) {
-        if (!this._ready || this.progress <= 0) return;
-
+    _deform(v) {
         const t = clamp01(this.progress);
         const bend = easeInOutSine(clamp01(t / BEND_END));
         const slide = easeInOutCubic(clamp01((t - SLIDE_START) / (1 - SLIDE_START)));
@@ -88,8 +86,8 @@ class MagicLampBase extends BaseDeformEffect {
         const towardDock = this._dockPos === 'BOTTOM' || this._dockPos === 'RIGHT';
         const alongNorm = isVertical ? v.ty : v.tx;
         const across = isVertical ? v.tx : v.ty;
-        const length = isVertical ? h : w;
-        const span = isVertical ? w : h;
+        const length = isVertical ? this._win.h : this._win.w;
+        const span = isVertical ? this._win.w : this._win.h;
         const reach = this._reach;
 
         const fromFarEdge = (towardDock ? alongNorm : 1 - alongNorm) * length;

@@ -54,9 +54,7 @@ class SnakeBase extends BaseDeformEffect {
         }
     }
 
-    vfunc_deform_vertex(w, h, v) {
-        if (!this._ready || this.progress <= 0) return;
-
+    _deform(v) {
         const p = this.progress;
         const wW = this._win.w;
         const wH = this._win.h;

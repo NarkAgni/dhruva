@@ -35,9 +35,7 @@ class VortexBase extends BaseDeformEffect {
         return [30, 30];
     }
 
-    vfunc_deform_vertex(w, h, v) {
-        if (!this._ready || this.progress <= 0) return;
-
+    _deform(v) {
         const p = this.progress;
         const wW = this._win.w;
         const wH = this._win.h;
