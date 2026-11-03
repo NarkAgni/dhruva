@@ -20,136 +20,191 @@
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import Shell from 'gi://Shell';
 import Pango from 'gi://Pango';
 import Clutter from 'gi://Clutter';
 import PangoCairo from 'gi://PangoCairo';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { Settings } from './SettingsManager.js';
 import { TimeoutTracker } from './TimeoutTracker.js';
 
 
 const RENDER_DEBOUNCE_INTERVAL_MS = 60;
 const BADGE_OVERSAMPLE = 3;
+const BADGE_RISE = 0.25;
+const GENERIC_POLICY_ID = 'generic';
+const INTERFACE_SCHEMA = 'org.gnome.desktop.interface';
+const ACCENT_COLOR_KEY = 'accent-color';
+const DEFAULT_BADGE_COLOR = [230, 45, 66];
+const ACCENT_COLORS = {
+    blue: [53, 132, 228],
+    teal: [33, 144, 164],
+    green: [58, 148, 74],
+    yellow: [200, 136, 0],
+    orange: [237, 91, 0],
+    red: [230, 45, 66],
+    pink: [213, 97, 153],
+    purple: [145, 65, 172],
+    slate: [111, 131, 150],
+};
+
+function hexToChannels(hex) {
+    const value = parseInt(hex.slice(1), 16);
+    return hex.length === 7 && Number.isFinite(value)
+        ? [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+        : DEFAULT_BADGE_COLOR;
+}
+
+function createAccentSettings() {
+    const schema = Gio.SettingsSchemaSource.get_default().lookup(INTERFACE_SCHEMA, true);
+    return schema && schema.has_key(ACCENT_COLOR_KEY) ? new Gio.Settings({ schema_id: INTERFACE_SCHEMA }) : null;
+}
 
 export default class NotificationManager {
     constructor(dockUI) {
         this.dockUI = dockUI;
-        this._appBadgeCounts = new Map();
-        this._dbusSignalId = 0;
-        
         this.timers = new TimeoutTracker();
-        this._renderDebounceId = null;
+        this._renderDebounceId = 0;
+        this._launcherEntries = new Map();
+        this._trackedSources = new Set();
+        this._trackedNotifications = new Set();
+        this._accentSettings = createAccentSettings();
 
-        this._setupListeners();
-    }
+        if (this._accentSettings) {
+            this._accentSettings.connectObject(`changed::${ACCENT_COLOR_KEY}`, () => this._requestRender(), this);
+        }
 
-    _requestRender() {
-        if (!this.dockUI || this._renderDebounceId) return;
-        this._renderDebounceId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, RENDER_DEBOUNCE_INTERVAL_MS, () => {
-            this._renderDebounceId = null;
-            if (this.dockUI && this.dockUI.queueRender) {
-                this.dockUI.queueRender();
-            }
-            return GLib.SOURCE_REMOVE;
-        });
-    }
-
-    _setupListeners() {
-        this._dbusSignalId = Gio.DBus.session.signal_subscribe(
+        this._launcherSignalId = Gio.DBus.session.signal_subscribe(
             null,
             'com.canonical.Unity.LauncherEntry',
             'Update',
             null,
             null,
             Gio.DBusSignalFlags.NONE,
-            (...args) => {
-                const parameters = args[5];
-                this._onDBusBadgeUpdate(parameters);
-            }
+            (_connection, sender, _path, _iface, _signal, parameters) => this._onLauncherEntryUpdate(sender, parameters)
         );
 
-        Main.messageTray.connectObject('source-added', () => this._requestRender(), this);
-        Main.messageTray.connectObject('source-removed', () => this._requestRender(), this);
-        Main.messageTray.connectObject('queue-changed', () => this._requestRender(), this);
+        this._nameOwnerSignalId = Gio.DBus.session.signal_subscribe(
+            'org.freedesktop.DBus',
+            'org.freedesktop.DBus',
+            'NameOwnerChanged',
+            '/org/freedesktop/DBus',
+            null,
+            Gio.DBusSignalFlags.NONE,
+            (_connection, _sender, _path, _iface, _signal, parameters) => this._onNameOwnerChanged(parameters)
+        );
+
+        Main.messageTray.connectObject(
+            'source-added', (_tray, source) => this._trackSource(source),
+            'source-removed', (_tray, source) => this._untrackSource(source),
+            this
+        );
+
+        Main.messageTray.getSources().forEach(source => this._trackSource(source));
     }
 
-    _onDBusBadgeUpdate(parameters) {
-        const appUriVariant = parameters.get_child_value(0);
-        const propsVariant = parameters.get_child_value(1);
+    _requestRender() {
+        if (!this.dockUI || this._renderDebounceId) return;
+        this._renderDebounceId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, RENDER_DEBOUNCE_INTERVAL_MS, () => {
+            this._renderDebounceId = 0;
+            if (this.dockUI) this.dockUI.queueRender();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
 
-        if (!appUriVariant || !propsVariant) return;
+    _requestRenderForSource(source) {
+        if (this._getSourceAppId(source)) this._requestRender();
+    }
 
-        const appUri = appUriVariant.get_string()[0];
-        const cleanId = appUri.replace('application://', '').toLowerCase();
+    _trackSource(source) {
+        if (this._trackedSources.has(source)) return;
+        this._trackedSources.add(source);
 
+        source.connectObject('notification-added', (_source, notification) => this._trackNotification(source, notification), this);
+        source.notifications.forEach(notification => this._trackNotification(source, notification));
+    }
+
+    _untrackSource(source) {
+        if (!this._trackedSources.delete(source)) return;
+        source.disconnectObject(this);
+        this._requestRenderForSource(source);
+    }
+
+    _trackNotification(source, notification) {
+        if (this._trackedNotifications.has(notification)) return;
+        this._trackedNotifications.add(notification);
+
+        notification.connectObject('destroy', () => {
+            this._trackedNotifications.delete(notification);
+            this._requestRenderForSource(source);
+        }, this);
+        this._requestRenderForSource(source);
+    }
+
+    _onLauncherEntryUpdate(sender, parameters) {
+        const [appUri, properties] = parameters.deepUnpack();
+        const appId = appUri.replace('application://', '').toLowerCase();
+        const previousCount = this._getLauncherCount(appId);
+        const entry = this._launcherEntries.get(appId) || { count: 0, visible: false, sender };
+
+        if (properties['count']) entry.count = Number(properties['count'].unpack());
+        if (properties['count-visible']) entry.visible = properties['count-visible'].unpack();
+        entry.sender = sender;
+
+        this._launcherEntries.set(appId, entry);
+        if (this._getLauncherCount(appId) !== previousCount) this._requestRender();
+    }
+
+    _onNameOwnerChanged(parameters) {
+        const [name, , newOwner] = parameters.deepUnpack();
+        if (newOwner) return;
+
+        let changed = false;
+        this._launcherEntries.forEach((entry, appId) => {
+            if (entry.sender !== name) return;
+            changed = changed || this._getLauncherCount(appId) > 0;
+            this._launcherEntries.delete(appId);
+        });
+        if (changed) this._requestRender();
+    }
+
+    _getSourceAppId(source) {
+        if (source.app) return source.app.get_id().toLowerCase();
+
+        const policyId = source.policy ? source.policy.id : '';
+        if (!policyId || policyId === GENERIC_POLICY_ID) return '';
+        return `${policyId}.desktop`.toLowerCase();
+    }
+
+    _getLauncherCount(appId) {
+        const entry = this._launcherEntries.get(appId);
+        return entry && entry.visible ? entry.count : 0;
+    }
+
+    _getNotificationCount(appId) {
         let count = 0;
-        let isVisible = false;
+        this._trackedSources.forEach(source => {
+            if (this._getSourceAppId(source) === appId) count += source.notifications.length;
+        });
+        return count;
+    }
 
-        const countV = propsVariant.lookup_value('count', null);
-        if (countV) count = countV.get_int64();
+    _getAccentChannels() {
+        const accent = this._accentSettings ? this._accentSettings.get_string(ACCENT_COLOR_KEY) : '';
+        return ACCENT_COLORS[accent] || DEFAULT_BADGE_COLOR;
+    }
 
-        const visibleV = propsVariant.lookup_value('count-visible', null);
-        if (visibleV) isVisible = visibleV.get_boolean();
-
-        if (isVisible && count > 0) {
-            this._appBadgeCounts.set(cleanId, count);
-        } else {
-            this._appBadgeCounts.delete(cleanId);
-        }
-
-        this._requestRender();
+    _getBadgeColor() {
+        const channels = Settings.notificationBadgeColorMode === 'custom'
+            ? hexToChannels(Settings.notificationBadgeColor)
+            : this._getAccentChannels();
+        return channels.map(channel => channel / 255);
     }
 
     getUnreadCount(app) {
-        if (!app) return 0;
-
-        if (app.get_state && app.get_state() === Shell.AppState.STOPPED) {
-            const id = app.get_id ? app.get_id().toLowerCase() : '';
-            if (id && this._appBadgeCounts.has(id)) {
-                this._appBadgeCounts.delete(id);
-            }
-            return 0;
-        }
-
-        const fullId = app.get_id ? app.get_id().toLowerCase() : '';
-        if (!fullId) return 0;
-
-        let count = 0;
-
-        if (this._appBadgeCounts.has(fullId)) {
-            count = this._appBadgeCounts.get(fullId);
-        }
-
-        const baseId = fullId.replace('.desktop', '');
-        const sources = Main.messageTray.getSources();
-
-        for (const source of sources) {
-            if (source.isChat) continue;
-
-            let sourceId = '';
-            if (source.app && source.app.get_id) sourceId = source.app.get_id();
-            else if (source.appInfo && source.appInfo.get_id) sourceId = source.appInfo.get_id();
-            else if (source.title && source.title.toLowerCase) sourceId = source.title;
-            else if (source.id) sourceId = source.id;
-
-            if (!sourceId) continue;
-            sourceId = sourceId.toLowerCase();
-
-            if (sourceId === baseId || sourceId.includes(baseId) || baseId.includes(sourceId.replace('.desktop', ''))) {
-                let sourceCount = 1;
-
-                if (source.notifications) {
-                    sourceCount = source.notifications.length;
-                } else if (source.count || source.unreadCount) {
-                    sourceCount = source.count || source.unreadCount;
-                }
-
-                if (sourceCount > 0) count += sourceCount;
-            }
-        }
-
-        return count;
+        const appId = app.get_id().toLowerCase();
+        const launcherCount = this._getLauncherCount(appId);
+        return launcherCount > 0 ? launcherCount : this._getNotificationCount(appId);
     }
 
     createBadgeActor(count, iconSize) {
@@ -161,13 +216,15 @@ export default class NotificationManager {
 
         const drawHeight = baseHeight * BADGE_OVERSAMPLE;
         const fontSize = baseFontSize * BADGE_OVERSAMPLE;
+        const fontDesc = Pango.FontDescription.from_string(`Sans Bold ${fontSize}px`);
+        const [red, green, blue] = this._getBadgeColor();
 
         const badgeArea = new St.DrawingArea({
             clip_to_allocation: false
         });
 
         const tempLayout = badgeArea.create_pango_layout(displayCount);
-        tempLayout.set_font_description(Pango.FontDescription.from_string(`Sans Bold ${fontSize}px`));
+        tempLayout.set_font_description(fontDesc);
         const [tw] = tempLayout.get_pixel_size();
 
         const padding = Math.floor(drawHeight * 0.35);
@@ -180,9 +237,9 @@ export default class NotificationManager {
             const [w, h] = area.get_surface_size();
 
             const layout = area.create_pango_layout(displayCount);
-            layout.set_font_description(Pango.FontDescription.from_string(`Sans Bold ${fontSize}px`));
+            layout.set_font_description(fontDesc);
 
-            cr.setSourceRGBA(1.0, 59 / 255, 48 / 255, 1.0);
+            cr.setSourceRGBA(red, green, blue, 1.0);
             const r = h / 2;
             cr.newSubPath();
             cr.arc(r, r, r, Math.PI / 2, Math.PI * 1.5);
@@ -204,38 +261,41 @@ export default class NotificationManager {
         badgeArea.set_pivot_point(0, 0);
 
         const visualW = drawWidth / BADGE_OVERSAMPLE;
+        badgeArea.set_position(
+            Math.round(iconSize - visualW),
+            Math.round(-baseHeight * BADGE_RISE)
+        );
 
-        const shiftLeft = Math.floor(iconSize * 0.50);
-        const shiftUp = Math.floor(iconSize * 0.60);
-
-        const targetX = iconSize - visualW - shiftLeft;
-        const targetY = -shiftUp;
-
-        badgeArea.set_position(targetX, targetY);
-
-        const zeroBox = new St.Widget({
-            width: 0,
-            height: 0,
+        const badgeLayer = new St.Widget({
+            layout_manager: new Clutter.FixedLayout(),
             clip_to_allocation: false,
-            x_align: Clutter.ActorAlign.START,
-            y_align: Clutter.ActorAlign.START
+            reactive: false,
+            x_expand: true,
+            y_expand: true,
+            x_align: Clutter.ActorAlign.FILL,
+            y_align: Clutter.ActorAlign.FILL
         });
 
-        zeroBox.add_child(badgeArea);
+        badgeLayer.add_child(badgeArea);
 
-        return zeroBox;
+        return badgeLayer;
     }
 
     destroy() {
         this.timers.destroy();
 
-        if (this._dbusSignalId) {
-            Gio.DBus.session.signal_unsubscribe(this._dbusSignalId);
-            this._dbusSignalId = 0;
-        }
+        Gio.DBus.session.signal_unsubscribe(this._launcherSignalId);
+        Gio.DBus.session.signal_unsubscribe(this._nameOwnerSignalId);
 
         Main.messageTray.disconnectObject(this);
-        this._appBadgeCounts.clear();
+        if (this._accentSettings) this._accentSettings.disconnectObject(this);
+        this._trackedSources.forEach(source => source.disconnectObject(this));
+        this._trackedNotifications.forEach(notification => notification.disconnectObject(this));
+        this._trackedSources.clear();
+        this._trackedNotifications.clear();
+        this._launcherEntries.clear();
+
+        this._accentSettings = null;
         this.dockUI = null;
     }
 }

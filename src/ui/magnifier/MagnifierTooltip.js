@@ -63,6 +63,8 @@ export function hideTooltip(dockActor) {
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
             onComplete: () => {
                 if (dockActor._magTooltip) dockActor._magTooltip.hide();
+                const dockUI = dockActor._dockUI;
+                if (dockUI && dockUI.autoHideManager) dockUI.autoHideManager.scheduleCheck(0);
             }
         });
     }

@@ -272,7 +272,7 @@ export class FolderMenuBuilder {
         this._nameEntry = new St.Entry({
             hint_text: _('Folder name'),
             can_focus: true,
-            style: 'font-size: 14px; border-radius: 8px; padding: 4px 10px; color: white; ' +
+            style: 'font-size: 10.5pt; border-radius: 8px; padding: 4px 10px; color: white; ' +
                 'background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); width: 160px;'
         });
 
@@ -424,7 +424,7 @@ export class FolderMenuBuilder {
         setBoxVertical(sliderRow, false);
         sliderRow.add_child(new St.Label({
             text: 'A',
-            style: 'font-weight: 800; font-size: 13px; color: rgba(255,255,255,0.7);',
+            style: 'font-weight: 800; font-size: 9.75pt; color: rgba(255,255,255,0.7);',
             y_align: Clutter.ActorAlign.CENTER
         }));
         sliderRow.add_child(this._buildSlider((scale - MIN_LETTER_SCALE) / (MAX_LETTER_SCALE - MIN_LETTER_SCALE), value => {

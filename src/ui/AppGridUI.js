@@ -105,7 +105,7 @@ export default class AppGridUI {
         const leftSpacer = new St.Widget({ x_expand: true });
 
         const title = new CrispLabel({
-            font_desc: 'Sans Bold 14px',
+            font_desc: 'Sans Bold 10.5',
             color: '#ffffff',
             align: 'center',
             style_class: 'app-list-title',
@@ -251,7 +251,7 @@ export default class AppGridUI {
         }
 
         const label = new CrispLabel({
-            font_desc: `Sans Bold ${fontSize}px`,
+            font_desc: `Sans Bold ${fontSize}`,
             color: '#ffffff',
             align: isGrid ? 'center' : 'left',
             y_align: Clutter.ActorAlign.CENTER,
@@ -279,7 +279,7 @@ export default class AppGridUI {
         });
         setBoxVertical(content, false);
         const icon = app.create_icon_texture(32);
-        const nameLabel = this._createOptimizedLabel(name, 14, false);
+        const nameLabel = this._createOptimizedLabel(name, 10.5, false);
 
         content.add_child(new St.Bin({ child: icon, style_class: 'app-list-icon', style: 'margin-right: 12px;' }));
         content.add_child(nameLabel);
@@ -299,8 +299,9 @@ export default class AppGridUI {
             reactive: true,
             track_hover: true,
             style: 'border-radius: 12px; padding: 12px 4px;',
+            width: 96,
+            min_height: 104,
         });
-        btn.set_size(96, 104);
 
         const content = new St.BoxLayout({
             y_align: Clutter.ActorAlign.CENTER,
@@ -308,7 +309,7 @@ export default class AppGridUI {
         });
         setBoxVertical(content, true);
         const icon = app.create_icon_texture(48);
-        const nameLabel = this._createOptimizedLabel(name, 12, true);
+        const nameLabel = this._createOptimizedLabel(name, 9, true);
 
         content.add_child(new St.Bin({ child: icon, x_align: Clutter.ActorAlign.CENTER }));
         content.add_child(nameLabel);

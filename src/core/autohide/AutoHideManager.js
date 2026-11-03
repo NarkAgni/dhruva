@@ -39,6 +39,10 @@ const WINDOW_RAISE_CHECK_MS = 16;
 const FAST_CHECK_MS = 10;
 const MIN_HIDE_DELAY_MS = 20;
 const WINDOW_GEOMETRY_CHECK_MS = 32;
+const MENU_BUTTON_RECHECK_MS = 50;
+const POINTER_BUTTONS_MASK = Clutter.ModifierType.BUTTON1_MASK |
+    Clutter.ModifierType.BUTTON2_MASK |
+    Clutter.ModifierType.BUTTON3_MASK;
 
 export default class AutoHideManager {
     constructor(dockUI, settings) {
@@ -54,6 +58,7 @@ export default class AutoHideManager {
         this._isGrabPassThrough = false;
         this._isPointerCaptured = false;
         this._isUnredirectBlocked = false;
+        this._isHiddenForMenu = false;
         this._cursorTracker = getCursorTracker();
 
         this._hideTimeoutId = 0;
@@ -67,7 +72,8 @@ export default class AutoHideManager {
             this.dockUI,
             () => this._onPointerEnter(),
             () => this._onPointerLeave(),
-            () => this._getEdgeDwellDelay()
+            () => this._getEdgeDwellDelay(),
+            () => !this.isHidden
         );
 
         this._bindEvents();
@@ -300,7 +306,20 @@ export default class AutoHideManager {
 
     _onHideFinished() {
         this.isAnimating = false;
-        this._setUnredirectBlocked(!this.isHidden || this._getHidePeek() > 0);
+        this._syncUnredirect();
+    }
+
+    _syncUnredirect() {
+        this._setUnredirectBlocked(!this.isHidden || this._getHidePeek() > 0 || this._isHiddenForMenu);
+    }
+
+    _hideForMenu() {
+        const [, , mods] = global.get_pointer();
+        if (mods & POINTER_BUTTONS_MASK) {
+            this.scheduleCheck(MENU_BUTTON_RECHECK_MS);
+            return;
+        }
+        this._scheduleHide(MIN_HIDE_DELAY_MS);
     }
 
     _applyHiddenPosition() {
@@ -405,12 +424,16 @@ export default class AutoHideManager {
         this._syncEdge(true);
         if (this._revealIfEngaged()) return;
 
-        if (this.overlapDetection.shouldHide(mode)) this._scheduleHide();
+        this._isHiddenForMenu = this.overlapDetection.isMenuOverlapping();
+        if (this.isHidden && !this.isAnimating) this._syncUnredirect();
+
+        if (this._isHiddenForMenu) this._hideForMenu();
+        else if (this.overlapDetection.shouldHide(mode)) this._scheduleHide();
         else this._revealWithDelay();
     }
 
-    _scheduleHide() {
-        const finalDelay = Math.max(MIN_HIDE_DELAY_MS, Settings.hideDelay);
+    _scheduleHide(delayMs = Settings.hideDelay) {
+        const finalDelay = Math.max(MIN_HIDE_DELAY_MS, delayMs);
 
         this._hideTimeoutId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, finalDelay, () => {
             this._hideTimeoutId = 0;

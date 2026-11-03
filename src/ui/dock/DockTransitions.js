@@ -25,6 +25,7 @@ import { Settings } from '../../core/SettingsManager.js';
 import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
 import { setEdgePivot } from './DockButtonBase.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
+import { queueMagnifierMotion } from '../magnifier/MagnifierFrameEngine.js';
 
 
 const MOVE_MS = 300;
@@ -62,6 +63,33 @@ function transformedRect(actor) {
     return { x, y, w, h };
 }
 
+function dockLocalRect(actor, dockActor) {
+    if (!actor.has_allocation() || actor.width <= 0 || actor.height <= 0) return null;
+
+    let x = 0;
+    let y = 0;
+    let node = actor;
+    while (node !== dockActor) {
+        if (!node) return null;
+        x += node.x;
+        y += node.y;
+        node = node.get_parent();
+    }
+    return { x, y, w: actor.width, h: actor.height };
+}
+
+function baseBackgroundRect(bg) {
+    if (bg._baseW === undefined) return null;
+    return { x: bg._baseX, y: bg._baseY, w: bg._baseW, h: bg._baseH };
+}
+
+function resumeMagnifier(dockUI) {
+    if (!isActorAlive(dockUI.actor) || !dockUI.actor._isMagSetup) return;
+    const [px, py] = global.get_pointer();
+    const isVertical = dockUI.dockPosition === 'LEFT' || dockUI.dockPosition === 'RIGHT';
+    queueMagnifierMotion(dockUI.actor, px, py, isVertical, dockUI.settings);
+}
+
 function ghostSet(dockUI) {
     if (!dockUI._exitGhosts) dockUI._exitGhosts = new Set();
     return dockUI._exitGhosts;
@@ -73,6 +101,7 @@ export function captureDockTransition(dockUI) {
 
     const keys = new Set(dockUI._actorRegistry.keys());
     const rects = new Map();
+    const slots = new Map();
     const actors = new Map();
     for (const [key, entry] of dockUI._actorRegistry) {
         if (!isActorAlive(entry.actor) || !entry.actor.is_mapped()) continue;
@@ -80,9 +109,19 @@ export function captureDockTransition(dockUI) {
         if (!rect) continue;
         rects.set(key, rect);
         actors.set(key, { actor: entry.actor, type: entry.type, isRunning: entry.isRunning });
+
+        const slot = dockLocalRect(entry.actor, dockUI.actor);
+        if (slot) slots.set(key, slot);
     }
 
-    return { keys, rects, actors, bgRect: transformedRect(dockUI.bgActor) };
+    return {
+        keys,
+        rects,
+        slots,
+        actors,
+        origin: dockUI.actor.get_transformed_position(),
+        bgRect: baseBackgroundRect(dockUI.bgActor),
+    };
 }
 
 export function releaseRemovedItems(dockUI, transition, keptKeys) {
@@ -144,11 +183,15 @@ export function playDockTransition(dockUI, transition) {
     const [px, py] = global.get_pointer();
     const canSlide = !(Settings.hoverZoom && isPointerWithinDockBounds(dockUI.actor, px, py, isVertical, dockUI.settings));
 
+    const [originX, originY] = dockUI.actor.get_transformed_position();
+    const shiftX = (transition.origin[0] - originX) / dockScale;
+    const shiftY = (transition.origin[1] - originY) / dockScale;
+
     let isAnimating = false;
     for (const [key, entry] of dockUI._actorRegistry) {
-        const oldRect = transition.rects.get(key);
-        if (oldRect) {
-            if (canSlide && playSlide(entry.actor, oldRect, dockScale)) isAnimating = true;
+        if (transition.rects.has(key)) {
+            const oldSlot = transition.slots.get(key);
+            if (canSlide && oldSlot && playSlide(entry.actor, dockUI.actor, oldSlot, shiftX, shiftY)) isAnimating = true;
             if (entry.isRunning && !transition.actors.get(key).isRunning) playIndicatorPop(entry.actor, dockUI);
         } else if (!transition.keys.has(key) && ENTER_TYPES.includes(entry.type)) {
             playEnter(entry.actor, dockUI.dockPosition);
@@ -156,18 +199,20 @@ export function playDockTransition(dockUI, transition) {
         }
     }
 
-    if (playBackgroundResize(dockUI, transition.bgRect, dockScale)) isAnimating = true;
+    const canResizeBackground = canSlide && !dockUI.actor._isZoomActive;
+    if (canResizeBackground && playBackgroundResize(dockUI, transition.bgRect, shiftX, shiftY)) isAnimating = true;
     if (playPendingAttention(dockUI)) isAnimating = true;
 
     holdMagnifier(dockUI, isAnimating);
+    resumeMagnifier(dockUI);
 }
 
-function playSlide(actor, oldRect, dockScale) {
-    const newRect = transformedRect(actor);
-    if (!newRect) return false;
+function playSlide(actor, dockActor, oldSlot, shiftX, shiftY) {
+    const newSlot = dockLocalRect(actor, dockActor);
+    if (!newSlot) return false;
 
-    const dx = (oldRect.x - newRect.x) / dockScale;
-    const dy = (oldRect.y - newRect.y) / dockScale;
+    const dx = oldSlot.x - newSlot.x + shiftX;
+    const dy = oldSlot.y - newSlot.y + shiftY;
     if (Math.abs(dx) < MIN_MOVE_PX && Math.abs(dy) < MIN_MOVE_PX) return false;
 
     actor.remove_transition('translation-x');
@@ -228,22 +273,13 @@ function playIndicatorPop(actor, dockUI) {
     });
 }
 
-function playBackgroundResize(dockUI, oldRect, dockScale) {
-    const actorRect = transformedRect(dockUI.actor);
-    if (!oldRect || !actorRect) return false;
-
+function playBackgroundResize(dockUI, oldRect, shiftX, shiftY) {
     const bg = dockUI.bgActor;
-    if (bg._isMagResetting) return false;
+    const newRect = baseBackgroundRect(bg);
+    if (!oldRect || !newRect || bg._isMagResetting) return false;
 
-    const { x: actorX, y: actorY } = actorRect;
-
-    const from = {
-        x: (oldRect.x - actorX) / dockScale,
-        y: (oldRect.y - actorY) / dockScale,
-        width: oldRect.w / dockScale,
-        height: oldRect.h / dockScale,
-    };
-    const to = { x: bg.x, y: bg.y, width: bg.width, height: bg.height };
+    const from = { x: oldRect.x + shiftX, y: oldRect.y + shiftY, width: oldRect.w, height: oldRect.h };
+    const to = { x: newRect.x, y: newRect.y, width: newRect.w, height: newRect.h };
 
     const hasChanged = Object.keys(to).some(prop => Math.abs(to[prop] - from[prop]) >= MIN_MOVE_PX);
     if (!hasChanged) return false;
@@ -308,6 +344,7 @@ function holdMagnifier(dockUI, isAnimating) {
     dockUI._transitionHoldId = dockUI.registry.addTimeout(GLib.PRIORITY_DEFAULT, Math.max(ENTER_MS, ATTENTION_MS), () => {
         dockUI._transitionHoldId = null;
         dockUI.actor._flipAnimating = false;
+        resumeMagnifier(dockUI);
         return GLib.SOURCE_REMOVE;
     });
 }

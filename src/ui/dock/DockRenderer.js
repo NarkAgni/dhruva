@@ -633,11 +633,7 @@ export function syncOverflowWithPanel(dockUI) {
 
 function _captureMagnifierVisuals(dockUI) {
     const visuals = new Map();
-    const [px, py] = global.get_pointer();
-    if (!Settings.hoverZoom || !dockUI.actor._isZoomActive ||
-        !isPointerWithinDockBounds(dockUI.actor, px, py, _isVerticalDock(dockUI), dockUI.settings)) {
-        return visuals;
-    }
+    if (!Settings.hoverZoom || !dockUI.actor._isZoomActive) return visuals;
 
     const remember = actor => {
         const id = extractActorId(actor);
@@ -647,6 +643,9 @@ function _captureMagnifierVisuals(dockUI) {
             scaleY: actor.scale_y,
             translationX: actor.translation_x,
             translationY: actor.translation_y,
+            rotationX: actor.rotation_angle_x,
+            rotationY: actor.rotation_angle_y,
+            rotationZ: actor.rotation_angle_z,
         });
     };
 
@@ -845,6 +844,9 @@ function _renderDockFull(dockUI, transition) {
             actor.set_scale(visual.scaleX, visual.scaleY);
             actor.translation_x = visual.translationX;
             actor.translation_y = visual.translationY;
+            actor.rotation_angle_x = visual.rotationX;
+            actor.rotation_angle_y = visual.rotationY;
+            actor.rotation_angle_z = visual.rotationZ;
 
             const sx = visual.scaleX || 1.0;
             const sy = visual.scaleY || 1.0;

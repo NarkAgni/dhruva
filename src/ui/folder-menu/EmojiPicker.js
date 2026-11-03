@@ -227,7 +227,7 @@ export class EmojiPicker {
             text: _('No emojis found'),
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
-            style: 'color: rgba(255,255,255,0.6); font-size: 13px; padding: 24px 0;',
+            style: 'color: rgba(255,255,255,0.6); font-size: 9.75pt; padding: 24px 0;',
             visible: false
         });
 
@@ -247,7 +247,7 @@ export class EmojiPicker {
             can_focus: true,
             x_expand: true,
             primary_icon: new St.Icon({ icon_name: 'edit-find-symbolic', icon_size: 16, style: 'color: rgba(255,255,255,0.7);' }),
-            style: 'font-size: 14px; border-radius: 12px; padding: 8px 12px; color: white; ' +
+            style: 'font-size: 10.5pt; border-radius: 12px; padding: 8px 12px; color: white; ' +
                 'background-color: rgba(255,255,255,0.10); border: none; box-shadow: none;'
         });
 

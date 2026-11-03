@@ -40,6 +40,27 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
         this.progress = isRestore ? 1 : 0;
         this._ready = false;
         this._finished = false;
+        this._iconTracker = null;
+    }
+
+    setIconTracker(tracker) {
+        this._iconTracker = tracker;
+    }
+
+    _applyIconRect(rect) {
+        this._iconScreenPos = { ...rect };
+        this._icon = {
+            x: rect.x - this._monitor.x,
+            y: rect.y - this._monitor.y,
+            w: rect.w,
+            h: rect.h
+        };
+        this._buildTarget();
+    }
+
+    _syncIconFromTracker() {
+        const rect = this._iconTracker();
+        if (rect) this._applyIconRect(rect);
     }
 
     _getDuration() {
@@ -66,14 +87,7 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
             h: actor.get_height()
         };
 
-        this._icon = {
-            x: this._iconScreenPos.x - monitor.x,
-            y: this._iconScreenPos.y - monitor.y,
-            w: this._iconScreenPos.w,
-            h: this._iconScreenPos.h
-        };
-
-        this._buildTarget();
+        this._applyIconRect(this._iconScreenPos);
 
         const [tilesX, tilesY] = this._getTiles();
         this.set_n_tiles(tilesX, tilesY);
@@ -90,6 +104,7 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
                     this._finish();
                     return;
                 }
+                this._syncIconFromTracker();
                 this._setProgress(tl.get_progress());
                 const parent = currentActor.get_parent();
                 if (parent) parent.queue_redraw();

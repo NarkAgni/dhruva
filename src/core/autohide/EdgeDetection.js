@@ -37,11 +37,12 @@ const DEFAULT_BARRIER_DWELL_MS = 150;
 const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
 
 export class EdgeDetection {
-    constructor(dockUI, onEdgeTrigger, onEdgeLeave, getDwellDelay) {
+    constructor(dockUI, onEdgeTrigger, onEdgeLeave, getDwellDelay, isDockRevealed) {
         this.dockUI = dockUI;
         this.onEdgeTrigger = onEdgeTrigger;
         this.onEdgeLeave = onEdgeLeave;
         this.getDwellDelay = getDwellDelay;
+        this.isDockRevealed = isDockRevealed;
         this.timers = new TimeoutTracker();
         this._dwellTimeoutId = 0;
         this._geometryLaterId = 0;
@@ -101,7 +102,7 @@ export class EdgeDetection {
         this._cancelDwell();
 
         const dwellDelay = this.getDwellDelay();
-        if (dwellDelay <= 0) {
+        if (dwellDelay <= 0 || this.isDockRevealed()) {
             this.onEdgeTrigger();
             return;
         }
@@ -286,5 +287,6 @@ export class EdgeDetection {
         this.onEdgeTrigger = null;
         this.onEdgeLeave = null;
         this.getDwellDelay = null;
+        this.isDockRevealed = null;
     }
 }

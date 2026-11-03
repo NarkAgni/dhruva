@@ -47,6 +47,8 @@ const THEMES = () => [
 const BACKGROUND_KEYS = ['background-color', 'use-gradient', 'background-gradient-color', 'gradient-direction', 'background-opacity', 'context-menu-opacity'];
 const SHAPE_KEYS = ['border-radius', 'stroke-width', 'stroke-color', 'stroke-opacity'];
 const INDICATOR_KEYS = ['indicator-style', 'indicator-color-mode', 'indicator-color', 'indicator-size', 'indicator-glow'];
+const BADGE_KEYS = ['notification-badge-color-mode', 'notification-badge-color'];
+const DEFAULT_BADGE_COLOR = '#e62d42';
 
 const RUNNING_ICONS = [0, 2, 3];
 const BADGE_ICON = 2;
@@ -206,9 +208,22 @@ class DockPreview {
         cr.fill();
     }
 
+    _badgeColor() {
+        const s = this._settings;
+        if (s.get_string('notification-badge-color-mode') === 'custom')
+            return parseColor(s.get_string('notification-badge-color'));
+
+        const styleManager = Adw.StyleManager.get_default();
+        return 'get_accent_color_rgba' in styleManager
+            ? styleManager.get_accent_color_rgba()
+            : parseColor(DEFAULT_BADGE_COLOR);
+    }
+
     _paintBadge(cr, centerX, centerY) {
+        const color = this._badgeColor();
+
         cr.arc(centerX, centerY, 7, 0, 2 * Math.PI);
-        cr.setSourceRGB(0.9, 0.22, 0.24);
+        cr.setSourceRGB(color.red, color.green, color.blue);
         cr.fill();
         cr.setSourceRGB(1, 1, 1);
         cr.selectFontFace('Sans', 0, 1);
@@ -286,7 +301,7 @@ export function buildAppearancePage(window, settings) {
     showWhen(shapeGroup, settings, ['full-width', 'hybrid-panel-mode', 'dynamic-panel'], () => !isFullBar());
 
     const indicatorGroup = addGroup(page, _('Running Apps'));
-    addGroupReset(indicatorGroup, settings, INDICATOR_KEYS);
+    addGroupReset(indicatorGroup, settings, [...INDICATOR_KEYS, ...BADGE_KEYS]);
     const indicatorExpander = addToggleExpander(indicatorGroup, settings, 'show-running-indicators',
         _('Indicators'), _('Marks under apps that are open'));
     addComboRow(indicatorExpander, settings, 'indicator-style', _('Style'), null, [
@@ -309,8 +324,15 @@ export function buildAppearancePage(window, settings) {
     showWhen(indicatorColorRow, settings, ['dock-theme', 'blur-enabled', 'indicator-color-mode'],
         () => !isChameleon() && settings.get_string('indicator-color-mode') === 'custom');
 
-    addSwitchRow(indicatorGroup, settings, 'show-notification-badges', _('Notification Badges'),
-        _('Unread counts on app icons'));
+    const badgeExpander = addToggleExpander(indicatorGroup, settings, 'show-notification-badges',
+        _('Notification Badges'), _('Unread counts on app icons'));
+    addSegmentedRow(badgeExpander, settings, 'notification-badge-color-mode', _('Colour'), null, [
+        { name: _('Accent'), value: 'accent' },
+        { name: _('Custom'), value: 'custom' },
+    ]);
+    const badgeColorRow = addColorRow(badgeExpander, settings, 'notification-badge-color', _('Custom Colour'));
+    showWhen(badgeColorRow, settings, ['notification-badge-color-mode'],
+        () => settings.get_string('notification-badge-color-mode') === 'custom');
     const hoverRow = addSliderRow(indicatorGroup, settings, 'tooltip-opacity', _('Preview Box Opacity'),
         _('Background of the hover preview and app highlight'), { lower: 0, upper: 100, step: 5 }, fmt.percent);
     showWhen(hoverRow, settings, ['hover-zoom', 'hybrid-panel-mode'],
@@ -336,7 +358,7 @@ export function buildAppearancePage(window, settings) {
 
     const previewKeys = [
         'blur-enabled', 'full-width', 'hybrid-panel-mode', 'dynamic-panel', 'dock-theme', ...BACKGROUND_KEYS, ...SHAPE_KEYS,
-        ...INDICATOR_KEYS, 'show-running-indicators', 'show-notification-badges',
+        ...INDICATOR_KEYS, ...BADGE_KEYS, 'show-running-indicators', 'show-notification-badges',
         'show-app-separator', 'running-separator-width', 'running-separator-height', 'running-separator-color',
         'running-separator-opacity', 'show-module-separator', 'separator-width', 'separator-height',
         'separator-color', 'separator-opacity', 'show-panel-separator', 'panel-separator-width',

@@ -86,7 +86,7 @@ const WATCHED_SETTINGS = [
     'clock-position', 'clock-font-size', 'show-desktop-button', 'context-menu-size',
     'big-preview-size', 'minimize-effect', 'stroke-width', 'indicator-style', 'indicator-color',
     'indicator-size', 'indicator-glow', 'isolate-workspaces',
-    'isolate-monitors', 'show-notification-badges', 'show-app-separator', 'separator-width',
+    'isolate-monitors', 'show-notification-badges', 'notification-badge-color-mode', 'notification-badge-color', 'show-app-separator', 'separator-width',
     'show-module-separator', 'separator-height', 'dock-padding', 'dock-height', 'tooltip-opacity',
     'separator-color', 'separator-opacity', 'running-separator-width', 'running-separator-height',
     'running-separator-color', 'running-separator-opacity', 'show-panel-separator', 'panel-separator-width',
@@ -261,6 +261,7 @@ export default class DockUI {
             (this.overflowMenu && this.overflowMenu.isOpen) ||
             (this.startMenu && this.startMenu.isOpen) ||
             this.actor._isDragging ||
+            (this.actor._magTooltip && this.actor._magTooltip.visible) ||
             (this.panelIntegrator && this.panelIntegrator.hasOpenPopupOrDrag())
         );
     }

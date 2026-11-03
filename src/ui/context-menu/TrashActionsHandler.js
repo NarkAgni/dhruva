@@ -71,12 +71,12 @@ function confirmEmptyTrash() {
 
     content.add_child(new St.Label({
         text: _('Empty Trash?'),
-        style: 'font-weight: 800; font-size: 22px; color: #ffffff; text-align: center;'
+        style: 'font-weight: 800; font-size: 16.5pt; color: #ffffff; text-align: center;'
     }));
 
     const descLabel = new St.Label({
         text: _('Are you sure you want to permanently delete all items from the Trash?\nThis action cannot be undone.'),
-        style: 'font-size: 15px; color: rgba(255, 255, 255, 0.75); text-align: center; margin-top: 4px;'
+        style: 'font-size: 11.25pt; color: rgba(255, 255, 255, 0.75); text-align: center; margin-top: 4px;'
     });
     descLabel.clutter_text.line_wrap = true;
     descLabel.clutter_text.justify = true;

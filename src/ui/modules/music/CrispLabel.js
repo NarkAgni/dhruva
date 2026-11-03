@@ -95,6 +95,11 @@ export const CrispLabel = GObject.registerClass({
         this._measuredH = logicalH;
     }
 
+    vfunc_style_changed() {
+        super.vfunc_style_changed();
+        this.queue_relayout();
+    }
+
     vfunc_get_preferred_width(_forHeight) {
         if (!this._text) {
             const layout = this.create_pango_layout(' ');
@@ -135,7 +140,12 @@ export const CrispLabel = GObject.registerClass({
             Pango.Alignment.LEFT
         );
 
-        const [textW, textH] = layout.get_pixel_size();
+        let [textW, textH] = layout.get_pixel_size();
+        if (textW > w) {
+            layout.set_width(w * Pango.SCALE);
+            layout.set_ellipsize(Pango.EllipsizeMode.END);
+            [textW, textH] = layout.get_pixel_size();
+        }
         const x = Math.round((w - textW) / 2);
         const y = Math.round((h - textH) / 2);
 

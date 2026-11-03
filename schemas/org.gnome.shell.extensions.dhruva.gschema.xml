@@ -477,6 +477,21 @@
       <summary>Show Notification Badges</summary>
     </key>
 
+    <key name="notification-badge-color-mode" type="s">
+      <choices>
+        <choice value='accent'/>
+        <choice value='custom'/>
+      </choices>
+      <default>'accent'</default>
+      <summary>Notification Badge Color Source</summary>
+      <description>Use the system accent color or a custom color for notification badges.</description>
+    </key>
+
+    <key name="notification-badge-color" type="s">
+      <default>'#e62d42'</default>
+      <summary>Notification Badge Custom Color</summary>
+    </key>
+
     <key name="show-module-separator" type="b">
       <default>true</default>
       <summary>Show Module Separator</summary>

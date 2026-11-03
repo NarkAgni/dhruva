@@ -135,6 +135,8 @@ const KEYS = {
     peekEffect: [BOOLEAN, 'peek-effect'],
     peekAnimationSpeed: [INT, 'peek-animation-speed'],
     showNotificationBadges: [BOOLEAN, 'show-notification-badges'],
+    notificationBadgeColorMode: [STRING, 'notification-badge-color-mode'],
+    notificationBadgeColor: [STRING, 'notification-badge-color'],
     showMusicPill: [BOOLEAN, 'show-music-pill'],
     musicPillPosition: [STRING, 'music-pill-position'],
     musicPillShowPrev: [BOOLEAN, 'music-pill-show-prev'],

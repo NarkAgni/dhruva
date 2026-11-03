@@ -39,7 +39,7 @@ const UNMIN_EFFECT_NAME = 'we-unminimize-effect';
 const DEFAULT_EFFECT_DURATION_MS = 350;
 
 let _pendingActor = null;
-let _pendingIcon = null;
+let _pendingButton = null;
 let _pendingDockPos = null;
 let _pendingLaunchActor = null;
 let _settings = null;
@@ -65,6 +65,30 @@ function _findDockButtonForWindow(win) {
         const delegate = btn._delegate;
         return delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId;
     }) || null;
+}
+
+function _getIconRect(btn, win) {
+    const target = isActorAlive(btn._iconWrapper) ? btn._iconWrapper : btn;
+    const rect = captureActorRect(target, win);
+    const dock = _docks.find(d => isActorAlive(d.actor) && d.actor.contains(btn));
+    if (dock) {
+        rect.x -= dock.actor.translation_x;
+        rect.y -= dock.actor.translation_y;
+    }
+    return rect;
+}
+
+function _createIconTracker(btn, win) {
+    let source = btn;
+    return () => {
+        if ((!isActorAlive(source) || !source.get_stage()) && _dockUI) source = _findDockButtonForWindow(win);
+        return source ? _getIconRect(source, win) : null;
+    };
+}
+
+function _startEffect(actor, effectName, effect, tracker) {
+    effect.setIconTracker(tracker);
+    actor.add_effect_with_name(effectName, effect);
 }
 
 function _getEffectDuration() {
@@ -151,6 +175,30 @@ function _makeRestore(iconPos, dockPos, type) {
         default: effect = new MagicLampRestore(iconPos, dockPos); break;
     }
     return _applyEffectDuration(effect, duration);
+}
+
+function _resolveEffectTarget(actor) {
+    const win = actor.meta_window;
+    const isPending = actor === _pendingActor;
+    const pendingButton = isPending ? _pendingButton : null;
+    const dockPos = isPending ? _pendingDockPos : (_dockUI && _dockUI.dockPosition);
+
+    if (isPending) {
+        _addEffectIdle(() => {
+            if (_pendingActor === actor) {
+                _pendingActor = _pendingButton = _pendingDockPos = null;
+            }
+        });
+    }
+
+    const btn = pendingButton || (_dockUI && _dockUI.boxActor && win ? _findDockButtonForWindow(win) : null);
+    if (!btn) return null;
+
+    const tracker = _createIconTracker(btn, win);
+    const iconRect = tracker();
+    if (!iconRect) return null;
+
+    return { iconRect, dockPos, tracker };
 }
 
 function _completeMinimize(actor) {
@@ -291,31 +339,8 @@ export function setupWindowEffects(settings, dockUI) {
                 return;
             }
 
-            let iconPos = null;
-            let dockPos = null;
-            let isOurAnimation = false;
-
-            if (actor === _pendingActor && _pendingIcon) {
-                iconPos = _pendingIcon;
-                dockPos = _pendingDockPos;
-                isOurAnimation = true;
-
-                const capturedActor = _pendingActor;
-                _addEffectIdle(() => {
-                    if (_pendingActor === capturedActor) {
-                        _pendingActor = _pendingIcon = _pendingDockPos = null;
-                    }
-                });
-            } else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
-                const btn = _findDockButtonForWindow(actor.meta_window);
-                if (btn) {
-                    iconPos = captureActorRect(btn, actor.meta_window);
-                    dockPos = _dockUI.dockPosition;
-                    isOurAnimation = true;
-                }
-            }
-
-            if (!isOurAnimation) {
+            const target = _resolveEffectTarget(actor);
+            if (!target) {
                 if (isActorAlive(actor)) _completeMinimize(actor);
                 return;
             }
@@ -326,7 +351,7 @@ export function setupWindowEffects(settings, dockUI) {
             const old = actor.get_effect(MIN_EFFECT_NAME);
             if (old) actor.remove_effect(old);
 
-            actor.add_effect_with_name(MIN_EFFECT_NAME, _makeMinimize(iconPos, dockPos, type));
+            _startEffect(actor, MIN_EFFECT_NAME, _makeMinimize(target.iconRect, target.dockPos, type), target.tracker);
         },
         'unminimize', (_wm, actor) => {
             const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
@@ -374,31 +399,8 @@ export function setupWindowEffects(settings, dockUI) {
                 return;
             }
 
-            let iconPos = null;
-            let dockPos = null;
-            let isOurAnimation = false;
-
-            if (actor === _pendingActor && _pendingIcon) {
-                iconPos = _pendingIcon;
-                dockPos = _pendingDockPos;
-                isOurAnimation = true;
-
-                const capturedActor = _pendingActor;
-                _addEffectIdle(() => {
-                    if (_pendingActor === capturedActor) {
-                        _pendingActor = _pendingIcon = _pendingDockPos = null;
-                    }
-                });
-            } else if (_dockUI && _dockUI.boxActor && actor.meta_window) {
-                const btn = _findDockButtonForWindow(actor.meta_window);
-                if (btn) {
-                    iconPos = captureActorRect(btn, actor.meta_window);
-                    dockPos = _dockUI.dockPosition;
-                    isOurAnimation = true;
-                }
-            }
-
-            if (!isOurAnimation) {
+            const target = _resolveEffectTarget(actor);
+            if (!target) {
                 if (isActorAlive(actor)) _completeUnminimize(actor);
                 return;
             }
@@ -411,7 +413,7 @@ export function setupWindowEffects(settings, dockUI) {
 
             actor.show();
             actor.set_opacity(255);
-            actor.add_effect_with_name(UNMIN_EFFECT_NAME, _makeRestore(iconPos, dockPos, type));
+            _startEffect(actor, UNMIN_EFFECT_NAME, _makeRestore(target.iconRect, target.dockPos, type), target.tracker);
         },
         WM_SIGNAL_OWNER
     );
@@ -428,7 +430,7 @@ export function teardownWindowEffects(dockUI) {
 
         _animatingActors.length = 0;
         _pendingActor = null;
-        _pendingIcon = null;
+        _pendingButton = null;
         _pendingDockPos = null;
         _pendingLaunchActor = null;
         _settings = null;
@@ -445,7 +447,7 @@ export function animateMinimize(win, btn, dockPosition) {
         return;
     }
     _pendingActor = wa;
-    _pendingIcon = captureActorRect(btn, win);
+    _pendingButton = btn;
     _pendingDockPos = dockPosition;
     win.minimize();
 }
@@ -458,7 +460,7 @@ export function animateRestore(win, btn, dockPosition) {
         return;
     }
     _pendingActor = wa;
-    _pendingIcon = captureActorRect(btn, win);
+    _pendingButton = btn;
     _pendingDockPos = dockPosition;
     win.unminimize();
     win.activate(global.get_current_time());
@@ -481,10 +483,11 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     const old = actor.get_effect(UNMIN_EFFECT_NAME);
     if (old) actor.remove_effect(old);
 
-    const resolvedIconRect = iconRect || captureActorRect(btn, win);
+    const tracker = _createIconTracker(btn, win);
+    const resolvedIconRect = tracker() || iconRect || captureActorRect(btn, win);
     actor.show();
     actor.set_opacity(255);
-    actor.add_effect_with_name(UNMIN_EFFECT_NAME, _makeRestore(resolvedIconRect, _dockPosition, type));
+    _startEffect(actor, UNMIN_EFFECT_NAME, _makeRestore(resolvedIconRect, _dockPosition, type), tracker);
 }
 
 export function fadeMinimize(win) {

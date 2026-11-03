@@ -30,16 +30,26 @@ const DODGEABLE_WINDOW_TYPES = new Set([
     Meta.WindowType.MODAL_DIALOG,
 ]);
 
+const MENU_WINDOW_TYPES = new Set([
+    Meta.WindowType.DROPDOWN_MENU,
+    Meta.WindowType.POPUP_MENU,
+    Meta.WindowType.COMBO,
+]);
+
 export function isWindowMaximized(win) {
     return (win.maximized_horizontally && win.maximized_vertically) || win.is_fullscreen();
+}
+
+function getDockMonitorIndex(dockUI) {
+    const monitorResult = dockUI.monitorManager.getCurrentMonitor();
+    return monitorResult ? monitorResult.index : 0;
 }
 
 export function getVisibleMonitorWindows(dockUI) {
     const activeWs = global.workspace_manager.get_active_workspace();
     if (!activeWs) return [];
 
-    const monitorResult = dockUI.monitorManager.getCurrentMonitor();
-    const monitorIndex = monitorResult ? monitorResult.index : 0;
+    const monitorIndex = getDockMonitorIndex(dockUI);
 
     return global.display.get_tab_list(Meta.TabList.NORMAL, activeWs).filter(win =>
         !win.minimized &&
@@ -58,6 +68,20 @@ export class WindowOverlapDetection {
         const actor = this.dockUI.actor;
         const [x, y] = actor.get_position();
         return { x, y, width: actor.width, height: actor.height };
+    }
+
+    isMenuOverlapping() {
+        const dockRect = this.getDockRect();
+        if (!dockRect) return false;
+
+        const monitorIndex = getDockMonitorIndex(this.dockUI);
+
+        return global.get_window_actors().some(windowActor => {
+            const win = windowActor.get_meta_window();
+            return MENU_WINDOW_TYPES.has(win.get_window_type()) &&
+                win.get_monitor() === monitorIndex &&
+                rectsIntersect(this.dockUI.dockPosition, dockRect, win.get_frame_rect(), 0);
+        });
     }
 
     shouldHide(mode) {
