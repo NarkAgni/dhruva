@@ -193,6 +193,12 @@
       <summary>Indicator Glow</summary>
     </key>
 
+    <key name="quick-launch-enabled" type="b">
+      <default>true</default>
+      <summary>Quick Launch</summary>
+      <description>Open dock apps with the quick launch shortcuts (Super + 1–9 by default).</description>
+    </key>
+
     <key name="quick-launch-accel-1" type="as">
       <default><![CDATA[['<Super>1']]]></default>
       <summary>Dhruva quick launch slot 1</summary>

@@ -32,6 +32,8 @@ const QUICK_LAUNCH_KEY_NAMES = [
     'quick-launch-accel-7', 'quick-launch-accel-8', 'quick-launch-accel-9',
 ];
 
+const QUICK_LAUNCH_ENABLED_KEY = 'quick-launch-enabled';
+
 const DIGIT_KEYS = [
     Clutter.KEY_1, Clutter.KEY_2, Clutter.KEY_3,
     Clutter.KEY_4, Clutter.KEY_5, Clutter.KEY_6,
@@ -53,20 +55,16 @@ export default class QuickLaunchManager {
         this._lastQlTs = 0;
         this._lastQlDigit = 0;
         this._activeBindings = new Set();
-
-        for (const name of QUICK_LAUNCH_KEY_NAMES) {
-            this.settings.connectObject(`changed::${name}`, () => {
-                this._rebindWmShortcuts();
-            }, this);
-        }
-
-        global.stage.connectObject('captured-event', (_stage, event) => {
-            return this._onStageCapturedEvent(event);
-        }, this);
+        this._superDigits = new Set();
 
         this._bindIdleId = this.timers.addIdle(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._bindIdleId = 0;
-            this._rebindWmShortcuts();
+            this._migrateLegacyAccels();
+
+            for (const name of [QUICK_LAUNCH_ENABLED_KEY, ...QUICK_LAUNCH_KEY_NAMES]) {
+                this.settings.connectObject(`changed::${name}`, () => this._sync(), this);
+            }
+            this._sync();
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -96,46 +94,41 @@ export default class QuickLaunchManager {
 
         if (!this._isSuperDigitModifier(event.get_state())) return Clutter.EVENT_PROPAGATE;
 
-        const digitIdx = DIGIT_KEYS.indexOf(event.get_key_symbol());
-        if (digitIdx === -1) return Clutter.EVENT_PROPAGATE;
+        const digit = DIGIT_KEYS.indexOf(event.get_key_symbol()) + 1;
+        if (!this._superDigits.has(digit)) return Clutter.EVENT_PROPAGATE;
 
-        this._dispatchDigit(digitIdx + 1);
+        this._dispatchDigit(digit);
         return Clutter.EVENT_STOP;
     }
 
-    _migrateLegacyAccelsToSuper() {
+    _migrateLegacyAccels() {
         for (let i = 0; i < 9; i++) {
             const n = i + 1;
             const name = QUICK_LAUNCH_KEY_NAMES[i];
-            const wantMain = `<Super>${n}`;
-
             const cur = this.settings.get_strv(name);
 
-            if (cur.length === 0) {
-                this.settings.set_strv(name, [wantMain]);
-                continue;
-            }
-
             const legacy = [`<Primary>${n}`, `<Alt>${n}`, `<Control>${n}`];
-            const hasLegacy = cur.some(c => legacy.includes(c));
-
-            if (hasLegacy) {
-                this.settings.set_strv(name, [wantMain]);
+            if (cur.some(c => legacy.includes(c))) {
+                this.settings.set_strv(name, [`<Super>${n}`]);
             } else if (cur.some(c => c.includes('KP_'))) {
-                const cleaned = cur.filter(c => !c.includes('KP_'));
-                if (cleaned.length === 0) cleaned.push(wantMain);
-                this.settings.set_strv(name, cleaned);
+                this.settings.set_strv(name, cur.filter(c => !c.includes('KP_')));
             }
         }
     }
 
-    _rebindWmShortcuts() {
-        this._migrateLegacyAccelsToSuper();
+    _unbind() {
+        global.stage.disconnectObject(this);
 
         for (const name of this._activeBindings) {
             Main.wm.removeKeybinding(name);
         }
         this._activeBindings.clear();
+        this._superDigits.clear();
+    }
+
+    _sync() {
+        this._unbind();
+        if (!this.settings.get_boolean(QUICK_LAUNCH_ENABLED_KEY)) return;
 
         let flags = 0;
         const K = Meta.KeyBindingFlags;
@@ -150,12 +143,19 @@ export default class QuickLaunchManager {
             const name = QUICK_LAUNCH_KEY_NAMES[i];
             const digit = i + 1;
 
-            const [accel] = this.settings.get_strv(name);
-            if (!accel) continue;
+            const accels = this.settings.get_strv(name);
+            if (accels.length === 0) continue;
 
             Main.wm.addKeybinding(name, this.settings, flags, modes, () => this._dispatchDigit(digit));
             this._activeBindings.add(name);
+            if (accels.includes(`<Super>${digit}`)) this._superDigits.add(digit);
         }
+
+        if (this._superDigits.size === 0) return;
+
+        global.stage.connectObject('captured-event', (_stage, event) => {
+            return this._onStageCapturedEvent(event);
+        }, this);
     }
 
     _activateDigitSlot(digit) {
@@ -223,13 +223,7 @@ export default class QuickLaunchManager {
         this.timers.destroy();
 
         this.settings.disconnectObject(this);
-
-        global.stage.disconnectObject(this);
-
-        for (const name of this._activeBindings) {
-            Main.wm.removeKeybinding(name);
-        }
-        this._activeBindings.clear();
+        this._unbind();
 
         this.settings = null;
         this.getTargetDock = null;

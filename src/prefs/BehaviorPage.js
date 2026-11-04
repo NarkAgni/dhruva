@@ -216,10 +216,8 @@ export function buildBehaviorPage(window, settings) {
         _('Show the context menu when right-clicking dock icons. The App Grid button always keeps its menu'));
     addSwitchRow(utilGroup, settings, 'scroll-action-dock', _('Scroll on Dock'), _('Switch workspaces'));
     addSwitchRow(utilGroup, settings, 'scroll-action-app', _('Scroll on Icon'), _('Cycle through that app’s windows'));
-    utilGroup.add(new Adw.ActionRow({
-        title: _('Quick Launch'),
-        subtitle: _('Super + 1–9 opens the first nine dock apps. Change it in Settings → Keyboard'),
-    }));
+    addSwitchRow(utilGroup, settings, 'quick-launch-enabled', _('Quick Launch'),
+        _('Super + 1–9 opens the first nine dock apps. Turn off to use these keys for GNOME shortcuts'));
 
     const appsGroup = addGroup(page, _('Apps on the Dock'));
     addSwitchRow(appsGroup, settings, 'show-unpinned-apps', _('Running Apps'), _('Also show open apps that are not pinned'));
