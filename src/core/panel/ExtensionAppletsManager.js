@@ -214,8 +214,18 @@ export default class ExtensionAppletsManager {
             const index = order.indexOf(name);
             return index === -1 ? order.length : index;
         };
-        return this.trayManager.getPanelIndicators()
-            .filter(item => isActorAlive(item.actor))
+        const inline = this.dockUI.settings.get_boolean('tray-inline');
+        const items = inline
+            ? this.trayManager.getPanelIndicators().concat(this.trayManager.getTrayIndicators ? this.trayManager.getTrayIndicators() : [])
+            : this.trayManager.getPanelIndicators();
+        const seen = new Set();
+        return items
+            .filter(item => {
+                if (!item || !isActorAlive(item.actor)) return false;
+                if (seen.has(item.actor)) return false;
+                seen.add(item.actor);
+                return true;
+            })
             .sort((a, b) => rank(a.name) - rank(b.name));
     }
 
@@ -266,7 +276,14 @@ export default class ExtensionAppletsManager {
             zone.add_child(actor);
         }
 
-        this.box.add_child(this._arrowButton);
+        if (!this.dockUI.settings.get_boolean('tray-inline')) {
+            if (this._arrowButton.get_parent() !== this.box) {
+                if (this._arrowButton.get_parent()) this._arrowButton.get_parent().remove_child(this._arrowButton);
+                this.box.add_child(this._arrowButton);
+            }
+        } else if (this._arrowButton.get_parent()) {
+            this._arrowButton.get_parent().remove_child(this._arrowButton);
+        }
         this.leftBox.visible = this.leftBox.get_n_children() > 0;
         this._snapshot = this.trayManager.snapshot();
         this._watchIndicators();

@@ -139,6 +139,12 @@ export function buildModulesPage(prefs, window, settings) {
     settings.bind('show-grid-button', gridSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
     gridGroup.set_header_suffix(gridSwitch);
 
+    addSwitchRow(gridGroup, settings, 'hide-app-grid-button', _('Hide App Grid/Overview Button'),
+        _('Hide the app grid/overview button from the dock'));
+    showWhen(gridSwitch.get_parent ? gridSwitch.get_parent() : null, settings, ['hide-app-grid-button'], s => !s.get_boolean('hide-app-grid-button'));
+    // Also hide details when hidden
+    for (const row of gridRows) showWhen(row, settings, ['show-grid-button', 'hide-app-grid-button'], () => settings.get_boolean('show-grid-button') && !settings.get_boolean('hide-app-grid-button'));
+
     const hasCustomIcon = () => settings.get_string('custom-grid-icon') !== '';
     const gridRows = [
         addSegmentedRow(gridGroup, settings, 'grid-button-position', _('Position'), null, [

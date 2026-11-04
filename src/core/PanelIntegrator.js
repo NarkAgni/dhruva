@@ -278,8 +278,12 @@ export default class PanelIntegrator {
         this._syncOrientation();
 
         this.leftContainer.destroy_all_children();
-        this.leftContainer.add_child(this._buildWorkspacePills());
-        this._connectWorkspaceSignals();
+        if (!this.dockUI.settings.get_boolean('hide-workspace-pill')) {
+            this.leftContainer.add_child(this._buildWorkspacePills());
+            this._connectWorkspaceSignals();
+        } else {
+            this._disconnectWorkspaceSignals();
+        }
 
         this.container.destroy_all_children();
 
@@ -299,7 +303,9 @@ export default class PanelIntegrator {
                     if (trayParent) trayParent.remove_child(trayBox);
                     this.container.add_child(trayBox);
                 }
-                this.leftContainer.add_child(this.extensionApplets.leftBox);
+                if (this.extensionApplets.leftBox && this.extensionApplets.leftBox.get_n_children() > 0 && !this.extensionApplets.leftBox.get_parent()) {
+                    this.leftContainer.add_child(this.extensionApplets.leftBox);
+                }
             }
 
             const qsActor = this.quickSettings.steal(targetSide, isVertical);

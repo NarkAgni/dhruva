@@ -179,10 +179,8 @@ function _computeDesiredState(dockUI) {
     const isPanelOrFull = isPanelOrFullWidth();
     const isVerticalDock = _isVerticalDock(dockUI);
     const showClock = Settings.showClock && !dockUI.isOverviewActive;
-    const showGridBtn = Settings.showGridButton;
-
-    const rawGridPos = Settings.gridButtonPosition || 'END';
-    const gridPos = (rawGridPos === 'LEFT_EDGE' && !isPanelOrFull) ? 'START' : rawGridPos;
+    const hideGridBtn = dockUI.settings ? dockUI.settings.get_boolean('hide-app-grid-button') : false;
+    const showGridBtn = Settings.showGridButton && !hideGridBtn;
 
     const rawClockPos = Settings.clockPosition || 'END';
     const clockPos = (rawClockPos === 'RIGHT_END' && !isPanelOrFull) ? 'END' : rawClockPos;

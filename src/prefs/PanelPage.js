@@ -501,9 +501,13 @@ export function buildPanelPage(window, settings) {
     showWhen(clockGroup, settings, ['hybrid-panel-mode'], isPanel);
 
     const trayGroup = addGroup(page, _('Tray'),
-        _('Small icons from other extensions live behind the arrow. Wide ones like CPU or network speed stay on the bar'));
+        _('System tray icons can be hidden in the arrow menu or moved between tray and panel'));
+    addSwitchRow(trayGroup, settings, 'tray-inline', _('Show Tray Icons Inline'),
+        _('Display system tray icons directly in the dock without the expandable tray menu'));
+    addSwitchRow(trayGroup, settings, 'hide-workspace-pill', _('Hide Workspace/Overview Pill'),
+        _('Hide the workspace overview pill'));
     const resetRow = new Adw.ActionRow({
-        title: _('Tidy Up Tray'),
+        title: _('Reset tray configuration'),
         subtitle: _('Undo every move and reorder made from the tray'),
     });
     const trayKeys = ['tray-panel-indicators', 'tray-wide-indicators', 'tray-order'];
@@ -518,10 +522,12 @@ export function buildPanelPage(window, settings) {
     syncReset();
     resetRow.add_suffix(resetBtn);
     trayGroup.add(resetRow);
-    trayGroup.add(new Adw.ActionRow({
-        title: _('Pin an icon to the bar'),
+    const manageRow = new Adw.ActionRow({
+        title: _('Manage Tray Icons'),
         subtitle: _('Open the tray from the arrow to pin, reorder, or move wide applets into it'),
-    }));
+    });
+    trayGroup.add(manageRow);
+    showWhen(manageRow, settings, ['tray-inline'], s => !s.get_boolean('tray-inline'));
     showWhen(trayGroup, settings, ['hybrid-panel-mode'], isPanel);
 
     for (const key of ['hybrid-panel-mode', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'border-radius', 'blur-enabled', DATE_FORMAT_KEY])

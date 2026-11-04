@@ -383,7 +383,7 @@ export function buildModules(dockUI, iconSize) {
         return btn;
     };
 
-    if (Settings.showGridButton) {
+    if (Settings.showGridButton && !(dockUI.settings && dockUI.settings.get_boolean('hide-app-grid-button'))) {
         gridModule = buildAppGridModule(dockUI, iconSize, actualMaxZoom);
     }
 

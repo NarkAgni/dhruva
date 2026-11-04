@@ -418,6 +418,18 @@
       <summary>Show App Grid Button</summary>
     </key>
 
+    <key name="hide-app-grid-button" type="b">
+      <default>false</default>
+      <summary>Hide App Grid / Overview Button</summary>
+      <description>Hide the app grid/overview button from the dock.</description>
+    </key>
+
+    <key name="tray-inline" type="b">
+      <default>false</default>
+      <summary>Show Tray Icons Inline</summary>
+      <description>Display system tray icons directly in the dock without the expandable tray menu.</description>
+    </key>
+
     <key name="grid-button-position" type="s">
       <default>'START'</default>
       <summary>Grid Button Position</summary>
@@ -973,6 +985,12 @@
       <default>[]</default>
       <summary>Tray icon order</summary>
       <description>Order of the icons inside the tray popup.</description>
+    </key>
+
+    <key name="hide-workspace-pill" type="b">
+      <default>false</default>
+      <summary>Hide Workspace/Overview Pill</summary>
+      <description>Hide the workspace overview pill from the hybrid panel.</description>
     </key>
 
     <key name="panel-applet-order" type="as">
