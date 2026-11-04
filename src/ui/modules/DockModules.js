@@ -80,7 +80,7 @@ function isWindowForFolder(w, folderPath, folderName) {
     if (!winTitle) return false;
 
     if (folderName && (folderName.toLowerCase().includes('trash') || folderName.toLowerCase().includes('recycle'))) {
-        if (winTitle.includes('trash') || winTitle.includes('rubbish') || winTitle.includes('bin')) return true;
+        if (winTitle.includes('trash') || winTitle.includes('rubbish')) return true;
     }
 
     if (folderName) {

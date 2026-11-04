@@ -40,7 +40,6 @@ import { createIconMenuItem, createMenuItem, addSeparator } from './ContextMenuI
 
 const DEFAULT_PANEL_WIDTH = 280;
 const POS_TRACKER_INTERVAL_MS = 16;
-const IGNORE_EXPIRY_MS = 2000;
 const ARROW_HEIGHT = 12;
 const ARROW_WIDTH = 24;
 
@@ -148,10 +147,6 @@ export default class AppContextMenu {
         if (this._posTrackerId) {
             this.timers.remove(this._posTrackerId);
             this._posTrackerId = null;
-        }
-        if (this._ignoreExpiryId) {
-            this.timers.remove(this._ignoreExpiryId);
-            this._ignoreExpiryId = null;
         }
         this.timers.destroy();
 
@@ -431,18 +426,7 @@ export default class AppContextMenu {
 
     _addAppToIgnoreList(app) {
         if (!this.dockUI || !app.get_id) return;
-        const appId = app.get_id();
-        this.dockUI.ignoredAppIds.add(appId);
-
-        if (this._ignoreExpiryId) {
-            this.timers.remove(this._ignoreExpiryId);
-            this._ignoreExpiryId = null;
-        }
-        this._ignoreExpiryId = this.timers.addTimeout(GLib.PRIORITY_DEFAULT, IGNORE_EXPIRY_MS, () => {
-            this._ignoreExpiryId = null;
-            if (this.dockUI) this.dockUI.ignoredAppIds.delete(appId);
-            return GLib.SOURCE_REMOVE;
-        });
+        this.dockUI.ignoreAppBriefly(app.get_id());
     }
 
     _isOnOverlay(event) {

@@ -60,6 +60,7 @@ const PANEL_OVERFLOW_DEBOUNCE_MS = 40;
 const INDICATOR_REFRESH_DEBOUNCE_MS = 50;
 const WINDOW_SETTLE_REFRESH_MS = 80;
 const ISOLATE_MONITOR_RENDER_DELAY_MS = 150;
+const IGNORE_APP_EXPIRY_MS = 2000;
 const PRELOAD_APPS_DELAY_MS = 2500;
 const SESSION_MENU_KEYS = ['activeContextMenu', 'activeFolderMenu', 'activeTrayMenu'];
 const DOCK_MENU_KEYS = ['activeContextMenu', 'activeFolderMenu'];
@@ -115,6 +116,7 @@ export default class DockUI {
         this.activeContextMenu = null;
         this.pendingLaunches = [];
         this.ignoredAppIds = new Set();
+        this._ignoreTimers = new Map();
         this.recentEmojis = [];
         this._cursorResetTimeouts = [];
         this._overviewController = new DockOverviewController(this);
@@ -564,6 +566,17 @@ export default class DockUI {
         this.queueRender('incremental', force);
     }
 
+    ignoreAppBriefly(appId) {
+        this.ignoredAppIds.add(appId);
+        this.registry.remove(this._ignoreTimers.get(appId));
+        this._ignoreTimers.set(appId, this.registry.addTimeout(GLib.PRIORITY_DEFAULT, IGNORE_APP_EXPIRY_MS, () => {
+            this._ignoreTimers.delete(appId);
+            this.ignoredAppIds.delete(appId);
+            this._refreshForWindows(true);
+            return GLib.SOURCE_REMOVE;
+        }));
+    }
+
     updateRunningStatesFast() {
         if (!isActorAlive(this.boxActor)) return;
         syncRunningStates(this);
@@ -963,6 +976,8 @@ export default class DockUI {
         }
 
         cleanupDockRenderer(this);
+        this._ignoreTimers.clear();
+        this.ignoredAppIds.clear();
         if (this.registry) {
             this.registry.destroy();
             this.registry = null;
