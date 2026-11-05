@@ -140,6 +140,8 @@ export function buildBehaviorPage(window, settings) {
     const minimizeSpeedRow = addSliderRow(animGroup, settings, 'window-effect-speed', _('Minimize Duration'), null,
         { lower: 100, upper: 1500, step: 25 }, fmt.ms);
     showWhen(minimizeSpeedRow, settings, ['minimize-effect'], () => settings.get_string('minimize-effect') !== 'none');
+    addSwitchRow(animGroup, settings, 'minimized-thumbnails', _('Minimize into Thumbnails'),
+        _('Minimized windows get their own live preview in the dock, next to the Trash'));
 
     const isZoom = () => settings.get_boolean('hover-zoom');
     const zoomStyle = () => settings.get_string('hover-zoom-style');

@@ -106,6 +106,7 @@ const KEYS = {
     fullscreenRevealDelay: [INT, 'fullscreen-reveal-delay'],
     clickEffect: [STRING, 'click-effect'],
     minimizeEffect: [STRING, 'minimize-effect'],
+    minimizedThumbnails: [BOOLEAN, 'minimized-thumbnails'],
     lockIcons: [BOOLEAN, 'lock-icons'],
     isolateWorkspaces: [BOOLEAN, 'isolate-workspaces'],
     scrollActionDock: [BOOLEAN, 'scroll-action-dock'],

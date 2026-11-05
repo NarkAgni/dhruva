@@ -39,6 +39,8 @@ import { resetMagnification, teardownMagnification } from '../magnifier/Magnifie
 import { isActorAlive, markActorDisposed, extractIconDominantColor } from '../../core/Utils.js';
 import { captureDockTransition, releaseRemovedItems, playDockTransition } from './DockTransitions.js';
 import { createSeparator, separatorPrefix, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
+import { buildMinimizedWindowButton } from './MinimizedWindowButton.js';
+import { minimizeOrder } from '../effects/WindowEffects.js';
 
 
 const POST_CLICK_DELAY_MS = 860;
@@ -81,6 +83,16 @@ function _styleClassOf(actor) {
 
 function _slugify(text) {
     return (text || 'folder').toLowerCase().replace(/[^a-z0-9]/g, '-');
+}
+
+function _minimizedWindowItems(dockUI) {
+    const windows = global.get_window_actors()
+        .map(actor => actor.meta_window)
+        .filter(win => win && win.minimized && !win.is_skip_taskbar());
+
+    return filterActiveWindows(dockUI, windows)
+        .sort((a, b) => minimizeOrder(a) - minimizeOrder(b))
+        .map(win => ({ key: `dhruva-min-${win.get_id()}`, type: 'minimized', entity: win }));
 }
 
 export function filterActiveWindows(dockUI, windows) {
@@ -318,7 +330,7 @@ function _computeDesiredState(dockUI) {
         desiredState.push({ key: 'dhruva-music-pill', type: 'music-pill', entity: null });
     }
 
-    const endModuleKeys = [];
+    const endModuleKeys = Settings.minimizedThumbnails ? _minimizedWindowItems(dockUI) : [];
     if (Settings.showDesktopButton && !isPanelOrFull) {
         endModuleKeys.push({ key: 'dhruva-desktop-module', type: 'desktop', entity: null });
     }
@@ -407,7 +419,7 @@ function _itemSpan(dockUI, item, appSlot) {
         const pill = dockUI.musicPill;
         return pill && pill.visible ? _naturalSpan(pill, _isVerticalDock(dockUI)) : 0;
     }
-    if (item.type === 'app' || item.type === 'folder' || item.type === 'grid' || item.type === 'module') {
+    if (item.type === 'app' || item.type === 'folder' || item.type === 'grid' || item.type === 'module' || item.type === 'minimized') {
         return appSlot;
     }
 
@@ -730,6 +742,8 @@ function _buildItemActor(dockUI, item, iconSize, isVerticalDock, modsContext) {
             btn._updateRunningState();
             return btn;
         }
+        case 'minimized':
+            return buildMinimizedWindowButton(dockUI, item.entity);
         case 'overflow':
             return dockUI.overflowMenu.button;
         case 'separator':

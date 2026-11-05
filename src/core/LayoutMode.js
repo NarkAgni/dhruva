@@ -31,3 +31,7 @@ export function isFullBarLayout() {
 export function isPanelOrFullWidth() {
     return Settings.fullWidth || Settings.hybridPanelMode;
 }
+
+export function isStartMenuEnabled() {
+    return Settings.independentDock || (Settings.hybridPanelMode && Settings.startMenu);
+}

@@ -34,11 +34,11 @@ export function isContextMenuOpen() {
     return false;
 }
 
-export function isAppGridOpen() {
+export function isStartMenuOpen() {
     const children = Main.layoutManager.uiGroup.get_children();
     for (let i = 0; i < children.length; i++) {
         const child = children[i];
-        if (child.style_class && child.style_class.includes('app-list-overlay') && child.visible) {
+        if (child.style_class && child.style_class.includes('dhruva-start-overlay') && child.visible) {
             return true;
         }
     }

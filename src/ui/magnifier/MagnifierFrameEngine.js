@@ -29,7 +29,7 @@ import { isDynamicPanelLayout, isFullBarLayout } from '../../core/LayoutMode.js'
 import { FrameTicker } from '../../core/FrameTicker.js';
 import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
-import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
+import { isContextMenuOpen, isStartMenuOpen } from './MagnifierState.js';
 import { getDockButtons, getFixedSlots, easeOutCirc, isStaticItem, axisSpan, getPanelSideActors } from './MagnifierMath.js';
 import { setEdgePivot, counterScaleIndicator } from '../dock/DockButtonBase.js';
 import { createTooltipActor, populateTooltipContent, resumeTooltipTracking } from './MagnifierTooltipRenderer.js';
@@ -235,15 +235,15 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     if (!n || btns[0].width === 0) return;
     if (n > 1 && btns[0].x === btns[n - 1].x && btns[0].y === btns[n - 1].y) return;
 
-    const isAppGrid = isAppGridOpen();
+    const isStartMenu = isStartMenuOpen();
     const isMenu = isContextMenuOpen();
 
-    if (isAppGrid || isMenu) {
+    if (isStartMenu || isMenu) {
         hideTooltip(dockActor);
-        if (isAppGrid && !dockActor._isExternalDragging) return;
+        if (isStartMenu && !dockActor._isExternalDragging) return;
     }
 
-    const hoverZoom = Settings.hoverZoom && !isAppGrid;
+    const hoverZoom = Settings.hoverZoom && !isStartMenu;
     const maxZoom = hoverZoom ? Settings.hoverZoomFactor : 1.0;
     const actualMaxZoom = 1.0 + (maxZoom - 1.0) * 2.0;
     const iconSize = Settings.iconSize;
@@ -826,7 +826,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
     dockActor._magNeedsFrames = needsMoreFrames && !dockActor._isResetting && !dockActor._isDragging;
     if (dockActor._magNeedsFrames) ensureMagnifierTicker(dockActor, isVertical, settings);
 
-    if (isAppGrid || isMenu || !Settings.showAppsPreview) {
+    if (isStartMenu || isMenu || !Settings.showAppsPreview) {
         hideTooltip(dockActor);
         return;
     }

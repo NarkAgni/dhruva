@@ -25,14 +25,13 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-import AppGridUI from '../AppGridUI.js';
 import { BlurPanel } from '../blur/BlurPanel.js';
 import { StartMenu } from '../startmenu/StartMenu.js';
 import DockManager from '../../core/DockManager.js';
 import { updateLayout } from './DockLayoutEngine.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { isFullBarLayout } from '../../core/LayoutMode.js';
+import { isFullBarLayout, isStartMenuEnabled } from '../../core/LayoutMode.js';
 import { destroyExternalDrop } from '../ExternalDrop.js';
 import MonitorManager from '../../core/MonitorManager.js';
 import PanelIntegrator from '../../core/PanelIntegrator.js';
@@ -85,7 +84,7 @@ const WATCHED_SETTINGS = [
     'icon-size', 'show-running-indicators', 'hover-zoom', 'hover-zoom-factor',
     'lock-icons', 'show-apps-preview', 'click-effect', 'show-clock', 'use-24h-clock',
     'clock-position', 'clock-font-size', 'show-desktop-button', 'context-menu-size',
-    'big-preview-size', 'minimize-effect', 'stroke-width', 'indicator-style', 'indicator-color',
+    'big-preview-size', 'minimize-effect', 'minimized-thumbnails', 'stroke-width', 'indicator-style', 'indicator-color',
     'indicator-size', 'indicator-glow', 'isolate-workspaces',
     'isolate-monitors', 'show-notification-badges', 'notification-badge-color-mode', 'notification-badge-color', 'show-app-separator', 'separator-width',
     'show-module-separator', 'separator-height', 'dock-padding', 'dock-height', 'tooltip-opacity',
@@ -149,7 +148,6 @@ export default class DockUI {
         this.isPanelHost = monitorIndex === null || monitorIndex === Main.layoutManager.primaryIndex;
         this.panelIntegrator = new PanelIntegrator(this, this.isPanelHost);
         this.notificationManager = new NotificationManager(this);
-        this.appGridUI = new AppGridUI(this);
         this._initActors();
         this._bindMethods();
         this._connectSignals();
@@ -897,7 +895,7 @@ export default class DockUI {
     }
 
     _preloadStartMenu() {
-        if (!Settings.hybridPanelMode || !Settings.startMenu) return;
+        if (!isStartMenuEnabled()) return;
         this.registry.addIdle(GLib.PRIORITY_LOW, () => {
             if (!this.startMenu && isActorAlive(this.actor)) this.startMenu = new StartMenu(this);
             return GLib.SOURCE_REMOVE;
@@ -991,7 +989,6 @@ export default class DockUI {
             this.panelIntegrator = null;
         }
         if (this.dockManager) this.dockManager.destroy();
-        if (this.appGridUI) this.appGridUI.destroy();
         if (this.notificationManager) this.notificationManager.destroy();
 
         destroyExternalDrop(this);

@@ -20,6 +20,7 @@
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
+import Shell from 'gi://Shell';
 import cairo from 'gi://cairo';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -29,6 +30,8 @@ import { getIndicatorProps } from './DockRenderer.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { paintMenuBubble } from '../shared/MenuShape.js';
 import { createIndicatorBox } from './DockButtonBase.js';
+import { createWindowThumbnail } from './MinimizedWindowButton.js';
+import { animateRestore } from '../effects/WindowEffects.js';
 import { createPlateIcon, createCrispBundledIcon, getZoomRenderSize } from './DockItemBuilder.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
@@ -380,7 +383,8 @@ export class DockOverflowMenu {
     }
 
     _buildItem(item) {
-        const app = item.entity;
+        const isMinimized = item.type === 'minimized';
+        const app = isMinimized ? Shell.WindowTracker.get_default().get_window_app(item.entity) : item.entity;
         const iconSize = Settings.iconSize;
         const slotSize = iconSize + CFG.OVERFLOW_ITEM_PADDING;
 
@@ -389,7 +393,7 @@ export class DockOverflowMenu {
             width: iconSize,
             height: iconSize,
         });
-        iconStack.add_child(app.create_icon_texture(iconSize));
+        iconStack.add_child(isMinimized ? createWindowThumbnail(item.entity, iconSize).actor : app.create_icon_texture(iconSize));
 
         if (item.isRunning && Settings.showRunningIndicators) {
             const style = Settings.indicatorStyle;
@@ -418,11 +422,12 @@ export class DockOverflowMenu {
         itemBtn._inPopup = true;
         itemBtn.connectObject(
             'clicked', () => {
-                app.activate();
+                if (isMinimized) animateRestore(item.entity, this.button, this._dockUI.dockPosition);
+                else app.activate();
                 this.close();
             },
             'button-press-event', (_actor, event) => {
-                if (event.get_button() !== Clutter.BUTTON_SECONDARY) return Clutter.EVENT_PROPAGATE;
+                if (event.get_button() !== Clutter.BUTTON_SECONDARY || !app) return Clutter.EVENT_PROPAGATE;
                 this._openContextMenu(app, itemBtn);
                 return Clutter.EVENT_STOP;
             },

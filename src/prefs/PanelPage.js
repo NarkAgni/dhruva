@@ -358,7 +358,7 @@ function addWebSearchRows(group, settings) {
         if (urlRow.get_text() !== currentUrl)
             urlRow.set_text(currentUrl);
 
-        const isWebOn = settings.get_boolean('start-menu') && settings.get_boolean('start-menu-web-search');
+        const isWebOn = (settings.get_boolean('independent-dock') || settings.get_boolean('start-menu')) && settings.get_boolean('start-menu-web-search');
         urlRow.set_visible(isWebOn && targetIndex === customIndex);
         isUpdating = false;
     };
@@ -371,7 +371,7 @@ function addWebSearchRows(group, settings) {
                 settings.set_string(WEB_SEARCH_URL_KEY, selected.url);
             urlRow.set_visible(false);
         } else {
-            const isWebOn = settings.get_boolean('start-menu') && settings.get_boolean('start-menu-web-search');
+            const isWebOn = (settings.get_boolean('independent-dock') || settings.get_boolean('start-menu')) && settings.get_boolean('start-menu-web-search');
             urlRow.set_visible(isWebOn);
         }
     });
@@ -385,6 +385,7 @@ function addWebSearchRows(group, settings) {
 
     onSettingChanged(settings, WEB_SEARCH_URL_KEY, syncFromSettings);
     onSettingChanged(settings, 'start-menu', syncFromSettings);
+    onSettingChanged(settings, 'independent-dock', syncFromSettings);
     onSettingChanged(settings, 'start-menu-web-search', syncFromSettings);
 
     group.add(providerRow);
@@ -469,10 +470,12 @@ export function buildPanelPage(window, settings) {
     showWhen(radiusRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
     showWhen(dynamicGroup, settings, ['hybrid-panel-mode'], isPanel);
 
-    const startGroup = addGroup(page, _('App Grid Button'), _('What the App Grid button opens in Panel mode'));
-    addSwitchRow(startGroup, settings, 'start-menu', _('Dhruva Start Menu'),
+    const startGroup = addGroup(page, _('Start Menu'), _('Opens from the App Grid button in Panel mode and always in Independent mode'));
+    const startMenuRow = addSwitchRow(startGroup, settings, 'start-menu', _('Dhruva Start Menu'),
         _('Pinned apps, recent apps and files, search, Lock and Power. Turn off to open GNOME’s app grid instead'));
-    const isStartMenu = () => settings.get_boolean('start-menu');
+    const isIndependent = () => settings.get_boolean('independent-dock');
+    const isStartMenu = () => isIndependent() || settings.get_boolean('start-menu');
+    const START_KEYS = ['start-menu', 'independent-dock'];
     const recentAppsRow = addSwitchRow(startGroup, settings, 'start-menu-recent-apps', _('Recent Apps'),
         _('Show the apps you use most under Pinned'));
     const continueRow = addSwitchRow(startGroup, settings, 'start-menu-continue', _('Continue Where You Left Off'),
@@ -484,13 +487,14 @@ export function buildPanelPage(window, settings) {
     const webRow = addSwitchRow(startGroup, settings, 'start-menu-web-search', _('Web Search'),
         _('Offer to search the web for what you type'));
     const webProviderRow = addWebSearchRows(startGroup, settings);
-    showWhen(recentAppsRow, settings, ['start-menu'], isStartMenu);
-    showWhen(continueRow, settings, ['start-menu'], isStartMenu);
-    showWhen(recentRow, settings, ['start-menu', 'start-menu-continue'], () => isStartMenu() && settings.get_boolean('start-menu-continue'));
-    showWhen(providersRow, settings, ['start-menu'], isStartMenu);
-    showWhen(webRow, settings, ['start-menu'], isStartMenu);
-    showWhen(webProviderRow, settings, ['start-menu', 'start-menu-web-search'], () => isStartMenu() && settings.get_boolean('start-menu-web-search'));
-    showWhen(startGroup, settings, ['hybrid-panel-mode'], isPanel);
+    showWhen(startMenuRow, settings, ['independent-dock'], () => !isIndependent());
+    showWhen(recentAppsRow, settings, START_KEYS, isStartMenu);
+    showWhen(continueRow, settings, START_KEYS, isStartMenu);
+    showWhen(recentRow, settings, [...START_KEYS, 'start-menu-continue'], () => isStartMenu() && settings.get_boolean('start-menu-continue'));
+    showWhen(providersRow, settings, START_KEYS, isStartMenu);
+    showWhen(webRow, settings, START_KEYS, isStartMenu);
+    showWhen(webProviderRow, settings, [...START_KEYS, 'start-menu-web-search'], () => isStartMenu() && settings.get_boolean('start-menu-web-search'));
+    showWhen(startGroup, settings, ['hybrid-panel-mode', 'independent-dock'], () => isPanel() || isIndependent());
 
     const clockGroup = addGroup(page, _('Clock'), _('These are GNOME’s own clock settings, so the lock screen follows too'));
     addClockSwitch(clockGroup, clockSettings, 'clock-show-date', _('Date'), _('Second line under the time'));

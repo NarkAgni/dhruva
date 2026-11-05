@@ -24,7 +24,7 @@ import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { queueMagnifierMotion, cancelMagnifierMotion } from './MagnifierFrameEngine.js';
 import { isActorAlive, getBoxVertical } from '../../core/Utils.js';
-import { isContextMenuOpen, isAppGridOpen } from './MagnifierState.js';
+import { isContextMenuOpen, isStartMenuOpen } from './MagnifierState.js';
 import { getDockButtons, isPointerWithinDockBounds, isPointerInIconCorridor, isPointerOnPanelItems, syncPanelSidesToBackground } from './MagnifierMath.js';
 import { resetMagnification, teardownMagnification } from './MagnifierReset.js';
 import { clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
@@ -207,7 +207,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
             }
             dockActor._tooltipBridgeActive = false;
 
-            if (isContextMenuOpen() || isAppGridOpen()) {
+            if (isContextMenuOpen() || isStartMenuOpen()) {
                 clearTooltipDelay(dockActor);
                 if (dockActor._magTooltip) {
                     dockActor._magTooltip.remove_all_transitions();
@@ -258,7 +258,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         dockActor._pressStartedOnDock = false;
 
         if (!pressStartedOnDock) return Clutter.EVENT_PROPAGATE;
-        if (dockActor._isDragging || isAppGridOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
+        if (dockActor._isDragging || isStartMenuOpen() || isContextMenuOpen()) return Clutter.EVENT_PROPAGATE;
         if (!Settings.hoverZoom) return Clutter.EVENT_PROPAGATE;
 
         const releaseCoords = event.get_coords();
@@ -321,7 +321,7 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
 
             const postClick = () => {
                 dockActor._postClickTimerId = null;
-                if (isAppGridOpen()) resetMagnification(dockActor, 150, true);
+                if (isStartMenuOpen()) resetMagnification(dockActor, 150, true);
                 return GLib.SOURCE_REMOVE;
             };
 

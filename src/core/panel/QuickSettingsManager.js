@@ -23,7 +23,7 @@ import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
-import { Settings } from '../SettingsManager.js';
+import { isStartMenuEnabled } from '../LayoutMode.js';
 import { TimeoutTracker } from '../TimeoutTracker.js';
 import { HYBRID_PANEL_CONFIG } from '../PanelConfig.js';
 import { hookPopupGap, unhookPopupGap } from './PopupGap.js';
@@ -103,7 +103,7 @@ export default class QuickSettingsManager {
 
         this.updateArrowSide(targetSide);
         hookPopupGap(this.dockUI, this.indicator.menu, true);
-        if (Settings.startMenu) this._hideSessionButtons();
+        if (isStartMenuEnabled()) this._hideSessionButtons();
 
         this._queueRelayout();
         return target;

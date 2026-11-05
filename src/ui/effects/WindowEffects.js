@@ -56,7 +56,56 @@ let _origCompletedMinimize = null;
 let _origCompletedUnminimize = null;
 let _origCompletedMap = null;
 
+const _hiddenThumbs = new Set();
+let _minimizeStamps = new WeakMap();
+let _minimizeCounter = 0;
+
+export function isThumbnailHidden(win) {
+    return _hiddenThumbs.has(win.get_compositor_private());
+}
+
+export function minimizeOrder(win) {
+    return _minimizeStamps.get(win.get_compositor_private()) || 0;
+}
+
+function _findThumbnailButton(win) {
+    for (const dock of _docks) {
+        if (!isActorAlive(dock.boxActor)) continue;
+        const btn = dock.boxActor.get_children().find(child => child._minimizedWindow === win);
+        if (btn) return btn;
+    }
+    return null;
+}
+
+function _renderThumbnailDocks() {
+    _docks.forEach(dock => dock.render('incremental', true));
+}
+
+function _revealThumbnail(actor) {
+    if (!_hiddenThumbs.delete(actor) || !isActorAlive(actor)) return;
+    const btn = _findThumbnailButton(actor.meta_window);
+    if (btn) btn._revealThumbnail();
+}
+
+function _dropThumbnail(actor) {
+    _hiddenThumbs.delete(actor);
+    if (!Settings.minimizedThumbnails) return;
+    const btn = _findThumbnailButton(actor.meta_window);
+    if (btn) btn._hideThumbnail();
+    _renderThumbnailDocks();
+}
+
+function _prepareThumbnail(actor, isAnimated) {
+    if (!Settings.minimizedThumbnails) return;
+    _minimizeStamps.set(actor, ++_minimizeCounter);
+    if (isAnimated) _hiddenThumbs.add(actor);
+    _renderThumbnailDocks();
+}
+
 function _findDockButtonForWindow(win) {
+    const thumbnail = _findThumbnailButton(win);
+    if (thumbnail) return thumbnail;
+
     const app = Shell.WindowTracker.get_default().get_window_app(win);
     if (!app) return null;
 
@@ -80,9 +129,16 @@ function _getIconRect(btn, win) {
 
 function _createIconTracker(btn, win) {
     let source = btn;
+    let isThumbnail = Boolean(btn._minimizedWindow);
+    let lastRect = null;
     return () => {
-        if ((!isActorAlive(source) || !source.get_stage()) && _dockUI) source = _findDockButtonForWindow(win);
-        return source ? _getIconRect(source, win) : null;
+        if ((!isActorAlive(source) || !source.get_stage()) && _dockUI) {
+            if (isThumbnail && !win.minimized && lastRect) return lastRect;
+            source = _findDockButtonForWindow(win);
+            isThumbnail = Boolean(source && source._minimizedWindow);
+        }
+        if (source) lastRect = _getIconRect(source, win);
+        return lastRect;
     };
 }
 
@@ -191,7 +247,8 @@ function _resolveEffectTarget(actor) {
         });
     }
 
-    const btn = pendingButton || (_dockUI && _dockUI.boxActor && win ? _findDockButtonForWindow(win) : null);
+    const thumbnail = win ? _findThumbnailButton(win) : null;
+    const btn = thumbnail || pendingButton || (_dockUI && _dockUI.boxActor && win ? _findDockButtonForWindow(win) : null);
     if (!btn) return null;
 
     const tracker = _createIconTracker(btn, win);
@@ -267,6 +324,7 @@ function _unpatchWm() {
 
 export function finishMinimizeEffect(actor) {
     _removeAnimatingActor(actor);
+    _revealThumbnail(actor);
     if (isActorAlive(actor)) _completeMinimize(actor);
 }
 
@@ -300,8 +358,10 @@ export function setupWindowEffects(settings, dockUI) {
     global.window_manager.connectObject(
         'minimize', (_wm, actor) => {
             const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
+            const isFade = actor === _pendingActor && global._dhruvaIsFade;
+            _prepareThumbnail(actor, isFade || type !== 'none');
 
-            if (actor === _pendingActor && global._dhruvaIsFade) {
+            if (isFade) {
                 global._dhruvaIsFade = false;
 
                 const capturedActor = _pendingActor;
@@ -322,6 +382,7 @@ export function setupWindowEffects(settings, dockUI) {
                     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                     onComplete: () => {
                         _removeAnimatingActor(actor);
+                        _revealThumbnail(actor);
                         if (isActorAlive(actor)) {
                             actor.set_pivot_point(0, 0);
                             actor.set_scale(1.0, 1.0);
@@ -341,6 +402,7 @@ export function setupWindowEffects(settings, dockUI) {
 
             const target = _resolveEffectTarget(actor);
             if (!target) {
+                _revealThumbnail(actor);
                 if (isActorAlive(actor)) _completeMinimize(actor);
                 return;
             }
@@ -360,6 +422,7 @@ export function setupWindowEffects(settings, dockUI) {
 
             if (actor === _pendingActor && global._dhruvaIsFade) {
                 global._dhruvaIsFade = false;
+                _dropThumbnail(actor);
 
                 const capturedActor = _pendingActor;
                 _addEffectIdle(() => {
@@ -395,11 +458,13 @@ export function setupWindowEffects(settings, dockUI) {
             }
 
             if (type === 'none') {
+                _dropThumbnail(actor);
                 if (isActorAlive(actor)) _completeUnminimize(actor);
                 return;
             }
 
             const target = _resolveEffectTarget(actor);
+            _dropThumbnail(actor);
             if (!target) {
                 if (isActorAlive(actor)) _completeUnminimize(actor);
                 return;
@@ -429,6 +494,9 @@ export function teardownWindowEffects(dockUI) {
         _clearEffectIdles();
 
         _animatingActors.length = 0;
+        _hiddenThumbs.clear();
+        _minimizeStamps = new WeakMap();
+        _minimizeCounter = 0;
         _pendingActor = null;
         _pendingButton = null;
         _pendingDockPos = null;

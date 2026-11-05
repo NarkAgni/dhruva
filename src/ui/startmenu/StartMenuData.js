@@ -35,6 +35,8 @@ const START_FOLDER_PREFIX = 'smfolder:';
 const FOLDERS_KEY = 'start-menu-folders';
 const RECENT_COUNT_KEY = 'start-menu-recent-files';
 const RECENT_FILES_LIMIT = 60;
+const RECENT_APPS_KEY = 'start-menu-recent-app-ids';
+const RECENT_APPS_LIMIT = 20;
 const SEARCH_LIMIT = 20;
 const INDEX_LIMIT = 20000;
 const INDEX_DEPTH = 8;
@@ -182,6 +184,8 @@ export class StartMenuData {
         this._recentMonitor.connectObject('changed', () => {
             this._isRecentDirty = true;
         }, this);
+
+        this._appSystem.connectObject('app-state-changed', (_system, app) => this._onAppStateChanged(app), this);
 
         this._checkHibernate();
     }
@@ -443,11 +447,20 @@ export class StartMenuData {
             .map(item => item.info);
     }
 
+    _onAppStateChanged(app) {
+        if (app.state === Shell.AppState.STARTING || app.is_window_backed()) return;
+        const id = app.get_id();
+        const ids = [id, ...this._settings.get_strv(RECENT_APPS_KEY).filter(item => item !== id)];
+        this._settings.set_strv(RECENT_APPS_KEY, ids.slice(0, RECENT_APPS_LIMIT));
+    }
+
     recentApps(limit) {
-        const apps = [...this._appSystem.get_running()];
-        for (const app of Shell.AppUsage.get_default().get_most_used()) {
+        const apps = this._lookupApps(this._settings.get_strv(RECENT_APPS_KEY))
+            .filter(app => app.get_app_info().should_show());
+        const fallback = [...this._appSystem.get_running(), ...Shell.AppUsage.get_default().get_most_used()];
+        for (const app of fallback) {
             if (apps.length >= limit) break;
-            if (!apps.includes(app) && app.get_app_info().should_show()) apps.push(app);
+            if (!apps.includes(app) && !app.is_window_backed() && app.get_app_info().should_show()) apps.push(app);
         }
         return apps.slice(0, limit);
     }
@@ -587,6 +600,7 @@ export class StartMenuData {
     }
 
     destroy() {
+        this._appSystem.disconnectObject(this);
         this._recentMonitor.disconnectObject(this);
         this._recentMonitor.cancel();
         this._recentMonitor = null;

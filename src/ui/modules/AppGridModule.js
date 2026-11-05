@@ -26,6 +26,7 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { applyIconFilter } from '../DragDrop.js';
 import { Settings } from '../../core/SettingsManager.js';
+import { isStartMenuEnabled } from '../../core/LayoutMode.js';
 import { getOverviewStateAdjustment, resetOverviewSearch } from '../../core/Compat.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
@@ -200,16 +201,8 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         if (buttonNum === 1) {
             animateIconClick(gridIconBin, Settings.clickEffect);
 
-            if (Settings.hybridPanelMode && Settings.startMenu) {
+            if (isStartMenuEnabled()) {
                 dockUI.toggleStartMenu();
-                if (dockUI.actor) dockUI.actor._suppressZoom = true;
-                return;
-            }
-
-            if (Settings.independentDock) {
-                if (dockUI.appGridUI) {
-                    dockUI.appGridUI.toggle(dockUI.dockPosition);
-                }
                 if (dockUI.actor) dockUI.actor._suppressZoom = true;
                 return;
             }

@@ -263,6 +263,12 @@
       <summary>Minimize Effect</summary>
     </key>
 
+    <key name="minimized-thumbnails" type="b">
+      <default>false</default>
+      <summary>Minimized window thumbnails</summary>
+      <description>Show each minimized window as a live preview in its own dock slot before the Trash, instead of hiding it inside its app icon.</description>
+    </key>
+
     <key name="hover-zoom" type="b">
       <default>false</default>
       <summary>Magnify icons on hover</summary>
@@ -762,6 +768,12 @@
       <default>true</default>
       <summary>Start menu recent apps</summary>
       <description>Show the Recent apps row on the start menu's home page.</description>
+    </key>
+
+    <key name="start-menu-recent-app-ids" type="as">
+      <default>[]</default>
+      <summary>Start menu recent app history</summary>
+      <description>App IDs ordered from the most recently opened or closed, used for the start menu's Recent apps row.</description>
     </key>
 
     <key name="start-menu-continue" type="b">

@@ -41,8 +41,8 @@ const EXIT_END_SCALE = 0.35;
 const EDGE_DRIFT_PX = 14;
 const MIN_MOVE_PX = 1;
 
-const GHOST_TYPES = ['app', 'folder', 'module'];
-const ENTER_TYPES = ['app', 'folder', 'module', 'overflow', 'separator', 'music-pill'];
+const GHOST_TYPES = ['app', 'folder', 'module', 'minimized'];
+const ENTER_TYPES = ['app', 'folder', 'module', 'overflow', 'separator', 'music-pill', 'minimized'];
 
 
 function towardDockEdge(dockPos) {
