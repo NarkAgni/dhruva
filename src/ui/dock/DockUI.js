@@ -83,7 +83,7 @@ const BLUR_SETTING_KEYS = [
 const WATCHED_SETTINGS = [
     'icon-size', 'show-running-indicators', 'hover-zoom', 'hover-zoom-factor',
     'lock-icons', 'show-apps-preview', 'click-effect', 'show-clock', 'use-24h-clock',
-    'clock-position', 'clock-font-size', 'show-desktop-button', 'context-menu-size',
+    'dynamic-calendar-icon', 'clock-position', 'clock-font-size', 'show-desktop-button', 'context-menu-size',
     'big-preview-size', 'minimize-effect', 'minimized-thumbnails', 'stroke-width', 'indicator-style', 'indicator-color',
     'indicator-size', 'indicator-glow', 'isolate-workspaces',
     'isolate-monitors', 'show-notification-badges', 'notification-badge-color-mode', 'notification-badge-color', 'show-app-separator', 'separator-width',
