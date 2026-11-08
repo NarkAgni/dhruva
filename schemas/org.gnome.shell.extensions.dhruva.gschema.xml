@@ -464,6 +464,12 @@
       <summary>JSON array of custom folders</summary>
     </key>
 
+    <key name="dynamic-calendar-icon" type="b">
+      <default>false</default>
+      <summary>Dynamic Calendar Icon</summary>
+      <description>Show the current month and day on the GNOME Calendar app icon in the dock.</description>
+    </key>
+
     <key name="show-clock" type="b">
       <default>false</default>
       <summary>Show Clock</summary>

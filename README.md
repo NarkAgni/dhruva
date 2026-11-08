@@ -134,6 +134,7 @@ Dhruva is a dock for GNOME Shell that you can shape the way you like. Keep it as
 <summary><b>Modules and shortcuts</b></summary>
 <br>
 
+- Optional dynamic GNOME Calendar icon showing the current month and day.
 - App Grid button, clock, Recycle Bin, Show Desktop, Home and other folders, and mounted drives.
 - <kbd>Super</kbd> + <kbd>1</kbd>–<kbd>9</kbd> opens the first nine apps on the dock.
 - Scroll on the dock to switch workspaces, or on an icon to cycle through its windows.

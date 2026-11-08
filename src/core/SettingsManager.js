@@ -159,6 +159,7 @@ const KEYS = {
     gridIconColor: [STRING, 'grid-icon-color'],
     customGridIconScale: [INT, 'custom-grid-icon-scale'],
     showClock: [BOOLEAN, 'show-clock'],
+    dynamicCalendarIcon: [BOOLEAN, 'dynamic-calendar-icon'],
     use24hClock: [BOOLEAN, 'use-24h-clock'],
     clockFontSize: [INT, 'clock-font-size'],
     clockPosition: [STRING, 'clock-position'],

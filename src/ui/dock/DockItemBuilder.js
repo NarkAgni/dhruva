@@ -24,6 +24,7 @@ import Shell from 'gi://Shell';
 import Clutter from 'gi://Clutter';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
+import { createCalendarIcon } from '../modules/CalendarModule.js';
 import FolderMenu from '../folder-menu/FolderMenu.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
@@ -189,7 +190,9 @@ export function buildAppButton(dockUI, app, isRunning, finalActiveWindows, isFoc
 
     const actualMaxZoom = hoverZoom ? (1.0 + (zoomFactor - 1.0) * 2.0) : 1.0;
     const renderSize = Math.ceil(iconSize * actualMaxZoom);
-    const icon = app.create_icon_texture(renderSize);
+    const icon = (Settings.dynamicCalendarIcon && app.get_id() === 'org.gnome.Calendar.desktop')
+        ? createCalendarIcon(getZoomRenderSize(iconSize) * 2)
+        : app.create_icon_texture(renderSize);
     icon.set_size(iconSize, iconSize);
 
     const iconBin = new St.Bin({

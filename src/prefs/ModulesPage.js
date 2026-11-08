@@ -609,6 +609,9 @@ export function buildModulesPage(prefs, window, settings) {
 
     buildFolderList();
 
+    const calendarGroup = addGroup(page, _('Calendar'), _('Current date on the GNOME Calendar app icon, when it is in the dock'));
+    addSwitchRow(calendarGroup, settings, 'dynamic-calendar-icon', _('Dynamic Calendar Icon'));
+
     const clockGroup = addGroup(page, _('Clock'), _('Date and time on the dock. Hidden on side docks'));
     const clockSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
     settings.bind('show-clock', clockSwitch, 'active', Gio.SettingsBindFlags.DEFAULT);
