@@ -41,6 +41,7 @@ const BLACKLISTED_KEYWORDS = [
 const PANEL_KEY = 'tray-panel-indicators';
 const WIDE_KEY = 'tray-wide-indicators';
 const ORDER_KEY = 'tray-order';
+const INLINE_KEY = 'tray-inline';
 const MAX_ICON_SPAN = 1.5;
 
 
@@ -126,7 +127,14 @@ export default class TrayManager {
         return list;
     }
 
+    isInline() {
+        return this._settings.get_boolean(INLINE_KEY);
+    }
+
     _partition() {
+        if (this.isInline()) {
+            return { tray: [], panel: this._liveIndicators() };
+        }
         const pinned = this._choices(PANEL_KEY);
         const wide = this._choices(WIDE_KEY);
         const tray = [];

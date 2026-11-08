@@ -227,12 +227,21 @@ class PanelPreview {
             x -= 20;
         }
 
-        x -= 6;
-        cr.moveTo(x - 10, y + 3);
-        cr.lineTo(x - 5, y - 3);
-        cr.lineTo(x, y + 3);
-        cr.setLineWidth(1.8);
-        cr.stroke();
+        if (this._settings.get_boolean('tray-inline')) {
+            cr.setSourceRGBA(1, 1, 1, 0.65);
+            for (let i = 0; i < 2; i++) {
+                cr.arc(x - 6, y, 4.5, 0, 2 * Math.PI);
+                cr.fill();
+                x -= 14;
+            }
+        } else {
+            x -= 6;
+            cr.moveTo(x - 10, y + 3);
+            cr.lineTo(x - 5, y - 3);
+            cr.lineTo(x, y + 3);
+            cr.setLineWidth(1.8);
+            cr.stroke();
+        }
     }
 
     _paintClock(cr, anchorX, y, isCentered) {
@@ -526,6 +535,8 @@ export function buildPanelPage(window, settings) {
 
     const trayGroup = addGroup(page, _('Tray'),
         _('Small icons from other extensions live behind the arrow. Wide ones like CPU or network speed stay on the bar'));
+    addSwitchRow(trayGroup, settings, 'tray-inline', _('Show Tray Icons Inline'),
+        _('Display tray icons directly on the bar instead of collapsed behind the arrow'));
     const resetRow = new Adw.ActionRow({
         title: _('Tidy Up Tray'),
         subtitle: _('Undo every move and reorder made from the tray'),
@@ -542,13 +553,17 @@ export function buildPanelPage(window, settings) {
     syncReset();
     resetRow.add_suffix(resetBtn);
     trayGroup.add(resetRow);
-    trayGroup.add(new Adw.ActionRow({
+    const pinHintRow = new Adw.ActionRow({
         title: _('Pin an icon to the bar'),
         subtitle: _('Open the tray from the arrow to pin, reorder, or move wide applets into it'),
-    }));
+    });
+    trayGroup.add(pinHintRow);
+    const isCollapsedTray = () => !settings.get_boolean('tray-inline');
+    showWhen(resetRow, settings, ['tray-inline'], isCollapsedTray);
+    showWhen(pinHintRow, settings, ['tray-inline'], isCollapsedTray);
     showWhen(trayGroup, settings, ['hybrid-panel-mode'], isPanel);
 
-    for (const key of ['hybrid-panel-mode', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'panel-workspace-indicator', 'panel-icon-alignment', 'border-radius', 'blur-enabled', DATE_FORMAT_KEY])
+    for (const key of ['hybrid-panel-mode', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'panel-workspace-indicator', 'panel-icon-alignment', 'tray-inline', 'border-radius', 'blur-enabled', DATE_FORMAT_KEY])
         onSettingChanged(settings, key, () => preview.redraw());
     for (const key of ['clock-show-date', 'clock-show-seconds', 'clock-format'])
         onSettingChanged(clockSettings, key, () => preview.redraw());

@@ -88,11 +88,11 @@ export default class ExtensionAppletsManager {
         this.leftBox._isAppletZone = true;
         setBoxVertical(this.leftBox, isVertical);
 
-        let lastWidth = -1;
+        let lastSize = -1;
         this.box.connectObject('notify::allocation', () => {
-            const width = Math.round(this.box.width);
-            if (width > 0 && Math.abs(width - lastWidth) >= 2) {
-                lastWidth = width;
+            const size = Math.round(this.panelIntegrator._isVertical() ? this.box.height : this.box.width);
+            if (size >= 0 && Math.abs(size - lastSize) >= 2) {
+                lastSize = size;
                 this.dockUI.syncPanelSpace();
             }
         }, this);
@@ -136,7 +136,10 @@ export default class ExtensionAppletsManager {
             this._watchedIndicators.add(indicator);
             indicator.connectObject(
                 'notify::visible', () => this._queueResync(),
-                'destroy', () => this._watchedIndicators.delete(indicator),
+                'destroy', () => {
+                    this._watchedIndicators.delete(indicator);
+                    this._queueResync();
+                },
                 this);
             indicator.container.connectObject(
                 'notify::width', () => this._queueResync(),
@@ -229,6 +232,8 @@ export default class ExtensionAppletsManager {
 
     _populate() {
         const dockPos = this.dockUI.dockPosition;
+        const isVertical = this.panelIntegrator._isVertical();
+        const isInline = this.trayManager.isInline();
         this._applets = this._collectApplets();
 
         for (const { actor, indicator, isIconLike } of this._applets) {
@@ -249,7 +254,7 @@ export default class ExtensionAppletsManager {
                 y_align: Clutter.ActorAlign.CENTER,
             });
             this._compactTree(actor);
-            stylePanelItem(this._state, actor, isIconLike);
+            stylePanelItem(this._state, actor, isIconLike, isVertical);
 
             if (indicator.menu) {
                 this._state.connect(indicator.menu, 'open-state-changed', (_menu, isOpen) => {
@@ -266,7 +271,10 @@ export default class ExtensionAppletsManager {
             zone.add_child(actor);
         }
 
-        this.box.add_child(this._arrowButton);
+        if (!isInline) {
+            this.box.add_child(this._arrowButton);
+        }
+        this.box.visible = this.box.get_n_children() > 0;
         this.leftBox.visible = this.leftBox.get_n_children() > 0;
         this._snapshot = this.trayManager.snapshot();
         this._watchIndicators();
@@ -299,6 +307,7 @@ export default class ExtensionAppletsManager {
 
     refresh() {
         if (!isActorAlive(this.box)) return;
+        this._closeTray();
         this._releaseApplets();
         this._populate();
         this.dockUI.syncPanelSpace();

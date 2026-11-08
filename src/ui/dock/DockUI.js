@@ -479,6 +479,12 @@ export default class DockUI {
 
         this._connectSettings(['grid-button-position', 'show-grid-button'], () => this.queueRender('full', true));
 
+        this._connectSettings(['tray-inline'], () => {
+            if (this.panelIntegrator) {
+                this.panelIntegrator.refreshApplets();
+            }
+        });
+
         this._connectSettings(['show-music-pill', 'music-pill-position'], () => {
             if (this.musicPill) {
                 this.musicPill.destroy();
