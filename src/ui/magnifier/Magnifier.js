@@ -39,8 +39,7 @@ function _watchTooltipPointer(dockActor, settings) {
     if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
 
     dockActor._tooltipWatchId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, TOOLTIP_WATCH_MS, () => {
-        const tooltip = dockActor._magTooltip;
-        if (!isActorAlive(dockActor) || !tooltip || !tooltip.visible) {
+        if (!isActorAlive(dockActor)) {
             dockActor._tooltipWatchId = null;
             return GLib.SOURCE_REMOVE;
         }
@@ -48,12 +47,16 @@ function _watchTooltipPointer(dockActor, settings) {
 
         const [px, py] = global.get_pointer();
         const isVertical = getBoxVertical(dockActor.boxActor);
-        const isNear = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings) ||
+        const onDock = isPointerWithinDockBounds(dockActor, px, py, isVertical, settings);
+        const isNear = onDock ||
             isInsideTooltip(dockActor, px, py, TOOLTIP_EXIT_PAD) ||
             isPointerInDockTooltipBridge(dockActor, px, py, settings);
-        if (isNear) return GLib.SOURCE_CONTINUE;
+        const tooltipShown = Boolean(dockActor._magTooltip && dockActor._magTooltip.visible);
+        if (isNear && tooltipShown) return GLib.SOURCE_CONTINUE;
 
         dockActor._tooltipWatchId = null;
+        if (onDock) return GLib.SOURCE_REMOVE;
+
         hideTooltip(dockActor);
         if (!dockActor._isResetting) {
             dockActor._isResetting = true;

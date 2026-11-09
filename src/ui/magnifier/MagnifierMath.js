@@ -38,10 +38,6 @@ export function getDockButtons(dockActor) {
 
     const buttons = [];
 
-    if (dockActor.gridBtn && isActorAlive(dockActor.gridBtn) && dockActor.gridBtn.get_parent() === dockActor) {
-        buttons.push(dockActor.gridBtn);
-    }
-
     box.get_children().forEach(c => {
         if (!isActorAlive(c) || !c.visible) return;
         const sClass = c.get_style_class_name ? c.get_style_class_name() : (c.style_class || '');

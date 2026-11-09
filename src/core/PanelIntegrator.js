@@ -24,6 +24,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import ClockBox from './panel/ClockBox.js';
 import TrayManager from './panel/TrayManager.js';
+import { Settings } from './SettingsManager.js';
 import TopBarManager from './panel/TopBarManager.js';
 import DateMenuManager from './panel/DateMenuManager.js';
 import { isActorAlive, setBoxVertical } from './Utils.js';
@@ -148,6 +149,13 @@ export default class PanelIntegrator {
 
         btn.connectObject('clicked', () => Main.overview.toggle(), this);
 
+        btn.visible = Settings.panelWorkspaceIndicator;
+        this.dockUI.settings.connectObject('changed::panel-workspace-indicator', () => {
+            btn.visible = Settings.panelWorkspaceIndicator;
+            this.dockUI.updateLayout();
+            this.dockUI.checkPanelOverflow();
+        }, btn);
+
         this._overviewBtn = btn;
         this._updateWorkspacePills();
         return btn;
@@ -245,6 +253,10 @@ export default class PanelIntegrator {
 
     _disconnectWorkspaceSignals() {
         global.workspace_manager.disconnectObject(this);
+    }
+
+    hasStartItems() {
+        return this.leftContainer.get_children().some(c => c.visible && c.get_n_children() > 0);
     }
 
     alignItems() {

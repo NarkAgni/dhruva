@@ -31,11 +31,11 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { applyIconFilter } from '../DragDrop.js';
 import { buildClockModule } from './ClockModule.js';
 import { buildTrashModule } from './TrashModule.js';
+import { userCacheDir } from '../../core/DataPaths.js';
 import { buildAppGridModule } from './AppGridModule.js';
 import ScrollManager from '../../core/ScrollManager.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { isPanelOrFullWidth } from '../../core/LayoutMode.js';
-import { userCacheDir } from '../../core/DataPaths.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
 import { buildSystemFoldersModule } from './SystemFoldersModule.js';
@@ -43,7 +43,7 @@ import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import { animateMinimize, animateRestore } from '../effects/WindowEffects.js';
 import { getIndicatorProps, filterActiveWindows } from '../dock/DockRenderer.js';
 import { buildDesktopButtonModule, toggleDesktop } from './DesktopButtonModule.js';
-import { createIndicatorBox, attachHoverBackground } from '../dock/DockButtonBase.js';
+import { createIndicatorBox, attachHoverBackground, attachCrispIcon } from '../dock/DockButtonBase.js';
 
 
 const EMOJI_TEXTURE_SIZE = 128;
@@ -97,7 +97,7 @@ function isWindowForFolder(w, folderPath, folderName) {
     return false;
 }
 
-function getCrispEmojiIcon(emojiText, renderSize) {
+function getCrispEmojiIcon(emojiText, size) {
     const emojiDir = userCacheDir('emoji');
     GLib.mkdir_with_parents(emojiDir, 0o755);
 
@@ -124,7 +124,7 @@ function getCrispEmojiIcon(emojiText, renderSize) {
 
     return new St.Icon({
         gicon: Gio.FileIcon.new(emojiFile),
-        icon_size: renderSize,
+        icon_size: size,
         style_class: 'dock-grid-icon'
     });
 }
@@ -172,7 +172,7 @@ export function buildModules(dockUI, iconSize) {
 
         if (isEmoji) {
             const cleanEmoji = iconOrName.replace('emoji:', '');
-            iconActor = getCrispEmojiIcon(cleanEmoji, renderSize);
+            iconActor = getCrispEmojiIcon(cleanEmoji, modIconSize);
             iconActor.set_size(modIconSize, modIconSize);
         } else if (isCustomFile) {
             const cleanPath = iconOrName.replace('file://', '');
@@ -181,13 +181,13 @@ export function buildModules(dockUI, iconSize) {
             if (gfile.query_exists(null)) {
                 iconActor = new St.Icon({
                     gicon: Gio.FileIcon.new(gfile),
-                    icon_size: renderSize,
+                    icon_size: modIconSize,
                     style_class: 'dock-grid-icon'
                 });
             } else {
                 iconActor = new St.Icon({
                     icon_name: 'folder',
-                    icon_size: renderSize,
+                    icon_size: modIconSize,
                     style_class: 'dock-grid-icon'
                 });
             }
@@ -197,7 +197,7 @@ export function buildModules(dockUI, iconSize) {
             const gicon = isString ? Gio.ThemedIcon.new(finalName) : finalName;
             iconActor = new St.Icon({
                 gicon,
-                icon_size: renderSize,
+                icon_size: modIconSize,
                 style_class: 'dock-grid-icon'
             });
             iconActor.set_size(modIconSize, modIconSize);
@@ -287,6 +287,7 @@ export function buildModules(dockUI, iconSize) {
         btn.set_style('background-color: transparent;');
         btn._appBox = appBox;
         btn._indicatorActor = dotBox;
+        attachCrispIcon(btn, iconActor, modIconSize, renderSize);
 
         const dims = { iconSize, pad, expandedDim, collapsedDim, isVerticalDock: isVertical };
         btn._dims = dims;

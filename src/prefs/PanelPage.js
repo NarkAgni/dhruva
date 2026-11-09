@@ -121,11 +121,14 @@ class PanelPreview {
         const isDynamic = this._settings.get_boolean('dynamic-panel');
         const dynLen = this._settings.get_int('dynamic-panel-length');
 
+        const showWorkspaces = this._settings.get_boolean('panel-workspace-indicator');
+        const workspacesSpan = showWorkspaces ? WORKSPACES_W + ITEM_GAP : 0;
+
         if (isDynamic) {
             const appSize = 20;
             const appGap = 6;
             const statusW = this._clockWidth(cr) + STATUS_ICONS_W;
-            const contentW = DYN_PAD * 2 + WORKSPACES_W + ITEM_GAP * 2 + this._appsWidth(appSize, appGap) + statusW;
+            const contentW = DYN_PAD * 2 + workspacesSpan + ITEM_GAP + this._appsWidth(appSize, appGap) + statusW;
             const minBarW = Math.min(w - 16, Math.max(360, contentW));
             const targetW = dynLen > 0 ? Math.max(minBarW, Math.round(w * (dynLen / 100.0))) : minBarW;
             const barW = Math.min(w - 12, targetW);
@@ -143,9 +146,9 @@ class PanelPreview {
             cr.fill();
 
             const centerY = dynY + BAR_HEIGHT / 2;
-            const corridorStart = barX + DYN_PAD + WORKSPACES_W + ITEM_GAP;
+            const corridorStart = barX + DYN_PAD + workspacesSpan;
             const corridorEnd = barX + barW - DYN_PAD - statusW - ITEM_GAP;
-            this._paintWorkspaces(cr, barX + DYN_PAD, centerY);
+            if (showWorkspaces) this._paintWorkspaces(cr, barX + DYN_PAD, centerY);
             this._paintApps(cr, (corridorStart + corridorEnd) / 2, centerY, appSize, appGap);
             this._paintStatus(cr, barX + barW - DYN_PAD, centerY);
             return;
@@ -159,8 +162,13 @@ class PanelPreview {
         const centerY = barY + BAR_HEIGHT / 2;
         const appsHalf = this._appsWidth(26, 8) / 2;
         const statusStart = w - 14 - this._clockWidth(cr) - STATUS_ICONS_W;
-        const appsCenter = Math.max(16 + WORKSPACES_W + ITEM_GAP + appsHalf, Math.min(w / 2, statusStart - ITEM_GAP - appsHalf));
-        this._paintWorkspaces(cr, 16, centerY);
+        const minCenter = 16 + workspacesSpan + appsHalf;
+        const maxCenter = statusStart - ITEM_GAP - appsHalf;
+        const alignment = this._settings.get_string('panel-icon-alignment');
+        let appsCenter = Math.max(minCenter, Math.min(w / 2, maxCenter));
+        if (alignment === 'START') appsCenter = minCenter;
+        else if (alignment === 'END') appsCenter = Math.max(minCenter, maxCenter);
+        if (showWorkspaces) this._paintWorkspaces(cr, 16, centerY);
         this._paintApps(cr, appsCenter, centerY, 26, 8);
         this._paintStatus(cr, w - 14, centerY);
     }
@@ -419,6 +427,16 @@ export function buildPanelPage(window, settings) {
     heroGroup.set_header_suffix(enableSwitch);
     heroGroup.add(preview.widget);
 
+    const layoutGroup = addGroup(page, _('Panel Layout'));
+    addSwitchRow(layoutGroup, settings, 'panel-workspace-indicator', _('Workspace Indicator'),
+        _('Show the workspace pills at the start of the panel'));
+    const alignmentRow = addSegmentedRow(layoutGroup, settings, 'panel-icon-alignment', _('Icon Alignment'),
+        _('Where app icons and the start menu button sit'), [
+            { name: _('Start'), value: 'START' },
+            { name: _('Center'), value: 'CENTER' },
+            { name: _('End'), value: 'END' },
+        ]);
+
     const dynamicGroup = addGroup(page, _('Dynamic Panel (Dock + Panel)'),
         _('Shrink the panel to fit its contents like a floating dock while keeping all panel applets and controls'));
 
@@ -469,6 +487,8 @@ export function buildPanelPage(window, settings) {
     showWhen(positionRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
     showWhen(radiusRow, settings, ['hybrid-panel-mode', 'dynamic-panel'], isDynamicActive);
     showWhen(dynamicGroup, settings, ['hybrid-panel-mode'], isPanel);
+    showWhen(layoutGroup, settings, ['hybrid-panel-mode'], isPanel);
+    showWhen(alignmentRow, settings, ['dynamic-panel'], () => !settings.get_boolean('dynamic-panel'));
 
     const startGroup = addGroup(page, _('Start Menu'), _('Opens from the App Grid button in Panel mode and always in Independent mode'));
     const startMenuRow = addSwitchRow(startGroup, settings, 'start-menu', _('Dhruva Start Menu'),
@@ -528,7 +548,7 @@ export function buildPanelPage(window, settings) {
     }));
     showWhen(trayGroup, settings, ['hybrid-panel-mode'], isPanel);
 
-    for (const key of ['hybrid-panel-mode', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'border-radius', 'blur-enabled', DATE_FORMAT_KEY])
+    for (const key of ['hybrid-panel-mode', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'panel-workspace-indicator', 'panel-icon-alignment', 'border-radius', 'blur-enabled', DATE_FORMAT_KEY])
         onSettingChanged(settings, key, () => preview.redraw());
     for (const key of ['clock-show-date', 'clock-show-seconds', 'clock-format'])
         onSettingChanged(clockSettings, key, () => preview.redraw());

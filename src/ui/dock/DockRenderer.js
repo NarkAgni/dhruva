@@ -25,22 +25,22 @@ import Shell from 'gi://Shell';
 import { MusicPill } from '../modules/MusicPill.js';
 import { updateLayout } from './DockLayoutEngine.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { isDynamicPanelLayout, isPanelOrFullWidth } from '../../core/LayoutMode.js';
 import { buildModules } from '../modules/DockModules.js';
 import WorkspaceFilter from '../../core/WorkspaceFilter.js';
 import { applyDynamicStyles } from './DockThemeResolver.js';
+import { minimizeOrder } from '../effects/WindowEffects.js';
 import { setupMagnification } from '../magnifier/Magnifier.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
+import { buildMinimizedWindowButton } from './MinimizedWindowButton.js';
 import { applyRealtimeFrame } from '../magnifier/MagnifierFrameEngine.js';
 import { isPointerWithinDockBounds } from '../magnifier/MagnifierMath.js';
-import { setEdgePivot, counterScaleButtonIndicators } from './DockButtonBase.js';
 import { DockOverflowMenu, OVERFLOW_BUTTON_KEY } from './DockOverflowMenu.js';
+import { setEdgePivot, counterScaleButtonIndicators } from './DockButtonBase.js';
+import { isDynamicPanelLayout, isPanelOrFullWidth } from '../../core/LayoutMode.js';
 import { resetMagnification, teardownMagnification } from '../magnifier/MagnifierReset.js';
 import { isActorAlive, markActorDisposed, extractIconDominantColor } from '../../core/Utils.js';
 import { captureDockTransition, releaseRemovedItems, playDockTransition } from './DockTransitions.js';
 import { createSeparator, separatorPrefix, buildAppButton, buildFolderButton } from './DockItemBuilder.js';
-import { buildMinimizedWindowButton } from './MinimizedWindowButton.js';
-import { minimizeOrder } from '../effects/WindowEffects.js';
 
 
 const POST_CLICK_DELAY_MS = 860;
@@ -193,14 +193,12 @@ function _computeDesiredState(dockUI) {
     const showClock = Settings.showClock && !dockUI.isOverviewActive;
     const showGridBtn = Settings.showGridButton;
 
-    const rawGridPos = Settings.gridButtonPosition || 'END';
-    const gridPos = (rawGridPos === 'LEFT_EDGE' && !isPanelOrFull) ? 'START' : rawGridPos;
+    const gridPos = Settings.gridButtonPosition || 'END';
 
     const rawClockPos = Settings.clockPosition || 'END';
     const clockPos = (rawClockPos === 'RIGHT_END' && !isPanelOrFull) ? 'END' : rawClockPos;
 
     const extractClock = isPanelOrFull && clockPos === 'RIGHT_END';
-    const extractGrid = isPanelOrFull && gridPos === 'LEFT_EDGE';
 
     const showMusicPill = Settings.showMusicPill;
     const musicPillPos = Settings.musicPillPosition || 'START';
@@ -211,7 +209,7 @@ function _computeDesiredState(dockUI) {
     if (!extractClock && clockPos === 'START' && showClock) {
         startModuleKeys.push({ key: 'dhruva-clock', type: 'clock', entity: null });
     }
-    if (showGridBtn && gridPos === 'START' && !extractGrid) {
+    if (showGridBtn && gridPos === 'START') {
         startModuleKeys.push({ key: 'dhruva-grid-button', type: 'grid', entity: null });
     }
     if (startModuleKeys.length > 0) {
@@ -373,7 +371,7 @@ function _computeDesiredState(dockUI) {
         endModuleKeys.push({ key: 'dhruva-sys-trash', type: 'module', entity: 'user-trash' });
     }
 
-    if (showGridBtn && gridPos === 'END' && !extractGrid) {
+    if (showGridBtn && gridPos === 'END') {
         endModuleKeys.push({ key: 'dhruva-grid-button', type: 'grid', entity: null });
     }
 
@@ -440,8 +438,10 @@ function _measureFreeCorridor(dockUI, isVertical) {
     const leftBox = dockUI.panelIntegrator.leftContainer;
     const rightBox = dockUI.panelIntegrator.container;
     const isDynamicPanel = isDynamicPanelLayout();
+    const hasStartItems = dockUI.panelIntegrator.hasStartItems();
 
-    const gapStart = isDynamicPanel ? 16 : (isVertical ? cfg.DOCK_GAP_AFTER_LEFT_VERTICAL : cfg.DOCK_GAP_AFTER_LEFT);
+    const fullGapStart = isVertical ? cfg.DOCK_GAP_AFTER_LEFT_VERTICAL : cfg.DOCK_GAP_AFTER_LEFT;
+    const gapStart = hasStartItems ? (isDynamicPanel ? 16 : fullGapStart) : 0;
     const gapEnd = isDynamicPanel ? 16 : (isVertical ? cfg.DOCK_GAP_BEFORE_RIGHT_VERTICAL : cfg.DOCK_GAP_BEFORE_RIGHT);
 
     const monitor = dockUI.monitorManager.getCurrentMonitor().monitor;
@@ -460,7 +460,7 @@ function _measureFreeCorridor(dockUI, isVertical) {
             deskSpan = Math.max(minCornerWidth, (rawWidth !== undefined && rawWidth !== null && rawWidth > 0) ? rawWidth : 12) + 8;
         }
 
-        let leftSpan = Math.max(isVertical ? 20 : 30, Math.round(_naturalSpan(leftBox, isVertical) || 0));
+        let leftSpan = hasStartItems ? Math.max(isVertical ? 20 : 30, Math.round(_naturalSpan(leftBox, isVertical) || 0)) : 0;
         let rightSpan = 30;
         if (isActorAlive(rightBox)) {
             const visibleChildren = rightBox.get_children().filter(c => {
@@ -479,12 +479,13 @@ function _measureFreeCorridor(dockUI, isVertical) {
             rightSpan = Math.max(itemsSpan + spacingSum, 30);
         }
 
-        const outerPad = 20;
+        const outerPad = hasStartItems ? 20 : 10;
         return Math.max(0, maxAllowedSpan - leftSpan - gapStart - rightSpan - gapEnd - deskSpan - outerPad);
     }
 
-    const leftStart = isVertical ? leftBox.y : leftBox.x;
-    const leftSize = isVertical ? leftBox.height : leftBox.width;
+    const bg = dockUI.bgActor;
+    const leftStart = hasStartItems ? (isVertical ? leftBox.y : leftBox.x) : (isVertical ? bg.y : bg.x);
+    const leftSize = hasStartItems ? (isVertical ? leftBox.height : leftBox.width) : DOCK_BOX_EDGE_PADDING;
     const rightStart = isVertical ? rightBox.y : rightBox.x;
 
     if (leftSize > 0 && rightStart > 0) {
@@ -494,7 +495,8 @@ function _measureFreeCorridor(dockUI, isVertical) {
     if (!monitor) return Infinity;
 
     const screenSpan = isVertical ? monitor.height : monitor.width;
-    return screenSpan - _naturalSpan(leftBox, isVertical) - gapStart - _naturalSpan(rightBox, isVertical) - gapEnd;
+    const leftSpan = hasStartItems ? _naturalSpan(leftBox, isVertical) : 0;
+    return screenSpan - leftSpan - gapStart - _naturalSpan(rightBox, isVertical) - gapEnd;
 }
 
 function _trimSeparators(items) {

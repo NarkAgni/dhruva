@@ -30,7 +30,7 @@ import { isStartMenuEnabled } from '../../core/LayoutMode.js';
 import { getOverviewStateAdjustment, resetOverviewSearch } from '../../core/Compat.js';
 import AppContextMenu from '../context-menu/AppContextMenu.js';
 import { animateIconClick } from '../effects/IconClickEffect.js';
-import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg, getPreviewBoxOpacity, previewBoxColor } from '../dock/DockButtonBase.js';
+import { getHoverBgRadius, hoverBgStyle, setHoverBgLength, scaleHoverBg, getPreviewBoxOpacity, previewBoxColor, attachCrispIcon } from '../dock/DockButtonBase.js';
 
 
 const OVERVIEW_APPS_EASE_DURATION_MS = 250;
@@ -65,20 +65,20 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
         const gfile = Gio.File.new_for_path(customIconPath);
         gridIcon = new St.Icon({
             gicon: new Gio.FileIcon({ file: gfile }),
-            icon_size: 256,
+            icon_size: gridIconSize,
             style_class: 'dock-grid-icon'
         });
     } else if (useOldIcon || !hasLogo) {
         gridIcon = new St.Icon({
             icon_name: 'view-app-grid-symbolic',
-            icon_size: gridRenderSize,
+            icon_size: gridIconSize,
             style_class: 'dock-grid-icon'
         });
     } else {
         const gfile = Gio.File.new_for_path(logoPath);
         gridIcon = new St.Icon({
             gicon: new Gio.FileIcon({ file: gfile }),
-            icon_size: gridRenderSize,
+            icon_size: gridIconSize,
             style_class: 'dock-grid-icon'
         });
     }
@@ -92,7 +92,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
 
     const isLogoActive = !hasCustomIcon && !useOldIcon && hasLogo;
     const gridPos = Settings.gridButtonPosition || 'END';
-    const isStartPos = gridPos === 'START' || gridPos === 'LEFT_EDGE';
+    const isStartPos = gridPos === 'START';
     const shouldFlip = isLogoActive && isStartPos;
 
     gridIcon._baseScaleX = shouldFlip ? -1.0 : 1.0;
@@ -161,6 +161,7 @@ export function buildAppGridModule(dockUI, iconSize, actualMaxZoom) {
     gridModule.set_pivot_point(0.5, 0.5);
     gridModule._hasRunningIndicator = false;
     gridModule._isGridBtn = true;
+    attachCrispIcon(gridModule, gridIcon, gridIconSize, gridRenderSize);
     gridModule.set_style('background-color: transparent;');
 
     gridModule.connectObject('notify::hover', () => {

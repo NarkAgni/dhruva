@@ -69,6 +69,8 @@ const KEYS = {
     dynamicPanel: [BOOLEAN, 'dynamic-panel'],
     dynamicPanelLength: [INT, 'dynamic-panel-length'],
     dynamicPanelPosition: [STRING, 'dynamic-panel-position'],
+    panelWorkspaceIndicator: [BOOLEAN, 'panel-workspace-indicator'],
+    panelIconAlignment: [STRING, 'panel-icon-alignment'],
     iconAlignment: [STRING, 'icon-alignment'],
     dockMargin: [INT, 'dock-margin'],
     iconSize: [INT, 'icon-size'],

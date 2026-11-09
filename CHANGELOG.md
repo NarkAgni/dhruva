@@ -1,3 +1,15 @@
+## [5.2.2] - 09-11-2026
+
+### New
+* **Panel Layout Options (#119):** A new Panel Layout group under Panel. Workspace Indicator hides the workspace pills at the start of the panel, and the icons move up to the edge in their place. Icon Alignment places the app icons and the start menu button at the Start, Center or End of the panel, like the Full Width dock already could. In Dynamic Panel mode the panel also gets shorter when the pills are hidden. Icon Alignment is only for the full panel, since the dynamic panel already has its own Position setting.
+
+### Improved
+* **App Launcher Position:** The Far Edge option under Modules → App Launcher → Position is gone. In Full Width and Panel mode it made the App Grid button disappear instead of moving it to the edge. If you had it selected, the button now sits at the Start.
+
+### Fixed
+* **Blurry Icons (#124):** With hover zoom on, dock icons looked slightly soft while resting and only became sharp when zoomed. They were drawn at their full zoomed size and squeezed down to fit, which smeared fine details on icons like Chrome or BleachBit. Icons now load at the exact size they are shown at and only switch to a larger copy while hover zoom makes them bigger, so they are as crisp at rest as they are when zoomed. This covers app icons, module icons and the App Grid button.
+* **Zoom Not Resetting After Maximizing from a Preview (#120):** Pressing maximize on a window preview, or clicking a preview to switch to that window, left the dock icons zoomed in. The dock now settles back as soon as the preview closes and the pointer is away from it.
+
 ## [5.2.0] - 02-11-2026
 
 ### New

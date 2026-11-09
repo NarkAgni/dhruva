@@ -425,6 +425,10 @@
     </key>
 
     <key name="grid-button-position" type="s">
+      <choices>
+        <choice value='START'/>
+        <choice value='END'/>
+      </choices>
       <default>'START'</default>
       <summary>Grid Button Position</summary>
     </key>
@@ -967,6 +971,23 @@
       <default>'CENTER'</default>
       <summary>Dynamic Panel Screen Position</summary>
       <description>Position of the dynamic dock-panel along the screen edge (START, CENTER, or END).</description>
+    </key>
+
+    <key name="panel-workspace-indicator" type="b">
+      <default>true</default>
+      <summary>Panel Workspace Indicator</summary>
+      <description>Show the workspace pills at the start of the panel in Panel Mode.</description>
+    </key>
+
+    <key name="panel-icon-alignment" type="s">
+      <choices>
+        <choice value='START'/>
+        <choice value='CENTER'/>
+        <choice value='END'/>
+      </choices>
+      <default>'CENTER'</default>
+      <summary>Panel Icon Alignment</summary>
+      <description>Where app icons and the start menu button sit along the full panel (START, CENTER, or END). Not used by the dynamic panel.</description>
     </key>
 
     <key name="tray-panel-indicators" type="as">

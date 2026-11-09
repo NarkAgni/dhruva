@@ -99,7 +99,7 @@ const WATCHED_SETTINGS = [
 const STYLE_SETTINGS = [
     'background-color', 'background-opacity', 'context-menu-opacity', 'border-radius', 'stroke-color', 'stroke-opacity',
     'icon-spacing', 'dock-theme', 'use-gradient', 'background-gradient-color',
-    'gradient-direction', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position'
+    'gradient-direction', 'dynamic-panel', 'dynamic-panel-length', 'dynamic-panel-position', 'panel-icon-alignment'
 ];
 
 export default class DockUI {

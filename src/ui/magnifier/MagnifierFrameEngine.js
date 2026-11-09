@@ -25,14 +25,14 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import { isActorAlive } from '../../core/Utils.js';
 import PeekManager from '../../core/PeekManager.js';
 import { Settings } from '../../core/SettingsManager.js';
-import { isDynamicPanelLayout, isFullBarLayout } from '../../core/LayoutMode.js';
 import { FrameTicker } from '../../core/FrameTicker.js';
 import { resetMagnification } from './MagnifierReset.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { isContextMenuOpen, isStartMenuOpen } from './MagnifierState.js';
-import { getDockButtons, getFixedSlots, easeOutCirc, isStaticItem, axisSpan, getPanelSideActors } from './MagnifierMath.js';
-import { setEdgePivot, counterScaleIndicator } from '../dock/DockButtonBase.js';
+import { isDynamicPanelLayout, isFullBarLayout } from '../../core/LayoutMode.js';
+import { setEdgePivot, counterScaleIndicator, setCrispIconHiRes } from '../dock/DockButtonBase.js';
 import { createTooltipActor, populateTooltipContent, resumeTooltipTracking } from './MagnifierTooltipRenderer.js';
+import { getDockButtons, getFixedSlots, easeOutCirc, isStaticItem, axisSpan, getPanelSideActors } from './MagnifierMath.js';
 import { TOOLTIP_GAP, clearTooltipDelay, hideTooltip, isInsideTooltip, isPointerInDockTooltipBridge } from './MagnifierTooltip.js';
 
 
@@ -45,6 +45,7 @@ const STAGE_EDGE_MARGIN = 8;
 const REFERENCE_FRAME_MS = 1000 / 60;
 const PANEL_CORRIDOR_GAP = 8;
 const DOCK_BG_BUFFER = 16;
+const CRISP_HIRES_SCALE = 1.01;
 
 function smoothstep(edge0, edge1, x) {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -704,6 +705,7 @@ export function applyRealtimeFrame(dockActor, cx, cy, isVertical, settings, now 
             b.rotation_angle_z = smoothAngleZ;
             b.rotation_angle_y = smoothAngleY;
             b.rotation_angle_x = smoothAngleX;
+            setCrispIconHiRes(b, smoothScaleX > CRISP_HIRES_SCALE || smoothScaleY > CRISP_HIRES_SCALE);
         }
 
         b[lateralAxis] = smoothLateral;

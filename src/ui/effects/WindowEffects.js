@@ -37,6 +37,8 @@ import { MagicLampMinimize, MagicLampRestore } from './GenieEffect.js';
 const MIN_EFFECT_NAME = 'we-minimize-effect';
 const UNMIN_EFFECT_NAME = 'we-unminimize-effect';
 const DEFAULT_EFFECT_DURATION_MS = 350;
+const LAUNCH_DURATION_RATIO = 0.4;
+const LAUNCH_MAX_DURATION_MS = 250;
 
 let _pendingActor = null;
 let _pendingButton = null;
@@ -54,7 +56,6 @@ let _effectIdleId = 0;
 let _origShouldAnimate = null;
 let _origCompletedMinimize = null;
 let _origCompletedUnminimize = null;
-let _origCompletedMap = null;
 
 const _hiddenThumbs = new Set();
 let _minimizeStamps = new WeakMap();
@@ -152,6 +153,10 @@ function _getEffectDuration() {
     return (Number.isFinite(val) && val >= 50) ? val : DEFAULT_EFFECT_DURATION_MS;
 }
 
+function _getLaunchDuration() {
+    return Math.min(LAUNCH_MAX_DURATION_MS, Math.round(_getEffectDuration() * LAUNCH_DURATION_RATIO));
+}
+
 function _addAnimatingActor(actor) {
     if (!_animatingActors.includes(actor)) {
         _animatingActors.push(actor);
@@ -218,8 +223,7 @@ function _makeMinimize(iconPos, dockPos, type) {
     return _applyEffectDuration(effect, duration);
 }
 
-function _makeRestore(iconPos, dockPos, type) {
-    const duration = _getEffectDuration();
+function _makeRestore(iconPos, dockPos, type, duration = _getEffectDuration()) {
     let effect;
     switch (type) {
         case 'magic-lamp': effect = new MagicLampRestore(iconPos, dockPos); break;
@@ -266,10 +270,6 @@ function _completeUnminimize(actor) {
     if (_origCompletedUnminimize) _origCompletedUnminimize.call(global.window_manager, actor);
 }
 
-function _completeMap(actor) {
-    if (_origCompletedMap) _origCompletedMap.call(global.window_manager, actor);
-}
-
 function _patchWm() {
     if (_origShouldAnimate) return;
     if (!getWindowAnimationFilter()) return;
@@ -299,12 +299,6 @@ function _patchWm() {
         if (actor === _pendingActor || _animatingActors.includes(actor)) return;
         _origCompletedUnminimize.call(this, actor);
     };
-
-    _origCompletedMap = shellwm.completed_map;
-    shellwm.completed_map = function (actor) {
-        if (_animatingActors.includes(actor)) return;
-        _origCompletedMap.call(this, actor);
-    };
 }
 
 function _unpatchWm() {
@@ -313,12 +307,10 @@ function _unpatchWm() {
         setWindowAnimationFilter(_origShouldAnimate);
         shellwm.completed_minimize = _origCompletedMinimize;
         shellwm.completed_unminimize = _origCompletedUnminimize;
-        shellwm.completed_map = _origCompletedMap;
 
         _origShouldAnimate = null;
         _origCompletedMinimize = null;
         _origCompletedUnminimize = null;
-        _origCompletedMap = null;
     }
 }
 
@@ -331,12 +323,8 @@ export function finishMinimizeEffect(actor) {
 export function finishRestoreEffect(actor) {
     _removeAnimatingActor(actor);
     if (isActorAlive(actor)) {
-        if (actor._isDhruvaLaunching) {
-            actor._isDhruvaLaunching = false;
-            _completeMap(actor);
-        } else {
-            _completeUnminimize(actor);
-        }
+        if (actor._isDhruvaLaunching) actor._isDhruvaLaunching = false;
+        else _completeUnminimize(actor);
     }
 }
 
@@ -539,10 +527,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     if (!isActorAlive(actor)) return;
 
     const type = (_settings && Settings.minimizeEffect) || 'magic-lamp';
-    if (type === 'none') {
-        _completeMap(actor);
-        return;
-    }
+    if (type === 'none') return;
 
     _addAnimatingActor(actor);
     actor._isDhruvaLaunching = true;
@@ -555,7 +540,7 @@ export function animateLaunch(win, btn, _dockPosition, iconRect = null) {
     const resolvedIconRect = tracker() || iconRect || captureActorRect(btn, win);
     actor.show();
     actor.set_opacity(255);
-    _startEffect(actor, UNMIN_EFFECT_NAME, _makeRestore(resolvedIconRect, _dockPosition, type), tracker);
+    _startEffect(actor, UNMIN_EFFECT_NAME, _makeRestore(resolvedIconRect, _dockPosition, type, _getLaunchDuration()), tracker);
 }
 
 export function fadeMinimize(win) {

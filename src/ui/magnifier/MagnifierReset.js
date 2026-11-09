@@ -24,6 +24,7 @@ import { isActorAlive } from '../../core/Utils.js';
 import { getDockButtons } from './MagnifierMath.js';
 import { isFullBarLayout } from '../../core/LayoutMode.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { setCrispIconHiRes } from '../dock/DockButtonBase.js';
 import { clearTooltipDelay, hideTooltip } from './MagnifierTooltip.js';
 
 
@@ -84,7 +85,8 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
             rotation_angle_y: 0,
             rotation_angle_x: 0,
             duration,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => setCrispIconHiRes(b, false)
         });
 
         const appBox = b.get_child ? b.get_child() : null;

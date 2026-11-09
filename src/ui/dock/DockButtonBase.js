@@ -112,6 +112,19 @@ export function createBaseButtonContainer(appBox) {
     return btn;
 }
 
+export function attachCrispIcon(btn, icon, restSize, zoomSize) {
+    btn._crispIcon = icon;
+    btn._crispRestSize = restSize;
+    btn._crispZoomSize = zoomSize;
+    btn._crispHiRes = false;
+}
+
+export function setCrispIconHiRes(btn, hiRes) {
+    if (!btn._crispIcon || btn._crispHiRes === hiRes || !isActorAlive(btn._crispIcon)) return;
+    btn._crispHiRes = hiRes;
+    btn._crispIcon.set_icon_size(hiRes ? btn._crispZoomSize : btn._crispRestSize);
+}
+
 const EDGE_PIVOTS = {
     BOTTOM: [0.5, 1.0],
     TOP: [0.5, 0.0],

@@ -130,7 +130,9 @@ export function updateLayout(dockUI) {
     const isFullWidth = isFullBarLayout();
     const pos = dockUI.dockPosition;
     const isVertical = pos === 'LEFT' || pos === 'RIGHT';
-    const alignment = isHybrid ? 'CENTER' : (Settings.iconAlignment || 'CENTER');
+    const panelAlignment = isDynamicPanel ? 'CENTER' : (Settings.panelIconAlignment || 'CENTER');
+    const alignment = isHybrid ? panelAlignment : (Settings.iconAlignment || 'CENTER');
+    const hasStartItems = Boolean(isHybrid && dockUI.panelIntegrator && dockUI.panelIntegrator.hasStartItems());
     const monitorResult = dockUI.monitorManager.getCurrentMonitor();
 
     if (!monitorResult || !monitorResult.monitor) return;
@@ -153,16 +155,6 @@ export function updateLayout(dockUI) {
     const boxPrefH = dockUI.boxActor.get_preferred_height(-1);
     let boxW = boxPrefW[1] || DEFAULT_BOX_SIZE;
     let boxH = boxPrefH[1] || DEFAULT_BOX_SIZE;
-
-    const isGridExtracted = isFullWidth && (Settings.gridButtonPosition === 'LEFT_EDGE');
-    let gridW = 0;
-    let gridH = 0;
-    if (dockUI.gridBtn && dockUI.gridBtn.visible && isGridExtracted && !isHybrid) {
-        const gpW = dockUI.gridBtn.get_preferred_width(-1);
-        const gpH = dockUI.gridBtn.get_preferred_height(-1);
-        gridW = gpW[1] || 0;
-        gridH = gpH[1] || 0;
-    }
 
     let clockW = 0;
     let clockH = 0;
@@ -189,7 +181,7 @@ export function updateLayout(dockUI) {
 
     if (isDynamicPanel && dockUI.panelIntegrator) {
         const leftBox = dockUI.panelIntegrator.leftContainer;
-        if (isActorAlive(leftBox)) {
+        if (hasStartItems && isActorAlive(leftBox)) {
             const lwP = leftBox.get_preferred_width(-1);
             const lhP = leftBox.get_preferred_height(-1);
             dynLeftW = Math.max(30, Math.round(lwP[1] || 0));
@@ -229,9 +221,10 @@ export function updateLayout(dockUI) {
         }
     }
 
-    const dynGapLeft = 16;
+    const dynGapLeft = hasStartItems ? 16 : 0;
     const dynGapRight = 16;
     const dynOuterPad = 10;
+    const dynStartPad = hasStartItems ? dynOuterPad : 0;
 
     let effectiveBoxW = boxW;
     let effectiveBoxH = boxH;
@@ -240,16 +233,16 @@ export function updateLayout(dockUI) {
         const availableMonitorSpan = isVertical ? (monitor.height - 24) : (monitor.width - 24);
 
         if (!isVertical) {
-            const naturalPanelW = dynOuterPad + dynLeftW + dynGapLeft + boxW + dynGapRight + dynRightW + dynDeskSpan + dynOuterPad;
+            const naturalPanelW = dynStartPad + dynLeftW + dynGapLeft + boxW + dynGapRight + dynRightW + dynDeskSpan + dynOuterPad;
             effectiveBoxW = Math.min(availableMonitorSpan, naturalPanelW);
         } else {
-            const naturalPanelH = dynOuterPad + dynLeftH + dynGapLeft + boxH + dynGapRight + dynRightH + dynDeskSpan + dynOuterPad;
+            const naturalPanelH = dynStartPad + dynLeftH + dynGapLeft + boxH + dynGapRight + dynRightH + dynDeskSpan + dynOuterPad;
             effectiveBoxH = Math.min(availableMonitorSpan, naturalPanelH);
         }
     }
 
-    const baseActorW = isFullWidth ? (isVertical ? Math.max(boxW, gridW) + (sWidth * 2) : monitor.width) : effectiveBoxW + (sWidth * 2);
-    const baseActorH = isFullWidth ? (isVertical ? monitor.height : Math.max(boxH, gridH) + (sWidth * 2)) : effectiveBoxH + (sWidth * 2);
+    const baseActorW = isFullWidth ? (isVertical ? boxW + (sWidth * 2) : monitor.width) : effectiveBoxW + (sWidth * 2);
+    const baseActorH = isFullWidth ? (isVertical ? monitor.height : boxH + (sWidth * 2)) : effectiveBoxH + (sWidth * 2);
 
     const actorW = isVertical ? (baseActorW + edgeMargin) : baseActorW;
     const actorH = isVertical ? baseActorH : (baseActorH + edgeMargin);
@@ -260,10 +253,6 @@ export function updateLayout(dockUI) {
     let contentH = boxH + (sWidth * 2);
 
     if (isFullWidth) {
-        if (dockUI.gridBtn && dockUI.gridBtn.visible && !isHybrid) {
-            contentW += gridW + 30;
-            contentH += gridH + 30;
-        }
         if (dockUI.extractedClock && dockUI.extractedClock.visible) {
             contentW += clockW + 30;
             contentH += clockH + 30;
@@ -357,21 +346,25 @@ export function updateLayout(dockUI) {
             if (leftBox.get_parent()) leftBox.get_parent().remove_child(leftBox);
             dockUI.actor.add_child(leftBox);
         }
-        leftBox.queue_relayout();
+        if (hasStartItems) {
+            leftBox.queue_relayout();
 
-        const lwPref = leftBox.get_preferred_width(-1);
-        const lhPref = leftBox.get_preferred_height(-1);
-        let lw = Math.max(30, Math.round(lwPref[1] || 0));
-        let lh = Math.max(20, Math.round(lhPref[1] || 0));
+            const lwPref = leftBox.get_preferred_width(-1);
+            const lhPref = leftBox.get_preferred_height(-1);
+            let lw = Math.max(30, Math.round(lwPref[1] || 0));
+            let lh = Math.max(20, Math.round(lhPref[1] || 0));
 
-        const leftInset = isDynamicPanel ? (sWidth + dynOuterPad) : 0;
-        const lx = isVertical ? bgX + (bgW - lw) / 2 : bgX + leftInset;
-        const ly = isVertical ? bgY + leftInset : bgY + (bgH - lh) / 2;
+            const leftInset = isDynamicPanel ? (sWidth + dynOuterPad) : 0;
+            const lx = isVertical ? bgX + (bgW - lw) / 2 : bgX + leftInset;
+            const ly = isVertical ? bgY + leftInset : bgY + (bgH - lh) / 2;
 
-        leftBox.set_position(Math.round(lx), Math.round(ly));
-        leftBox.set_size(Math.round(lw), Math.round(lh));
-        leftBox.show();
-        leftBox.opacity = 255;
+            leftBox.set_position(Math.round(lx), Math.round(ly));
+            leftBox.set_size(Math.round(lw), Math.round(lh));
+            leftBox.show();
+            leftBox.opacity = 255;
+        } else {
+            leftBox.hide();
+        }
     }
 
     if (isHybrid && dockUI.panelIntegrator && dockUI.panelIntegrator.container) {
@@ -462,7 +455,7 @@ export function updateLayout(dockUI) {
             const WORKSPACE_LEFT_GAP = isDynamicPanel ? dynGapLeft : HYBRID_PANEL_CONFIG.DOCK_GAP_AFTER_LEFT;
             const RIGHT_PANEL_GAP = isDynamicPanel ? dynGapRight : HYBRID_PANEL_CONFIG.DOCK_GAP_BEFORE_RIGHT;
 
-            let minBoxLeft = bgX + (isDynamicPanel ? (sWidth + dynOuterPad + dynLeftW + WORKSPACE_LEFT_GAP) : 100);
+            let minBoxLeft = bgX + (isDynamicPanel ? (sWidth + dynStartPad + dynLeftW + WORKSPACE_LEFT_GAP) : (hasStartItems ? 100 : padScale));
             if (isActorAlive(leftBox) && leftBox.visible) {
                 const lwPref = leftBox.get_preferred_width(-1);
                 const lw = leftBox.width > 0 ? leftBox.width : (lwPref[1] || 70);
@@ -513,7 +506,7 @@ export function updateLayout(dockUI) {
             const vGapTop = isDynamicPanel ? dynGapLeft : HYBRID_PANEL_CONFIG.DOCK_GAP_AFTER_LEFT_VERTICAL;
             const vGapBottom = isDynamicPanel ? dynGapRight : HYBRID_PANEL_CONFIG.DOCK_GAP_BEFORE_RIGHT_VERTICAL;
 
-            let minBoxTop = bgY + (isDynamicPanel ? (sWidth + dynOuterPad + dynLeftH + vGapTop) : 180);
+            let minBoxTop = bgY + (isDynamicPanel ? (sWidth + dynStartPad + dynLeftH + vGapTop) : (hasStartItems ? 180 : padScale));
             if (isActorAlive(leftBox) && leftBox.visible) {
                 minBoxTop = (leftBox.y + leftBox.height) + vGapTop;
             }
@@ -539,22 +532,6 @@ export function updateLayout(dockUI) {
             if (!isDynamicPanel && contentY + boxH > maxBoxBottom + 2) {
                 dockUI.checkPanelOverflow();
             }
-        }
-    }
-
-    if (isGridExtracted && dockUI.gridBtn && dockUI.gridBtn.visible && !isHybrid) {
-        const gx = isVertical ? bgX + (bgW - gridW) / 2 : bgX + padScale;
-        const gy = isVertical ? bgY + padScale : bgY + (bgH - gridH) / 2;
-        dockUI.gridBtn.set_position(gx, gy);
-
-        if (!isVertical) {
-            const gridRight = (bgX + padScale) + gridW + safetyGap;
-            const boxLeft = contentX;
-            if (boxLeft < gridRight) contentX += (gridRight - boxLeft);
-        } else {
-            const gridBottom = (bgY + padScale) + gridH + safetyGap;
-            const boxTop = contentY;
-            if (boxTop < gridBottom) contentY += (gridBottom - boxTop);
         }
     }
 
