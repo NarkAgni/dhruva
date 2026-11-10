@@ -66,6 +66,7 @@ const KEYS = {
     showIndependentInOverview: [BOOLEAN, 'show-independent-in-overview'],
     fullWidth: [BOOLEAN, 'full-width'],
     hybridPanelMode: [BOOLEAN, 'hybrid-panel-mode'],
+    trayInline: [BOOLEAN, 'tray-inline'],
     dynamicPanel: [BOOLEAN, 'dynamic-panel'],
     dynamicPanelLength: [INT, 'dynamic-panel-length'],
     dynamicPanelPosition: [STRING, 'dynamic-panel-position'],

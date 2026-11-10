@@ -1008,6 +1008,12 @@
       <description>Order of the icons inside the tray popup.</description>
     </key>
 
+    <key name="tray-inline" type="b">
+      <default>false</default>
+      <summary>Show Tray Icons Inline</summary>
+      <description>Display system tray icons directly inline on the dock instead of collapsed behind the arrow button.</description>
+    </key>
+
     <key name="panel-applet-order" type="as">
       <default>[]</default>
       <summary>Order of extension applets on the panel, changed with Ctrl + drag</summary>

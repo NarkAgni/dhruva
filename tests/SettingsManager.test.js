@@ -46,6 +46,7 @@ test('Settings: every key exists in the gschema with the matching type', () => {
 test('Settings: returns neutral values before init', () => {
     assertEqual(Settings.iconSize, 0);
     assertEqual(Settings.hybridPanelMode, false);
+    assertEqual(Settings.trayInline, false);
     assertEqual(Settings.dockPosition, '');
     assertDeepEqual(Settings.customFolders, []);
 });
