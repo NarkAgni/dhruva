@@ -217,7 +217,7 @@ export default class ExtensionAppletsManager {
             const index = order.indexOf(name);
             return index === -1 ? order.length : index;
         };
-        return this.trayManager.getPanelIndicators()
+        return this.trayManager.getPanelApplets()
             .filter(item => isActorAlive(item.actor))
             .sort((a, b) => rank(a.name) - rank(b.name));
     }
@@ -271,7 +271,7 @@ export default class ExtensionAppletsManager {
             zone.add_child(actor);
         }
 
-        if (!isInline) {
+        if (!isInline && this.trayManager.hasTrayContent()) {
             this.box.add_child(this._arrowButton);
         }
         this.box.visible = this.box.get_n_children() > 0;

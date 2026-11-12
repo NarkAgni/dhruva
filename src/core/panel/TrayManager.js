@@ -24,13 +24,14 @@ import { isActorAlive } from '../Utils.js';
 
 const SYSTEM_INDICATORS = [
     'activities', 'aggregateMenu', 'quickSettings', 'dateMenu', 'appMenu',
-    'keyboard', 'a11y', 'screenShield', 'dwellClick', 'screenRecording',
-    'screenSharing', 'system', 'power', 'volume', 'network', 'bluetooth',
-    'input-method', 'ibus',
+    'keyboard', 'a11y', 'screenShield', 'dwellClick', 'system', 'power',
+    'volume', 'network', 'bluetooth', 'input-method', 'ibus',
     'tiling-assistant@leleat-on-github',
     'tiling-assistant@ubuntu.com',
     'tiling-assistant',
 ];
+
+const PANEL_ONLY_INDICATORS = ['screenRecording', 'screenSharing'];
 
 const BLACKLISTED_KEYWORDS = [
     'tiling-assistant',
@@ -132,19 +133,26 @@ export default class TrayManager {
     }
 
     _partition() {
+        const fixed = [];
+        const movable = [];
+        for (const item of this._liveIndicators()) {
+            if (PANEL_ONLY_INDICATORS.includes(item.name)) fixed.push(item);
+            else movable.push(item);
+        }
+
         if (this.isInline()) {
-            return { tray: [], panel: this._liveIndicators() };
+            return { tray: [], panel: movable, fixed };
         }
         const pinned = this._choices(PANEL_KEY);
         const wide = this._choices(WIDE_KEY);
         const tray = [];
         const panel = [];
-        for (const item of this._liveIndicators()) {
+        for (const item of movable) {
             const inTray = item.isIconLike ? !pinned.has(item.name) : wide.has(item.name);
             if (inTray) tray.push(item);
             else panel.push(item);
         }
-        return { tray, panel };
+        return { tray, panel, fixed };
     }
 
     getTrayIndicators() {
@@ -160,9 +168,19 @@ export default class TrayManager {
         return this._partition().panel;
     }
 
-    snapshot() {
+    getPanelApplets() {
+        const { panel, fixed } = this._partition();
+        return [...panel, ...fixed];
+    }
+
+    hasTrayContent() {
         const { tray, panel } = this._partition();
-        return [...tray.map(item => item.actor), null, ...panel.map(item => item.actor)];
+        return tray.length > 0 || panel.length > 0;
+    }
+
+    snapshot() {
+        const { tray, panel, fixed } = this._partition();
+        return [...tray.map(item => item.actor), null, ...[...panel, ...fixed].map(item => item.actor)];
     }
 
     _setChoices(name, toPanel) {
