@@ -128,9 +128,11 @@ export class BlurPanel {
 
     _syncCloneSources() {
         if (!this.blurActor) return;
-        const isLive = this.blurActor.visible && !this._isStaticMode() && global.window_group.visible;
+        const isLive = this.blurActor.visible && !this._isStaticMode();
+        // The overview hides the windows and draws its workspaces in their place.
+        const front = global.window_group.visible ? global.window_group : Main.layoutManager.overviewGroup;
         this._bgClone.source = isLive ? getBackgroundGroup() : null;
-        this._winClone.source = isLive ? global.window_group : null;
+        this._winClone.source = isLive ? front : null;
     }
 
     _isStaticMode() {
