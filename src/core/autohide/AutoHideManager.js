@@ -40,6 +40,7 @@ const FAST_CHECK_MS = 10;
 const MIN_HIDE_DELAY_MS = 20;
 const WINDOW_GEOMETRY_CHECK_MS = 32;
 const MENU_BUTTON_RECHECK_MS = 50;
+const SHARED_EDGE_MAX_DWELL_MS = 100;
 const POINTER_BUTTONS_MASK = Clutter.ModifierType.BUTTON1_MASK |
     Clutter.ModifierType.BUTTON2_MASK |
     Clutter.ModifierType.BUTTON3_MASK;
@@ -146,6 +147,7 @@ export default class AutoHideManager {
             'monitors-changed', () => {
                 this.updateTriggerGeometry();
                 this._rebindAllOpenWindows();
+                this._applyHiddenPosition();
                 this.scheduleCheck(DEFAULT_CHECK_DEBOUNCE_MS);
             },
             this
@@ -296,17 +298,25 @@ export default class AutoHideManager {
     }
 
     _getHidePeek() {
-        return this._wasFullscreen || this._isPointerCaptured ? 0 : Settings.autohidePeek;
+        if (this._wasFullscreen || this._isPointerCaptured || this.dockUI.isOnSharedMonitorEdge()) return 0;
+        return Settings.autohidePeek;
     }
 
     _animateToHidden() {
+        const peek = this._getHidePeek();
+        if (peek > 0) this.dockUI.actor.show();
         this.isAnimating = true;
-        animateHide(this.dockUI, () => this._onHideFinished(), this._getHidePeek());
+        animateHide(this.dockUI, () => this._onHideFinished(), peek);
     }
 
     _onHideFinished() {
         this.isAnimating = false;
         this._syncUnredirect();
+        this._parkOnSharedEdge();
+    }
+
+    _parkOnSharedEdge() {
+        if (!this._isGrabPassThrough && this.dockUI.isOnSharedMonitorEdge()) this.dockUI.actor.hide();
     }
 
     _syncUnredirect() {
@@ -342,7 +352,9 @@ export default class AutoHideManager {
     }
 
     _getEdgeDwellDelay() {
-        const dwellDelay = Settings.edgeDwellDelay;
+        const dwellDelay = this.dockUI.isOnSharedMonitorEdge()
+            ? Math.min(Settings.edgeDwellDelay, SHARED_EDGE_MAX_DWELL_MS)
+            : Settings.edgeDwellDelay;
         if (this._wasFullscreen && this._getFullscreenMode() === 'delayed') {
             return Math.max(dwellDelay, Settings.fullscreenRevealDelay);
         }
@@ -425,7 +437,10 @@ export default class AutoHideManager {
         if (this._revealIfEngaged()) return;
 
         this._isHiddenForMenu = this.overlapDetection.isMenuOverlapping();
-        if (this.isHidden && !this.isAnimating) this._syncUnredirect();
+        if (this.isHidden && !this.isAnimating) {
+            this._syncUnredirect();
+            this._parkOnSharedEdge();
+        }
 
         if (this._isHiddenForMenu) this._hideForMenu();
         else if (this.overlapDetection.shouldHide(mode)) this._scheduleHide();

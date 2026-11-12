@@ -33,6 +33,7 @@ import { TimeoutTracker } from '../TimeoutTracker.js';
 
 
 const TRIGGER_DEPTH_PX = 4;
+const SHARED_EDGE_TRIGGER_DEPTH_PX = 10;
 const DEFAULT_BARRIER_DWELL_MS = 150;
 const PRESSURE_BARRIER_TIMEOUT_MS = 1000;
 
@@ -176,7 +177,8 @@ export class EdgeDetection {
         if (!monitor) return;
 
         const source = isFullBarLayout() ? monitor : this.dockUI.actor;
-        const rect = getTriggerRect(this.dockUI.dockPosition, monitor, source, TRIGGER_DEPTH_PX);
+        const depth = this.dockUI.isOnSharedMonitorEdge() ? SHARED_EDGE_TRIGGER_DEPTH_PX : TRIGGER_DEPTH_PX;
+        const rect = getTriggerRect(this.dockUI.dockPosition, monitor, source, depth);
         this.triggerActor.set_position(rect.x, rect.y);
         this.triggerActor.set_size(rect.width, rect.height);
 
