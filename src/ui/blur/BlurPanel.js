@@ -96,18 +96,22 @@ export class BlurPanel {
         this._initialSyncId = 0;
         this._unlockDelayId = 0;
         this._showLaterId = 0;
+        this._winSyncId = 0;
         this._timeouts = new TimeoutTracker();
 
         this._effect = new BlurEffect();
         this._bgClone = new Clutter.Clone();
-        this._winClone = new Clutter.Clone();
+        // Cloning global.window_group directly paints nothing on GNOME 50: the
+        // Meta.WindowGroup has a 0x0 allocation, so the clone has no size. Clone
+        // the individual window actors instead, one per window, in stacking order.
+        this._winLayer = new Clutter.Actor({ reactive: false });
+        this._winClones = new Map();
 
         this.blurActor = new Clutter.Actor({ reactive: false, clip_to_allocation: true, visible: false });
         this.blurActor.set_position(0, 0);
         this._bgClone.set_position(0, 0);
-        this._winClone.set_position(0, 0);
         this.blurActor.add_child(this._bgClone);
-        this.blurActor.add_child(this._winClone);
+        this.blurActor.add_child(this._winLayer);
         this.blurActor.add_effect(this._effect);
         this.blurActor.connectObject('notify::visible', () => this._syncCloneSources(), this);
 
@@ -130,7 +134,90 @@ export class BlurPanel {
         if (!this.blurActor) return;
         const isLive = this.blurActor.visible && !this._isStaticMode() && global.window_group.visible;
         this._bgClone.source = isLive ? getBackgroundGroup() : null;
-        this._winClone.source = isLive ? global.window_group : null;
+        this._winLayer.visible = isLive;
+        if (isLive) this._syncWindowClones();
+        else this._clearWindowClones();
+    }
+
+    _syncWindowClones() {
+        if (!this._winLayer || !this._winClones) return;
+
+        const actors = global.get_window_actors();
+        const live = new Set(actors);
+
+        for (const wa of [...this._winClones.keys()]) {
+            if (!live.has(wa) || !isActorAlive(wa))
+                this._dropWindowClone(wa);
+        }
+
+        let index = 0;
+        for (const wa of actors) {
+            let clone = this._winClones.get(wa);
+            if (!clone) {
+                clone = new Clutter.Clone({ source: wa, reactive: false });
+                this._winLayer.add_child(clone);
+                this._winClones.set(wa, clone);
+
+                const onChanged = () => this._syncWindowCloneGeometry(wa);
+                wa.meta_window?.connectObject(
+                    'position-changed', onChanged,
+                    'size-changed', onChanged,
+                    this);
+                wa.connectObject(
+                    'notify::visible', onChanged,
+                    'notify::mapped', onChanged,
+                    'destroy', () => this._dropWindowClone(wa),
+                    this);
+            }
+
+            this._syncWindowCloneGeometry(wa);
+            this._winLayer.set_child_at_index(clone, index++);
+        }
+    }
+
+    _syncWindowCloneGeometry(wa) {
+        const clone = this._winClones?.get(wa);
+        if (!clone || !isActorAlive(wa) || !isActorAlive(clone)) return;
+
+        const metaWindow = wa.meta_window;
+        clone.visible = wa.visible && wa.mapped && !(metaWindow && metaWindow.minimized);
+        if (!clone.visible) return;
+
+        clone.set_position(Math.round(wa.x), Math.round(wa.y));
+        clone.set_size(Math.round(wa.width), Math.round(wa.height));
+    }
+
+    _dropWindowClone(wa) {
+        const clone = this._winClones?.get(wa);
+        if (clone) {
+            this._winClones.delete(wa);
+            if (isActorAlive(clone)) clone.destroy();
+        }
+
+        try {
+            if (isActorAlive(wa)) {
+                wa.disconnectObject(this);
+                wa.meta_window?.disconnectObject(this);
+            }
+        } catch (e) {
+            // the actor or its meta window may already be gone
+        }
+    }
+
+    _clearWindowClones() {
+        if (!this._winClones) return;
+        for (const wa of [...this._winClones.keys()])
+            this._dropWindowClone(wa);
+    }
+
+    _queueWindowSync() {
+        if (!this.blurActor || this._winSyncId) return;
+        this._winSyncId = this._timeouts.addTimeout(GLib.PRIORITY_DEFAULT, 50, () => {
+            this._winSyncId = 0;
+            if (this.blurActor && this._winLayer && this._winLayer.visible && !this._isStaticMode())
+                this._syncWindowClones();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _isStaticMode() {
@@ -225,6 +312,10 @@ export class BlurPanel {
         };
 
         global.window_group.connectObject('notify::visible', () => this._syncCloneSources(), this);
+        global.display.connectObject(
+            'window-created', () => this._queueWindowSync(),
+            'restacked', () => this._queueWindowSync(),
+            this);
 
         Main.sessionMode.connectObject('updated', onLockChanged, this);
         if (Main.screenShield) Main.screenShield.connectObject('locked-changed', onLockChanged, this);
@@ -307,7 +398,7 @@ export class BlurPanel {
 
         const isStatic = this._isStaticMode();
         this._bgClone.visible = !isStatic;
-        this._winClone.visible = !isStatic;
+        this._winLayer.visible = !isStatic;
         this._syncCloneSources();
         this.blurActor.set_content(null);
         this._hasContent = !isStatic;
@@ -383,8 +474,8 @@ export class BlurPanel {
         this.blurActor.translation_y = Math.round(top);
         this._bgClone.translation_x = -areaX;
         this._bgClone.translation_y = -areaY;
-        this._winClone.translation_x = -areaX;
-        this._winClone.translation_y = -areaY;
+        this._winLayer.translation_x = -areaX;
+        this._winLayer.translation_y = -areaY;
 
         this._effect.updateDimensions(canvasW, canvasH, w, h, pad, pad);
         return true;
@@ -487,6 +578,7 @@ export class BlurPanel {
         if (this.blurActor) {
             Main.sessionMode.disconnectObject(this);
             global.window_group.disconnectObject(this);
+            global.display.disconnectObject(this);
             if (Main.screenShield) Main.screenShield.disconnectObject(this);
             if (this._loaderActor) {
                 this._loaderActor.disconnectObject(this);
@@ -500,6 +592,11 @@ export class BlurPanel {
                 this._timeouts.remove(this._unlockDelayId);
                 this._unlockDelayId = 0;
             }
+            if (this._winSyncId) {
+                this._timeouts.remove(this._winSyncId);
+                this._winSyncId = 0;
+            }
+            this._clearWindowClones();
             if (this._timeouts) {
                 this._timeouts.destroy();
                 this._timeouts = null;
@@ -524,7 +621,8 @@ export class BlurPanel {
 
             this._effect = null;
             this._bgClone = null;
-            this._winClone = null;
+            this._winLayer = null;
+            this._winClones = null;
             this.targetActor = null;
             this.rootContainer = null;
             this.settings = null;
