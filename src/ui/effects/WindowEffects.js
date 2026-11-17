@@ -103,15 +103,33 @@ function _prepareThumbnail(actor, isAnimated) {
     _renderThumbnailDocks();
 }
 
-function _findDockButtonForWindow(win) {
+function _dockForWindow(win) {
+    if (win && _docks.length > 1) {
+        const monitorIndex = win.get_monitor();
+        if (monitorIndex >= 0) {
+            const dock = _docks.find(d => {
+                try {
+                    return d.monitorManager &&
+                        d.monitorManager.getCurrentMonitor().index === monitorIndex;
+                } catch (e) {
+                    return false;
+                }
+            });
+            if (dock) return dock;
+        }
+    }
+    return _dockUI;
+}
+
+function _findDockButtonForWindow(win, dockUI = _dockForWindow(win)) {
     const thumbnail = _findThumbnailButton(win);
     if (thumbnail) return thumbnail;
 
     const app = Shell.WindowTracker.get_default().get_window_app(win);
-    if (!app) return null;
+    if (!app || !dockUI || !dockUI.boxActor) return null;
 
     const appId = app.get_id();
-    return _dockUI.boxActor.get_children().find(btn => {
+    return dockUI.boxActor.get_children().find(btn => {
         const delegate = btn._delegate;
         return delegate && delegate.app && 'get_id' in delegate.app && delegate.app.get_id() === appId;
     }) || null;
@@ -133,9 +151,10 @@ function _createIconTracker(btn, win) {
     let isThumbnail = Boolean(btn._minimizedWindow);
     let lastRect = null;
     return () => {
-        if ((!isActorAlive(source) || !source.get_stage()) && _dockUI) {
+        const dockUI = _dockForWindow(win);
+        if ((!isActorAlive(source) || !source.get_stage()) && dockUI) {
             if (isThumbnail && !win.minimized && lastRect) return lastRect;
-            source = _findDockButtonForWindow(win);
+            source = _findDockButtonForWindow(win, dockUI);
             isThumbnail = Boolean(source && source._minimizedWindow);
         }
         if (source) lastRect = _getIconRect(source, win);
@@ -241,7 +260,8 @@ function _resolveEffectTarget(actor) {
     const win = actor.meta_window;
     const isPending = actor === _pendingActor;
     const pendingButton = isPending ? _pendingButton : null;
-    const dockPos = isPending ? _pendingDockPos : (_dockUI && _dockUI.dockPosition);
+    const dockUI = win ? _dockForWindow(win) : _dockUI;
+    const dockPos = isPending ? _pendingDockPos : (dockUI && dockUI.dockPosition);
 
     if (isPending) {
         _addEffectIdle(() => {
@@ -252,7 +272,7 @@ function _resolveEffectTarget(actor) {
     }
 
     const thumbnail = win ? _findThumbnailButton(win) : null;
-    const btn = thumbnail || pendingButton || (_dockUI && _dockUI.boxActor && win ? _findDockButtonForWindow(win) : null);
+    const btn = thumbnail || pendingButton || (dockUI && dockUI.boxActor && win ? _findDockButtonForWindow(win, dockUI) : null);
     if (!btn) return null;
 
     const tracker = _createIconTracker(btn, win);
@@ -278,9 +298,10 @@ function _patchWm() {
     setWindowAnimationFilter(function (actor, types) {
         if (actor === _pendingActor || actor === _pendingLaunchActor || _animatingActors.includes(actor)) return false;
 
-        if (actor.meta_window && _dockUI && _dockUI.pendingLaunches.length > 0) {
+        const launchDock = actor.meta_window ? _dockForWindow(actor.meta_window) : null;
+        if (launchDock && launchDock.pendingLaunches.length > 0) {
             const identity = getWindowIdentity(actor.meta_window, Shell.WindowTracker.get_default());
-            if (hasPendingLaunchFor(_dockUI.pendingLaunches, identity)) return false;
+            if (hasPendingLaunchFor(launchDock.pendingLaunches, identity)) return false;
         }
 
         return _origShouldAnimate.call(this, actor, types);
