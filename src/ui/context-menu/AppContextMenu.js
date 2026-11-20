@@ -329,8 +329,7 @@ export default class AppContextMenu {
 
         if (this.app.can_open_new_window && this.app.can_open_new_window()) {
             this.panel.add_child(createMenuItem(_('New Window'), () => {
-                if (appInfo) appInfo.launch([], quietContext);
-                else this.app.open_new_window(-1);
+                this.app.open_new_window(-1);
                 this.hide();
             }, false, this));
             hasNewWindow = true;
