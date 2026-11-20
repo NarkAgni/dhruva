@@ -21,6 +21,23 @@
 
 Dhruva is a dock for GNOME Shell that you can shape the way you like. Keep it as a floating dock, stretch it edge to edge, or turn it into a full panel that holds your workspaces, tray, Quick Settings and clock, all in one bar.
 
+<h2 align="center">Featured on</h2>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <a href="https://www.omgubuntu.co.uk/2026/11/dhruva-dock-gnome-extension-blingy">
+        <img src="media/featured-omgubuntu.png" alt="Featured on OMG! Ubuntu! — Read the article" width="100%">
+      </a>
+    </td>
+    <td width="50%" align="center">
+      <a href="https://www.youtube.com/watch?v=EOmLGyFPSmU">
+        <img src="media/featured-itsfoss.png" alt="Featured on It's FOSS — Watch the video on YouTube" width="100%">
+      </a>
+    </td>
+  </tr>
+</table>
+
 <br>
 
 ## Features
