@@ -22,6 +22,7 @@ import Soup from 'gi://Soup';
 import GLib from 'gi://GLib';
 
 import { userCacheDir, lyricsCachePath } from '../../../core/DataPaths.js';
+import { lyricsQueries, titlesMatch, cacheKey } from './LyricsQuery.js';
 
 
 Gio._promisify(Gio.File.prototype, 'load_bytes_async', 'load_bytes_finish');
@@ -34,23 +35,8 @@ const MAX_CACHED_SONGS = 300;
 const DURATION_TOLERANCE_S = 3;
 const API_URL = 'https://lrclib.net/api';
 
-const PARENS_RE = /\s*\(.*?\)\s*/g;
-const BRACKETS_RE = /\s*\[.*?\]\s*/g;
-const TITLE_SUFFIX_RE = /\s+-\s+.*$/;
 const LRC_LINE_RE = /\[(\d{2}):(\d{2})(?:[.:](\d{2,3}))?\](.*)/;
 
-
-function cleanTitle(title) {
-    return title.replace(PARENS_RE, ' ').replace(BRACKETS_RE, ' ').replace(TITLE_SUFFIX_RE, '').trim();
-}
-
-function cleanArtist(artist) {
-    return (artist || '').split(',')[0].replace(PARENS_RE, ' ').trim();
-}
-
-function cacheKey(title, artist) {
-    return `${cleanTitle(title).toLowerCase()}::${cleanArtist(artist).toLowerCase()}`;
-}
 
 function parseSynced(lrcText) {
     const lines = [];
@@ -144,30 +130,37 @@ export class LyricsClient {
         const key = cacheKey(title, artist);
         if (this._cache.has(key)) return this._cache.get(key);
 
-        const trackTitle = cleanTitle(title);
-        const trackArtist = cleanArtist(artist);
-
-        let query = `track_name=${encodeURIComponent(trackTitle)}`;
-        if (trackArtist) query += `&artist_name=${encodeURIComponent(trackArtist)}`;
-        if (album) query += `&album_name=${encodeURIComponent(album)}`;
-        if (durationSec > 0) query += `&duration=${Math.round(durationSec)}`;
-
-        let entry = entryFrom(await this._fetchJson(`${API_URL}/get?${query}`));
-        if (!entry && this._cancellable) {
-            const list = await this._fetchJson(`${API_URL}/search?q=${encodeURIComponent(`${trackArtist} ${trackTitle}`.trim())}`);
-            if (Array.isArray(list)) {
-                const isSameLength = item => durationSec <= 0 || Math.abs(item.duration - durationSec) < DURATION_TOLERANCE_S;
-                const match = list.find(item => item.syncedLyrics && isSameLength(item)) ||
-                    list.find(item => item.syncedLyrics) ||
-                    list.find(item => item.plainLyrics && isSameLength(item)) ||
-                    list.find(item => item.plainLyrics);
-                entry = entryFrom(match);
-            }
+        let entry = null;
+        for (const query of lyricsQueries(title, artist)) {
+            entry = await this._lookUp(query, durationSec, album);
+            if (entry || !this._cancellable) break;
         }
 
         if (!this._cancellable || !entry) return null;
         this._remember(key, entry);
         return entry;
+    }
+
+    async _lookUp({ title, artist }, durationSec, album) {
+        let query = `track_name=${encodeURIComponent(title)}`;
+        if (artist) query += `&artist_name=${encodeURIComponent(artist)}`;
+        if (album) query += `&album_name=${encodeURIComponent(album)}`;
+        if (durationSec > 0) query += `&duration=${Math.round(durationSec)}`;
+
+        const entry = entryFrom(await this._fetchJson(`${API_URL}/get?${query}`));
+        if (entry || !this._cancellable) return entry;
+
+        const list = await this._fetchJson(`${API_URL}/search?q=${encodeURIComponent(`${artist} ${title}`.trim())}`);
+        if (!Array.isArray(list)) return null;
+
+        // A search also returns the artist's other songs; their lyrics would be shown out of time.
+        const sameTrack = list.filter(item => titlesMatch(item.trackName, title));
+        const isSameLength = item => durationSec <= 0 || Math.abs(item.duration - durationSec) < DURATION_TOLERANCE_S;
+        return entryFrom(
+            sameTrack.find(item => item.syncedLyrics && isSameLength(item)) ||
+            sameTrack.find(item => item.syncedLyrics) ||
+            sameTrack.find(item => item.plainLyrics && isSameLength(item)) ||
+            sameTrack.find(item => item.plainLyrics));
     }
 
     setOffset(title, artist, offsetMs) {
