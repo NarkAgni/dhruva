@@ -387,7 +387,19 @@ export function addToggleExpander(parent, settings, key, title, subtitle = '') {
 }
 
 export function addChoiceCards(group, settings, key, options) {
-    const box = new Gtk.Box({ spacing: 12, homogeneous: true });
+    // A plain horizontal Gtk.Box cannot wrap, so several cards force the page's
+    // minimum width above libadwaita's 600px default preferences window and the
+    // right side gets clipped. Gtk.FlowBox wraps cards onto more rows when the
+    // window is narrow, keeping the same toggle-group behaviour.
+    const box = new Gtk.FlowBox({
+        selection_mode: Gtk.SelectionMode.NONE,
+        activate_on_single_click: false,
+        homogeneous: true,
+        min_children_per_line: 1,
+        max_children_per_line: options.length,
+        column_spacing: 12,
+        row_spacing: 12,
+    });
     const buttonsByValue = new Map();
     let first = null;
 
