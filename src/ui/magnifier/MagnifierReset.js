@@ -35,6 +35,21 @@ export function resetMagnification(dockActor, duration = 200, lockEngine = false
     dockActor._magNeedsFrames = false;
     dockActor._magMotionPending = false;
 
+    // The _isResetting latch is normally cleared by the next in-dock motion
+    // frame (MagnifierFrameEngine.applyRealtimeFrame). If the pointer never
+    // comes back, that frame never arrives and every later leave check is
+    // swallowed by the latch, leaving a magnified dock until re-entry. Clear
+    // it on a timer as a fallback; a later reset simply reschedules it.
+    if (!dockActor._magTimers) dockActor._magTimers = new TimeoutTracker();
+    if (dockActor._resetLatchTimerId) {
+        dockActor._magTimers.remove(dockActor._resetLatchTimerId);
+    }
+    dockActor._resetLatchTimerId = dockActor._magTimers.addTimeout(GLib.PRIORITY_DEFAULT, duration + 240, () => {
+        dockActor._resetLatchTimerId = null;
+        dockActor._isResetting = false;
+        return GLib.SOURCE_REMOVE;
+    });
+
     hideTooltip(dockActor);
     clearTooltipDelay(dockActor);
 
@@ -196,6 +211,7 @@ export function teardownMagnification(dockActor) {
         if (dockActor._magTimers) {
             if (dockActor._leaveCheckId) dockActor._magTimers.remove(dockActor._leaveCheckId);
             if (dockActor._postClickTimerId) dockActor._magTimers.remove(dockActor._postClickTimerId);
+            if (dockActor._resetLatchTimerId) dockActor._magTimers.remove(dockActor._resetLatchTimerId);
             if (dockActor._suppressTimerId) dockActor._magTimers.remove(dockActor._suppressTimerId);
             if (dockActor._tooltipWatchId) dockActor._magTimers.remove(dockActor._tooltipWatchId);
             if (dockActor._tooltipDelayId) dockActor._magTimers.remove(dockActor._tooltipDelayId);
@@ -207,6 +223,7 @@ export function teardownMagnification(dockActor) {
 
         dockActor._leaveCheckId = 0;
         dockActor._postClickTimerId = 0;
+        dockActor._resetLatchTimerId = 0;
         dockActor._suppressTimerId = 0;
         dockActor._tooltipWatchId = 0;
         dockActor._tooltipDelayId = 0;
