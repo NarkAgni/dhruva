@@ -318,7 +318,9 @@ export default class AppContextMenu {
             addSeparator(this.panel);
         }
 
-        if ((this.app.get_id ? this.app.get_id() : '') === 'dhruva-module-recycle-bin') {
+        const isTrashModule = (this.app.get_id ? this.app.get_id() : '') === 'dhruva-sys-trash' ||
+            Boolean(this.buttonActor && this.buttonActor._isTrash === true);
+        if (isTrashModule) {
             attachTrashActions(this);
         }
 
