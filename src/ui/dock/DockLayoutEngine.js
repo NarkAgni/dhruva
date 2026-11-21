@@ -26,6 +26,7 @@ import { isDynamicPanelLayout, isFullBarLayout, isPanelOrFullWidth } from '../..
 import { isActorAlive, hexToRgba } from '../../core/Utils.js';
 import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { calculateScale, calculatePivot, calculateBackgroundBounds } from './DockGeometryCalculator.js';
+import { settleBackgroundAfterReset } from './DockLayoutSettle.js';
 
 
 const DEFAULT_BOX_SIZE = 10;
@@ -92,25 +93,14 @@ function _syncPanelSeparator(dockUI, isVertical, boxX, boxY, boxW, boxH) {
 }
 
 function _settleBackgroundAfterReset(dockUI, x, y, width, height) {
-    const bg = dockUI.bgActor;
-    const syncBlur = () => {
-        if (dockUI._syncBlurGeometry) dockUI._syncBlurGeometry();
-    };
-
-    bg.ease({
-        x,
-        y,
-        width,
-        height,
+    settleBackgroundAfterReset(dockUI.bgActor, x, y, width, height, {
         duration: BG_SETTLE_MS,
         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        onUpdate: syncBlur,
-        onStopped: () => {
-            if (isActorAlive(bg)) bg._isMagResetting = false;
-            syncBlur();
+        isActorAlive,
+        onUpdate: () => {
+            if (dockUI._syncBlurGeometry) dockUI._syncBlurGeometry();
         },
     });
-    bg._isMagResetting = true;
 }
 
 export function updateLayout(dockUI) {
