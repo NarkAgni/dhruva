@@ -29,6 +29,7 @@ import './Color.test.js';
 import './MagnifierMath.test.js';
 import './LaunchMatcher.test.js';
 import './Presets.test.js';
+import './BlurSettleSync.test.js';
 
 
 System.exit(runAll() > 0 ? 1 : 0);
