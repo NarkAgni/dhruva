@@ -147,12 +147,8 @@ export class BlurPanel {
         if (!this.blurActor || !Settings.blurEnabled || this._isLocked()) return false;
         if (!isActorAlive(this.targetActor) || !isActorAlive(this.rootContainer)) return false;
         if (!this.targetActor.get_stage() || !this.targetActor.mapped || !this.targetActor.visible) return false;
-        if (!this.rootContainer.get_stage() || !this.rootContainer.visible || this.rootContainer.opacity < 10) return false;
-        if (this.rootContainer._isAutohiding) return false;
-
-        const dockUI = this.rootContainer._dockUI;
-        if (dockUI && dockUI.autoHideManager && dockUI.autoHideManager.isHidden) return false;
-        return this.targetActor.opacity >= 10;
+        if (!this.rootContainer.get_stage() || !this.rootContainer.visible || this.rootContainer.opacity === 0) return false;
+        return this.targetActor.opacity > 0;
     }
 
     _ensureHierarchy() {
@@ -393,6 +389,9 @@ export class BlurPanel {
     syncGeometry() {
         if (!this._isShowable()) return;
 
+        this.blurActor.opacity = this.rootContainer === this.targetActor
+            ? this.targetActor.opacity
+            : Math.round(this.rootContainer.opacity * this.targetActor.opacity / 255);
         this._updateGeometry();
         if (!this._lastKey) return;
 

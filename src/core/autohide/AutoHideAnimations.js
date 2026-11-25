@@ -51,7 +51,6 @@ export function animateShow(dockUI, onComplete) {
     if (!dockUI || !isActorAlive(dockUI.actor)) return;
 
     const serial = nextSerial(dockUI);
-    dockUI.actor._isAutohiding = false;
     dockUI.actor.show();
 
     easeDock(dockUI, { translation_x: 0, translation_y: 0, opacity: 255 }, Clutter.AnimationMode.EASE_OUT_QUAD, isFinished => {
@@ -69,9 +68,6 @@ export function animateHide(dockUI, onComplete, peek = 0) {
 
     const serial = nextSerial(dockUI);
     const { hideX, hideY } = getHideOffsets(dockUI, peek);
-
-    dockUI.actor._isAutohiding = true;
-    dockUI.dockBlur.hideBlur();
 
     easeDock(dockUI, { translation_x: hideX, translation_y: hideY, opacity: peek > 0 ? 255 : 0 }, Clutter.AnimationMode.EASE_IN_QUAD, () => {
         if (dockUI._autohideSerial === serial) onComplete();
