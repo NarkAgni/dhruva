@@ -16,11 +16,6 @@
 * along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 
-/**
- * Preset data, kept free of GObject-Introspection and gettext imports so it
- * stays unit-testable with plain GJS. Presets.js wraps this list with
- * gettext for the localized names and descriptions.
- */
 
 export const PRESET_BASE = {
     'dock-position': 'BOTTOM',

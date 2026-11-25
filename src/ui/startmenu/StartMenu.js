@@ -27,14 +27,15 @@ import * as Util from 'resource:///org/gnome/shell/misc/util.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { HomeView } from './HomeView.js';
-import { BlurPanel } from '../blur/BlurPanel.js';
-import { GridReorder } from './GridReorder.js';
 import { SearchView } from './SearchView.js';
+import { GridReorder } from './GridReorder.js';
 import { AllAppsView } from './AllAppsView.js';
+import { BlurPanel } from '../blur/BlurPanel.js';
 import { StartMenuData } from './StartMenuData.js';
 import { isActorAlive } from '../../core/Utils.js';
-import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { HYBRID_PANEL_CONFIG } from '../../core/PanelConfig.js';
+import { getAlternateLaunchGpu } from '../../core/GpuLaunch.js';
 import { resolvePopupBubbleColors } from '../dock/DockThemeResolver.js';
 import { setMagnifierPauseState } from '../magnifier/MagnifierState.js';
 import {
@@ -312,6 +313,16 @@ export class StartMenu {
         const items = [{ text: _('Open'), icon: 'media-playback-start-symbolic', run: () => this.launchApp(app) }];
         if (app.can_open_new_window()) items.push({ text: _('New Window'), icon: 'window-new-symbolic', run: () => this.launchApp(app, true) });
         items.push(...this.appActionItems(app));
+        const gpu = getAlternateLaunchGpu(app, global.get_switcheroo_control(), Shell);
+        if (gpu !== null) {
+            items.push({
+                text: gpu === Shell.AppLaunchGpu.DEFAULT
+                    ? _('Launch Using Integrated Graphics Card')
+                    : _('Launch Using Discrete Graphics Card'),
+                icon: 'system-run-symbolic',
+                run: () => this.launchAppOnAlternateGpu(app),
+            });
+        }
         items.push({
             text: this.data.isPinned(app) ? _('Unpin from Start') : _('Pin to Start'),
             icon: 'view-pin-symbolic',
@@ -771,6 +782,19 @@ export class StartMenu {
         this.close();
         if (newWindow) app.open_new_window(-1);
         else app.activate();
+    }
+
+    launchAppOnAlternateGpu(app) {
+        const gpu = getAlternateLaunchGpu(app, global.get_switcheroo_control(), Shell);
+        this.close();
+        if (gpu === null) return;
+        try {
+            app.launch(0, -1, gpu);
+            Main.overview.hide();
+        } catch (e) {
+            console.warn('[Dhruva] GPU launch failed:', e.message);
+            Main.notifyError(_('Unable to launch app'), e.message);
+        }
     }
 
     launchAppAction(app, action) {

@@ -20,8 +20,7 @@ import { test, assertEqual, assertTrue } from './lib/assert.js';
 import { readSchemaKeys } from './lib/fakes.js';
 import { PRESET_BASE, presetList } from '../src/prefs/PresetData.js';
 
-// Presets.js wraps presetList with gettext and Gio and cannot load under the
-// plain test runner; the data contract is tested here through PresetData.js.
+
 const schemaKeys = readSchemaKeys();
 const PRESETS = () => presetList();
 const PRESET_KEYS = Object.keys(PRESET_BASE);

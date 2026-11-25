@@ -28,6 +28,7 @@ import './DockGeometryCalculator.test.js';
 import './Color.test.js';
 import './MagnifierMath.test.js';
 import './LaunchMatcher.test.js';
+import './GpuLaunch.test.js';
 import './Presets.test.js';
 
 

@@ -29,6 +29,7 @@ import PeekManager from '../../core/PeekManager.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
 import { attachTrashActions } from './TrashActionsHandler.js';
+import { getAlternateLaunchGpu } from '../../core/GpuLaunch.js';
 import { applyMenuThemeStyle } from '../shared/MenuThemeStyle.js';
 import { setBoxVertical, isActorAlive } from '../../core/Utils.js';
 import { createThumbnailScroll } from './WindowThumbnailBuilder.js';
@@ -139,7 +140,6 @@ export default class AppContextMenu {
     }
 
     _cleanup() {
-        Main.sessionMode.disconnectObject(this);
         if (this._showDelayId) {
             this.timers.remove(this._showDelayId);
             this._showDelayId = null;
@@ -149,6 +149,10 @@ export default class AppContextMenu {
             this._posTrackerId = null;
         }
         this.timers.destroy();
+
+        Main.sessionMode.disconnectObject(this);
+        global.disconnectObject(this);
+        if (this.app && !this.app.is_module) this.app.disconnectObject(this);
 
         if (this.peekManager) {
             this.peekManager.destroy();
@@ -299,7 +303,9 @@ export default class AppContextMenu {
                     if (label) label.set_style('color: #0fb55e; font-weight: 700;');
 
                     btn.connectObject('notify::hover', () => {
-                        btn.set_style(btn.hover ? 'background-color: rgba(15, 181, 94, 0.15); transition-duration: 150ms; border-radius: 6px;' : 'background-color: transparent; transition-duration: 150ms; border-radius: 6px;');
+                        btn.set_style(btn.hover
+                            ? 'background-color: rgba(15, 181, 94, 0.15); transition-duration: 150ms; border-radius: 6px;'
+                            : 'background-color: transparent; transition-duration: 150ms; border-radius: 6px;');
                     }, btn);
 
                     this.panel.add_child(btn);
@@ -346,6 +352,8 @@ export default class AppContextMenu {
         }
 
         if (hasNewWindow || actions.length > 0) addSeparator(this.panel);
+
+        this._addGpuLaunchItem(appInfo);
 
         if (!this.app.is_module && this.app.get_id && (!this.buttonActor || !this.buttonActor._inFolder)) {
             const isPinned = this.appManager.hasApp(this.app);
@@ -421,6 +429,39 @@ export default class AppContextMenu {
                 }
             }, false, this));
         }
+    }
+
+    _addGpuLaunchItem(appInfo) {
+        if (!appInfo || this.app.is_module) return;
+
+        const getGpu = () => getAlternateLaunchGpu(this.app, global.get_switcheroo_control(), Shell);
+        const item = createMenuItem('', () => {
+            const gpu = getGpu();
+            this.hide();
+            if (gpu === null) return;
+            try {
+                this.app.launch(0, -1, gpu);
+                Main.overview.hide();
+            } catch (e) {
+                console.warn('[Dhruva] GPU launch failed:', e.message);
+                Main.notifyError(_('Unable to launch app'), e.message);
+            }
+        }, false, this);
+        this.panel.add_child(item);
+        addSeparator(this.panel);
+        const separator = this.panel.get_last_child();
+        const sync = () => {
+            const gpu = getGpu();
+            item.visible = separator.visible = gpu !== null;
+            if (gpu !== null) {
+                item.get_child().text = gpu === Shell.AppLaunchGpu.DEFAULT
+                    ? _('Launch Using Integrated Graphics Card')
+                    : _('Launch Using Discrete Graphics Card');
+            }
+        };
+        this.app.connectObject('notify::state', sync, this);
+        global.connectObject('notify::switcheroo-control', sync, this);
+        sync();
     }
 
     _addAppToIgnoreList(app) {
