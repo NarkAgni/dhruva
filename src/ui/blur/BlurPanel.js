@@ -28,6 +28,7 @@ import { BlurEffect } from './BlurEffect.js';
 import { Settings } from '../../core/SettingsManager.js';
 import { getBackgroundGroup } from '../../core/Compat.js';
 import { TimeoutTracker } from '../../core/TimeoutTracker.js';
+import { SettleSync } from './BlurSettleSync.js';
 import { isActorAlive, markActorDisposed } from '../../core/Utils.js';
 
 
@@ -96,6 +97,19 @@ export class BlurPanel {
         this._initialSyncId = 0;
         this._unlockDelayId = 0;
         this._showLaterId = 0;
+        this._settleSync = new SettleSync(
+            callback => global.compositor.get_laters().add(Meta.LaterType.IDLE, () => {
+                callback();
+                return GLib.SOURCE_REMOVE;
+            }),
+            id => global.compositor.get_laters().remove(id),
+            () => {
+                if (!this._isShowable()) return;
+                // The geometry key can match while the applied position is
+                // stale, so force the settled pass to re-apply.
+                this._lastKey = '';
+                this._updateGeometry();
+            });
         this._timeouts = new TimeoutTracker();
 
         this._effect = new BlurEffect();
@@ -172,6 +186,9 @@ export class BlurPanel {
     _setupListeners() {
         const onTransform = () => {
             if (this._isShowable()) this._updateGeometry();
+            // Geometry read during a dock rebuild can predate the next
+            // relayout; re-check once the frame has settled.
+            this._settleSync.queue();
         };
         const onVisibility = () => {
             if (this._isShowable()) this.syncGeometry();
@@ -507,6 +524,7 @@ export class BlurPanel {
                 global.compositor.get_laters().remove(this._showLaterId);
                 this._showLaterId = 0;
             }
+            if (this._settleSync) this._settleSync.cancel();
 
             if (isActorAlive(this.targetActor)) this.targetActor.disconnectObject(this);
             if (isActorAlive(this.rootContainer)) this.rootContainer.disconnectObject(this);
