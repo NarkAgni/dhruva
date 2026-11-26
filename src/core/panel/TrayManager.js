@@ -20,6 +20,7 @@
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { isActorAlive } from '../Utils.js';
+import { getTrayPreferenceKey } from './TrayIndicatorId.js';
 
 
 const SYSTEM_INDICATORS = [
@@ -119,6 +120,7 @@ export default class TrayManager {
             if (span === 0 && !hasText) continue;
             list.push({
                 name,
+                preferenceKey: getTrayPreferenceKey(name, indicator),
                 actor,
                 indicator,
                 isIconLike: !hasText && span <= MAX_ICON_SPAN,
@@ -148,7 +150,9 @@ export default class TrayManager {
         const tray = [];
         const panel = [];
         for (const item of movable) {
-            const inTray = item.isIconLike ? !pinned.has(item.name) : wide.has(item.name);
+            const choices = item.isIconLike ? pinned : wide;
+            const hasChoice = choices.has(item.preferenceKey) || choices.has(item.name);
+            const inTray = item.isIconLike ? !hasChoice : hasChoice;
             if (inTray) tray.push(item);
             else panel.push(item);
         }
@@ -157,11 +161,11 @@ export default class TrayManager {
 
     getTrayIndicators() {
         const order = this._settings.get_strv(ORDER_KEY);
-        const rank = name => {
-            const index = order.indexOf(name);
+        const rank = item => {
+            const index = order.findIndex(key => key === item.preferenceKey || key === item.name);
             return index === -1 ? order.length : index;
         };
-        return this._partition().tray.sort((a, b) => rank(a.name) - rank(b.name));
+        return this._partition().tray.sort((a, b) => rank(a) - rank(b));
     }
 
     getPanelIndicators() {
@@ -186,12 +190,15 @@ export default class TrayManager {
     _setChoices(name, toPanel) {
         const pinned = this._choices(PANEL_KEY);
         const wide = this._choices(WIDE_KEY);
+        const key = getTrayPreferenceKey(name, Main.panel.statusArea[name]);
+        pinned.delete(name);
+        wide.delete(name);
         if (toPanel) {
-            pinned.add(name);
-            wide.delete(name);
+            pinned.add(key);
+            wide.delete(key);
         } else {
-            pinned.delete(name);
-            wide.add(name);
+            pinned.delete(key);
+            wide.add(key);
         }
         this._settings.set_strv(PANEL_KEY, [...pinned]);
         this._settings.set_strv(WIDE_KEY, [...wide]);
@@ -215,12 +222,12 @@ export default class TrayManager {
 
     reorderTrayIndicators(fromIndex, toIndex) {
         const trayItems = this.getTrayIndicators();
-        const names = trayItems.filter(item => item.isIconLike).map(item => item.name);
+        const names = trayItems.filter(item => item.isIconLike).map(item => item.preferenceKey);
         if (fromIndex < 0 || fromIndex >= names.length || toIndex < 0 || toIndex >= names.length) return;
 
         const [moved] = names.splice(fromIndex, 1);
         names.splice(toIndex, 0, moved);
-        const wideNames = trayItems.filter(item => !item.isIconLike).map(item => item.name);
+        const wideNames = trayItems.filter(item => !item.isIconLike).map(item => item.preferenceKey);
         this._settings.set_strv(ORDER_KEY, [...names, ...wideNames]);
     }
 }

@@ -30,6 +30,7 @@ import './MagnifierMath.test.js';
 import './LaunchMatcher.test.js';
 import './GpuLaunch.test.js';
 import './Presets.test.js';
+import './TrayIndicatorId.test.js';
 
 
 System.exit(runAll() > 0 ? 1 : 0);

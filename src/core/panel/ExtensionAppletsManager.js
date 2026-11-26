@@ -136,6 +136,7 @@ export default class ExtensionAppletsManager {
             this._watchedIndicators.add(indicator);
             indicator.connectObject(
                 'notify::visible', () => this._queueResync(),
+                'notify::accessible-name', () => this._queueResync(),
                 'destroy', () => {
                     this._watchedIndicators.delete(indicator);
                     this._queueResync();
