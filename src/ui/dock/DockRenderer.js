@@ -245,10 +245,21 @@ function _computeDesiredState(dockUI) {
     const unpinnedItems = [];
     const focusWin = global.display.get_focus_window();
     const isIsolated = Settings.isolateWorkspaces || Settings.isolateMonitors;
+    const currentMonitorIndex = Settings.isolateMonitors
+        ? dockUI.monitorManager.getCurrentMonitor().index
+        : -1;
 
     for (let i = 0; i < displayApps.length; i++) {
         const app = displayApps[i];
         const appId = app.get_id();
+        const isPinnedApp = dockUI.appManager.hasApp(app);
+
+        // Unpinned apps belong only to the dock of the monitor they run on.
+        if (currentMonitorIndex >= 0 && !isPinnedApp &&
+            !app.get_windows().some(w => !w.is_skip_taskbar() && w.get_monitor() === currentMonitorIndex)) {
+            continue;
+        }
+
         const activeWindows = filterActiveWindows(dockUI, app.get_windows());
         let isRunning = app.get_state() === Shell.AppState.RUNNING;
 
@@ -265,7 +276,7 @@ function _computeDesiredState(dockUI) {
             windows: activeWindows,
         };
 
-        if (dockUI.appManager.hasApp(app)) pinnedItemsMap.set(appId, appItem);
+        if (isPinnedApp) pinnedItemsMap.set(appId, appItem);
         else unpinnedItems.push(appItem);
     }
 
