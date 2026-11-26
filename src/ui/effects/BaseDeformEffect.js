@@ -89,6 +89,20 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
 
         this._applyIconRect(this._iconScreenPos);
 
+        // An offscreen effect added before this one paints around it and keeps only
+        // what falls inside the window's own box, so the window would vanish at its
+        // edge instead of reaching the dock (Rounded Window Corners puts its effects
+        // first on purpose). Those effects rest while this one runs, also when their
+        // owner turns them back on, as it does when the window loses focus.
+        this._restingEffects = actor.get_effects().filter(effect =>
+            effect !== this && effect instanceof Clutter.OffscreenEffect && effect.enabled);
+        for (const effect of this._restingEffects) {
+            effect.enabled = false;
+            effect.connectObject('notify::enabled', () => {
+                if (effect.enabled) effect.enabled = false;
+            }, this);
+        }
+
         const [tilesX, tilesY] = this._getTiles();
         this.set_n_tiles(tilesX, tilesY);
 
@@ -153,6 +167,10 @@ export class BaseDeformEffect extends Clutter.DeformEffect {
             if (actor) {
                 actor.disconnectObject(this);
                 actor.remove_effect(this);
+                for (const effect of this._restingEffects) {
+                    effect.disconnectObject(this);
+                    effect.enabled = true;
+                }
                 this._onDone(actor);
             }
         }
