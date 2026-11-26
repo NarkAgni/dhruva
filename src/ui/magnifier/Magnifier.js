@@ -73,8 +73,6 @@ function _checkPointerLeave(dockActor, settings) {
         dockActor._leaveCheckId = null;
     }
 
-    if (dockActor._isResetting) return;
-
     const isVertical = getBoxVertical(dockActor.boxActor);
     const coords = global.get_pointer();
     const px = coords[0];
@@ -84,9 +82,14 @@ function _checkPointerLeave(dockActor, settings) {
     const insideBridge = isPointerInDockTooltipBridge(dockActor, px, py, settings);
 
     if (!onDock && !insideTooltip && !insideBridge) {
-        dockActor._isResetting = true;
-        resetMagnification(dockActor, 180);
-        return;
+        // When a reset is already running (latch set), do not issue a second
+        // reset; fall through to the poll below so the leave is re-checked
+        // once the latch clears (see resetMagnification's latch timer).
+        if (!dockActor._isResetting) {
+            dockActor._isResetting = true;
+            resetMagnification(dockActor, 180);
+            return;
+        }
     }
 
     let attempts = 0;
@@ -118,7 +121,10 @@ function _checkPointerLeave(dockActor, settings) {
         }
 
         attempts++;
-        if (attempts > 12) {
+        // Attempts must cover the reset latch window (~duration + 240 ms at
+        // 16 ms per attempt); otherwise the poll expires while a reset is
+        // still latched and the leave is never serviced.
+        if (attempts > 40) {
             dockActor._leaveCheckId = null;
             return GLib.SOURCE_REMOVE;
         }
@@ -256,6 +262,11 @@ export function setupMagnification(dockActor, settings, dockPositionGetter) {
         }
 
         if (evType !== Clutter.EventType.BUTTON_RELEASE) return Clutter.EVENT_PROPAGATE;
+
+        // A press or drag can carry the pointer off the dock while the
+        // MOTION guards above skip away handling; re-check the leave state
+        // once the button is released.
+        _checkPointerLeave(dockActor, settings);
 
         const pressStartedOnDock = dockActor._pressStartedOnDock;
         dockActor._pressStartedOnDock = false;
