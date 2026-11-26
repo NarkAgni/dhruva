@@ -1,0 +1,1875 @@
+# Italian translation for Dhruva Dock.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# ALbano Battistella <albanobattistella@gmail.com>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-05 21:28+0530\n"
+"PO-Revision-Date: 2026-11-22 20:56+0100\n"
+"Last-Translator: Albano Battistella <albanobattistella@gmail.com>\n"
+"Language-Team: Italian\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/core/FolderManager.js:111 src/ui/modules/SystemFoldersModule.js:77
+#: src/ui/DragDrop.js:146 src/ui/context-menu/AppContextMenu.js:148
+#: src/ui/context-menu/AppContextMenu.js:212
+#: src/ui/context-menu/AppContextMenu.js:316
+#: src/ui/folder-menu/FolderMenuBuilder.js:517
+msgid "New Folder"
+msgstr "Nuova cartella"
+
+#: src/prefs/AboutPage.js:29
+msgid "About"
+msgstr "Informazioni"
+
+#: src/prefs/AboutPage.js:62
+msgid "A beautifully crafted, highly customisable dock for GNOME Shell"
+msgstr "Un dock per GNOME Shell curato nei dettagli e altamente personalizzabile"
+
+#: src/prefs/AboutPage.js:78
+msgid "Links"
+msgstr "Link"
+
+#: src/prefs/AboutPage.js:101
+msgid "GitHub Repository"
+msgstr "Repository GitHub"
+
+#: src/prefs/AboutPage.js:106
+msgid "Credits"
+msgstr "Crediti"
+
+#: src/prefs/AboutPage.js:111
+msgid "Author &amp; Maintainer"
+msgstr "Autore &amp; manutentore"
+
+#: src/prefs/AboutPage.js:116
+msgid "Features"
+msgstr "Funzionalità"
+
+#: src/prefs/AboutPage.js:117
+msgid ""
+"Per-app running indicators · Hover zoom magnification · Window minimize "
+"effects (Magic Lamp, Snake, Vortex & more) · Icon click animations (Bounce, "
+"Jelly, Heartbeat & 20+ styles) · Intelligent auto-hide with edge pressure "
+"reveal · Chameleon theme (wallpaper colour matching) · Full-width dock mode "
+"· Multi-monitor support · Custom folders, Trash, Desktop button & App Grid · "
+"Workspace isolation · Aero Peek window previews · Lock icons to prevent "
+"accidental reorder"
+msgstr ""
+"Indicatori di esecuzione per app · Ingrandimento con zoom al passaggio del "
+"mouse · Effetti di minimizzazione delle finestre (Lampada magica, Serpente, "
+"Vortice e altri) · Animazioni al clic sulle icone (Rimbalzo, Gelatina, "
+"Battito e oltre 20 stili) · Nascondimento automatico intelligente con "
+"rivelazione per pressione sul bordo · Tema Camaleonte (abbinamento ai colori "
+"dello sfondo) · Modalità dock a larghezza intera · Supporto multi-monitor · "
+"Cartelle personalizzate, Cestino, pulsante Scrivania e griglia delle app · "
+"Isolamento degli spazi di lavoro · Anteprime delle finestre Aero Peek · "
+"Blocco delle icone per evitare riordini accidentali"
+
+#: src/prefs/AboutPage.js:122
+msgid "Disclaimer"
+msgstr "Esclusione di responsabilità"
+
+#: src/prefs/AboutPage.js:123
+msgid "Dhruva Dock is an independent open-source project."
+msgstr "Dhruva Dock è un progetto open source indipendente."
+
+#: src/prefs/AboutPage.js:130
+msgid "Support Development"
+msgstr "Sostieni lo sviluppo"
+
+#: src/prefs/AboutPage.js:131
+msgid "If you enjoy Dhruva, consider buying me a coffee ☕ or sending crypto!"
+msgstr "Se ti piace Dhruva, offrimi un caffè ☕ o invia qualche cripto!"
+
+#: src/prefs/AboutPage.js:136
+msgid "Buy Me a Coffee"
+msgstr "Offrimi un caffè"
+
+#: src/prefs/AboutPage.js:166
+msgid "Copy"
+msgstr "Copia"
+
+#: src/prefs/AboutPage.js:166
+msgid "address"
+msgstr "indirizzo"
+
+#: src/prefs/AboutPage.js:172
+msgid "address copied!"
+msgstr "indirizzo copiato!"
+
+#: src/prefs/LayoutPage.js:31
+msgid "Layout"
+msgstr "Disposizione"
+
+#: src/prefs/LayoutPage.js:37
+msgid "Screen Placement"
+msgstr "Posizione sullo schermo"
+
+#: src/prefs/LayoutPage.js:38
+msgid "Where to place the dock on your display"
+msgstr "Dove posizionare il dock sullo schermo"
+
+#: src/prefs/LayoutPage.js:42
+msgid "Screen Edge"
+msgstr "Bordo dello schermo"
+
+#: src/prefs/LayoutPage.js:42
+msgid "Which edge to attach to"
+msgstr "A quale bordo agganciarlo"
+
+#: src/prefs/LayoutPage.js:43
+msgid "Left"
+msgstr "Sinistra"
+
+#: src/prefs/LayoutPage.js:44
+msgid "Bottom"
+msgstr "In basso"
+
+#: src/prefs/LayoutPage.js:45
+msgid "Top"
+msgstr "In alto"
+
+#: src/prefs/LayoutPage.js:46
+msgid "Right"
+msgstr "Destra"
+
+#: src/prefs/LayoutPage.js:55
+msgid "Monitor"
+msgstr "Monitor"
+
+#: src/prefs/LayoutPage.js:57
+#, javascript-format
+msgid "Primary Monitor (%s)"
+msgstr "Monitor principale (%s)"
+
+#: src/prefs/LayoutPage.js:65
+msgid "Preferred Monitor"
+msgstr "Monitor preferito"
+
+#: src/prefs/LayoutPage.js:66
+msgid "Choose display for the dock"
+msgstr "Scegli lo schermo per il dock"
+
+#: src/prefs/LayoutPage.js:85
+msgid "Show on All Monitors"
+msgstr "Mostra su tutti i monitor"
+
+#: src/prefs/LayoutPage.js:85
+msgid "Display the dock on every connected screen"
+msgstr "Mostra il dock su ogni schermo collegato"
+
+#: src/prefs/LayoutPage.js:86
+msgid "Isolate Monitors"
+msgstr "Isola i monitor"
+
+#: src/prefs/LayoutPage.js:86
+msgid "Only show apps running on the current monitor"
+msgstr "Mostra solo le app in esecuzione sul monitor corrente"
+
+#: src/prefs/LayoutPage.js:92
+msgid "Independent Dock Mode"
+msgstr "Modalità dock indipendente"
+
+#: src/prefs/LayoutPage.js:93
+msgid "Use completely separate pinned apps and custom app launcher"
+msgstr "Usa app fissate e un lanciatore di app personalizzato completamente separati"
+
+#: src/prefs/LayoutPage.js:99
+msgid "Toggle Shortcut"
+msgstr "Scorciatoia di attivazione"
+
+#: src/prefs/LayoutPage.js:100
+msgid "Keyboard shortcut to switch independent dock mode"
+msgstr "Scorciatoia da tastiera per attivare la modalità dock indipendente"
+
+#: src/prefs/LayoutPage.js:116 src/prefs/BlurPage.js:343
+#: src/prefs/BlurPage.js:407 src/prefs/ModulesPage.js:354
+#: src/prefs/BehaviorPage.js:83 src/prefs/BehaviorPage.js:114
+msgid "None"
+msgstr "Nessuno"
+
+#: src/prefs/LayoutPage.js:130
+msgid "Reset Shortcut"
+msgstr "Ripristina scorciatoia"
+
+#: src/prefs/LayoutPage.js:160
+msgid "Set Shortcut"
+msgstr "Imposta scorciatoia"
+
+#: src/prefs/LayoutPage.js:183
+msgid ""
+"Press keys combo (e.g. Super+Alt+I or Ctrl+Alt+D)\n"
+"(Esc to Cancel, Backspace to Clear)"
+msgstr ""
+"Premi una combinazione di tasti (es. Super+Alt+I o Ctrl+Alt+D)\n"
+"(Esc per annullare, Backspace per cancellare)"
+
+#: src/prefs/LayoutPage.js:188
+msgid "Clear Shortcut"
+msgstr "Cancella scorciatoia"
+
+#: src/prefs/LayoutPage.js:267
+msgid "Show Independent Dock in Overview"
+msgstr "Mostra il dock indipendente nella panoramica"
+
+#: src/prefs/LayoutPage.js:268
+msgid "Shows dock on the left side during overview"
+msgstr "Mostra il dock sul lato sinistro durante la panoramica"
+
+#: src/prefs/LayoutPage.js:273
+msgid "Full Screen Width"
+msgstr "Larghezza intera dello schermo"
+
+#: src/prefs/LayoutPage.js:273
+msgid "Extend dock edge to edge"
+msgstr "Estende il dock da un bordo all'altro"
+
+#: src/prefs/LayoutPage.js:275
+msgid "Icon Alignment"
+msgstr "Allineamento delle icone"
+
+#: src/prefs/LayoutPage.js:275
+msgid "Justification when Full Width is active"
+msgstr "Allineamento quando la larghezza intera è attiva"
+
+#: src/prefs/LayoutPage.js:276 src/prefs/MusicPillPage.js:57
+#: src/prefs/ModulesPage.js:58 src/prefs/ModulesPage.js:677
+msgid "Start"
+msgstr "Inizio"
+
+#: src/prefs/LayoutPage.js:277
+msgid "Center"
+msgstr "Centro"
+
+#: src/prefs/LayoutPage.js:278 src/prefs/MusicPillPage.js:58
+#: src/prefs/ModulesPage.js:59 src/prefs/ModulesPage.js:678
+msgid "End"
+msgstr "Fine"
+
+#: src/prefs/LayoutPage.js:281
+msgid "Edge Margin"
+msgstr "Margine dal bordo"
+
+#: src/prefs/LayoutPage.js:281
+msgid "Distance from screen edge"
+msgstr "Distanza dal bordo dello schermo"
+
+#: src/prefs/LayoutPage.js:288
+msgid "Sizing &amp; Spacing"
+msgstr "Dimensioni &amp; spaziatura"
+
+#: src/prefs/LayoutPage.js:289
+msgid "Base dimensions for dock and icons"
+msgstr "Dimensioni di base per dock e icone"
+
+#: src/prefs/LayoutPage.js:293
+msgid "Base Icon Size"
+msgstr "Dimensione base delle icone"
+
+#: src/prefs/LayoutPage.js:293
+msgid "Normal size of app icons"
+msgstr "Dimensione normale delle icone delle app"
+
+#: src/prefs/LayoutPage.js:299
+msgid "Icon Gap"
+msgstr "Spazio tra le icone"
+
+#: src/prefs/LayoutPage.js:299
+msgid "Distance between icons"
+msgstr "Distanza tra le icone"
+
+#: src/prefs/LayoutPage.js:305
+msgid "Side Padding"
+msgstr "Spaziatura laterale"
+
+#: src/prefs/LayoutPage.js:305
+msgid "Extra gap inside dock ends"
+msgstr "Spazio extra alle estremità interne del dock"
+
+#: src/prefs/LayoutPage.js:311
+msgid "Dock Height / Thickness"
+msgstr "Altezza / spessore del dock"
+
+#: src/prefs/LayoutPage.js:311
+msgid "Extra padding on top/bottom (or left/right)"
+msgstr "Spaziatura extra in alto/in basso (o a sinistra/destra)"
+
+#: src/prefs/BlurPage.js:37
+msgid "Blur"
+msgstr "Sfocatura"
+
+#: src/prefs/BlurPage.js:42
+msgid "Blur Material"
+msgstr "Materiale sfocato"
+
+#: src/prefs/BlurPage.js:43
+msgid "Apply refractive backdrop blur to Dhruva dock, menus and panels"
+msgstr "Applica una sfocatura rifrattiva dello sfondo al dock, ai menu e ai pannelli di Dhruva"
+
+#: src/prefs/BlurPage.js:48
+msgid "Enable Blur"
+msgstr "Attiva la sfocatura"
+
+#: src/prefs/BlurPage.js:49
+msgid "Overrides current theme with clean refractive blur material"
+msgstr "Sostituisce il tema corrente con un pulito materiale a sfocatura rifrattiva"
+
+#: src/prefs/BlurPage.js:55
+msgid "Blur Mode"
+msgstr "Modalità di sfocatura"
+
+#: src/prefs/BlurPage.js:56
+msgid "Choose between live real-time tracking or static performance blur"
+msgstr "Scegli tra tracciamento dal vivo in tempo reale o sfocatura statica più leggera"
+
+#: src/prefs/BlurPage.js:66 src/prefs/AppearancePage.js:258
+msgid "Dynamic"
+msgstr "Dinamica"
+
+#: src/prefs/BlurPage.js:70
+msgid "Static"
+msgstr "Statica"
+
+#: src/prefs/BlurPage.js:100
+msgid "Static Background Source"
+msgstr "Sorgente dello sfondo statico"
+
+#: src/prefs/BlurPage.js:101
+msgid "Choose between built-in vector presets or custom photo"
+msgstr "Scegli tra preimpostazioni vettoriali integrate o una foto personalizzata"
+
+#: src/prefs/BlurPage.js:111
+msgid "Preset"
+msgstr "Preimpostazione"
+
+#: src/prefs/BlurPage.js:115
+msgid "Custom Photo"
+msgstr "Foto personalizzata"
+
+#: src/prefs/BlurPage.js:148
+msgid "Static Blur Preset"
+msgstr "Preimpostazione di sfocatura statica"
+
+#: src/prefs/BlurPage.js:149
+msgid "Select an abstract background texture for static blur"
+msgstr "Seleziona una texture astratta di sfondo per la sfocatura statica"
+
+#: src/prefs/BlurPage.js:152
+msgid "Abstract Dark"
+msgstr "Astratto scuro"
+
+#: src/prefs/BlurPage.js:153
+msgid "Aurora Borealis"
+msgstr "Aurora boreale"
+
+#: src/prefs/BlurPage.js:154
+msgid "Sunset Glow"
+msgstr "Bagliore del tramonto"
+
+#: src/prefs/BlurPage.js:155
+msgid "Cyberpunk Neon"
+msgstr "Neon cyberpunk"
+
+#: src/prefs/BlurPage.js:156
+msgid "Minimal Slate"
+msgstr "Ardesia minimale"
+
+#: src/prefs/BlurPage.js:219
+msgid "Adjust Dock Banner Area"
+msgstr "Regola l'area del banner del dock"
+
+#: src/prefs/BlurPage.js:233 src/prefs/ModulesPage.js:269
+#: src/prefs/ModulesPage.js:874 src/ui/context-menu/TrashActionsHandler.js:86
+msgid "Cancel"
+msgstr "Annulla"
+
+#: src/prefs/BlurPage.js:234
+msgid "Apply"
+msgstr "Applica"
+
+#: src/prefs/BlurPage.js:247
+msgid "Use the slider to adjust vertical crop position"
+msgstr "Usa il cursore per regolare la posizione verticale del ritaglio"
+
+#: src/prefs/BlurPage.js:296
+msgid "Position:"
+msgstr "Posizione:"
+
+#: src/prefs/BlurPage.js:330
+msgid "Custom Static Background"
+msgstr "Sfondo statico personalizzato"
+
+#: src/prefs/BlurPage.js:331
+msgid "Choose and crop custom image (.png, .jpg, .jpeg, .svg, .webp)"
+msgstr "Scegli e ritaglia un'immagine personalizzata (.png, .jpg, .jpeg, .svg, .webp)"
+
+#: src/prefs/BlurPage.js:350 src/prefs/ModulesPage.js:78
+#: src/prefs/ModulesPage.js:363
+msgid "Browse..."
+msgstr "Sfoglia…"
+
+#: src/prefs/BlurPage.js:355
+msgid "Select Blur Background Image"
+msgstr "Seleziona l'immagine di sfondo per la sfocatura"
+
+#: src/prefs/BlurPage.js:358
+msgid "Images (.png, .jpg, .svg, .webp)"
+msgstr "Immagini (.png, .jpg, .svg, .webp)"
+
+#: src/prefs/BlurPage.js:401
+msgid "Clear custom photo"
+msgstr "Rimuovi la foto personalizzata"
+
+#: src/prefs/BlurPage.js:430
+msgid "Tint Color"
+msgstr "Colore della tinta"
+
+#: src/prefs/BlurPage.js:431
+msgid "Surface tint accent for blur and background tone"
+msgstr "Tinta di accento della superficie per la sfocatura e il tono dello sfondo"
+
+#: src/prefs/BlurPage.js:477
+msgid "Blur Intensity"
+msgstr "Intensità della sfocatura"
+
+#: src/prefs/BlurPage.js:477
+msgid "Radius diffusion spread"
+msgstr "Raggio di diffusione"
+
+#: src/prefs/BlurPage.js:478
+msgid "Vibrancy"
+msgstr "Vivacità"
+
+#: src/prefs/BlurPage.js:478
+msgid "Saturation behind blur"
+msgstr "Saturazione dietro la sfocatura"
+
+#: src/prefs/BlurPage.js:479
+msgid "Brightness"
+msgstr "Luminosità"
+
+#: src/prefs/BlurPage.js:479
+msgid "0.0 dark tone, 1.0 bright tone"
+msgstr "0,0 tono scuro, 1,0 tono chiaro"
+
+#: src/prefs/BlurPage.js:480
+msgid "Tint Opacity"
+msgstr "Opacità della tinta"
+
+#: src/prefs/BlurPage.js:480
+msgid "Color tint blend strength"
+msgstr "Intensità di fusione della tinta di colore"
+
+#: src/prefs/BlurPage.js:483
+msgid "Optics &amp; Dispersion"
+msgstr "Ottica &amp; dispersione"
+
+#: src/prefs/BlurPage.js:484
+msgid "Specular light angle and surface outline reflections"
+msgstr "Angolo della luce speculare e riflessi del contorno della superficie"
+
+#: src/prefs/BlurPage.js:488
+msgid "Border Highlight Glow"
+msgstr "Bagliore del bordo evidenziato"
+
+#: src/prefs/BlurPage.js:488
+msgid "Edge outline shine reflection"
+msgstr "Riflesso luminoso del contorno dei bordi"
+
+#: src/prefs/BlurPage.js:489
+msgid "Highlight Angle"
+msgstr "Angolo di illuminazione"
+
+#: src/prefs/BlurPage.js:489
+msgid "Specular light angle in degrees"
+msgstr "Angolo della luce speculare in gradi"
+
+#: src/prefs/MusicPillPage.js:28
+msgid "Music Pill"
+msgstr "Pillola musicale"
+
+#: src/prefs/MusicPillPage.js:34
+msgid "General Settings"
+msgstr "Impostazioni generali"
+
+#: src/prefs/MusicPillPage.js:35
+msgid "Configure live media player widget on the dock"
+msgstr "Configura il widget del lettore multimediale dal vivo sul dock"
+
+#: src/prefs/MusicPillPage.js:43
+msgid "Show Music Pill"
+msgstr "Mostra la pillola musicale"
+
+#: src/prefs/MusicPillPage.js:44
+msgid "Display currently playing media and controls"
+msgstr "Mostra il contenuto in riproduzione e i controlli"
+
+#: src/prefs/MusicPillPage.js:53
+msgid "Pill Placement"
+msgstr "Posizione della pillola"
+
+#: src/prefs/MusicPillPage.js:54
+msgid "Position of the pill on dock"
+msgstr "Posizione della pillola sul dock"
+
+#: src/prefs/ModulesPage.js:42
+msgid "Modules"
+msgstr "Moduli"
+
+#: src/prefs/ModulesPage.js:48
+msgid "Dock Modules"
+msgstr "Moduli del dock"
+
+#: src/prefs/ModulesPage.js:49
+msgid "Enable extra shortcuts on your dock"
+msgstr "Attiva scorciatoie aggiuntive sul dock"
+
+#: src/prefs/ModulesPage.js:53
+msgid "Recycle Bin (Trash)"
+msgstr "Cestino"
+
+#: src/prefs/ModulesPage.js:53
+msgid "Show a shortcut to the trash folder"
+msgstr "Mostra una scorciatoia alla cartella del cestino"
+
+#: src/prefs/ModulesPage.js:54
+msgid "Show Desktop Button"
+msgstr "Pulsante Mostra Scrivania"
+
+#: src/prefs/ModulesPage.js:54
+msgid "Quickly minimize all windows"
+msgstr "Minimizza rapidamente tutte le finestre"
+
+#: src/prefs/ModulesPage.js:55
+msgid "Show Applications Button"
+msgstr "Pulsante Mostra applicazioni"
+
+#: src/prefs/ModulesPage.js:55
+msgid "App drawer launcher"
+msgstr "Lanciatore del cassetto delle app"
+
+#: src/prefs/ModulesPage.js:56
+msgid "Application Button Position"
+msgstr "Posizione del pulsante Applicazioni"
+
+#: src/prefs/ModulesPage.js:56
+msgid "Where to place the launcher"
+msgstr "Dove posizionare il lanciatore"
+
+#: src/prefs/ModulesPage.js:57
+msgid "Left Edge"
+msgstr "Bordo sinistro"
+
+#: src/prefs/ModulesPage.js:62
+msgid "App Grid Button Color"
+msgstr "Colore del pulsante della griglia delle app"
+
+#: src/prefs/ModulesPage.js:64
+msgid "Use Old App Grid Icon"
+msgstr "Usa la vecchia icona della griglia delle app"
+
+#: src/prefs/ModulesPage.js:64
+msgid "Show default dotted grid icon instead of Dhruva logo"
+msgstr "Mostra l'icona predefinita a griglia di punti al posto del logo di Dhruva"
+
+#: src/prefs/ModulesPage.js:67
+msgid "Custom App Grid Icon"
+msgstr "Icona personalizzata della griglia delle app"
+
+#: src/prefs/ModulesPage.js:68
+msgid "Size: 256x256 or 512x512 (.png, .svg, .ico)"
+msgstr "Dimensione: 256x256 o 512x512 (.png, .svg, .ico)"
+
+#: src/prefs/ModulesPage.js:83
+msgid "Select App Custom Grid Icon"
+msgstr "Seleziona l'icona personalizzata della griglia delle app"
+
+#: src/prefs/ModulesPage.js:86 src/prefs/ModulesPage.js:371
+msgid "Images (.png, .svg, .ico)"
+msgstr "Immagini (.png, .svg, .ico)"
+
+#: src/prefs/ModulesPage.js:133
+msgid "Reset to default icon"
+msgstr "Ripristina l'icona predefinita"
+
+#: src/prefs/ModulesPage.js:148
+msgid "Custom Icon Scale (%)"
+msgstr "Scala dell'icona personalizzata (%)"
+
+#: src/prefs/ModulesPage.js:149
+msgid "Adjust size multiplier (Default: 125)"
+msgstr "Regola il moltiplicatore di dimensione (predefinito: 125)"
+
+#: src/prefs/ModulesPage.js:182
+msgid "Standard Folders"
+msgstr "Cartelle standard"
+
+#: src/prefs/ModulesPage.js:183
+msgid "Add quick access folders to the dock"
+msgstr "Aggiungi al dock cartelle di accesso rapido"
+
+#: src/prefs/ModulesPage.js:187 src/prefs/ModulesPage.js:234
+#: src/ui/modules/SystemFoldersModule.js:33
+msgid "Home"
+msgstr "Home"
+
+#: src/prefs/ModulesPage.js:187
+msgid "Shortcut to Home directory"
+msgstr "Scorciatoia alla cartella Home"
+
+#: src/prefs/ModulesPage.js:188 src/prefs/ModulesPage.js:235
+#: src/ui/modules/SystemFoldersModule.js:45
+msgid "Downloads"
+msgstr "Scaricati"
+
+#: src/prefs/ModulesPage.js:188
+msgid "Shortcut to Downloads"
+msgstr "Scorciatoia alla cartella Scaricati"
+
+#: src/prefs/ModulesPage.js:189 src/prefs/ModulesPage.js:236
+#: src/ui/modules/SystemFoldersModule.js:46
+msgid "Documents"
+msgstr "Documenti"
+
+#: src/prefs/ModulesPage.js:189
+msgid "Shortcut to Documents"
+msgstr "Scorciatoia alla cartella Documenti"
+
+#: src/prefs/ModulesPage.js:190 src/prefs/ModulesPage.js:237
+#: src/ui/modules/SystemFoldersModule.js:47
+msgid "Pictures"
+msgstr "Immagini"
+
+#: src/prefs/ModulesPage.js:190
+msgid "Shortcut to Pictures"
+msgstr "Scorciatoia alla cartella Immagini"
+
+#: src/prefs/ModulesPage.js:191 src/prefs/ModulesPage.js:238
+#: src/ui/modules/SystemFoldersModule.js:48
+msgid "Videos"
+msgstr "Video"
+
+#: src/prefs/ModulesPage.js:191
+msgid "Shortcut to Videos"
+msgstr "Scorciatoia alla cartella Video"
+
+#: src/prefs/ModulesPage.js:192 src/prefs/ModulesPage.js:239
+#: src/ui/modules/SystemFoldersModule.js:49
+msgid "Music"
+msgstr "Musica"
+
+#: src/prefs/ModulesPage.js:192
+msgid "Shortcut to Music"
+msgstr "Scorciatoia alla cartella Musica"
+
+#: src/prefs/ModulesPage.js:195
+msgid "Show USB &amp; Mounted Drives"
+msgstr "Mostra unità USB &amp; montate"
+
+#: src/prefs/ModulesPage.js:196
+msgid "Automatically show connected drives and partitions on the dock"
+msgstr "Mostra automaticamente sul dock le unità e le partizioni collegate"
+
+#: src/prefs/ModulesPage.js:216
+msgid "Custom Quick Folders"
+msgstr "Cartelle rapide personalizzate"
+
+#: src/prefs/ModulesPage.js:217
+msgid "Add your own directory shortcuts to the dock"
+msgstr "Aggiungi al dock le tue scorciatoie a cartelle"
+
+#: src/prefs/ModulesPage.js:233
+msgid "System Folder (Default)"
+msgstr "Cartella di sistema (predefinita)"
+
+#: src/prefs/ModulesPage.js:240
+msgid "Public Share"
+msgstr "Pubblici"
+
+#: src/prefs/ModulesPage.js:241
+msgid "Templates"
+msgstr "Modelli"
+
+#: src/prefs/ModulesPage.js:242
+msgid "Desktop"
+msgstr "Scrivania"
+
+#: src/prefs/ModulesPage.js:243
+msgid "Projects / Code"
+msgstr "Progetti / Codice"
+
+#: src/prefs/ModulesPage.js:244
+msgid "Cloud / Remote"
+msgstr "Cloud / Remoto"
+
+#: src/prefs/ModulesPage.js:254
+msgid "Edit Quick Folder"
+msgstr "Modifica cartella rapida"
+
+#: src/prefs/ModulesPage.js:254 src/prefs/ModulesPage.js:628
+msgid "Add Quick Folder"
+msgstr "Aggiungi cartella rapida"
+
+#: src/prefs/ModulesPage.js:255
+msgid "Update"
+msgstr "Aggiorna"
+
+#: src/prefs/ModulesPage.js:255
+msgid "Add"
+msgstr "Aggiungi"
+
+#: src/prefs/ModulesPage.js:280
+msgid "Folder Name (e.g. Workspace)"
+msgstr "Nome della cartella (es. Lavoro)"
+
+#: src/prefs/ModulesPage.js:287
+msgid "Folder Path"
+msgstr "Percorso della cartella"
+
+#: src/prefs/ModulesPage.js:297
+msgid "Browse folder..."
+msgstr "Sfoglia cartella…"
+
+#: src/prefs/ModulesPage.js:302
+msgid "Select Folder"
+msgstr "Seleziona cartella"
+
+#: src/prefs/ModulesPage.js:325
+msgid "Preset System Icon"
+msgstr "Icona di sistema predefinita"
+
+#: src/prefs/ModulesPage.js:326
+msgid "Custom Image File"
+msgstr "File immagine personalizzato"
+
+#: src/prefs/ModulesPage.js:327
+msgid "Custom Emoji"
+msgstr "Emoji personalizzata"
+
+#: src/prefs/ModulesPage.js:331
+msgid "Icon Type"
+msgstr "Tipo di icona"
+
+#: src/prefs/ModulesPage.js:337
+msgid "Select Preset Icon"
+msgstr "Seleziona l'icona predefinita"
+
+#: src/prefs/ModulesPage.js:342
+msgid "Select Image File"
+msgstr "Seleziona il file immagine"
+
+#: src/prefs/ModulesPage.js:343
+msgid "PNG, SVG, ICO format"
+msgstr "Formato PNG, SVG, ICO"
+
+#: src/prefs/ModulesPage.js:368
+msgid "Select Custom Folder Icon Image"
+msgstr "Seleziona l'immagine dell'icona personalizzata della cartella"
+
+#: src/prefs/ModulesPage.js:416
+msgid "Enter Emoji (Only 1 emoji allowed)"
+msgstr "Inserisci un'emoji (ne è consentita solo una)"
+
+#: src/prefs/ModulesPage.js:420
+msgid "Only 1 emoji is allowed. Multiple emojis are not supported."
+msgstr "È consentita una sola emoji. Più emoji non sono supportate."
+
+#: src/prefs/ModulesPage.js:507 src/ui/modules/SystemFoldersModule.js:75
+msgid "Custom Folder"
+msgstr "Cartella personalizzata"
+
+#: src/prefs/ModulesPage.js:598
+msgid "Edit folder"
+msgstr "Modifica cartella"
+
+#: src/prefs/ModulesPage.js:609
+msgid "Remove folder"
+msgstr "Rimuovi cartella"
+
+#: src/prefs/ModulesPage.js:644
+msgid "Clock &amp; Date"
+msgstr "Orologio &amp; data"
+
+#: src/prefs/ModulesPage.js:645
+msgid "Display time on horizontal docks"
+msgstr "Mostra l'ora sui dock orizzontali"
+
+#: src/prefs/ModulesPage.js:649
+msgid "Show Clock"
+msgstr "Mostra l'orologio"
+
+#: src/prefs/ModulesPage.js:649
+msgid "Hidden automatically on left/right docks"
+msgstr "Nascosto automaticamente sui dock a sinistra/destra"
+
+#: src/prefs/ModulesPage.js:651
+msgid "Use 24-Hour Clock"
+msgstr "Usa l'orologio a 24 ore"
+
+#: src/prefs/ModulesPage.js:651
+msgid "Display time in 24-hour format"
+msgstr "Mostra l'ora in formato 24 ore"
+
+#: src/prefs/ModulesPage.js:653
+msgid "Clock Text Size"
+msgstr "Dimensione del testo dell'orologio"
+
+#: src/prefs/ModulesPage.js:653
+msgid "Adjust font size"
+msgstr "Regola la dimensione del carattere"
+
+#: src/prefs/ModulesPage.js:682
+msgid "Right Edge"
+msgstr "Bordo destro"
+
+#: src/prefs/ModulesPage.js:685
+msgid "Clock Position"
+msgstr "Posizione dell'orologio"
+
+#: src/prefs/ModulesPage.js:685
+msgid "Separate from App Grid"
+msgstr "Separato dalla griglia delle app"
+
+#: src/prefs/ModulesPage.js:697
+msgid "Danger Zone"
+msgstr "Zona pericolosa"
+
+#: src/prefs/ModulesPage.js:698
+msgid "Master controls for your settings"
+msgstr "Controlli generali per le tue impostazioni"
+
+#: src/prefs/ModulesPage.js:703
+msgid "Backup &amp; Restore"
+msgstr "Backup &amp; ripristino"
+
+#: src/prefs/ModulesPage.js:704
+msgid ""
+"Import or export your dock layout, themes, custom folders, and pinned apps"
+msgstr ""
+"Importa o esporta la disposizione del dock, i temi, le cartelle "
+"personalizzate e le app fissate"
+
+#: src/prefs/ModulesPage.js:709
+msgid "Export Configuration"
+msgstr "Esporta configurazione"
+
+#: src/prefs/ModulesPage.js:710
+msgid "Save your current settings and apps to a file"
+msgstr "Salva in un file le impostazioni e le app attuali"
+
+#: src/prefs/ModulesPage.js:715
+msgid "Export"
+msgstr "Esporta"
+
+#: src/prefs/ModulesPage.js:723
+msgid "Export Dock Configuration"
+msgstr "Esporta la configurazione del dock"
+
+#: src/prefs/ModulesPage.js:769
+msgid "Import Configuration"
+msgstr "Importa configurazione"
+
+#: src/prefs/ModulesPage.js:770
+msgid "Load a previously saved configuration file"
+msgstr "Carica un file di configurazione salvato in precedenza"
+
+#: src/prefs/ModulesPage.js:775
+msgid "Import"
+msgstr "Importa"
+
+#: src/prefs/ModulesPage.js:782
+msgid "Import Dock Configuration"
+msgstr "Importa la configurazione del dock"
+
+#: src/prefs/ModulesPage.js:784
+msgid "JSON Files"
+msgstr "File JSON"
+
+#: src/prefs/ModulesPage.js:845
+msgid "Reset All Settings"
+msgstr "Ripristina tutte le impostazioni"
+
+#: src/prefs/ModulesPage.js:846
+msgid "Restore all Dhruva Dock settings to their default values"
+msgstr "Ripristina tutte le impostazioni di Dhruva Dock ai valori predefiniti"
+
+#: src/prefs/ModulesPage.js:851
+msgid "Reset Defaults"
+msgstr "Ripristina predefiniti"
+
+#: src/prefs/ModulesPage.js:862 src/prefs/ModulesPage.js:869
+msgid "Reset All Settings?"
+msgstr "Ripristinare tutte le impostazioni?"
+
+#: src/prefs/ModulesPage.js:863 src/prefs/ModulesPage.js:870
+msgid ""
+"Are you sure you want to reset all settings to default? This action cannot "
+"be undone."
+msgstr ""
+"Vuoi davvero ripristinare tutte le impostazioni ai valori predefiniti? "
+"Questa azione non può essere annullata."
+
+#: src/prefs/ModulesPage.js:875
+msgid "Reset Settings"
+msgstr "Ripristina impostazioni"
+
+#: src/prefs/AppearancePage.js:29
+msgid "Appearance"
+msgstr "Aspetto"
+
+#: src/prefs/AppearancePage.js:35
+msgid "Panel Style"
+msgstr "Stile del pannello"
+
+#: src/prefs/AppearancePage.js:36
+msgid "Background colors and borders"
+msgstr "Colori di sfondo e bordi"
+
+#: src/prefs/AppearancePage.js:41 src/prefs/AppearancePage.js:263
+msgid "Custom Color"
+msgstr "Colore personalizzato"
+
+#: src/prefs/AppearancePage.js:42
+msgid "Wallpaper Color"
+msgstr "Colore dello sfondo"
+
+#: src/prefs/AppearancePage.js:43
+msgid "Carbon"
+msgstr "Carbon"
+
+#: src/prefs/AppearancePage.js:44
+msgid "Nord"
+msgstr "Nord"
+
+#: src/prefs/AppearancePage.js:45
+msgid "Catppuccin Mocha"
+msgstr "Catppuccin Mocha"
+
+#: src/prefs/AppearancePage.js:46
+msgid "Gruvbox Dark"
+msgstr "Gruvbox Dark"
+
+#: src/prefs/AppearancePage.js:47
+msgid "Ash Glass"
+msgstr "Vetro cenere"
+
+#: src/prefs/AppearancePage.js:48
+msgid "Dracula"
+msgstr "Dracula"
+
+#: src/prefs/AppearancePage.js:49
+msgid "Tokyo Night"
+msgstr "Tokyo Night"
+
+#: src/prefs/AppearancePage.js:50
+msgid "Aurora"
+msgstr "Aurora"
+
+#: src/prefs/AppearancePage.js:51
+msgid "Sunset"
+msgstr "Tramonto"
+
+#: src/prefs/AppearancePage.js:52
+msgid "Slate Ocean"
+msgstr "Oceano ardesia"
+
+#: src/prefs/AppearancePage.js:55
+msgid "Dock Theme"
+msgstr "Tema del dock"
+
+#: src/prefs/AppearancePage.js:55
+msgid "Choose a preset theme or use custom colors"
+msgstr "Scegli un tema predefinito o usa colori personalizzati"
+
+#: src/prefs/AppearancePage.js:58
+msgid "Chameleon Active"
+msgstr "Camaleonte attivo"
+
+#: src/prefs/AppearancePage.js:59
+msgid "Dock color &amp; indicator auto-update from your wallpaper"
+msgstr "Il colore del dock e degli indicatori si aggiorna automaticamente dallo sfondo"
+
+#: src/prefs/AppearancePage.js:65
+msgid "Primary Color"
+msgstr "Colore primario"
+
+#: src/prefs/AppearancePage.js:66
+msgid "Use Gradient"
+msgstr "Usa il gradiente"
+
+#: src/prefs/AppearancePage.js:66
+msgid "Blend with a second color"
+msgstr "Sfuma con un secondo colore"
+
+#: src/prefs/AppearancePage.js:67
+msgid "Secondary Color"
+msgstr "Colore secondario"
+
+#: src/prefs/AppearancePage.js:68
+msgid "Gradient Direction"
+msgstr "Direzione del gradiente"
+
+#: src/prefs/AppearancePage.js:68
+msgid "Flow of the gradient"
+msgstr "Andamento del gradiente"
+
+#: src/prefs/AppearancePage.js:69
+msgid "Vertical"
+msgstr "Verticale"
+
+#: src/prefs/AppearancePage.js:70
+msgid "Horizontal"
+msgstr "Orizzontale"
+
+#: src/prefs/AppearancePage.js:73
+msgid "Background Opacity"
+msgstr "Opacità dello sfondo"
+
+#: src/prefs/AppearancePage.js:73 src/prefs/AppearancePage.js:124
+#: src/prefs/AppearancePage.js:147 src/prefs/AppearancePage.js:191
+#: src/prefs/AppearancePage.js:221
+msgid "0 = Invisible, 100 = Solid"
+msgstr "0 = invisibile, 100 = pieno"
+
+#: src/prefs/AppearancePage.js:79
+msgid "Hover Box Opacity"
+msgstr "Opacità del riquadro al passaggio del mouse"
+
+#: src/prefs/AppearancePage.js:79
+msgid "App preview box background opacity (0-100)"
+msgstr "Opacità dello sfondo del riquadro di anteprima dell'app (0-100)"
+
+#: src/prefs/AppearancePage.js:92
+msgid "Border Radius"
+msgstr "Raggio del bordo"
+
+#: src/prefs/AppearancePage.js:92
+msgid "Corner roundness"
+msgstr "Arrotondamento degli angoli"
+
+#: src/prefs/AppearancePage.js:99
+msgid "Border Outline (Stroke)"
+msgstr "Contorno del bordo (tratto)"
+
+#: src/prefs/AppearancePage.js:100
+msgid "Draw an outer line around the dock"
+msgstr "Disegna una linea esterna attorno al dock"
+
+#: src/prefs/AppearancePage.js:108
+msgid "Show Desktop Button Style"
+msgstr "Stile del pulsante Mostra scrivania"
+
+#: src/prefs/AppearancePage.js:109
+msgid "Customize the right-edge desktop button"
+msgstr "Personalizza il pulsante della scrivania sul bordo destro"
+
+#: src/prefs/AppearancePage.js:118 src/prefs/AppearancePage.js:180
+#: src/prefs/AppearancePage.js:210
+msgid "Thickness"
+msgstr "Spessore"
+
+#: src/prefs/AppearancePage.js:118 src/prefs/AppearancePage.js:180
+#: src/prefs/AppearancePage.js:210
+msgid "Width in pixels"
+msgstr "Larghezza in pixel"
+
+#: src/prefs/AppearancePage.js:124 src/prefs/AppearancePage.js:191
+#: src/prefs/AppearancePage.js:221
+msgid "Opacity"
+msgstr "Opacità"
+
+#: src/prefs/AppearancePage.js:130 src/prefs/AppearancePage.js:190
+#: src/prefs/AppearancePage.js:220
+msgid "Color"
+msgstr "Colore"
+
+#: src/prefs/AppearancePage.js:139
+msgid "Stroke Width"
+msgstr "Larghezza del tratto"
+
+#: src/prefs/AppearancePage.js:139
+msgid "Thickness in pixels (0 to disable)"
+msgstr "Spessore in pixel (0 per disattivare)"
+
+#: src/prefs/AppearancePage.js:145
+msgid "Stroke Color"
+msgstr "Colore del tratto"
+
+#: src/prefs/AppearancePage.js:147
+msgid "Stroke Opacity"
+msgstr "Opacità del tratto"
+
+#: src/prefs/AppearancePage.js:162
+msgid "Separators"
+msgstr "Separatori"
+
+#: src/prefs/AppearancePage.js:163
+msgid "Divider lines between dock items"
+msgstr "Linee divisorie tra gli elementi del dock"
+
+#: src/prefs/AppearancePage.js:168
+msgid "Module Separator"
+msgstr "Separatore dei moduli"
+
+#: src/prefs/AppearancePage.js:169
+msgid "Divides clock, grid, and system icons"
+msgstr "Separa orologio, griglia e icone di sistema"
+
+#: src/prefs/AppearancePage.js:178
+msgid "Enable Module Separator"
+msgstr "Attiva il separatore dei moduli"
+
+#: src/prefs/AppearancePage.js:178
+msgid "Show a divider for system modules"
+msgstr "Mostra una linea divisoria per i moduli di sistema"
+
+#: src/prefs/AppearancePage.js:185 src/prefs/AppearancePage.js:215
+msgid "Height / Length"
+msgstr "Altezza / lunghezza"
+
+#: src/prefs/AppearancePage.js:185 src/prefs/AppearancePage.js:215
+msgid "Percentage of dock size (10-100)"
+msgstr "Percentuale della dimensione del dock (10-100)"
+
+#: src/prefs/AppearancePage.js:198
+msgid "App Separator"
+msgstr "Separatore delle app"
+
+#: src/prefs/AppearancePage.js:199
+msgid "Divides pinned apps from running apps"
+msgstr "Separa le app fissate dalle app in esecuzione"
+
+#: src/prefs/AppearancePage.js:208
+msgid "Enable App Separator"
+msgstr "Attiva il separatore delle app"
+
+#: src/prefs/AppearancePage.js:208
+msgid "Show a divider between pinned and unpinned apps"
+msgstr "Mostra una linea divisoria tra app fissate e non fissate"
+
+#: src/prefs/AppearancePage.js:228
+msgid "App Notifications"
+msgstr "Notifiche delle app"
+
+#: src/prefs/AppearancePage.js:229
+msgid "Unread message counters"
+msgstr "Contatori dei messaggi non letti"
+
+#: src/prefs/AppearancePage.js:232
+msgid "Show Notification Badges"
+msgstr "Mostra i badge delle notifiche"
+
+#: src/prefs/AppearancePage.js:232
+msgid "Display unread message counts on app icons"
+msgstr "Mostra il numero di messaggi non letti sulle icone delle app"
+
+#: src/prefs/AppearancePage.js:235
+msgid "Indicators"
+msgstr "Indicatori"
+
+#: src/prefs/AppearancePage.js:236
+msgid "Styles for currently active applications"
+msgstr "Stili per le applicazioni attualmente attive"
+
+#: src/prefs/AppearancePage.js:241
+msgid "Running Indicators"
+msgstr "Indicatori di esecuzione"
+
+#: src/prefs/AppearancePage.js:242
+msgid "Settings for the active app dots/lines"
+msgstr "Impostazioni per i punti/le linee delle app attive"
+
+#: src/prefs/AppearancePage.js:251
+msgid "Show Indicators"
+msgstr "Mostra gli indicatori"
+
+#: src/prefs/AppearancePage.js:251
+msgid "Display active marks under icons"
+msgstr "Mostra i segni di attività sotto le icone"
+
+#: src/prefs/AppearancePage.js:253
+msgid "Indicator Style"
+msgstr "Stile dell'indicatore"
+
+#: src/prefs/AppearancePage.js:253
+msgid "Shape of the indicator"
+msgstr "Forma dell'indicatore"
+
+#: src/prefs/AppearancePage.js:254
+msgid "Dot"
+msgstr "Punto"
+
+#: src/prefs/AppearancePage.js:255
+msgid "Dash"
+msgstr "Trattino"
+
+#: src/prefs/AppearancePage.js:256
+msgid "Line"
+msgstr "Linea"
+
+#: src/prefs/AppearancePage.js:257
+msgid "Square"
+msgstr "Quadrato"
+
+#: src/prefs/AppearancePage.js:261
+msgid "Color Mode"
+msgstr "Modalità colore"
+
+#: src/prefs/AppearancePage.js:261
+msgid "Match indicator color with icon or use custom"
+msgstr "Abbina il colore dell'indicatore a quello dell'icona o usa un colore personalizzato"
+
+#: src/prefs/AppearancePage.js:262
+msgid "Match Icon Color"
+msgstr "Abbina al colore dell'icona"
+
+#: src/prefs/AppearancePage.js:266
+msgid "Indicator Color"
+msgstr "Colore dell'indicatore"
+
+#: src/prefs/AppearancePage.js:268
+msgid "Indicator Size"
+msgstr "Dimensione dell'indicatore"
+
+#: src/prefs/AppearancePage.js:268
+msgid "Limit: 2px to 12px"
+msgstr "Limite: da 2 px a 12 px"
+
+#: src/prefs/AppearancePage.js:273
+msgid "Indicator Spacing"
+msgstr "Spaziatura dell'indicatore"
+
+#: src/prefs/AppearancePage.js:273
+msgid "Gap between icon and indicator"
+msgstr "Spazio tra icona e indicatore"
+
+#: src/prefs/AppearancePage.js:278
+msgid "Indicator Glow"
+msgstr "Bagliore dell'indicatore"
+
+#: src/prefs/AppearancePage.js:278
+msgid "Add a shining shadow effect"
+msgstr "Aggiunge un effetto ombra luminosa"
+
+#: src/prefs/ResetButtons.js:43
+msgid "Reset to default"
+msgstr "Ripristina il valore predefinito"
+
+#: src/prefs/ResetButtons.js:80
+msgid "Reset all in this group"
+msgstr "Ripristina tutto in questo gruppo"
+
+#: src/prefs/BehaviorPage.js:29
+msgid "Behavior"
+msgstr "Comportamento"
+
+#: src/prefs/BehaviorPage.js:35
+msgid "Visibility Rules"
+msgstr "Regole di visibilità"
+
+#: src/prefs/BehaviorPage.js:36
+msgid "Configure dock auto-hide behavior and timings"
+msgstr "Configura il comportamento e i tempi del nascondimento automatico del dock"
+
+#: src/prefs/BehaviorPage.js:40
+msgid "Hide Mode"
+msgstr "Modalità di nascondimento"
+
+#: src/prefs/BehaviorPage.js:40
+msgid "Choose when the dock should hide"
+msgstr "Scegli quando il dock deve nascondersi"
+
+#: src/prefs/BehaviorPage.js:41
+msgid "Intelligent (Dodge Active)"
+msgstr "Intelligente (evita la finestra attiva)"
+
+#: src/prefs/BehaviorPage.js:42
+msgid "Dodge All Windows"
+msgstr "Evita tutte le finestre"
+
+#: src/prefs/BehaviorPage.js:43
+msgid "Dodge Maximized"
+msgstr "Evita le finestre massimizzate"
+
+#: src/prefs/BehaviorPage.js:44
+msgid "Always Hide"
+msgstr "Nascondi sempre"
+
+#: src/prefs/BehaviorPage.js:45
+msgid "Never Hide"
+msgstr "Non nascondere mai"
+
+#: src/prefs/BehaviorPage.js:48
+msgid "Hide Delay"
+msgstr "Ritardo di nascondimento"
+
+#: src/prefs/BehaviorPage.js:48
+msgid "Milliseconds before hiding"
+msgstr "Millisecondi prima di nascondere"
+
+#: src/prefs/BehaviorPage.js:54
+msgid "Unhide Delay"
+msgstr "Ritardo di visualizzazione"
+
+#: src/prefs/BehaviorPage.js:54
+msgid "Milliseconds before showing"
+msgstr "Millisecondi prima di mostrare"
+
+#: src/prefs/BehaviorPage.js:60
+msgid "Edge Pressure Delay"
+msgstr "Ritardo della pressione sul bordo"
+
+#: src/prefs/BehaviorPage.js:60
+msgid "Hold mouse at screen edge to reveal (ms)"
+msgstr "Tieni il mouse sul bordo dello schermo per rivelarlo (ms)"
+
+#: src/prefs/BehaviorPage.js:78
+msgid "Animations &amp; Effects"
+msgstr "Animazioni &amp; effetti"
+
+#: src/prefs/BehaviorPage.js:82
+msgid "Icon Click Effect"
+msgstr "Effetto al clic sull'icona"
+
+#: src/prefs/BehaviorPage.js:82
+msgid "Animation when an app is clicked"
+msgstr "Animazione quando si fa clic su un'app"
+
+#: src/prefs/BehaviorPage.js:84
+msgid "Bounce"
+msgstr "Rimbalzo"
+
+#: src/prefs/BehaviorPage.js:85
+msgid "Jump"
+msgstr "Salto"
+
+#: src/prefs/BehaviorPage.js:86
+msgid "Heartbeat"
+msgstr "Battito"
+
+#: src/prefs/BehaviorPage.js:87
+msgid "Spin"
+msgstr "Rotazione"
+
+#: src/prefs/BehaviorPage.js:88
+msgid "Flip"
+msgstr "Capovolgimento"
+
+#: src/prefs/BehaviorPage.js:89
+msgid "Squeeze"
+msgstr "Compressione"
+
+#: src/prefs/BehaviorPage.js:90
+msgid "Glow"
+msgstr "Bagliore"
+
+#: src/prefs/BehaviorPage.js:91
+msgid "Shake"
+msgstr "Scossa"
+
+#: src/prefs/BehaviorPage.js:92 src/prefs/BehaviorPage.js:151
+msgid "Jelly"
+msgstr "Gelatina"
+
+#: src/prefs/BehaviorPage.js:93
+msgid "Tada"
+msgstr "Tada"
+
+#: src/prefs/BehaviorPage.js:94
+msgid "Swing"
+msgstr "Oscillazione"
+
+#: src/prefs/BehaviorPage.js:95
+msgid "Dim"
+msgstr "Attenuazione"
+
+#: src/prefs/BehaviorPage.js:96
+msgid "Move Up"
+msgstr "Sposta in alto"
+
+#: src/prefs/BehaviorPage.js:97
+msgid "Move Down"
+msgstr "Sposta in basso"
+
+#: src/prefs/BehaviorPage.js:98
+msgid "Move Left"
+msgstr "Sposta a sinistra"
+
+#: src/prefs/BehaviorPage.js:99
+msgid "Move Right"
+msgstr "Sposta a destra"
+
+#: src/prefs/BehaviorPage.js:100
+msgid "Enlarge"
+msgstr "Ingrandimento"
+
+#: src/prefs/BehaviorPage.js:101
+msgid "Shrink"
+msgstr "Riduzione"
+
+#: src/prefs/BehaviorPage.js:102
+msgid "Roll (Wheel)"
+msgstr "Rotolamento (ruota)"
+
+#: src/prefs/BehaviorPage.js:103
+msgid "Squish (Drop)"
+msgstr "Schiacciamento (goccia)"
+
+#: src/prefs/BehaviorPage.js:104
+msgid "Zoom Fade (Ghost)"
+msgstr "Zoom con dissolvenza (fantasma)"
+
+#: src/prefs/BehaviorPage.js:105
+msgid "3D Spin (Coin)"
+msgstr "Rotazione 3D (moneta)"
+
+#: src/prefs/BehaviorPage.js:108
+msgid "Window Minimize Effect"
+msgstr "Effetto di minimizzazione delle finestre"
+
+#: src/prefs/BehaviorPage.js:108
+msgid "Animation when minimizing or restoring"
+msgstr "Animazione durante la minimizzazione o il ripristino"
+
+#: src/prefs/BehaviorPage.js:109
+msgid "Magic Lamp"
+msgstr "Lampada magica"
+
+#: src/prefs/BehaviorPage.js:110
+msgid "Snake"
+msgstr "Serpente"
+
+#: src/prefs/BehaviorPage.js:111
+msgid "Vortex (Black Hole)"
+msgstr "Vortice (buco nero)"
+
+#: src/prefs/BehaviorPage.js:112
+msgid "Origami (3D Fold)"
+msgstr "Origami (piega 3D)"
+
+#: src/prefs/BehaviorPage.js:113
+msgid "Jelly (Squash & Stretch)"
+msgstr "Gelatina (schiaccia e allunga)"
+
+#: src/prefs/BehaviorPage.js:121
+msgid "Dock Animation Duration"
+msgstr "Durata dell'animazione del dock"
+
+#: src/prefs/BehaviorPage.js:122
+msgid "Slide in and slide out duration (ms)"
+msgstr "Durata dello scorrimento in entrata e in uscita (ms)"
+
+#: src/prefs/BehaviorPage.js:132
+msgid "Window Animation Duration"
+msgstr "Durata dell'animazione delle finestre"
+
+#: src/prefs/BehaviorPage.js:133
+msgid "Window minimize effect speed (ms)"
+msgstr "Velocità dell'effetto di minimizzazione delle finestre (ms)"
+
+#: src/prefs/BehaviorPage.js:140
+msgid "Hover Zoom Physics &amp; Motion"
+msgstr "Fisica &amp; movimento dello zoom al passaggio del mouse"
+
+#: src/prefs/BehaviorPage.js:144
+msgid "Hover Zoom"
+msgstr "Zoom al passaggio del mouse"
+
+#: src/prefs/BehaviorPage.js:144
+msgid "Magnification effect on hover"
+msgstr "Effetto di ingrandimento al passaggio del mouse"
+
+#: src/prefs/BehaviorPage.js:146
+msgid "Zoom Motion Style"
+msgstr "Stile di movimento dello zoom"
+
+#: src/prefs/BehaviorPage.js:146
+msgid "Physics profile for magnification curve"
+msgstr "Profilo fisico per la curva di ingrandimento"
+
+#: src/prefs/BehaviorPage.js:147
+msgid "Fluid"
+msgstr "Fluido"
+
+#: src/prefs/BehaviorPage.js:148
+msgid "Domino"
+msgstr "Domino"
+
+#: src/prefs/BehaviorPage.js:149
+msgid "Cylinder"
+msgstr "Cilindro"
+
+#: src/prefs/BehaviorPage.js:150
+msgid "Magnetic"
+msgstr "Magnetico"
+
+#: src/prefs/BehaviorPage.js:152
+msgid "Coverflow"
+msgstr "Coverflow"
+
+#: src/prefs/BehaviorPage.js:155
+msgid "Zoom Factor"
+msgstr "Fattore di zoom"
+
+#: src/prefs/BehaviorPage.js:155
+msgid "Maximum size multiplier"
+msgstr "Moltiplicatore massimo della dimensione"
+
+#: src/prefs/BehaviorPage.js:161
+msgid "Animation Smoothness"
+msgstr "Fluidità dell'animazione"
+
+#: src/prefs/BehaviorPage.js:161
+msgid "Tracking fluidity"
+msgstr "Fluidità del tracciamento"
+
+#: src/prefs/BehaviorPage.js:167
+msgid "Influence Spread Radius"
+msgstr "Raggio di influenza"
+
+#: src/prefs/BehaviorPage.js:167
+msgid "How far neighbor icons react"
+msgstr "Fino a dove reagiscono le icone vicine"
+
+#: src/prefs/BehaviorPage.js:173
+msgid "Icon Elevation (Rise)"
+msgstr "Sollevamento delle icone (altezza)"
+
+#: src/prefs/BehaviorPage.js:173
+msgid "Distance icons lift towards cursor"
+msgstr "Distanza di cui le icone si sollevano verso il cursore"
+
+#: src/prefs/BehaviorPage.js:179
+msgid "Dynamic Slot Push"
+msgstr "Spinta dinamica degli slot"
+
+#: src/prefs/BehaviorPage.js:179
+msgid "Expand adjacent icon slots smoothly"
+msgstr "Espande in modo fluido gli slot delle icone adiacenti"
+
+#: src/prefs/BehaviorPage.js:181
+msgid "Slot Spread Strength"
+msgstr "Intensità di espansione degli slot"
+
+#: src/prefs/BehaviorPage.js:181
+msgid "Push strength between adjacent icons"
+msgstr "Forza di spinta tra le icone adiacenti"
+
+#: src/prefs/BehaviorPage.js:188
+msgid "Effect Fine Tuning"
+msgstr "Regolazione fine degli effetti"
+
+#: src/prefs/BehaviorPage.js:192
+msgid "Domino Tilt Angle"
+msgstr "Angolo di inclinazione Domino"
+
+#: src/prefs/BehaviorPage.js:192
+msgid "Cascade tilt angle in degrees"
+msgstr "Angolo di inclinazione a cascata in gradi"
+
+#: src/prefs/BehaviorPage.js:198
+msgid "Cylinder Angle"
+msgstr "Angolo del cilindro"
+
+#: src/prefs/BehaviorPage.js:198
+msgid "3D rotation arc angle"
+msgstr "Angolo dell'arco di rotazione 3D"
+
+#: src/prefs/BehaviorPage.js:204
+msgid "Magnetic Snap Distance"
+msgstr "Distanza di aggancio magnetico"
+
+#: src/prefs/BehaviorPage.js:204
+msgid "Cursor attraction force in pixels"
+msgstr "Forza di attrazione del cursore in pixel"
+
+#: src/prefs/BehaviorPage.js:210
+msgid "Jelly Stretch Intensity"
+msgstr "Intensità di allungamento Gelatina"
+
+#: src/prefs/BehaviorPage.js:210
+msgid "How much icons pull/elongate along cursor path"
+msgstr "Quanto le icone si tendono/allungano lungo il percorso del cursore"
+
+#: src/prefs/BehaviorPage.js:216
+msgid "Jelly Shrink Intensity"
+msgstr "Intensità di compressione Gelatina"
+
+#: src/prefs/BehaviorPage.js:216
+msgid "How much opposite side compresses/squashes"
+msgstr "Quanto si comprime/schiaccia il lato opposto"
+
+#: src/prefs/BehaviorPage.js:222
+msgid "Coverflow Angle"
+msgstr "Angolo Coverflow"
+
+#: src/prefs/BehaviorPage.js:222
+msgid "Perspective card angle in degrees"
+msgstr "Angolo prospettico delle schede in gradi"
+
+#: src/prefs/BehaviorPage.js:261
+msgid "Interaction &amp; Previews"
+msgstr "Interazione &amp; anteprime"
+
+#: src/prefs/BehaviorPage.js:265
+msgid "Show App Previews"
+msgstr "Mostra le anteprime delle app"
+
+#: src/prefs/BehaviorPage.js:265
+msgid "Display interactive window thumbnails on hover"
+msgstr "Mostra miniature interattive delle finestre al passaggio del mouse"
+
+#: src/prefs/BehaviorPage.js:267
+msgid "Thumbnail Width"
+msgstr "Larghezza delle miniature"
+
+#: src/prefs/BehaviorPage.js:267
+msgid "Max width of window thumbnails"
+msgstr "Larghezza massima delle miniature delle finestre"
+
+#: src/prefs/BehaviorPage.js:273
+msgid "Live Preview Scale (%)"
+msgstr "Scala dell'anteprima dal vivo (%)"
+
+#: src/prefs/BehaviorPage.js:273
+msgid "Screen percentage for the big center preview"
+msgstr "Percentuale dello schermo per la grande anteprima centrale"
+
+#: src/prefs/BehaviorPage.js:283
+msgid "Window Aero Peek"
+msgstr "Aero Peek delle finestre"
+
+#: src/prefs/BehaviorPage.js:284
+msgid "Make other windows transparent when hovering thumbnails"
+msgstr "Rende trasparenti le altre finestre quando si passa sulle miniature"
+
+#: src/prefs/BehaviorPage.js:293
+msgid "Peek Animation Speed"
+msgstr "Velocità dell'animazione Peek"
+
+#: src/prefs/BehaviorPage.js:294
+msgid "Higher = slower animation (ms)"
+msgstr "Più alto = animazione più lenta (ms)"
+
+#: src/prefs/BehaviorPage.js:320
+msgid "Multitasking &amp; Utilities"
+msgstr "Multitasking &amp; utilità"
+
+#: src/prefs/BehaviorPage.js:324
+msgid "New Window Action"
+msgstr "Azione per nuova finestra"
+
+#: src/prefs/BehaviorPage.js:324
+msgid "Shortcut to open a new instance of an app"
+msgstr "Scorciatoia per aprire una nuova istanza di un'app"
+
+#: src/prefs/BehaviorPage.js:325
+msgid "Ctrl + Left Click"
+msgstr "Ctrl + clic sinistro"
+
+#: src/prefs/BehaviorPage.js:326
+msgid "Middle Mouse Click"
+msgstr "Clic centrale del mouse"
+
+#: src/prefs/BehaviorPage.js:327
+msgid "Both"
+msgstr "Entrambi"
+
+#: src/prefs/BehaviorPage.js:330
+msgid "Lock Icons"
+msgstr "Blocca le icone"
+
+#: src/prefs/BehaviorPage.js:330
+msgid "Prevent drag and drop reordering"
+msgstr "Impedisce il riordino con il trascinamento"
+
+#: src/prefs/BehaviorPage.js:331
+msgid "Show Unpinned Apps"
+msgstr "Mostra le app non fissate"
+
+#: src/prefs/BehaviorPage.js:331
+msgid "Display running apps that are not pinned to the dock"
+msgstr "Mostra le app in esecuzione che non sono fissate al dock"
+
+#: src/prefs/BehaviorPage.js:334
+msgid "Quick launch"
+msgstr "Avvio rapido"
+
+#: src/prefs/BehaviorPage.js:335
+msgid ""
+"Super + 1–9 targets the first nine dock apps (registered as keyboard "
+"shortcuts). Change under Settings → Keyboard."
+msgstr ""
+"Super + 1–9 attiva le prime nove app del dock (registrate come scorciatoie "
+"da tastiera). Modificale in Impostazioni → Tastiera."
+
+#: src/prefs/BehaviorPage.js:342
+msgid "Isolate Workspaces"
+msgstr "Isola gli spazi di lavoro"
+
+#: src/prefs/BehaviorPage.js:342
+msgid "Only show apps running on the current workspace"
+msgstr "Mostra solo le app in esecuzione sullo spazio di lavoro corrente"
+
+#: src/prefs/BehaviorPage.js:343
+msgid "Dock Scroll Action"
+msgstr "Azione di scorrimento sul dock"
+
+#: src/prefs/BehaviorPage.js:343
+msgid "Scroll on empty dock area to switch workspaces"
+msgstr "Scorri su un'area vuota del dock per cambiare spazio di lavoro"
+
+#: src/prefs/BehaviorPage.js:344
+msgid "App Scroll Action"
+msgstr "Azione di scorrimento sulle app"
+
+#: src/prefs/BehaviorPage.js:344
+msgid "Scroll on app icons to cycle through its windows"
+msgstr "Scorri sulle icone delle app per passare in rassegna le loro finestre"
+
+#: src/ui/AppGridUI.js:114
+msgid "All Applications"
+msgstr "Tutte le applicazioni"
+
+#: src/ui/AppGridUI.js:154
+msgid "Search apps..."
+msgstr "Cerca app…"
+
+#: src/ui/modules/ClockModule.js:105
+msgid "Date & Time"
+msgstr "Data & Ora"
+
+#: src/ui/modules/AppGridModule.js:292
+#: src/ui/magnifier/MagnifierFrameEngine.js:636
+msgid "Applications"
+msgstr "Applicazioni"
+
+#: src/ui/modules/TrashModule.js:38
+msgid "Recycle Bin"
+msgstr "Cestino"
+
+#: src/ui/modules/MusicPill.js:652
+msgid "Unknown Artist"
+msgstr "Artista sconosciuto"
+
+#: src/ui/modules/DockModules.js:402 src/ui/modules/DesktopButtonModule.js:100
+msgid "Show Desktop"
+msgstr "Mostra scrivania"
+
+#: src/ui/magnifier/MagnifierTooltipRenderer.js:275
+#: src/ui/context-menu/WindowThumbnailBuilder.js:59
+msgid "Window"
+msgstr "Finestra"
+
+#: src/ui/context-menu/AppContextMenu.js:159
+msgid "Unpack Stack"
+msgstr "Separa la pila"
+
+#: src/ui/context-menu/AppContextMenu.js:166
+msgid "Close All Apps"
+msgstr "Chiudi tutte le app"
+
+#: src/ui/context-menu/AppContextMenu.js:175
+#, javascript-format
+msgid "Delete %s"
+msgstr "Elimina %s"
+
+#: src/ui/context-menu/AppContextMenu.js:213
+#, javascript-format
+msgid "Add to %s"
+msgstr "Aggiungi a %s"
+
+#: src/ui/context-menu/AppContextMenu.js:265
+#, javascript-format
+msgid "Open %s"
+msgstr "Apri %s"
+
+#: src/ui/context-menu/AppContextMenu.js:283
+msgid "New Window"
+msgstr "Nuova finestra"
+
+#: src/ui/context-menu/AppContextMenu.js:305
+msgid "Unpin from Dhruva"
+msgstr "Rimuovi da Dhruva"
+
+#: src/ui/context-menu/AppContextMenu.js:305
+msgid "Pin to Dhruva"
+msgstr "Fissa su Dhruva"
+
+#: src/ui/context-menu/AppContextMenu.js:316
+msgid "Stack"
+msgstr "Pila"
+
+#: src/ui/context-menu/AppContextMenu.js:319
+#, javascript-format
+msgid "Remove from %s"
+msgstr "Rimuovi da %s"
+
+#: src/ui/context-menu/AppContextMenu.js:359
+msgid "Close All Windows"
+msgstr "Chiudi tutte le finestre"
+
+#: src/ui/context-menu/AppContextMenu.js:359
+msgid "Close Folder"
+msgstr "Chiudi cartella"
+
+#: src/ui/context-menu/AppContextMenu.js:359
+msgid "Quit"
+msgstr "Esci"
+
+#: src/ui/context-menu/AppContextMenu.js:373
+msgid "Dhruva Settings"
+msgstr "Impostazioni di Dhruva"
+
+#: src/ui/context-menu/TrashActionsHandler.js:73
+msgid "Empty Trash?"
+msgstr "Svuotare il cestino?"
+
+#: src/ui/context-menu/TrashActionsHandler.js:78
+msgid ""
+"Are you sure you want to permanently delete all items from the Trash?\n"
+"This action cannot be undone."
+msgstr ""
+"Vuoi davvero eliminare definitivamente tutti gli elementi dal cestino?\n"
+"Questa azione non può essere annullata."
+
+#: src/ui/context-menu/TrashActionsHandler.js:87
+#: src/ui/context-menu/TrashActionsHandler.js:138
+msgid "Empty Trash"
+msgstr "Svuota cestino"
+
+#: src/ui/context-menu/TrashActionsHandler.js:98
+msgid "Checking Trash..."
+msgstr "Controllo del cestino…"
+
+#: src/ui/context-menu/TrashActionsHandler.js:148
+msgid "Trash is Empty"
+msgstr "Il cestino è vuoto"
+
+#: src/ui/folder-menu/EmojiPicker.js:111
+msgid "Search emojis..."
+msgstr "Cerca emoji…"
+
+#: src/ui/folder-menu/EmojiPicker.js:223
+msgid "Hover an emoji"
+msgstr "Passa il mouse su un'emoji"
+
+#: src/ui/folder-menu/EmojiPicker.js:227
+msgid "Category"
+msgstr "Categoria"
+
+#: src/ui/folder-menu/FolderMenuBuilder.js:168
+msgid "Name"
+msgstr "Nome"
+
+#: src/ui/folder-menu/FolderMenuBuilder.js:474
+msgid "zenity is required for file selection dialogs."
+msgstr "zenity è necessario per le finestre di selezione dei file."
